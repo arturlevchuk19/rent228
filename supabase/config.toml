@@ -1,0 +1,40 @@
+# Supabase Configuration File
+# Documentation: https://supabase.com/docs/guides/cli/config
+
+[api]
+# Port to use for the API URL.
+port = 54321
+# Schemas to expose in your API. Tables, views and stored procedures in these schemas will be accessible via the PostgREST API.
+schemas = ["public", "storage"]
+# Extra schemas to add to the search_path of every request. These schemas are not exposed in the API.
+extra_search_path = ["public", "extensions"]
+
+[db]
+# Port to use for the local database URL.
+port = 54322
+# The database major version to use. This has to be the same as your remote database's major version.
+major_version = 15
+
+[studio]
+# Port to use for Supabase Studio.
+port = 54323
+
+[auth]
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used in emails.
+site_url = "http://localhost:5173"
+# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+additional_redirect_urls = ["http://localhost:5173"]
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour).
+jwt_expiry = 3600
+# Allow/disallow new user signups to your project.
+enable_signup = true
+
+[auth.email]
+# Allow/disallow new user signups via email to your project.
+enable_signup = true
+# If enabled, a user will be required to confirm their email address before signing in.
+enable_confirmations = true
+
+[storage]
+# The maximum file size allowed (in bytes).
+file_size_limit = "50MiB"
