@@ -238,6 +238,9 @@ templates ──┬──> template_items
 | `total_rub` | numeric(12,2) | Итого в рублях |
 | `notes` | text | Заметки |
 | `sort_order` | integer | Порядок сортировки |
+| `parent_budget_item_id` | uuid | FK → budget_items (родительский элемент) |
+| `name` | text | Название (для виртуальных элементов) |
+| `sku` | text | Артикул (для виртуальных элементов) |
 | `created_at` | timestamptz | Дата создания |
 
 **RLS Policies**:
@@ -257,6 +260,7 @@ templates ──┬──> template_items
 | `name` | text | Название категории |
 | `description` | text | Описание |
 | `sort_order` | integer | Порядок сортировки |
+| `is_template` | boolean | Признак категории из шаблона (не отображается в дропдауне) |
 | `created_at` | timestamptz | Дата создания |
 
 **RLS Policies**:
@@ -486,6 +490,9 @@ $$ LANGUAGE plpgsql;
 11. `20260112124516_create_templates_schema.sql` - Схема templates
 12. `20260127005511_create_warehouse_specification_items.sql` - Складские спецификации
 13. `20260127160147_20260127_create_equipment_modifications.sql` - Модификации оборудования
+14. `20260209120000_add_is_template_to_categories.sql` - Поле is_template в категориях
+15. `20260307132005_add_parent_to_budget_items.sql` - Поле parent_id в смете
+16. `20260307133924_add_name_sku_to_budget_items.sql` - Поля name и sku в смете
 
 ---
 

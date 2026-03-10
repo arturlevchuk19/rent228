@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { EquipmentItem } from './equipment';
 import { createBudgetItem } from './events';
-import { createCategory, updateCategory } from './categories';
+import { createCategory } from './categories';
 
 export interface Template {
   id: string;
@@ -193,10 +193,6 @@ export async function applyTemplateToEvent(
       undefined,
       true
     );
-
-    if (!category.is_template) {
-      await updateCategory(category.id, { is_template: true });
-    }
 
     for (let i = 0; i < template.items.length; i++) {
       const item = template.items[i];

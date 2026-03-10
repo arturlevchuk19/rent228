@@ -2899,4 +2899,82 @@ ADD COLUMN IF NOT EXISTS picked boolean DEFAULT false;
 
 -- Update existing records to have picked = false
 UPDATE warehouse_specification_cables SET picked = false WHERE picked IS NULL;
-UPDATE warehouse_specification_connectors SET picked = false WHERE picked IS NULL;
+UPDATE warehouse_specification_connectors SET picked = false WHERE picked IS NULL;/*
+  # Add is_template flag to categories
+
+  Changes:
+  - Add `is_template` boolean column to `categories` table (default FALSE)
+  - This allows distinguishing categories created from templates
+    from manually created categories
+  - Template categories should not appear in the "Add category" dropdown
+  - Categories from templates should not be deletable from the database
+*/
+
+-- Add is_template column to categories
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'categories' AND column_name = 'is_template'
+  ) THEN
+    ALTER TABLE categories ADD COLUMN is_template boolean DEFAULT FALSE;
+  END IF;
+END $$;
+
+-- Create index for faster filtering
+CREATE INDEX IF NOT EXISTS idx_categories_is_template ON categories(is_template);
+/*
+  # Add parent_budget_item_id to budget_items
+
+  1. Changes
+    - Add `parent_budget_item_id` column to `budget_items` table
+    - This allows tracking LED case items that belong to a parent LED screen item
+    - LED cases will reference their parent LED screen via this field
+
+  2. Notes
+    - When loading warehouse specification, items with parent_budget_item_id should not be shown as separate items
+    - They should only be visible through the LedSpecificationPanel of their parent
+*/
+
+-- Add parent_budget_item_id column
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'budget_items' AND column_name = 'parent_budget_item_id'
+  ) THEN
+    ALTER TABLE budget_items ADD COLUMN parent_budget_item_id uuid REFERENCES budget_items(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_budget_items_parent ON budget_items(parent_budget_item_id);
+  END IF;
+END $$;
+/*
+  # Add name and sku columns to budget_items
+
+  1. Changes
+    - Add `name` text column to budget_items for storing virtual/case item names
+    - Add `sku` text column to budget_items for storing virtual/case item SKUs
+
+  2. Notes
+    - These fields are used when equipment_id is null (virtual items like LED cases)
+    - Default to empty string to avoid breaking existing rows
+*/
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'budget_items' AND column_name = 'name'
+  ) THEN
+    ALTER TABLE budget_items ADD COLUMN name text DEFAULT '';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'budget_items' AND column_name = 'sku'
+  ) THEN
+    ALTER TABLE budget_items ADD COLUMN sku text DEFAULT '';
+  END IF;
+END $$;
