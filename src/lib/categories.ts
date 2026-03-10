@@ -18,18 +18,22 @@ export async function getCategories(): Promise<Category[]> {
     .order('name', { ascending: true });
 
   if (error) throw error;
-  return data || [];
+  
+  // Filter out template categories if the column exists
+  return (data || []).filter(c => !('is_template' in c) || c.is_template === false);
 }
 
 export async function createCategory(name: string, description?: string, isTemplate: boolean = false): Promise<Category> {
-  if (!isTemplate) {
-    const { data: existing } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('name', name)
-      .eq('is_template', false)
-      .maybeSingle();
+  // First, check for existing category
+  const { data: existingCategories } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('name', name);
 
+  if (existingCategories && existingCategories.length > 0) {
+    // If the column exists, we match by isTemplate flag. 
+    // If it doesn't exist, we just take the first match.
+    const existing = existingCategories.find(c => !('is_template' in c) || c.is_template === isTemplate);
     if (existing) {
       return existing;
     }
@@ -44,13 +48,35 @@ export async function createCategory(name: string, description?: string, isTempl
 
   const sortOrder = (lastCategory?.sort_order || 0) + 1;
 
+  const insertData: any = { 
+    name, 
+    description: description || '', 
+    sort_order: sortOrder,
+    is_template: isTemplate 
+  };
+
   const { data, error } = await supabase
     .from('categories')
-    .insert({ name, description: description || '', sort_order: sortOrder, is_template: isTemplate })
+    .insert(insertData)
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // If the column doesn't exist (PGRST204 or 42703), retry without it
+    if (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('is_template')) {
+      const { is_template, ...fallbackData } = insertData;
+      const { data: retryData, error: retryError } = await supabase
+        .from('categories')
+        .insert(fallbackData)
+        .select()
+        .single();
+      
+      if (retryError) throw retryError;
+      return retryData;
+    }
+    throw error;
+  }
+  
   return data;
 }
 
@@ -62,7 +88,22 @@ export async function updateCategory(id: string, updates: Partial<Category>): Pr
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // If the error is about is_template column, retry without it
+    if (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('is_template')) {
+      const { is_template, ...fallbackUpdates } = updates;
+      const { data: retryData, error: retryError } = await supabase
+        .from('categories')
+        .update({ ...fallbackUpdates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (retryError) throw retryError;
+      return retryData;
+    }
+    throw error;
+  }
   return data;
 }
 

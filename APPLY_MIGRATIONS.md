@@ -86,6 +86,15 @@ psql "postgresql://postgres:[PASSWORD]@db.jtgupdeuwovoyadgtcns.supabase.co:5432/
 | 40 | 20260127161505_20260127_add_screen_suspend_components.sql | Screen suspend |
 | 41 | 20260127174846_fix_equipment_modifications_rls.sql | Фикс RLS modifications |
 | 42 | 20260203110031_20260203_add_warehouse_other_items.sql | Warehouse other items |
+| 43 | 20260204120000_add_picked_field_to_warehouse_specification.sql | Поле picked в спецификации |
+| 44 | 20260205120000_add_picked_to_budget_items.sql | Поле picked в элементах сметы |
+| 45 | 20260205130000_add_specification_confirmed_to_events.sql | Подтверждение спецификации в мероприятиях |
+| 46 | 20260207221500_fix_personnel_payment_calculation.sql | Исправление расчета выплат персоналу |
+| 47 | 20260208120000_allow_virtual_budget_items.sql | Поддержка виртуальных элементов в смете |
+| 48 | 20260209120000_add_is_template_to_categories.sql | Поле is_template в категориях |
+| 49 | 20260307132005_add_parent_to_budget_items.sql | Поле parent_id в элементах сметы |
+| 50 | 20260307132610_20260307132005_add_parent_to_budget_items.sql | Повторное добавление parent_id |
+| 51 | 20260307133924_add_name_sku_to_budget_items.sql | Поля name и sku в элементах сметы |
 
 ## Примечания
 
