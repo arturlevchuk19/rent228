@@ -22,14 +22,17 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export async function createCategory(name: string, description?: string, isTemplate: boolean = false): Promise<Category> {
-  const { data: existing } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('name', name)
-    .maybeSingle();
+  if (!isTemplate) {
+    const { data: existing } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('name', name)
+      .eq('is_template', false)
+      .maybeSingle();
 
-  if (existing) {
-    return existing;
+    if (existing) {
+      return existing;
+    }
   }
 
   const { data: lastCategory } = await supabase

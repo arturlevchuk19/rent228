@@ -257,6 +257,7 @@ templates ──┬──> template_items
 | `name` | text | Название категории |
 | `description` | text | Описание |
 | `sort_order` | integer | Порядок сортировки |
+| `is_template` | boolean | Признак категории из шаблона (не отображается в дропдауне) |
 | `created_at` | timestamptz | Дата создания |
 
 **RLS Policies**:
@@ -486,6 +487,7 @@ $$ LANGUAGE plpgsql;
 11. `20260112124516_create_templates_schema.sql` - Схема templates
 12. `20260127005511_create_warehouse_specification_items.sql` - Складские спецификации
 13. `20260127160147_20260127_create_equipment_modifications.sql` - Модификации оборудования
+14. `20260209120000_add_is_template_to_categories.sql` - Поле is_template в категориях
 
 ---
 
