@@ -116,10 +116,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const initialExpanded: Record<string, boolean> = {};
       const initialActive = new Set<string>();
 
-      // Filter to only show non-template categories in the dropdown and initial state
-      const nonTemplateCategories = categoriesData.filter(cat => !cat.is_template);
-
-      nonTemplateCategories.forEach(cat => {
+      categoriesData.forEach(cat => {
         initialExpanded[cat.id] = true;
       });
 
@@ -731,7 +728,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
                 {showCategoryDropdown && (
                   <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar p-0.5">
-                    {categories.filter(cat => !cat.is_template).map(category => (
+                    {categories.filter(cat => cat.is_template !== true).map(category => (
                       <button
                         key={category.id}
                         onClick={() => handleSelectCategory(category.id)}
@@ -819,7 +816,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 </div>
               ) : (
                 <>
-                  {categories.filter(cat => !cat.is_template).map(category => {
+                  {categories.map(category => {
                     const categoryItems = groupedItems[category.id] || [];
                     if (categoryItems.length === 0 && !activeCategoryIds.has(category.id)) return null;
 

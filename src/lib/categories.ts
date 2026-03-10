@@ -19,8 +19,7 @@ export async function getCategories(): Promise<Category[]> {
 
   if (error) throw error;
   
-  // Filter out template categories if the column exists
-  return (data || []).filter(c => !('is_template' in c) || c.is_template === false);
+  return data || [];
 }
 
 export async function createCategory(name: string, description?: string, isTemplate: boolean = false): Promise<Category> {
