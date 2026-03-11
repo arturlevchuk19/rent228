@@ -5,10 +5,8 @@ import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentM
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
 import { Category, getCategories } from '../lib/categories';
 import { CalculatedCase } from './LedSpecificationPanel';
-import { CalculatedCompositionItem } from './PodiumSpecificationPanel';
 import { EquipmentSelector } from './EquipmentSelector';
 import { LedSpecificationPanel } from './LedSpecificationPanel';
-import { PodiumSpecificationPanel } from './PodiumSpecificationPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { isWarehouse } from '../lib/auth';
 import {
@@ -94,8 +92,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   }>>({});
   const [modifiedItems, setModifiedItems] = useState<Set<string>>(new Set());
   const [savingChanges, setSavingChanges] = useState(false);
-  const [showPodiumSpecification, setShowPodiumSpecification] = useState<string | null>(null);
-  const [podiumItemsWithComposition, setPodiumItemsWithComposition] = useState<Set<string>>(new Set());
 
   const isLedScreenItem = (item: ExpandedItem) => {
     const category = item.category || '';
@@ -117,30 +113,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
              name.includes('P2,6') || name.includes('P3,91'))) ||
            notes.includes('м.кв.') || notes.includes('×') || notes.includes('x') ||
            notes.match(/\d+\s*м²/);
-  };
-
-  
-  const isPodiumItem = (item: ExpandedItem) => {
-    const category = item.category || '';
-    const name = item.name || '';
-    const notes = item.notes || '';
-    const hasPodiumKeyword = name.toLowerCase().includes('подиум') || name.toLowerCase().includes('ступенька') ||
-                             notes.toLowerCase().includes('подиум') || notes.toLowerCase().includes('ступенька');
-    const hasDimensions = notes.match(/\d+[.,]?\d*\s*[x×]\s*\d+[.,]?\d*/) ||
-                          item.budgetItemId.includes('подиум') || item.budgetItemId.includes('ступенька');
-    return hasPodiumKeyword || (hasDimensions && (category === 'Конструкции' || category === 'Декор'));
-  };
-
-  const isPodiumBudgetItem = (item: BudgetItem) => {
-    const category = item.equipment?.category || '';
-    const name = item.equipment?.name || item.name || '';
-    const notes = item.notes || '';
-    const customName = item.custom_name || '';
-    const hasPodiumKeyword = name.toLowerCase().includes('подиум') || name.toLowerCase().includes('ступенька') ||
-                             notes.toLowerCase().includes('подиум') || notes.toLowerCase().includes('ступенька') ||
-                             customName.toLowerCase().includes('подиум');
-    const hasDimensionPattern = customName.match(/^\d+[.,]?\d*\s*[x×]\s*\d+[.,]?\d*/);
-    return hasPodiumKeyword || (hasDimensionPattern && (category === 'Конструкции' || category === 'Декор'));
   };
 
   const hasModifications = (budgetItemId: string) => {
@@ -413,56 +385,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     console.log('Updated expanded items, new count:', updatedItems.length);
     setExpandedItems(updatedItems);
     setLedItemsWithCases(prev => new Set(prev).add(budgetItemId));
-    setModifiedItems(prev => new Set(prev).add(budgetItemId));
-  };
-
-  const handlePodiumCompositionCalculated = (budgetItemId: string, items: CalculatedCompositionItem[]) => {
-    console.log('handlePodiumCompositionCalculated called:', { budgetItemId, itemsCount: items.length, items });
-
-    if (items.length === 0) {
-      console.log('No composition items to add - skipping');
-      return;
-    }
-
-    const budgetItem = budgetItems.find(b => b.id === budgetItemId);
-    if (!budgetItem) {
-      console.log('Budget item not found - skipping');
-      return;
-    }
-
-    if (podiumItemsWithComposition.has(budgetItemId)) {
-      console.log('Removing existing composition items for this podium item');
-      setExpandedItems(prev => prev.filter(item => !item.budgetItemId.startsWith(`${budgetItemId}-comp-`)));
-    }
-
-    const newCompositionItems: ExpandedItem[] = items.map((compItem, index) => ({
-      budgetItemId: `${budgetItemId}-comp-${compItem.id}-${index}`,
-      categoryId: budgetItem.category_id || null,
-      name: compItem.name,
-      sku: compItem.sku,
-      quantity: compItem.quantity,
-      unit: 'шт.',
-      category: compItem.category,
-      notes: `Элемент состава подиума`,
-      picked: budgetItem.picked || false,
-      isFromComposition: true,
-      parentName: budgetItem.equipment?.name || budgetItem.name
-    }));
-
-    console.log('Created composition items:', newCompositionItems);
-
-    const podiumItemIndex = expandedItems.findIndex(item => item.budgetItemId === budgetItemId);
-    const updatedItems = [...expandedItems];
-
-    if (podiumItemIndex >= 0) {
-      updatedItems.splice(podiumItemIndex + 1, 0, ...newCompositionItems);
-    } else {
-      updatedItems.push(...newCompositionItems);
-    }
-
-    console.log('Updated expanded items, new count:', updatedItems.length);
-    setExpandedItems(updatedItems);
-    setPodiumItemsWithComposition(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
 
@@ -1275,15 +1197,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   >
                                     <Calculator className="w-3.5 h-3.5" />
                                   </button>
-                                {(isPodiumItem(item) || (item.notes && item.notes.match(/\d+[.,]?\d*\s*[x×]\s*\d+[.,]?\d*/))) && (
-                                  <button
-                                    onClick={() => setShowPodiumSpecification(item.budgetItemId === showPodiumSpecification ? null : item.budgetItemId)}
-                                    className="p-1 text-amber-500 hover:text-amber-400 transition-colors"
-                                    title="Спецификация подиума"
-                                  >
-                                    <Calculator className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
                                 )}
                               </div>
                             </td>
@@ -1344,18 +1257,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     setShowLedSpecification(null);
                     // НЕ вызываем loadData() здесь, чтобы сохранить временные кейсы в expandedItems
                     // loadData() будет вызван только после сохранения через handleSaveChanges
-                  }}
-                />
-              )}
-              {showPodiumSpecification && (
-                <PodiumSpecificationPanel
-                  budgetItemId={showPodiumSpecification}
-                  onSaveWithComposition={(items) => handlePodiumCompositionCalculated(showPodiumSpecification, items)}
-                  budgetItems={budgetItems}
-                  allBudgetItems={budgetItems}
-                  eventId={eventId}
-                  onClose={() => {
-                    setShowPodiumSpecification(null);
                   }}
                 />
               )}
