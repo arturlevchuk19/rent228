@@ -119,17 +119,38 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
   };
 
   const getPodiumDimensions = () => {
-    if (!budgetItem?.name) return null;
-    // Podium name format: "Сценический подиум (4x3x0.6)" or similar
-    const match = budgetItem.name.match(/\((\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)\)/);
-    if (match) {
-      return {
-        width: parseFloat(match[1].replace(',', '.')),
-        depth: parseFloat(match[2].replace(',', '.')),
-        height: parseFloat(match[3].replace(',', '.')),
-        area: parseFloat(match[1].replace(',', '.')) * parseFloat(match[2].replace(',', '.'))
-      };
+    const texts = [
+      budgetItem?.notes,
+      budgetItem?.name,
+      budgetItem?.equipment?.name
+    ].filter(Boolean) as string[];
+
+    const parseFromText = (text: string) => {
+      // Formats like: (4x3x0.6), 4x3x0,6, 4×3×0.6
+      const threeDimMatch = text.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i);
+      if (threeDimMatch) {
+        const width = parseFloat(threeDimMatch[1].replace(',', '.'));
+        const depth = parseFloat(threeDimMatch[2].replace(',', '.'));
+        const height = parseFloat(threeDimMatch[3].replace(',', '.'));
+
+        return {
+          width,
+          depth,
+          height,
+          area: width * depth
+        };
+      }
+
+      return null;
+    };
+
+    for (const text of texts) {
+      const parsed = parseFromText(text);
+      if (parsed) {
+        return parsed;
+      }
     }
+
     return null;
   };
 
