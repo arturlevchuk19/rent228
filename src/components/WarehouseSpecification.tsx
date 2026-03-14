@@ -7,6 +7,7 @@ import { Category, getCategories } from '../lib/categories';
 import { CalculatedCase } from './LedSpecificationPanel';
 import { EquipmentSelector } from './EquipmentSelector';
 import { LedSpecificationPanel } from './LedSpecificationPanel';
+import { PodiumSpecificationPanel } from './PodiumSpecificationPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { isWarehouse } from '../lib/auth';
 import {
@@ -83,6 +84,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [itemsWithAppliedModifications, setItemsWithAppliedModifications] = useState<Set<string>>(new Set());
   const [showLedSpecification, setShowLedSpecification] = useState<string | null>(null);
   const [ledItemsWithCases, setLedItemsWithCases] = useState<Set<string>>(new Set());
+  const [showPodiumSpecification, setShowPodiumSpecification] = useState<string | null>(null);
+  const [podiumItemsWithComposition, setPodiumItemsWithComposition] = useState<Set<string>>(new Set());
   const [ledSpecifications, setLedSpecifications] = useState<Record<string, {
     moduleType: string;
     moduleSize: { width: number; height: number };
@@ -113,6 +116,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
              name.includes('P2,6') || name.includes('P3,91'))) ||
            notes.includes('м.кв.') || notes.includes('×') || notes.includes('x') ||
            notes.match(/\d+\s*м²/);
+  };
+
+  const isPodiumItem = (item: ExpandedItem) => {
+    const name = item.name || "";
+    return name.includes("Сценический подиум") || name.toLowerCase().includes("ступенька");
+  };
+
+  const isPodiumBudgetItem = (item: BudgetItem) => {
+    const name = item.equipment?.name || item.name || "";
+    return name.includes("Сценический подиум") || name.toLowerCase().includes("ступенька");
   };
 
   const hasModifications = (budgetItemId: string) => {
@@ -259,6 +272,42 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             });
 
             // Кейсы для LED экранов добавляются только после нажатия "Сохранить" в LedSpecificationPanel
+          } else if (isPodiumBudgetItem(item)) {
+             items.push({
+              budgetItemId: item.id,
+              categoryId: item.category_id || null,
+              name: item.name || item.equipment?.name || "Unknown",
+              sku: item.equipment?.sku || "",
+              quantity: item.quantity,
+              unit: "шт.",
+              category: item.equipment?.category || "Other",
+              notes: item.notes || "",
+              picked: item.picked || false,
+              isFromComposition: false
+            });
+            
+            if (item.equipment_id) {
+              try {
+                const compositions = await getEquipmentCompositions(item.equipment_id);
+                for (const comp of compositions) {
+                  items.push({
+                    budgetItemId: `${item.id}-comp-${comp.id}`,
+                    categoryId: item.category_id || null,
+                    name: comp.child_name || "Unknown",
+                    sku: comp.child_sku || "",
+                    quantity: item.quantity * comp.quantity,
+                    unit: "шт.",
+                    category: comp.child_category || "Components",
+                    notes: item.notes || "",
+                    picked: item.picked || false,
+                    isFromComposition: true,
+                    parentName: item.name || item.equipment?.name
+                  });
+                }
+              } catch (error) {
+                console.error("Error loading composition for", item.name || item.equipment?.name, ":", error);
+              }
+            }
           } else {
             // Non-LED virtual item - expand it into its components
             // Check for composition
@@ -1198,6 +1247,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <Calculator className="w-3.5 h-3.5" />
                                   </button>
                                 )}
+                                {isPodiumItem(item) && (
+                                  <button
+                                    onClick={() => setShowPodiumSpecification(item.budgetItemId === showPodiumSpecification ? null : item.budgetItemId)}
+                                    className="p-1 text-cyan-500 hover:text-cyan-400 transition-colors"
+                                    title="Спецификация подиума"
+                                  >
+                                    <Calculator className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                             <td className="px-3 py-1.5 text-xs text-gray-400">{item.sku}</td>
@@ -1257,6 +1315,18 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     setShowLedSpecification(null);
                     // НЕ вызываем loadData() здесь, чтобы сохранить временные кейсы в expandedItems
                     // loadData() будет вызван только после сохранения через handleSaveChanges
+                  }}
+                />
+              )}
+
+              {showPodiumSpecification && (
+                <PodiumSpecificationPanel
+                  budgetItemId={showPodiumSpecification}
+                  budgetItems={budgetItems}
+                  eventId={eventId}
+                  onClose={() => setShowPodiumSpecification(null)}
+                  onSaveWithComposition={() => {
+                    loadData();
                   }}
                 />
               )}
