@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save } from 'lucide-react';
-import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, confirmSpecification, createBudgetItem, updateBudgetItem } from '../lib/events';
+import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, confirmSpecification, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
 import { Category, getCategories } from '../lib/categories';
@@ -437,12 +437,49 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
 
+  const handlePodiumCompositionCalculated = (budgetItemId: string, selectedModules: Array<{ id: string; child_name: string; child_sku: string; child_category: string; quantity: number }>) => {
+    const budgetItem = budgetItems.find(b => b.id === budgetItemId);
+    if (!budgetItem) return;
+
+    const realAndTempChildren = expandedItems.filter(item =>
+      item.budgetItemId.startsWith(`${budgetItemId}-podium-`) ||
+      budgetItems.some(b => b.id === item.budgetItemId && b.parent_budget_item_id === budgetItemId)
+    );
+
+    let updatedItems = expandedItems.filter(item => !realAndTempChildren.some(child => child.budgetItemId === item.budgetItemId));
+
+    const parentIndex = updatedItems.findIndex(item => item.budgetItemId === budgetItemId);
+    const newChildItems: ExpandedItem[] = selectedModules.map(module => ({
+      budgetItemId: `${budgetItemId}-podium-${module.id}`,
+      categoryId: budgetItem.category_id || null,
+      name: module.child_name,
+      sku: module.child_sku,
+      quantity: (budgetItem.quantity || 1) * module.quantity,
+      unit: 'шт.',
+      category: module.child_category || 'Конструкции',
+      notes: `Элемент подиума для ${budgetItem.name || budgetItem.equipment?.name || 'подиума'}`,
+      picked: budgetItem.picked || false,
+      isFromComposition: true,
+      parentName: budgetItem.name || budgetItem.equipment?.name
+    }));
+
+    if (parentIndex >= 0) {
+      updatedItems.splice(parentIndex + 1, 0, ...newChildItems);
+    } else {
+      updatedItems = [...updatedItems, ...newChildItems];
+    }
+
+    setExpandedItems(updatedItems);
+    setPodiumItemsWithComposition(prev => new Set(prev).add(budgetItemId));
+    setModifiedItems(prev => new Set(prev).add(budgetItemId));
+  };
+
   const handlePickedChange = async (budgetItemId: string, picked: boolean) => {
     try {
       // Find the real budget item ID (ignoring composition suffixes like -comp-, -mod-, or -case-)
       // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       // We need to extract the full UUID before any suffix
-      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*)$/, '');
+      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
       await updateBudgetItemPicked(realId, picked);
       
       // Update all items sharing this budget item ID
@@ -619,7 +656,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       item.budgetItemId === budgetItemId ? { ...item, quantity: Math.max(0, newQuantity) } : item
     ));
     // Track modified item (extract real budget item ID for composed items)
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*)$/, '');
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
   };
 
@@ -628,7 +665,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       item.budgetItemId === budgetItemId ? { ...item, notes: newNotes } : item
     ));
     // Track modified item (extract real budget item ID for composed items)
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*)$/, '');
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
   };
 
@@ -644,6 +681,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Check if this budget item has LED cases that need to be created
         const caseItems = expandedItems.filter(item => 
           item.budgetItemId.startsWith(`${budgetItemId}-case-`)
+        );
+        const podiumChildItems = expandedItems.filter(item =>
+          item.budgetItemId.startsWith(`${budgetItemId}-podium-`)
         );
         
         // First, create all LED cases as new budget items with parent_budget_item_id
@@ -690,6 +730,44 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             console.error('Error hint:', err?.hint);
           }
         }
+
+        // Replace podium child rows for parent item
+        if (podiumChildItems.length > 0) {
+          const existingPodiumChildren = budgetItems.filter(item => item.parent_budget_item_id === budgetItemId);
+
+          for (const child of existingPodiumChildren) {
+            try {
+              await deleteBudgetItem(child.id);
+            } catch (err) {
+              console.error('Error deleting old podium child item:', child.id, err);
+            }
+          }
+
+          for (const childItem of podiumChildItems) {
+            try {
+              const newItem = await createBudgetItem({
+                event_id: eventId,
+                item_type: 'equipment',
+                category_id: childItem.categoryId,
+                equipment_id: null,
+                parent_budget_item_id: budgetItemId,
+                name: childItem.name,
+                sku: childItem.sku,
+                quantity: childItem.quantity,
+                price: 0,
+                total: 0,
+                exchange_rate: 1,
+                notes: childItem.notes,
+                picked: childItem.picked,
+                sort_order: 0
+              });
+              createdItems.push({ oldId: childItem.budgetItemId, newId: newItem.id });
+            } catch (err) {
+              console.error('Error creating podium child item:', childItem.budgetItemId, err);
+              errors.push(childItem.name);
+            }
+          }
+        }
         // Find the expanded item to get current values for quantity/notes update
         const expandedItem = expandedItems.find(item => item.budgetItemId === budgetItemId);
         
@@ -697,9 +775,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         
         // Check if this is the parent LED item that has cases attached
         const hasCases = caseItems.length > 0;
-        
-        if (hasCases) {
-          // For items with LED cases, update the parent (cases are already created above)
+        const hasPodiumChildren = podiumChildItems.length > 0;
+
+        if (hasCases || hasPodiumChildren) {
+          // For items with generated children, update the parent (children are already created above)
           const budgetItem = budgetItems.find(b => b.id === budgetItemId);
           if (budgetItem) {
             try {
@@ -1325,8 +1404,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   budgetItems={budgetItems}
                   eventId={eventId}
                   onClose={() => setShowPodiumSpecification(null)}
-                  onSaveWithComposition={() => {
-                    loadData();
+                  onSaveWithComposition={(selectedModules) => {
+                    handlePodiumCompositionCalculated(showPodiumSpecification, selectedModules);
+                    setShowPodiumSpecification(null);
                   }}
                 />
               )}

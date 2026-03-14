@@ -10,7 +10,7 @@ interface PodiumSpecificationPanelProps {
   budgetItems: BudgetItem[];
   eventId: string;
   onClose: () => void;
-  onSaveWithComposition?: () => void;
+  onSaveWithComposition?: (selectedModules: EquipmentComposition[]) => void;
 }
 
 export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, onClose, onSaveWithComposition }: PodiumSpecificationPanelProps) {
@@ -66,7 +66,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
       }
       
       if (onSaveWithComposition) {
-        onSaveWithComposition();
+        onSaveWithComposition(modules.filter(module => module.quantity > 0));
       }
       onClose();
     } catch (error) {
