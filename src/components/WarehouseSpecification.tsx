@@ -97,25 +97,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [savingChanges, setSavingChanges] = useState(false);
 
   const isLedScreenItem = (item: ExpandedItem) => {
-    const category = item.category || '';
-    const name = item.name || '';
-    const notes = item.notes || '';
-    
-    return (category === 'Видео' && (name.includes('LED') || name.includes('Светодиодный экран') ||
-             name.includes('P2,6') || name.includes('P3,91'))) ||
-           notes.includes('м.кв.') || notes.includes('×') || notes.includes('x') ||
-           notes.match(/\d+\s*м²/);
+    const name = (item.name || '').toLowerCase();
+    return name.includes('светодиодный экран');
   };
 
   const isLedScreenBudgetItem = (item: BudgetItem) => {
-    const category = item.equipment?.category || '';
-    const name = item.equipment?.name || '';
-    const notes = item.notes || '';
-    
-    return (category === 'Видео' && (name.includes('LED') || name.includes('Светодиодный экран') ||
-             name.includes('P2,6') || name.includes('P3,91'))) ||
-           notes.includes('м.кв.') || notes.includes('×') || notes.includes('x') ||
-           notes.match(/\d+\s*м²/);
+    const name = (item.equipment?.name || '').toLowerCase();
+    return name.includes('светодиодный экран');
   };
 
   const isPodiumItem = (item: ExpandedItem) => {
