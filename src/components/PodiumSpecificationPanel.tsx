@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calculator, Plus, Minus, ChevronDown } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
-import { getEquipmentCompositions, updateEquipmentComposition, addEquipmentComposition } from '../lib/equipmentCompositions';
+import { getEquipmentCompositions, updateEquipmentComposition, addEquipmentComposition, deleteEquipmentComposition } from '../lib/equipmentCompositions';
 import { EquipmentComposition, EquipmentModule } from '../lib/equipmentCompositions';
 import { getEquipmentItems } from '../lib/equipment';
 
@@ -10,7 +10,7 @@ interface PodiumSpecificationPanelProps {
   budgetItems: BudgetItem[];
   eventId: string;
   onClose: () => void;
-  onSaveWithComposition?: () => void;
+  onSaveWithComposition?: (selectedModules: EquipmentComposition[]) => void;
 }
 
 export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, onClose, onSaveWithComposition }: PodiumSpecificationPanelProps) {
@@ -22,6 +22,10 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
   const [showAddModule, setShowAddModule] = useState(false);
   const [availableModules, setAvailableModules] = useState<EquipmentModule[]>([]);
   const [loadingModules, setLoadingModules] = useState(false);
+  const [activeModulesTab, setActiveModulesTab] = useState<'platform' | 'legs'>('platform');
+  const [activeAvailableTab, setActiveAvailableTab] = useState<'platform' | 'legs'>('platform');
+
+  const isLegItem = (name: string) => name.toLowerCase().includes('нога');
 
   useEffect(() => {
     const loadModules = async () => {
@@ -32,12 +36,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
 
       try {
         const compositions = await getEquipmentCompositions(budgetItem.equipment_id);
-        // При первом открытии устанавливаем количество всех элементов в 0
-        const compositionsWithZeroQuantity = compositions.map(comp => ({
-          ...comp,
-          quantity: 0
-        }));
-        setModules(compositionsWithZeroQuantity);
+        setModules(compositions);
       } catch (error) {
         console.error('Error loading compositions:', error);
       } finally {
@@ -58,11 +57,16 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
     setSaving(true);
     try {
       for (const module of modules) {
-        await updateEquipmentComposition(module.id, module.quantity);
+        if (module.quantity > 0) {
+          await updateEquipmentComposition(module.id, module.quantity);
+        } else {
+          // quantity=0 violates DB constraint, so remove composition row
+          await deleteEquipmentComposition(module.id);
+        }
       }
       
       if (onSaveWithComposition) {
-        onSaveWithComposition();
+        onSaveWithComposition(modules.filter(module => module.quantity > 0));
       }
       onClose();
     } catch (error) {
@@ -115,17 +119,38 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
   };
 
   const getPodiumDimensions = () => {
-    if (!budgetItem?.name) return null;
-    // Podium name format: "Сценический подиум (4x3x0.6)" or similar
-    const match = budgetItem.name.match(/\((\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)\)/);
-    if (match) {
-      return {
-        width: parseFloat(match[1].replace(',', '.')),
-        depth: parseFloat(match[2].replace(',', '.')),
-        height: parseFloat(match[3].replace(',', '.')),
-        area: parseFloat(match[1].replace(',', '.')) * parseFloat(match[2].replace(',', '.'))
-      };
+    const texts = [
+      budgetItem?.notes,
+      budgetItem?.name,
+      budgetItem?.equipment?.name
+    ].filter(Boolean) as string[];
+
+    const parseFromText = (text: string) => {
+      // Formats like: (4x3x0.6), 4x3x0,6, 4×3×0.6
+      const threeDimMatch = text.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i);
+      if (threeDimMatch) {
+        const width = parseFloat(threeDimMatch[1].replace(',', '.'));
+        const depth = parseFloat(threeDimMatch[2].replace(',', '.'));
+        const height = parseFloat(threeDimMatch[3].replace(',', '.'));
+
+        return {
+          width,
+          depth,
+          height,
+          area: width * depth
+        };
+      }
+
+      return null;
+    };
+
+    for (const text of texts) {
+      const parsed = parseFromText(text);
+      if (parsed) {
+        return parsed;
+      }
     }
+
     return null;
   };
 
@@ -133,7 +158,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
 
   // Helper function to extract element dimensions from name or sku
   const getElementDimensions = (name: string, sku: string) => {
-    // Try to extract dimensions from name or sku (format: 0,5x1, 1x1, 2x1, etc.)
+    // Try to extract dimensions from name first, then from sku (format: 0,5x1, 1x1, 2x1, etc.)
     const text = `${name} ${sku}`;
     const match = text.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/);
     if (match) {
@@ -148,17 +173,29 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
   // Calculate total area covered by elements using actual element dimensions
   let totalElementArea = 0;
   let totalElementCount = 0;
+  let totalLegsCount = 0;
 
   modules.forEach(module => {
+    if (isLegItem(module.child_name)) {
+      totalLegsCount += module.quantity;
+      return;
+    }
+
     const elementDims = getElementDimensions(module.child_name, module.child_sku);
     if (elementDims) {
       totalElementArea += module.quantity * (elementDims.width * elementDims.depth);
-    } else {
-      // Fallback to 0.5 m² if no dimensions found (standard podium element)
-      totalElementArea += module.quantity * 0.5;
     }
     totalElementCount += module.quantity;
   });
+
+  const platformModules = modules.filter(module => !isLegItem(module.child_name));
+  const legModules = modules.filter(module => isLegItem(module.child_name));
+
+  const availablePlatformModules = availableModules.filter(module => !isLegItem(module.name));
+  const availableLegModules = availableModules.filter(module => isLegItem(module.name));
+
+  const visibleModules = activeModulesTab === 'platform' ? platformModules : legModules;
+  const visibleAvailableModules = activeAvailableTab === 'platform' ? availablePlatformModules : availableLegModules;
 
   const requiredArea = dimensions?.area || 0;
   const progress = requiredArea > 0 ? Math.min((totalElementArea / requiredArea) * 100, 100) : 0;
@@ -232,7 +269,26 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
           )}
 
           <div className="space-y-4">
-            {modules.map((module) => (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveModulesTab('platform')}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  activeModulesTab === 'platform' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                Площадка ({platformModules.length})
+              </button>
+              <button
+                onClick={() => setActiveModulesTab('legs')}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                  activeModulesTab === 'legs' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                Ноги ({legModules.length})
+              </button>
+            </div>
+
+            {visibleModules.map((module) => (
               <div key={module.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -268,9 +324,11 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
               </div>
             ))}
 
-            {modules.length === 0 && (
+            {visibleModules.length === 0 && (
               <div className="text-center py-8">
-                <div className="text-gray-400 mb-2">Состав не задан</div>
+                <div className="text-gray-400 mb-2">
+                  {activeModulesTab === 'platform' ? 'Элементы площадки не заданы' : 'Ноги не заданы'}
+                </div>
                 <div className="text-xs text-gray-500">
                   Добавьте элементы конструкции из справочника
                 </div>
@@ -299,7 +357,26 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {availableModules.map((module) => (
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          onClick={() => setActiveAvailableTab('platform')}
+                          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                            activeAvailableTab === 'platform' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                          }`}
+                        >
+                          Площадка ({availablePlatformModules.length})
+                        </button>
+                        <button
+                          onClick={() => setActiveAvailableTab('legs')}
+                          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                            activeAvailableTab === 'legs' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                          }`}
+                        >
+                          Ноги ({availableLegModules.length})
+                        </button>
+                      </div>
+
+                      {visibleAvailableModules.map((module) => (
                         <div key={module.id} className="flex items-center justify-between bg-gray-800 rounded-lg p-3">
                           <div className="flex-1">
                             <div className="text-sm font-medium text-white">{module.name}</div>
@@ -315,6 +392,12 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
                           </button>
                         </div>
                       ))}
+
+                      {visibleAvailableModules.length === 0 && (
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          Элементы не найдены
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -326,8 +409,9 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
         <div className="px-6 py-4 border-t border-gray-800 bg-gray-800/30">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-400">
-              Общее количество элементов: 
+              Элементов площадки: 
               <span className="text-white font-bold ml-1">{totalElementCount}</span>
+              <span className="text-gray-500 ml-3">Ног: {totalLegsCount}</span>
             </div>
             <div className="flex gap-3">
               <button
