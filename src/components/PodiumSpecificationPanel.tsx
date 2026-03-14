@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calculator, Plus, Minus, ChevronDown } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
-import { getEquipmentCompositions, updateEquipmentComposition, addEquipmentComposition } from '../lib/equipmentCompositions';
+import { getEquipmentCompositions, updateEquipmentComposition, addEquipmentComposition, deleteEquipmentComposition } from '../lib/equipmentCompositions';
 import { EquipmentComposition, EquipmentModule } from '../lib/equipmentCompositions';
 import { getEquipmentItems } from '../lib/equipment';
 
@@ -36,12 +36,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
 
       try {
         const compositions = await getEquipmentCompositions(budgetItem.equipment_id);
-        // При первом открытии устанавливаем количество всех элементов в 0
-        const compositionsWithZeroQuantity = compositions.map(comp => ({
-          ...comp,
-          quantity: 0
-        }));
-        setModules(compositionsWithZeroQuantity);
+        setModules(compositions);
       } catch (error) {
         console.error('Error loading compositions:', error);
       } finally {
@@ -62,7 +57,12 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
     setSaving(true);
     try {
       for (const module of modules) {
-        await updateEquipmentComposition(module.id, module.quantity);
+        if (module.quantity > 0) {
+          await updateEquipmentComposition(module.id, module.quantity);
+        } else {
+          // quantity=0 violates DB constraint, so remove composition row
+          await deleteEquipmentComposition(module.id);
+        }
       }
       
       if (onSaveWithComposition) {
