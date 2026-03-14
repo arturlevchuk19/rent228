@@ -119,13 +119,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const isPodiumItem = (item: ExpandedItem) => {
-    const name = item.name || "";
-    return name.includes("Сценический подиум") || name.toLowerCase().includes("ступенька");
+    const name = (item.name || "").toLowerCase();
+    return name.includes("сценический подиум") || name.includes("ступенька из сценических подиумов");
   };
 
   const isPodiumBudgetItem = (item: BudgetItem) => {
-    const name = item.equipment?.name || item.name || "";
-    return name.includes("Сценический подиум") || name.toLowerCase().includes("ступенька");
+    const name = (item.equipment?.name || item.name || "").toLowerCase();
+    return name.includes("сценический подиум") || name.includes("ступенька из сценических подиумов");
   };
 
   const hasModifications = (budgetItemId: string) => {
