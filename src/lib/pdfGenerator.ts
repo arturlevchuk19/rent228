@@ -68,12 +68,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           reject(new Error('Failed to get canvas context'));
         }
       };
-      img.onerror = reject;
+      img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
       img.src = url;
     });
   };
 
-  const logoDataURL = await loadImageAsDataURL('/image.png');
+  let logoDataURL: string | null = null;
+  try {
+    logoDataURL = await loadImageAsDataURL('/image.png');
+  } catch (error) {
+    console.warn('PDF logo image was not loaded, continuing without logo', error);
+  }
 
   // Группировка по категориям [cite: 65, 78]
   const groupedByCategory: Record<string, BudgetItem[]> = {};
@@ -189,7 +194,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   container.innerHTML = `
     <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #1f2937; padding-bottom: 15px;">
       <div style="display: flex; align-items: center;">
-        <img src="${logoDataURL}" style="width: 120px; height: auto;" alt="Logo" />
+        ${logoDataURL ? `<img src="${logoDataURL}" style="width: 120px; height: auto;" alt="Logo" />` : ''}
       </div>
       
       <div style="flex: 1; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-end;">
