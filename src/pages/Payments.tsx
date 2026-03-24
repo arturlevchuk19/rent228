@@ -223,69 +223,103 @@ export default function Payments() {
             <p className="text-sm text-gray-400">Нет выплат за этот месяц</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-800">
-                  <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Сотрудник</th>
-                  <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Мероприятие</th>
-                  <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Работа</th>
-                  <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Сумма</th>
-                  <th className="px-3 py-2 text-center text-[11px] font-medium text-gray-400 tracking-wider">Статус</th>
-                  <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Дата</th>
-                  <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-800/50 transition-colors">
-                    <td className="px-3 py-2 text-sm text-white font-medium">
-                      {payment.personnel.full_name}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-400">
-                      {payment.event?.name || '—'}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-400">
-                      {payment.work_item?.name || '—'}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-right font-medium text-white">
-                      {Number(payment.amount).toLocaleString('ru-RU')} BYN
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(payment.status)}`}>
-                          {payment.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-sm text-gray-400">
-                      {payment.payment_date
-                        ? new Date(payment.payment_date).toLocaleDateString('ru-RU')
-                        : '—'}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => handleEdit(payment)}
-                          className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors"
-                          title="Редактировать"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(payment.id)}
-                          className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                          title="Удалить"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-800">
+                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Сотрудник</th>
+                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Мероприятие</th>
+                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Работа</th>
+                    <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Сумма</th>
+                    <th className="px-3 py-2 text-center text-[11px] font-medium text-gray-400 tracking-wider">Статус</th>
+                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Дата</th>
+                    <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {payments.map((payment) => (
+                    <tr key={payment.id} className="hover:bg-gray-800/50 transition-colors">
+                      <td className="px-3 py-2 text-sm text-white font-medium">
+                        {payment.personnel.full_name}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-400">
+                        {payment.event?.name || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-400">
+                        {payment.work_item?.name || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-right font-medium text-white">
+                        {Number(payment.amount).toLocaleString('ru-RU')} BYN
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-center">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(payment.status)}`}>
+                            {payment.status}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-400">
+                        {payment.payment_date
+                          ? new Date(payment.payment_date).toLocaleDateString('ru-RU')
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => handleEdit(payment)}
+                            className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors"
+                            title="Редактировать"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(payment.id)}
+                            className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                            title="Удалить"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="md:hidden divide-y divide-gray-800 -mx-4">
+              {payments.map((payment) => (
+                <div key={payment.id} className="px-4 py-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium text-sm">{payment.personnel.full_name}</div>
+                      {payment.event?.name && <div className="text-xs text-gray-400 truncate">{payment.event.name}</div>}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => handleEdit(payment)} className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(payment.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-white font-medium text-sm">{Number(payment.amount).toLocaleString('ru-RU')} BYN</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(payment.status)}`}>
+                      {payment.status}
+                    </span>
+                    {payment.payment_date && (
+                      <span className="text-xs text-gray-400">{new Date(payment.payment_date).toLocaleDateString('ru-RU')}</span>
+                    )}
+                  </div>
+                  {payment.work_item?.name && (
+                    <div className="text-xs text-gray-500">{payment.work_item.name}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

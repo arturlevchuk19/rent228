@@ -213,7 +213,7 @@ export function Equipment() {
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
@@ -290,6 +290,44 @@ export function Equipment() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="md:hidden divide-y divide-gray-800">
+          {filteredItems.length === 0 ? (
+            <div className="px-4 py-8 text-center text-gray-500 text-sm">Оборудование не найдено</div>
+          ) : (
+            filteredItems.map((item) => (
+              <div key={item.id} className="p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-medium text-sm leading-tight">{item.name}</div>
+                    {item.note && <div className="text-xs text-gray-400 leading-tight mt-0.5">{item.note}</div>}
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => setViewingItem(item)} className="p-1.5 text-gray-400 hover:bg-gray-700 rounded transition-colors">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleEdit(item)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-gray-400">{item.category}</span>
+                  <span className="text-gray-600">·</span>
+                  <span className="text-gray-500">{item.type}{item.subtype && ` / ${item.subtype}`}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="text-gray-400">Кол-во: <span className="text-white font-medium">{item.quantity}</span></span>
+                  {item.rental_price > 0 && (
+                    <span className="text-gray-400">Цена: <span className="text-cyan-400 font-medium">${item.rental_price}</span></span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

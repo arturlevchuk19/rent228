@@ -123,7 +123,7 @@ export default function PersonnelPage() {
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-800">
             <thead className="bg-gray-800">
               <tr>
@@ -199,6 +199,40 @@ export default function PersonnelPage() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="md:hidden divide-y divide-gray-800">
+          {personnel.length === 0 ? (
+            <div className="px-4 py-8 text-center text-gray-500 text-sm">Нет данных о персонале</div>
+          ) : (
+            personnel.map((person) => (
+              <div key={person.id} className="p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-white font-medium text-sm">{person.full_name}</div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => openForm(person)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(person.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  <span className="text-gray-400">Оклад: <span className="text-white">{person.salary.toFixed(2)} BYN</span></span>
+                  <span className="text-gray-400">Ставка: <span className="text-white">{person.rate_percentage}%</span></span>
+                  {person.drivers_license && (
+                    <span className="text-gray-400">Вод.уд: <span className="text-white">{person.drivers_license}</span></span>
+                  )}
+                </div>
+                {(person.phone || person.address) && (
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    {person.phone && <span className="text-cyan-400">{person.phone}</span>}
+                    {person.address && <span className="text-gray-500 truncate">{person.address}</span>}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 

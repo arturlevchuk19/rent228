@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Building2, UserCircle, Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Users, Building2, CircleUser as UserCircle, Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { getClients, getVenues, getOrganizers, deleteClient, deleteVenue, deleteOrganizer, Client, Venue, Organizer } from '../lib/events';
 
 type Tab = 'clients' | 'venues' | 'organizers';
@@ -177,159 +177,198 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
           </div>
 
           {activeTab === 'clients' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-800 border-b border-gray-700">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Организация</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">ФИО</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Должность</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Телефон</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Email</th>
-                    <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {filteredClients.length === 0 ? (
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-800 border-b border-gray-700">
                     <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-sm">
-                        Заказчики не найдены
-                      </td>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Организация</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">ФИО</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Должность</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Телефон</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Email</th>
+                      <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
                     </tr>
-                  ) : (
-                    filteredClients.map((client) => (
-                      <tr key={client.id} className="hover:bg-gray-800/50 transition-colors">
-                        <td className="px-3 py-2 text-white font-medium text-sm">{client.organization}</td>
-                        <td className="px-3 py-2 text-white text-sm">{client.full_name || '-'}</td>
-                        <td className="px-3 py-2 text-gray-400 text-sm">{client.position || '-'}</td>
-                        <td className="px-3 py-2 text-cyan-400 text-sm">{client.phone || '-'}</td>
-                        <td className="px-3 py-2 text-gray-400 text-sm">{client.email || '-'}</td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => onClientFormOpen?.(client)}
-                              className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClient(client.id)}
-                              className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {filteredClients.length === 0 ? (
+                      <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-sm">Заказчики не найдены</td></tr>
+                    ) : (
+                      filteredClients.map((client) => (
+                        <tr key={client.id} className="hover:bg-gray-800/50 transition-colors">
+                          <td className="px-3 py-2 text-white font-medium text-sm">{client.organization}</td>
+                          <td className="px-3 py-2 text-white text-sm">{client.full_name || '-'}</td>
+                          <td className="px-3 py-2 text-gray-400 text-sm">{client.position || '-'}</td>
+                          <td className="px-3 py-2 text-cyan-400 text-sm">{client.phone || '-'}</td>
+                          <td className="px-3 py-2 text-gray-400 text-sm">{client.email || '-'}</td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => onClientFormOpen?.(client)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteClient(client.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="md:hidden divide-y divide-gray-800">
+                {filteredClients.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-gray-500 text-sm">Заказчики не найдены</div>
+                ) : (
+                  filteredClients.map((client) => (
+                    <div key={client.id} className="p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-medium text-sm">{client.organization}</div>
+                          {client.full_name && <div className="text-xs text-gray-400">{client.full_name}{client.position && ` · ${client.position}`}</div>}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => onClientFormOpen?.(client)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteClient(client.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-xs">
+                        {client.phone && <span className="text-cyan-400">{client.phone}</span>}
+                        {client.email && <span className="text-gray-400">{client.email}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           )}
 
           {activeTab === 'venues' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-800 border-b border-gray-700">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Название</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Адрес</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Город</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Вместимость</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Контакт</th>
-                    <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {filteredVenues.length === 0 ? (
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-800 border-b border-gray-700">
                     <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-sm">
-                        Площадки не найдены
-                      </td>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Название</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Адрес</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Город</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Вместимость</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Контакт</th>
+                      <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
                     </tr>
-                  ) : (
-                    filteredVenues.map((venue) => (
-                      <tr key={venue.id} className="hover:bg-gray-800/50 transition-colors">
-                        <td className="px-3 py-2 text-white font-medium text-sm">{venue.name}</td>
-                        <td className="px-3 py-2 text-gray-400 text-sm">{venue.address || '-'}</td>
-                        <td className="px-3 py-2 text-gray-400 text-sm">{venue.city || '-'}</td>
-                        <td className="px-3 py-2 text-white text-sm">{venue.capacity || '-'}</td>
-                        <td className="px-3 py-2 text-cyan-400 text-sm">{venue.contact || '-'}</td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => onVenueFormOpen?.(venue)}
-                              className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteVenue(venue.id)}
-                              className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {filteredVenues.length === 0 ? (
+                      <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-sm">Площадки не найдены</td></tr>
+                    ) : (
+                      filteredVenues.map((venue) => (
+                        <tr key={venue.id} className="hover:bg-gray-800/50 transition-colors">
+                          <td className="px-3 py-2 text-white font-medium text-sm">{venue.name}</td>
+                          <td className="px-3 py-2 text-gray-400 text-sm">{venue.address || '-'}</td>
+                          <td className="px-3 py-2 text-gray-400 text-sm">{venue.city || '-'}</td>
+                          <td className="px-3 py-2 text-white text-sm">{venue.capacity || '-'}</td>
+                          <td className="px-3 py-2 text-cyan-400 text-sm">{venue.contact || '-'}</td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => onVenueFormOpen?.(venue)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteVenue(venue.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="md:hidden divide-y divide-gray-800">
+                {filteredVenues.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-gray-500 text-sm">Площадки не найдены</div>
+                ) : (
+                  filteredVenues.map((venue) => (
+                    <div key={venue.id} className="p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-medium text-sm">{venue.name}</div>
+                          {(venue.city || venue.address) && (
+                            <div className="text-xs text-gray-400 truncate">{[venue.city, venue.address].filter(Boolean).join(', ')}</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => onVenueFormOpen?.(venue)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteVenue(venue.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-xs">
+                        {venue.capacity && <span className="text-gray-400">Вместимость: <span className="text-white">{venue.capacity}</span></span>}
+                        {venue.contact && <span className="text-cyan-400">{venue.contact}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           )}
 
           {activeTab === 'organizers' && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-800 border-b border-gray-700">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">ФИО</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Должность</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Телефон</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Email</th>
-                    <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Примечания</th>
-                    <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {filteredOrganizers.length === 0 ? (
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-800 border-b border-gray-700">
                     <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-sm">
-                        Организаторы не найдены
-                      </td>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">ФИО</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Должность</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Телефон</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Email</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Примечания</th>
+                      <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
                     </tr>
-                  ) : (
-                    filteredOrganizers.map((organizer) => (
-                      <tr key={organizer.id} className="hover:bg-gray-800/50 transition-colors">
-                        <td className="px-3 py-2 text-white font-medium text-sm">{organizer.full_name}</td>
-                        <td className="px-3 py-2 text-gray-400 text-sm">{organizer.position || '-'}</td>
-                        <td className="px-3 py-2 text-cyan-400 text-sm">{organizer.phone || '-'}</td>
-                        <td className="px-3 py-2 text-gray-400 text-sm">{organizer.email || '-'}</td>
-                        <td className="px-3 py-2 text-gray-400 text-sm">{organizer.notes || '-'}</td>
-                        <td className="px-3 py-2 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => onOrganizerFormOpen?.(organizer)}
-                              className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteOrganizer(organizer.id)}
-                              className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {filteredOrganizers.length === 0 ? (
+                      <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-500 text-sm">Организаторы не найдены</td></tr>
+                    ) : (
+                      filteredOrganizers.map((organizer) => (
+                        <tr key={organizer.id} className="hover:bg-gray-800/50 transition-colors">
+                          <td className="px-3 py-2 text-white font-medium text-sm">{organizer.full_name}</td>
+                          <td className="px-3 py-2 text-gray-400 text-sm">{organizer.position || '-'}</td>
+                          <td className="px-3 py-2 text-cyan-400 text-sm">{organizer.phone || '-'}</td>
+                          <td className="px-3 py-2 text-gray-400 text-sm">{organizer.email || '-'}</td>
+                          <td className="px-3 py-2 text-gray-400 text-sm">{organizer.notes || '-'}</td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => onOrganizerFormOpen?.(organizer)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteOrganizer(organizer.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="md:hidden divide-y divide-gray-800">
+                {filteredOrganizers.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-gray-500 text-sm">Организаторы не найдены</div>
+                ) : (
+                  filteredOrganizers.map((organizer) => (
+                    <div key={organizer.id} className="p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-medium text-sm">{organizer.full_name}</div>
+                          {organizer.position && <div className="text-xs text-gray-400">{organizer.position}</div>}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => onOrganizerFormOpen?.(organizer)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteOrganizer(organizer.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-xs">
+                        {organizer.phone && <span className="text-cyan-400">{organizer.phone}</span>}
+                        {organizer.email && <span className="text-gray-400">{organizer.email}</span>}
+                      </div>
+                      {organizer.notes && <div className="text-xs text-gray-500">{organizer.notes}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

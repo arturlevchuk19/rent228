@@ -1206,8 +1206,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-lg shadow-xl w-[95vw] max-w-[1400px] max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4">
+      <div className="bg-gray-900 border border-gray-800 md:rounded-lg shadow-xl w-full md:w-[95vw] md:max-w-[1400px] h-full md:h-auto md:max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center px-4 py-3 border-b border-gray-800">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2 leading-tight">
@@ -1270,13 +1270,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     Добавить оборудование
                   </button>
                 )}
-                <button
-                  onClick={handleExportBudget}
-                  className="px-3 py-1.5 bg-gray-800 text-gray-300 border border-gray-700 text-xs rounded hover:bg-gray-700 flex items-center gap-1.5 ml-auto transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Экспорт CSV
-                </button>
               </div>
 
               {groups.map((group) => (
@@ -1434,16 +1427,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
           {activeTab === 'cables' && (
             <>
-              <div className="mb-3 flex justify-end">
-                <button
-                  onClick={handleExportCables}
-                  className="px-3 py-1.5 bg-gray-800 text-gray-300 border border-gray-700 text-xs rounded hover:bg-gray-700 flex items-center gap-1.5 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Экспорт CSV
-                </button>
-              </div>
-
               <div className="space-y-2">
                 {CABLE_TEMPLATES.map((template) => (
                   <div key={template.type} className="border border-gray-800 rounded">
@@ -1560,16 +1543,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
           {activeTab === 'connectors' && (
             <>
-              <div className="mb-3 flex justify-end">
-                <button
-                  onClick={handleExportConnectors}
-                  className="px-3 py-1.5 bg-gray-800 text-gray-300 border border-gray-700 text-xs rounded hover:bg-gray-700 flex items-center gap-1.5 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Экспорт CSV
-                </button>
-              </div>
-
               <div className="space-y-2">
                 {CONNECTOR_TEMPLATES.map((template) => (
                   <div key={template.category} className="border border-gray-800 rounded">
@@ -1686,16 +1659,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
           {activeTab === 'other' && (
             <>
-              <div className="mb-3 flex justify-end">
-                <button
-                  onClick={handleExportOther}
-                  className="px-3 py-1.5 bg-gray-800 text-gray-300 border border-gray-700 text-xs rounded hover:bg-gray-700 flex items-center gap-1.5 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Экспорт CSV
-                </button>
-              </div>
-
               <div className="space-y-2">
                 {OTHER_TEMPLATES.map((template) => (
                   <div key={template.category} className="border border-gray-800 rounded">
@@ -1811,13 +1774,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           )}
         </div>
 
-        <div className="border-t border-gray-800 p-3 bg-gray-900/80 flex justify-between items-center">
-          <div className="text-[10px] text-gray-500 font-medium">
-            {isWarehouseUser && (
-              <p>Отметьте элементы и подтвердите сборку</p>
-            )}
-          </div>
-          <div className="flex gap-2">
+        <div className="border-t border-gray-800 p-3 bg-gray-900/80 flex flex-wrap justify-end items-center gap-2">
+          <div className="flex flex-wrap gap-2 w-full justify-end">
             {modifiedItems.size > 0 && (
               <button
                 onClick={handleSaveChanges}
