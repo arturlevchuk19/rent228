@@ -363,7 +363,11 @@ CREATE TABLE IF NOT EXISTS events (
   load_out_date date,
   status text NOT NULL DEFAULT 'planning' CHECK (status IN ('planning', 'confirmed', 'in_progress', 'completed', 'cancelled')),
   notes text,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  equipment_shipped boolean DEFAULT false,
+  equipment_shipped_at timestamptz,
+  equipment_returned boolean DEFAULT false,
+  equipment_returned_at timestamptz
 );
 
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
