@@ -718,17 +718,20 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         );
         
         // Delete existing LED case children from DB before creating new ones (prevent duplicates)
-        const existingLedChildren = budgetItems.filter(item => item.parent_budget_item_id === budgetItemId && !item.equipment_id);
-        for (const child of existingLedChildren) {
-          try {
-            await deleteBudgetItem(child.id);
-          } catch (err) {
-            console.error('Error deleting old LED case budget item:', child.id, err);
+        // Always fetch fresh from DB to avoid stale cache issues
+        if (caseItems.length > 0) {
+          const freshItemsForLed = await getBudgetItems(eventId);
+          const existingLedChildren = freshItemsForLed.filter(item => item.parent_budget_item_id === budgetItemId);
+          for (const child of existingLedChildren) {
+            try {
+              await deleteBudgetItem(child.id);
+            } catch (err) {
+              console.error('Error deleting old LED case budget item:', child.id, err);
+            }
           }
         }
 
         // Create all LED cases as new budget items with parent_budget_item_id
-        const parentBudgetItem = budgetItems.find(b => b.id === budgetItemId);
         for (const caseItem of caseItems) {
           try {
             console.log('Creating LED case with data:', {
