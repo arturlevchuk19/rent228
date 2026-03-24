@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Plus, Pencil, Trash2, Search, Filter, CheckCircle2, Circle, FileText, Truck } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, Package, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES, EVENT_STATUSES } from '../lib/events';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -219,62 +219,58 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => onSpecificationOpen?.(event.id)}
-                          disabled={!event.specification_confirmed}
-                          className={`p-1.5 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`}
-                          title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <ReceiptText
+                          className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                          title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
+                        />
+                        <Package
+                          className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
+                          title={event.progress_equipment_reserved ? 'Оборудование зарезервировано' : 'Оборудование не зарезервировано'}
+                        />
+                        <ClipboardCheck
+                          className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
+                          title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
+                        />
+                        <CreditCard
+                          className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
+                          title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
+                        />
+                        <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
                         <span
                           title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
-                          className={event.equipment_shipped ? 'text-red-400' : 'text-gray-600'}
+                          className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
                         >
                           <Truck className="w-3.5 h-3.5" />
                         </span>
                         <span
                           title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
-                          className={`inline-flex ${event.equipment_returned ? 'text-green-400' : 'text-gray-600'}`}
+                          className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
                           style={{ transform: 'scaleX(-1)' }}
                         >
                           <Truck className="w-3.5 h-3.5" />
                         </span>
-                        <div className="flex gap-0.5 ml-1">
-                          {event.progress_budget_done ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Смета составлена" />
-                          ) : (
-                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Смета не составлена" />
-                          )}
-                          {event.progress_equipment_reserved ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оборудование зарезервировано" />
-                          ) : (
-                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Оборудование не зарезервировано" />
-                          )}
-                          {event.progress_project_completed ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Проект выполнен" />
-                          ) : (
-                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Проект не выполнен" />
-                          )}
-                          {event.progress_paid ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оплачен" />
-                          ) : (
-                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Не оплачен" />
-                          )}
-                        </div>
+                        <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
+                        <button
+                          onClick={() => onSpecificationOpen?.(event.id)}
+                          disabled={!event.specification_confirmed}
+                          className={`p-1 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
+                          title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
                         {canEditDelete && (
                           <>
                             <button
                               onClick={() => onEventFormOpen?.(event)}
-                              className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                              className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
                               title="Редактировать"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDelete(event.id)}
-                              className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                              className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                               title="Удалить"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -303,62 +299,58 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     <div className="text-white font-medium text-sm leading-tight truncate">{event.name || '-'}</div>
                     <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.event_type}</div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => onSpecificationOpen?.(event.id)}
-                      disabled={!event.specification_confirmed}
-                      className={`p-1.5 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`}
-                      title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <ReceiptText
+                      className={`w-4 h-4 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                      title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
+                    />
+                    <Package
+                      className={`w-4 h-4 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
+                      title={event.progress_equipment_reserved ? 'Оборудование зарезервировано' : 'Оборудование не зарезервировано'}
+                    />
+                    <ClipboardCheck
+                      className={`w-4 h-4 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
+                      title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
+                    />
+                    <CreditCard
+                      className={`w-4 h-4 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
+                      title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
+                    />
+                    <span className="w-px h-4 bg-gray-700 mx-0.5" />
                     <span
                       title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
-                      className={event.equipment_shipped ? 'text-red-400' : 'text-gray-600'}
+                      className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
                     >
                       <Truck className="w-4 h-4" />
                     </span>
                     <span
                       title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
-                      className={`inline-flex ${event.equipment_returned ? 'text-green-400' : 'text-gray-600'}`}
+                      className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
                       style={{ transform: 'scaleX(-1)' }}
                     >
                       <Truck className="w-4 h-4" />
                     </span>
-                    <div className="flex gap-0.5 ml-1">
-                      {event.progress_budget_done ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Смета составлена" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Смета не составлена" />
-                      )}
-                      {event.progress_equipment_reserved ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оборудование зарезервировано" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Оборудование не зарезервировано" />
-                      )}
-                      {event.progress_project_completed ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Проект выполнен" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Проект не выполнен" />
-                      )}
-                      {event.progress_paid ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оплачен" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Не оплачен" />
-                      )}
-                    </div>
+                    <span className="w-px h-4 bg-gray-700 mx-0.5" />
+                    <button
+                      onClick={() => onSpecificationOpen?.(event.id)}
+                      disabled={!event.specification_confirmed}
+                      className={`p-1 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
+                      title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
                     {canEditDelete && (
                       <>
                         <button
                           onClick={() => onEventFormOpen?.(event)}
-                          className="p-2 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                          className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
                           title="Редактировать"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(event.id)}
-                          className="p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                          className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                           title="Удалить"
                         >
                           <Trash2 className="w-4 h-4" />
