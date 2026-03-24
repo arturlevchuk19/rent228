@@ -276,8 +276,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               picked: item.picked || false,
               isFromComposition: false
             });
-            
-            if (item.equipment_id) {
+
+            const hasRealChildren = budgetData.some(b => b.parent_budget_item_id === item.id);
+            if (!hasRealChildren && item.equipment_id) {
               try {
                 const compositions = await getEquipmentCompositions(item.equipment_id);
                 for (const comp of compositions) {
@@ -392,10 +393,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       return;
     }
 
-    if (ledItemsWithCases.has(budgetItemId)) {
-      console.log('Removing existing cases for this LED item');
-      setExpandedItems(prev => prev.filter(item => !item.budgetItemId.startsWith(`${budgetItemId}-case-`)));
-    }
+    const realChildIds = new Set(
+      budgetItems
+        .filter(b => b.parent_budget_item_id === budgetItemId)
+        .map(b => b.id)
+    );
+    setExpandedItems(prev => prev.filter(item =>
+      !item.budgetItemId.startsWith(`${budgetItemId}-case-`) &&
+      !realChildIds.has(item.budgetItemId)
+    ));
 
     const newCaseItems: ExpandedItem[] = cases.map(calculatedCase => ({
       budgetItemId: `${budgetItemId}-case-${calculatedCase.caseId}`,
@@ -432,12 +438,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     const budgetItem = budgetItems.find(b => b.id === budgetItemId);
     if (!budgetItem) return;
 
-    const realAndTempChildren = expandedItems.filter(item =>
-      item.budgetItemId.startsWith(`${budgetItemId}-podium-`) ||
-      budgetItems.some(b => b.id === item.budgetItemId && b.parent_budget_item_id === budgetItemId)
+    const realChildIds = new Set(
+      budgetItems
+        .filter(b => b.parent_budget_item_id === budgetItemId)
+        .map(b => b.id)
     );
 
-    let updatedItems = expandedItems.filter(item => !realAndTempChildren.some(child => child.budgetItemId === item.budgetItemId));
+    let updatedItems = expandedItems.filter(item =>
+      !item.budgetItemId.startsWith(`${budgetItemId}-podium-`) &&
+      !item.budgetItemId.startsWith(`${budgetItemId}-comp-`) &&
+      !realChildIds.has(item.budgetItemId)
+    );
 
     const parentIndex = updatedItems.findIndex(item => item.budgetItemId === budgetItemId);
     const newChildItems: ExpandedItem[] = selectedModules.map(module => ({

@@ -45,7 +45,7 @@ export function LedSizeDialog({ equipment, isOpen, onClose, onConfirm }: LedSize
     } else {
       if (!area) return;
       calculatedArea = parseFloat(area);
-      customName = `(${formatArea(calculatedArea)} м.кв.)`;
+      customName = `(${formatArea(calculatedArea)} м²)`;
     }
 
     const totalPrice = equipment.rental_price * calculatedArea;
