@@ -21,7 +21,7 @@ import { Client, Venue, Organizer, Event, getEvent } from './lib/events';
 function AppContent() {
   const { user, loading } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState('events');
 
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [venueFormOpen, setVenueFormOpen] = useState(false);
