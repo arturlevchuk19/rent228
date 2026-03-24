@@ -1284,7 +1284,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           <th className="px-3 py-1.5 text-center w-12 text-[10px] text-gray-500 uppercase tracking-wider">✓</th>
                           <th className="px-3 py-1.5 text-left w-12 text-[10px] text-gray-500 uppercase tracking-wider">№</th>
                           <th className="px-3 py-1.5 text-left text-[10px] text-gray-500 uppercase tracking-wider">Наименование</th>
-                          <th className="px-3 py-1.5 text-left w-28 text-[10px] text-gray-500 uppercase tracking-wider">Артикул</th>
                           <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500 uppercase tracking-wider">Кол-во</th>
                           <th className="px-3 py-1.5 text-left w-20 text-[10px] text-gray-500 uppercase tracking-wider">Ед. изм.</th>
                           {!isWarehouseUser && (
@@ -1349,7 +1348,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 )}
                               </div>
                             </td>
-                            <td className="px-3 py-1.5 text-xs text-gray-400">{item.sku}</td>
                             <td className="px-3 py-1.5 text-center">
                               <div className="flex justify-center items-center gap-1">
                                 <button
@@ -1921,7 +1919,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 <thead>
                   <tr className="border-b border-gray-800">
                     <th className="px-3 py-2 text-left text-[10px] text-gray-500 uppercase tracking-wider">Наименование</th>
-                    <th className="px-3 py-2 text-left w-28 text-[10px] text-gray-500 uppercase tracking-wider">Артикул</th>
                     <th className="px-3 py-2 text-center w-24 text-[10px] text-gray-500 uppercase tracking-wider">Количество</th>
                   </tr>
                 </thead>
@@ -1931,7 +1928,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                       <td className="px-3 py-2">
                         <div className="text-xs text-white font-medium">{comp.component?.name || 'Unknown'}</div>
                       </td>
-                      <td className="px-3 py-2 text-xs text-gray-400">{comp.component?.sku || ''}</td>
                       <td className="px-3 py-2 text-center">
                         <input
                           type="number"
