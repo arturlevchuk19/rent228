@@ -97,6 +97,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   }>>({});
   const [modifiedItems, setModifiedItems] = useState<Set<string>>(new Set());
   const [savingChanges, setSavingChanges] = useState(false);
+  const [inputDraftValues, setInputDraftValues] = useState<Record<string, string>>({});
 
   const isLedScreenItem = (item: ExpandedItem) => {
     const name = (item.name || '').toLowerCase();
@@ -1484,8 +1485,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       ) : (
                                         <input
                                           type="number"
-                                          value={quantity}
-                                          onChange={(e) => handleCableQuantityChange(cableId, parseInt(e.target.value) || 0)}
+                                          value={inputDraftValues[`cable_${cableId}`] !== undefined ? inputDraftValues[`cable_${cableId}`] : quantity}
+                                          onChange={(e) => setInputDraftValues(prev => ({ ...prev, [`cable_${cableId}`]: e.target.value }))}
+                                          onBlur={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (!isNaN(val)) handleCableQuantityChange(cableId, val);
+                                            setInputDraftValues(prev => { const n = { ...prev }; delete n[`cable_${cableId}`]; return n; });
+                                          }}
                                           className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
                                           min="0"
                                         />
@@ -1600,8 +1606,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       ) : (
                                         <input
                                           type="number"
-                                          value={quantity}
-                                          onChange={(e) => handleConnectorQuantityChange(connector.id, parseInt(e.target.value) || 0)}
+                                          value={inputDraftValues[`connector_${connector.id}`] !== undefined ? inputDraftValues[`connector_${connector.id}`] : quantity}
+                                          onChange={(e) => setInputDraftValues(prev => ({ ...prev, [`connector_${connector.id}`]: e.target.value }))}
+                                          onBlur={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (!isNaN(val)) handleConnectorQuantityChange(connector.id, val);
+                                            setInputDraftValues(prev => { const n = { ...prev }; delete n[`connector_${connector.id}`]; return n; });
+                                          }}
                                           className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
                                           min="0"
                                         />
@@ -1716,8 +1727,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       ) : (
                                         <input
                                           type="number"
-                                          value={quantity}
-                                          onChange={(e) => handleOtherQuantityChange(otherId, parseInt(e.target.value) || 0)}
+                                          value={inputDraftValues[`other_${otherId}`] !== undefined ? inputDraftValues[`other_${otherId}`] : quantity}
+                                          onChange={(e) => setInputDraftValues(prev => ({ ...prev, [`other_${otherId}`]: e.target.value }))}
+                                          onBlur={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            if (!isNaN(val)) handleOtherQuantityChange(otherId, val);
+                                            setInputDraftValues(prev => { const n = { ...prev }; delete n[`other_${otherId}`]; return n; });
+                                          }}
                                           className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
                                           min="0"
                                         />
