@@ -108,8 +108,7 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItem
       });
 
       // Рассчитываем кейсы на основе сохраненных модулей
-      // Только если кейсы еще не были созданы ранее
-      if (onSaveWithCases && budgetItem && modules.length > 0 && existingCases.length === 0) {
+      if (onSaveWithCases && budgetItem && modules.length > 0) {
         const moduleIds = modules.map(m => m.child_id);
         const cases = await findCasesForModules(moduleIds);
 
@@ -198,16 +197,21 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItem
     }
   };
 
-  // Extract screen dimensions from notes (format: (4x3м))
+  // Extract screen dimensions from notes (format: (4x3м)) or area (format: 6м² or 6 м²)
   const getScreenDimensions = () => {
-    if (!budgetItem?.notes) return null;
-    const match = budgetItem.notes.match(/\((\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)м\)/);
-    if (match) {
+    const text = budgetItem?.notes || '';
+    const dimMatch = text.match(/\((\d+(?:[.,]\d+)?)x(\d+(?:[.,]\d+)?)м\)/);
+    if (dimMatch) {
       return {
-        width: parseFloat(match[1]),
-        height: parseFloat(match[2]),
-        area: parseFloat(match[1]) * parseFloat(match[2])
+        width: parseFloat(dimMatch[1].replace(',', '.')),
+        height: parseFloat(dimMatch[2].replace(',', '.')),
+        area: parseFloat(dimMatch[1].replace(',', '.')) * parseFloat(dimMatch[2].replace(',', '.'))
       };
+    }
+    const areaMatch = text.match(/(\d+(?:[.,]\d+)?)\s*м²/);
+    if (areaMatch) {
+      const area = parseFloat(areaMatch[1].replace(',', '.'));
+      return { width: null, height: null, area };
     }
     return null;
   };
@@ -283,7 +287,9 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItem
               {budgetItem?.equipment?.name || 'LED экран'}
               {screenDimensions && (
                 <span className="text-green-400 ml-2">
-                  {screenDimensions.width}×{screenDimensions.height}м ({screenDimensions.area.toFixed(2)} м²)
+                  {screenDimensions.width !== null && screenDimensions.height !== null
+                    ? `${screenDimensions.width}×${screenDimensions.height}м (${screenDimensions.area.toFixed(2)} м²)`
+                    : `${screenDimensions.area.toFixed(2)} м²`}
                 </span>
               )}
             </h4>

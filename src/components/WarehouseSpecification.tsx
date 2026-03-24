@@ -706,7 +706,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           item.budgetItemId.startsWith(`${budgetItemId}-podium-`)
         );
         
-        // First, create all LED cases as new budget items with parent_budget_item_id
+        // Delete existing LED case children from DB before creating new ones (prevent duplicates)
+        const existingLedChildren = budgetItems.filter(item => item.parent_budget_item_id === budgetItemId && !item.equipment_id);
+        for (const child of existingLedChildren) {
+          try {
+            await deleteBudgetItem(child.id);
+          } catch (err) {
+            console.error('Error deleting old LED case budget item:', child.id, err);
+          }
+        }
+
+        // Create all LED cases as new budget items with parent_budget_item_id
         const parentBudgetItem = budgetItems.find(b => b.id === budgetItemId);
         for (const caseItem of caseItems) {
           try {
@@ -753,7 +763,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
         // Replace podium child rows for parent item
         if (podiumChildItems.length > 0) {
-          const existingPodiumChildren = budgetItems.filter(item => item.parent_budget_item_id === budgetItemId);
+          // Fetch from DB directly to avoid stale state
+          const freshBudgetItems = await getBudgetItems(eventId);
+          const existingPodiumChildren = freshBudgetItems.filter(item => item.parent_budget_item_id === budgetItemId);
 
           for (const child of existingPodiumChildren) {
             try {
