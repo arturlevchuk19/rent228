@@ -62,10 +62,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   );
 
   return (
-    <div className="min-h-screen bg-black">
-      <nav className="bg-gray-900 border-b border-gray-800">
+    <div className="h-screen flex flex-col bg-black overflow-hidden">
+      <nav className="bg-gray-900 border-b border-gray-800 flex-shrink-0 z-20">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between h-14">
             <div className="flex items-center">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -77,15 +77,15 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   <Menu className="w-6 h-6" />
                 )}
               </button>
-              <h1 className="text-xl font-bold text-white ml-4 lg:ml-0">
+              <h1 className="text-lg font-bold text-white ml-3 lg:ml-0">
                 RentMaster
               </h1>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm text-white">{user.full_name}</p>
-                <p className="text-xs text-gray-400">{roleLabels[user.role] || user.role}</p>
+            <div className="flex items-center space-x-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm text-white leading-tight">{user.full_name}</p>
+                <p className="text-xs text-gray-400 leading-tight">{roleLabels[user.role] || user.role}</p>
               </div>
               <button
                 onClick={handleSignOut}
@@ -99,12 +99,20 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </div>
       </nav>
 
-      <div className="flex overflow-x-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {mobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-10 lg:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
         <aside
           className={`
-            ${mobileMenuOpen ? 'block' : 'hidden'} lg:block
-            w-64 bg-gray-900 border-r border-gray-800 min-h-[calc(100vh-4rem)]
-            absolute lg:relative z-10 flex-shrink-0
+            ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+            fixed lg:relative top-14 lg:top-0 left-0 h-[calc(100vh-3.5rem)] lg:h-full
+            w-64 bg-gray-900 border-r border-gray-800
+            z-20 lg:z-auto flex-shrink-0 overflow-y-auto
+            transition-transform duration-200 ease-in-out
           `}
         >
           <nav className="p-3 space-y-0.5">
@@ -120,7 +128,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                     setMobileMenuOpen(false);
                   }}
                   className={`
-                    w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg
+                    w-full flex items-center space-x-2.5 px-3 py-2.5 rounded-lg
                     transition-colors
                     ${
                       isActive
@@ -129,7 +137,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                     }
                   `}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4 flex-shrink-0" />
                   <span className="text-sm font-medium">{item.label}</span>
                 </button>
               );
@@ -137,7 +145,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           </nav>
         </aside>
 
-        <main className="flex-1 p-4 lg:p-6 overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
           {children}
         </main>
       </div>

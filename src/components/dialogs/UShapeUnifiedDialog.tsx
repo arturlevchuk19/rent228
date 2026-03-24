@@ -168,8 +168,8 @@ export function UShapeUnifiedDialog({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-[420px] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4" onClick={(e) => e.target === e.currentTarget && handleClose()}>
+      <div className="bg-gray-900 border border-gray-800 rounded-t-xl sm:rounded-xl shadow-2xl w-full sm:max-w-[440px] max-h-[90vh] flex flex-col overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Calculator className="w-4 h-4 text-cyan-500" />
@@ -182,7 +182,7 @@ export function UShapeUnifiedDialog({
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto overscroll-contain flex-1">
           <div className="bg-gray-800/50 rounded-lg p-3">
             <p className="text-xs text-gray-400 mb-1">Оборудование</p>
             <p className="text-sm font-medium text-white">{equipment.name}</p>

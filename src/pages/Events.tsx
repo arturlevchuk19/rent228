@@ -166,7 +166,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
@@ -280,6 +280,91 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-gray-800">
+          {filteredEvents.length === 0 ? (
+            <div className="px-4 py-8 text-center text-gray-500 text-sm">
+              Мероприятия не найдены
+            </div>
+          ) : (
+            filteredEvents.map((event) => (
+              <div key={event.id} className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-medium text-sm leading-tight truncate">{event.name || '-'}</div>
+                    <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.event_type}</div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {canEditDelete ? (
+                      <>
+                        <button
+                          onClick={() => onEventFormOpen?.(event)}
+                          className="p-2 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                          title="Редактировать"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(event.id)}
+                          className="p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                          title="Удалить"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => onSpecificationOpen?.(event.id)}
+                        className="p-2 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                        title="Спецификация"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-cyan-400 font-medium text-xs">{formatDate(event.event_date)}</span>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
+                    {event.status}
+                  </span>
+                </div>
+                {(event.clients?.organization || event.venues?.name) && (
+                  <div className="text-xs text-gray-400 space-y-0.5">
+                    {event.clients?.organization && (
+                      <div className="truncate">{event.clients.organization}</div>
+                    )}
+                    {event.venues?.name && (
+                      <div className="truncate">{event.venues.name}</div>
+                    )}
+                  </div>
+                )}
+                <div className="flex gap-1">
+                  {event.progress_budget_done ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Смета составлена" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Смета не составлена" />
+                  )}
+                  {event.progress_equipment_reserved ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оборудование зарезервировано" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Оборудование не зарезервировано" />
+                  )}
+                  {event.progress_project_completed ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Проект выполнен" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Проект не выполнен" />
+                  )}
+                  {event.progress_paid ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оплачен" />
+                  ) : (
+                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Не оплачен" />
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

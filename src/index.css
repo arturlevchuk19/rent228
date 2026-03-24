@@ -5,6 +5,12 @@
 @layer base {
   html, body {
     @apply overflow-x-hidden;
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  #root {
+    height: 100%;
   }
 }
 
