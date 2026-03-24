@@ -185,9 +185,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                 <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
                   Статус
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
-                  Прогресс
-                </th>
                 <th className="px-4 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">
                   Действия
                 </th>
@@ -196,7 +193,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
             <tbody className="divide-y divide-gray-800">
               {filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">
                     Мероприятия не найдены
                   </td>
                 </tr>
@@ -221,35 +218,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                         {event.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2">
-                      <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                        {event.progress_budget_done ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Смета составлена" />
-                        ) : (
-                          <Circle className="w-3.5 h-3.5 text-gray-600" title="Смета не составлена" />
-                        )}
-                        {event.progress_equipment_reserved ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оборудование зарезервировано" />
-                        ) : (
-                          <Circle className="w-3.5 h-3.5 text-gray-600" title="Оборудование не зарезервировано" />
-                        )}
-                        {event.progress_project_completed ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Проект выполнен" />
-                        ) : (
-                          <Circle className="w-3.5 h-3.5 text-gray-600" title="Проект не выполнен" />
-                        )}
-                        {event.progress_paid ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оплачен" />
-                        ) : (
-                          <Circle className="w-3.5 h-3.5 text-gray-600" title="Не оплачен" />
-                        )}
-                      </div>
-                    </td>
                     <td className="px-4 py-2 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => onSpecificationOpen?.(event.id)}
-                          className={`p-1.5 rounded transition-colors hover:bg-gray-700 ${event.specification_confirmed ? 'text-green-400' : 'text-gray-500'}`}
+                          disabled={!event.specification_confirmed}
+                          className={`p-1.5 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`}
                           title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
                         >
                           <FileText className="w-3.5 h-3.5" />
@@ -267,6 +241,28 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                         >
                           <Truck className="w-3.5 h-3.5" />
                         </span>
+                        <div className="flex gap-0.5 ml-1">
+                          {event.progress_budget_done ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Смета составлена" />
+                          ) : (
+                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Смета не составлена" />
+                          )}
+                          {event.progress_equipment_reserved ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оборудование зарезервировано" />
+                          ) : (
+                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Оборудование не зарезервировано" />
+                          )}
+                          {event.progress_project_completed ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Проект выполнен" />
+                          ) : (
+                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Проект не выполнен" />
+                          )}
+                          {event.progress_paid ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оплачен" />
+                          ) : (
+                            <Circle className="w-3.5 h-3.5 text-gray-600" title="Не оплачен" />
+                          )}
+                        </div>
                         {canEditDelete && (
                           <>
                             <button
@@ -310,7 +306,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => onSpecificationOpen?.(event.id)}
-                      className={`p-1.5 rounded transition-colors hover:bg-gray-700 ${event.specification_confirmed ? 'text-green-400' : 'text-gray-500'}`}
+                      disabled={!event.specification_confirmed}
+                      className={`p-1.5 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer' : 'text-gray-600 cursor-not-allowed'}`}
                       title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
                     >
                       <FileText className="w-4 h-4" />
@@ -328,6 +325,28 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     >
                       <Truck className="w-4 h-4" />
                     </span>
+                    <div className="flex gap-0.5 ml-1">
+                      {event.progress_budget_done ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Смета составлена" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Смета не составлена" />
+                      )}
+                      {event.progress_equipment_reserved ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оборудование зарезервировано" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Оборудование не зарезервировано" />
+                      )}
+                      {event.progress_project_completed ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Проект выполнен" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Проект не выполнен" />
+                      )}
+                      {event.progress_paid ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оплачен" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-gray-600" title="Не оплачен" />
+                      )}
+                    </div>
                     {canEditDelete && (
                       <>
                         <button
@@ -364,28 +383,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     )}
                   </div>
                 )}
-                <div className="flex gap-1">
-                  {event.progress_budget_done ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Смета составлена" />
-                  ) : (
-                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Смета не составлена" />
-                  )}
-                  {event.progress_equipment_reserved ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оборудование зарезервировано" />
-                  ) : (
-                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Оборудование не зарезервировано" />
-                  )}
-                  {event.progress_project_completed ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Проект выполнен" />
-                  ) : (
-                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Проект не выполнен" />
-                  )}
-                  {event.progress_paid ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400" title="Оплачен" />
-                  ) : (
-                    <Circle className="w-3.5 h-3.5 text-gray-600" title="Не оплачен" />
-                  )}
-                </div>
               </div>
             ))
           )}
