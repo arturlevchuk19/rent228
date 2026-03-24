@@ -1266,7 +1266,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     onClick={() => setShowEquipmentSelector(true)}
                     className="px-3 py-1.5 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 flex items-center gap-1.5 transition-colors"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-5 h-5" />
                     Добавить оборудование
                   </button>
                 )}
@@ -1355,14 +1355,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   disabled={item.quantity === 0}
                                   className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                 >
-                                  <Minus className="w-3 h-3" />
+                                  <Minus className="w-5 h-5" />
                                 </button>
                                 <span className="text-xs text-white font-bold w-6 text-center">{item.quantity}</span>
                                 <button
                                   onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
                                   className="p-0.5 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                 >
-                                  <Plus className="w-3 h-3" />
+                                  <Plus className="w-5 h-5" />
                                 </button>
                               </div>
                             </td>
@@ -1514,13 +1514,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                             disabled={!cableId || quantity === 0}
                                             className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                           >
-                                            <Minus className="w-3.5 h-3.5" />
+                                            <Minus className="w-5 h-5" />
                                           </button>
                                           <button
                                             onClick={() => handleAddCableFromTemplate(template.type, length)}
                                             className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                           >
-                                            <Plus className="w-3.5 h-3.5" />
+                                            <Plus className="w-5 h-5" />
                                           </button>
                                         </div>
                                       </td>
@@ -1630,13 +1630,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                             disabled={!connector || quantity === 0}
                                             className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                           >
-                                            <Minus className="w-3.5 h-3.5" />
+                                            <Minus className="w-5 h-5" />
                                           </button>
                                           <button
                                             onClick={() => handleAddConnectorFromTemplate(itemType)}
                                             className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                           >
-                                            <Plus className="w-3.5 h-3.5" />
+                                            <Plus className="w-5 h-5" />
                                           </button>
                                         </div>
                                       </td>
@@ -1746,13 +1746,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                             disabled={!otherId || quantity === 0}
                                             className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                           >
-                                            <Minus className="w-3.5 h-3.5" />
+                                            <Minus className="w-5 h-5" />
                                           </button>
                                           <button
                                             onClick={() => handleAddOtherFromTemplate(template.category, itemType)}
                                             className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                           >
-                                            <Plus className="w-3.5 h-3.5" />
+                                            <Plus className="w-5 h-5" />
                                           </button>
                                         </div>
                                       </td>
