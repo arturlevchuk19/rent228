@@ -386,6 +386,34 @@ CREATE POLICY "Events manageable by admins"
     )
   );
 
+-- Add shipment and return status fields to events
+ALTER TABLE events
+  ADD COLUMN IF NOT EXISTS equipment_shipped boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS equipment_shipped_at timestamptz,
+  ADD COLUMN IF NOT EXISTS equipment_returned boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS equipment_returned_at timestamptz;
+
+-- Add specification_confirmed and specification_confirmed_at fields to events
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'events' AND column_name = 'specification_confirmed'
+  ) THEN
+    ALTER TABLE events ADD COLUMN specification_confirmed boolean DEFAULT false;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'events' AND column_name = 'specification_confirmed_at'
+  ) THEN
+    ALTER TABLE events ADD COLUMN specification_confirmed_at timestamptz;
+  END IF;
+END $$;
+
 -- 9. Estimates
 CREATE TABLE IF NOT EXISTS estimates (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
