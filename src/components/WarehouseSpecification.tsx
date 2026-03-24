@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save } from 'lucide-react';
-import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, confirmSpecification, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../lib/events';
+import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck } from 'lucide-react';
+import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, confirmSpecification, confirmShipment, confirmReturn, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
 import { Category, getCategories } from '../lib/categories';
@@ -73,6 +73,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
   const [expandedOtherCategories, setExpandedOtherCategories] = useState<Record<string, boolean>>({});
   const [confirming, setConfirming] = useState(false);
+  const [confirmingShipment, setConfirmingShipment] = useState(false);
+  const [confirmingReturn, setConfirmingReturn] = useState(false);
   const [equipmentModifications, setEquipmentModifications] = useState<Record<string, EquipmentModification[]>>({});
   const [showModificationSelector, setShowModificationSelector] = useState(false);
   const [selectedBudgetItemForMod, setSelectedBudgetItemForMod] = useState<BudgetItem | null>(null);
@@ -501,18 +503,47 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleConfirmSpecification = async () => {
-    if (!confirm('Подтвердить сборку спецификации? Это отметит прогресс подготовки оборудования.')) return;
+    if (!confirm('Подтвердить спецификацию? После подтверждения она будет доступна всем для просмотра.')) return;
 
     try {
       setConfirming(true);
-      await confirmSpecification(eventId);
+      await confirmSpecification(eventId, user?.id || '');
       setEventDetails({ ...eventDetails, specification_confirmed: true });
-      alert('Спецификация подтверждена');
     } catch (error) {
       console.error('Error confirming specification:', error);
       alert('Ошибка при подтверждении спецификации');
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const handleConfirmShipment = async () => {
+    if (!confirm('Подтвердить отгрузку оборудования? Убедитесь, что все галочки проставлены.')) return;
+
+    try {
+      setConfirmingShipment(true);
+      await confirmShipment(eventId);
+      setEventDetails({ ...eventDetails, equipment_shipped: true });
+    } catch (error) {
+      console.error('Error confirming shipment:', error);
+      alert('Ошибка при подтверждении отгрузки');
+    } finally {
+      setConfirmingShipment(false);
+    }
+  };
+
+  const handleConfirmReturn = async () => {
+    if (!confirm('Подтвердить приём оборудования? Убедитесь, что всё оборудование возвращено.')) return;
+
+    try {
+      setConfirmingReturn(true);
+      await confirmReturn(eventId);
+      setEventDetails({ ...eventDetails, equipment_returned: true });
+    } catch (error) {
+      console.error('Error confirming return:', error);
+      alert('Ошибка при подтверждении приёма');
+    } finally {
+      setConfirmingReturn(false);
     }
   };
 
@@ -1809,18 +1840,44 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             >
               Закрыть
             </button>
-            {(isWarehouseUser || !eventDetails?.specification_confirmed) && (
+            {!eventDetails?.specification_confirmed && (
               <button
                 onClick={handleConfirmSpecification}
-                disabled={confirming || eventDetails?.specification_confirmed}
-                className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:bg-gray-800 disabled:text-gray-600 disabled:border-gray-700 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                disabled={confirming}
+                className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
-                {confirming ? (
-                  <>...</>
-                ) : (
+                {confirming ? <>...</> : (
                   <>
                     <CheckCircle className="w-3.5 h-3.5" />
-                    Подтвердить сборку
+                    Подтвердить спецификацию
+                  </>
+                )}
+              </button>
+            )}
+            {eventDetails?.specification_confirmed && isWarehouseUser && !eventDetails?.equipment_shipped && (
+              <button
+                onClick={handleConfirmShipment}
+                disabled={confirmingShipment}
+                className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+              >
+                {confirmingShipment ? <>...</> : (
+                  <>
+                    <Truck className="w-3.5 h-3.5" />
+                    Подтвердить отгрузку
+                  </>
+                )}
+              </button>
+            )}
+            {eventDetails?.equipment_shipped && isWarehouseUser && !eventDetails?.equipment_returned && (
+              <button
+                onClick={handleConfirmReturn}
+                disabled={confirmingReturn}
+                className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+              >
+                {confirmingReturn ? <>...</> : (
+                  <>
+                    <Truck className="w-3.5 h-3.5" style={{ transform: 'scaleX(-1)' }} />
+                    Оборудование принято
                   </>
                 )}
               </button>

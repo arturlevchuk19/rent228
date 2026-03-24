@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Plus, Pencil, Trash2, Search, Filter, CheckCircle2, Circle, FileText } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Search, Filter, CheckCircle2, Circle, FileText, Truck } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES, EVENT_STATUSES } from '../lib/events';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -247,7 +247,27 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     </td>
                     <td className="px-4 py-2 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {canEditDelete ? (
+                        <button
+                          onClick={() => onSpecificationOpen?.(event.id)}
+                          className={`p-1.5 rounded transition-colors hover:bg-gray-700 ${event.specification_confirmed ? 'text-green-400' : 'text-gray-500'}`}
+                          title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                        <span
+                          title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
+                          className={event.equipment_shipped ? 'text-red-400' : 'text-gray-600'}
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                        </span>
+                        <span
+                          title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
+                          className={`inline-flex ${event.equipment_returned ? 'text-green-400' : 'text-gray-600'}`}
+                          style={{ transform: 'scaleX(-1)' }}
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                        </span>
+                        {canEditDelete && (
                           <>
                             <button
                               onClick={() => onEventFormOpen?.(event)}
@@ -264,14 +284,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </>
-                        ) : (
-                          <button
-                            onClick={() => onSpecificationOpen?.(event.id)}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
-                            title="Спецификация"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                          </button>
                         )}
                       </div>
                     </td>
@@ -296,7 +308,27 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.event_type}</div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {canEditDelete ? (
+                    <button
+                      onClick={() => onSpecificationOpen?.(event.id)}
+                      className={`p-1.5 rounded transition-colors hover:bg-gray-700 ${event.specification_confirmed ? 'text-green-400' : 'text-gray-500'}`}
+                      title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                    <span
+                      title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
+                      className={event.equipment_shipped ? 'text-red-400' : 'text-gray-600'}
+                    >
+                      <Truck className="w-4 h-4" />
+                    </span>
+                    <span
+                      title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
+                      className={`inline-flex ${event.equipment_returned ? 'text-green-400' : 'text-gray-600'}`}
+                      style={{ transform: 'scaleX(-1)' }}
+                    >
+                      <Truck className="w-4 h-4" />
+                    </span>
+                    {canEditDelete && (
                       <>
                         <button
                           onClick={() => onEventFormOpen?.(event)}
@@ -313,14 +345,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </>
-                    ) : (
-                      <button
-                        onClick={() => onSpecificationOpen?.(event.id)}
-                        className="p-2 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
-                        title="Спецификация"
-                      >
-                        <FileText className="w-4 h-4" />
-                      </button>
                     )}
                   </div>
                 </div>

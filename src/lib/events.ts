@@ -52,6 +52,13 @@ export interface Event {
   name: string;
   notes: string;
   created_at: string;
+  specification_confirmed?: boolean;
+  specification_confirmed_at?: string;
+  specification_confirmed_by?: string;
+  equipment_shipped?: boolean;
+  equipment_shipped_at?: string;
+  equipment_returned?: boolean;
+  equipment_returned_at?: string;
   venues?: Venue;
   clients?: Client;
   organizers?: Organizer;
@@ -194,6 +201,36 @@ export async function confirmSpecification(eventId: string, userId: string): Pro
       specification_confirmed: true,
       specification_confirmed_at: new Date().toISOString(),
       specification_confirmed_by: userId
+    })
+    .eq('id', eventId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function confirmShipment(eventId: string): Promise<Event> {
+  const { data, error } = await supabase
+    .from('events')
+    .update({
+      equipment_shipped: true,
+      equipment_shipped_at: new Date().toISOString()
+    })
+    .eq('id', eventId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function confirmReturn(eventId: string): Promise<Event> {
+  const { data, error } = await supabase
+    .from('events')
+    .update({
+      equipment_returned: true,
+      equipment_returned_at: new Date().toISOString()
     })
     .eq('id', eventId)
     .select()
