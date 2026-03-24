@@ -185,6 +185,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                 <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
                   Статус
                 </th>
+                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                  Прогресс
+                </th>
                 <th className="px-4 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">
                   Действия
                 </th>
@@ -193,7 +196,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
             <tbody className="divide-y divide-gray-800">
               {filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">
                     Мероприятия не найдены
                   </td>
                 </tr>
@@ -218,8 +221,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                         {event.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-1.5">
                         <ReceiptText
                           className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
                           title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
@@ -236,7 +239,10 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                           className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
                           title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
                         />
-                        <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <span
                           title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
                           className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
@@ -300,23 +306,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.event_type}</div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <ReceiptText
-                      className={`w-4 h-4 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
-                      title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
-                    />
-                    <Package
-                      className={`w-4 h-4 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
-                      title={event.progress_equipment_reserved ? 'Оборудование зарезервировано' : 'Оборудование не зарезервировано'}
-                    />
-                    <ClipboardCheck
-                      className={`w-4 h-4 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
-                      title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
-                    />
-                    <CreditCard
-                      className={`w-4 h-4 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
-                      title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
-                    />
-                    <span className="w-px h-4 bg-gray-700 mx-0.5" />
                     <span
                       title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
                       className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
@@ -375,6 +364,24 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     )}
                   </div>
                 )}
+                <div className="flex items-center gap-1.5">
+                  <ReceiptText
+                    className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                    title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
+                  />
+                  <Package
+                    className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
+                    title={event.progress_equipment_reserved ? 'Оборудование зарезервировано' : 'Оборудование не зарезервировано'}
+                  />
+                  <ClipboardCheck
+                    className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
+                    title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
+                  />
+                  <CreditCard
+                    className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
+                    title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
+                  />
+                </div>
               </div>
             ))
           )}
