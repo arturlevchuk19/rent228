@@ -393,26 +393,11 @@ ALTER TABLE events
   ADD COLUMN IF NOT EXISTS equipment_returned boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS equipment_returned_at timestamptz;
 
--- Add specification_confirmed and specification_confirmed_at fields to events
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'events' AND column_name = 'specification_confirmed'
-  ) THEN
-    ALTER TABLE events ADD COLUMN specification_confirmed boolean DEFAULT false;
-  END IF;
-END $$;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'events' AND column_name = 'specification_confirmed_at'
-  ) THEN
-    ALTER TABLE events ADD COLUMN specification_confirmed_at timestamptz;
-  END IF;
-END $$;
+-- Add specification_confirmed fields to events
+ALTER TABLE events
+  ADD COLUMN IF NOT EXISTS specification_confirmed boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS specification_confirmed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS specification_confirmed_by uuid REFERENCES auth.users(id);
 
 -- 9. Estimates
 CREATE TABLE IF NOT EXISTS estimates (
