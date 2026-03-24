@@ -8,8 +8,8 @@ interface LoginProps {
 }
 
 export function Login({ onSuccess, onSwitchToRegister }: LoginProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('superuser@onpromo.by');
+  const [password, setPassword] = useState('superuser');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
