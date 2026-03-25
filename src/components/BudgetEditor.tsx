@@ -105,7 +105,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         getWorkItems()
       ]);
       setBudgetItems(budgetData);
-      setCategories(categoriesData);
+      setCategories(categoriesData.filter(cat => cat.is_template !== true));
       setEquipment(equipmentData);
       setWorkItems(workItemsData);
 
