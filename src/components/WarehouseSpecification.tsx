@@ -124,6 +124,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     return name.includes("сценический подиум") || name.includes("ступенька из сценических подиумов");
   };
 
+  const isUShapeBudgetItem = (item: BudgetItem) => {
+    const name = (item.equipment?.name || item.name || "").toLowerCase();
+    return name.includes("п-образная конструкция");
+  };
+
   const hasModifications = (budgetItemId: string) => {
     // Check if modifications have been applied to this item
     if (itemsWithAppliedModifications.has(budgetItemId)) {
@@ -344,6 +349,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 console.error("Error loading composition for", item.name || item.equipment?.name, ":", error);
               }
             }
+          } else if (isUShapeBudgetItem(item)) {
+            items.push({
+              budgetItemId: item.id,
+              categoryId: item.category_id || null,
+              name: item.equipment?.name || item.name || 'Unknown',
+              sku: item.equipment?.sku || item.sku || '',
+              quantity: item.quantity,
+              unit: 'шт.',
+              category: item.equipment?.category || 'Other',
+              notes: item.notes || '',
+              picked: item.picked || false,
+              return_picked: item.return_picked || false,
+              isFromComposition: false,
+              isExtra: item.is_extra || false,
+            });
           } else {
             // Non-LED virtual item - expand it into its components
             // Check for composition
