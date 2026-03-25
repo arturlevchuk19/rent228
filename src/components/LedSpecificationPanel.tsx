@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calculator, Plus, Minus, ChevronDown, ChevronRight } from 'lucide-react';
 import { BudgetItem, getBudgetItems } from '../lib/events';
-import { getEquipmentCompositions, updateEquipmentComposition, addEquipmentComposition, getAvailableLedModules, findCasesForModules } from '../lib/equipmentCompositions';
+import { getEquipmentCompositions, addEquipmentComposition, getAvailableLedModules, findCasesForModules } from '../lib/equipmentCompositions';
 import { EquipmentComposition, EquipmentModule } from '../lib/equipmentCompositions';
 
 export interface CalculatedCase {
@@ -93,29 +93,10 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItem
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Сохраняем количество модулей (только те, что больше 0)
-      for (const module of modules) {
-        if (module.quantity > 0) {
-          await updateEquipmentComposition(module.id, module.quantity);
-        }
-      }
-
-      console.log('LedSpecificationPanel handleSave:', {
-        hasOnSaveWithCases: !!onSaveWithCases,
-        hasBudgetItem: !!budgetItem,
-        modulesLength: modules.length,
-        existingCasesLength: existingCases.length,
-        allBudgetItemsLength: allBudgetItems?.length
-      });
-
-      // Рассчитываем кейсы на основе сохраненных модулей
       if (onSaveWithCases && budgetItem && modules.length > 0) {
         const moduleIds = modules.map(m => m.child_id);
         const cases = await findCasesForModules(moduleIds);
 
-        console.log('Found cases for modules:', cases);
-
-        // Агрегируем кейсы по caseId
         const casesById: Record<string, { caseInfo: typeof cases[0], totalModuleQty: number }> = {};
 
         for (const module of modules) {
@@ -136,7 +117,6 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItem
           }
         }
 
-        // Формируем результат
         const calculatedCases: CalculatedCase[] = Object.entries(casesById).map(([caseId, data]) => ({
           caseId,
           name: data.caseInfo.name,
@@ -147,10 +127,7 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItem
           caseCount: Math.ceil(data.totalModuleQty / data.caseInfo.moduleCapacity)
         })).filter(c => c.caseCount > 0);
 
-        console.log('Calculated cases to save:', calculatedCases);
         onSaveWithCases(calculatedCases);
-      } else {
-        console.log('Skipping case calculation - cases already exist or no modules');
       }
 
       onClose();

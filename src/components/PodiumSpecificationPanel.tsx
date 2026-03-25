@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calculator, Plus, Minus, ChevronDown } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
-import { getEquipmentCompositions, updateEquipmentComposition, addEquipmentComposition, deleteEquipmentComposition } from '../lib/equipmentCompositions';
+import { getEquipmentCompositions, addEquipmentComposition } from '../lib/equipmentCompositions';
 import { EquipmentComposition, EquipmentModule } from '../lib/equipmentCompositions';
 import { getEquipmentItems } from '../lib/equipment';
 
@@ -18,7 +18,6 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
 
   const [modules, setModules] = useState<EquipmentComposition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [showAddModule, setShowAddModule] = useState(false);
   const [availableModules, setAvailableModules] = useState<EquipmentModule[]>([]);
   const [loadingModules, setLoadingModules] = useState(false);
@@ -54,27 +53,11 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
     ));
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      for (const module of modules) {
-        if (module.quantity > 0) {
-          await updateEquipmentComposition(module.id, module.quantity);
-        } else {
-          // quantity=0 violates DB constraint, so remove composition row
-          await deleteEquipmentComposition(module.id);
-        }
-      }
-      
-      if (onSaveWithComposition) {
-        onSaveWithComposition(modules.filter(module => module.quantity > 0));
-      }
-      onClose();
-    } catch (error) {
-      console.error('Error saving compositions:', error);
-    } finally {
-      setSaving(false);
+  const handleSave = () => {
+    if (onSaveWithComposition) {
+      onSaveWithComposition(modules.filter(module => module.quantity > 0));
     }
+    onClose();
   };
 
   const handleAddModule = async (moduleItem: EquipmentModule, quantity: number = 1) => {
@@ -428,10 +411,9 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving}
-                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                {saving ? 'Сохранение...' : 'Сохранить'}
+                Сохранить
               </button>
             </div>
           </div>
