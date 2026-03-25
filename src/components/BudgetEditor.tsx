@@ -68,6 +68,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [selectedUShapeEquipment, setSelectedUShapeEquipment] = useState<EquipmentItem | null>(null);
   const [uShapeMode, setUShapeMode] = useState<'standard' | 'lifting'>('standard');
 
+  const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState(10);
+
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const lastAddedItemRef = useRef<string | null>(null);
@@ -628,6 +631,27 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     sum + calculateBYNNonCash(item.price, item.quantity, item), 0
   );
 
+  const nonWorkItems = budgetItems.filter(item => item.item_type !== 'work');
+  const workItems2 = budgetItems.filter(item => item.item_type === 'work');
+
+  const nonWorkTotalUSD = nonWorkItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const nonWorkTotalBYNCash = nonWorkItems.reduce((sum, item) => sum + calculateBYNCash(item.price, item.quantity), 0);
+  const nonWorkTotalBYNNonCash = nonWorkItems.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item.quantity, item), 0);
+
+  const workTotalUSD = workItems2.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const workTotalBYNCash = workItems2.reduce((sum, item) => sum + calculateBYNCash(item.price, item.quantity), 0);
+  const workTotalBYNNonCash = workItems2.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item.quantity, item), 0);
+
+  const getDiscountedTotal = () => {
+    if (!discountEnabled || discountPercent <= 0) return null;
+    const multiplier = 1 - discountPercent / 100;
+    switch (paymentMode) {
+      case 'byn_cash': return nonWorkTotalBYNCash * multiplier + workTotalBYNCash;
+      case 'byn_noncash': return nonWorkTotalBYNNonCash * multiplier + workTotalBYNNonCash;
+      default: return nonWorkTotalUSD * multiplier + workTotalUSD;
+    }
+  };
+
   const getTotalForMode = () => {
     switch (paymentMode) {
       case 'byn_cash': return totalBYNCash;
@@ -980,6 +1004,40 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 <span className="text-cyan-400">{getTotalForMode().toLocaleString()}</span>
                 <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
               </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={discountEnabled}
+                  onChange={(e) => setDiscountEnabled(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                />
+                <span className="text-xs text-gray-300 font-medium">Скидка</span>
+                {discountEnabled && (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={discountPercent}
+                      onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                    />
+                    <span className="text-xs text-gray-400">%</span>
+                  </div>
+                )}
+              </label>
+              {discountEnabled && getDiscountedTotal() !== null && (
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
+                  <span className="text-lg font-black text-white">
+                    <span className="text-green-400">{Math.round(getDiscountedTotal()!).toLocaleString()}</span>
+                    <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
