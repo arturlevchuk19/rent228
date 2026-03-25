@@ -199,6 +199,7 @@ function AppContent() {
           onClose={() => {
             setSpecificationEventId(null);
             setSpecificationEvent(null);
+            handleRefresh();
           }}
         />
       )}
