@@ -119,7 +119,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const initialExpanded: Record<string, boolean> = {};
       const initialActive = new Set<string>();
 
-      categoriesData.forEach(cat => {
+      [...globalCategoriesData, ...eventCategoriesData].forEach(cat => {
         initialExpanded[cat.id] = true;
       });
 
