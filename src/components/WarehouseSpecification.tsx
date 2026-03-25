@@ -1440,7 +1440,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-gray-800/50 border-b border-gray-800">
-                          {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                          {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-green-500 uppercase tracking-wider" title="Принято">↩</th>
                           ) : (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-gray-500 uppercase tracking-wider">✓</th>
@@ -1458,7 +1458,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         {group.items.map((item, index) => (
                           <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <input
                                   type="checkbox"
                                   checked={item.return_picked}
@@ -1621,7 +1621,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         <table className="w-full border-collapse">
                           <thead>
                             <tr className="border-b border-gray-800">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <th className="px-3 py-1.5 text-center w-12 text-[10px] text-green-500" title="Принято">↩</th>
                               ) : (
                                 <th className="px-3 py-1.5 text-center w-12 text-[10px] text-gray-500">✓</th>
@@ -1648,7 +1648,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               return (
                                 <tr key={length} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                                    {cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                       <input
                                         type="checkbox"
                                         checked={returnPicked}
@@ -1755,7 +1755,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         <table className="w-full border-collapse">
                           <thead>
                             <tr className="border-b border-gray-800">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <th className="px-3 py-1.5 text-center w-12 text-[10px] text-green-500" title="Принято">↩</th>
                               ) : (
                                 <th className="px-3 py-1.5 text-center w-12 text-[10px] text-gray-500">✓</th>
@@ -1781,7 +1781,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                                    {connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                       <input
                                         type="checkbox"
                                         checked={returnPicked}
@@ -1888,7 +1888,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         <table className="w-full border-collapse">
                           <thead>
                             <tr className="border-b border-gray-800">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <th className="px-3 py-1.5 text-center w-12 text-[10px] text-green-500" title="Принято">↩</th>
                               ) : (
                                 <th className="px-3 py-1.5 text-center w-12 text-[10px] text-gray-500">✓</th>
@@ -1915,7 +1915,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                                    {otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                       <input
                                         type="checkbox"
                                         checked={returnPicked}
@@ -2022,7 +2022,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-orange-900/10 border-b border-orange-900/30">
-                          {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                          {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-green-500" title="Принято">↩</th>
                           ) : (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-orange-500">✓</th>
@@ -2037,7 +2037,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         {group.items.map((item, index) => (
                           <tr key={`${item.budgetItemId}-${index}`} className="bg-orange-900/5 hover:bg-orange-900/15 transition-colors">
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && isWarehouseUser ? (
+                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <input
                                   type="checkbox"
                                   checked={item.return_picked}
@@ -2118,7 +2118,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </button>
             )}
-            {eventDetails?.specification_confirmed && isWarehouseUser && !eventDetails?.equipment_shipped && (
+            {eventDetails?.specification_confirmed && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleConfirmShipment}
                 disabled={confirmingShipment}
@@ -2132,7 +2132,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </button>
             )}
-            {eventDetails?.equipment_shipped && isWarehouseUser && !eventDetails?.equipment_returned && (
+            {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
                 disabled={confirmingReturn}
