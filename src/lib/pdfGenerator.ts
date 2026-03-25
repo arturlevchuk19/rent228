@@ -27,6 +27,8 @@ interface PDFData {
   categories: Category[];
   exchangeRate: number;
   paymentMode?: 'usd' | 'byn_cash' | 'byn_noncash';
+  discountEnabled?: boolean;
+  discountPercent?: number;
 }
 
 const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
@@ -115,6 +117,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     }
   };
 
+  let grandTotalNonWork = 0;
+  let grandTotalWork = 0;
+
   sortedCategoryIds.forEach(catId => {
     const items = groupedByCategory[catId];
     const category = data.categories.find(c => c.id === catId);
@@ -142,6 +147,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       `;
     }).join('');
 
+    const categoryHasOnlyWork = items.every(item => !!item.work_item);
+    if (categoryHasOnlyWork) {
+      grandTotalWork += categorySum;
+    } else {
+      grandTotalNonWork += categorySum;
+    }
     grandTotal += categorySum;
 
     categoriesHtml += `
@@ -238,9 +249,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         </div>
       </div>
       
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Общий итог:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1; padding-bottom: 2px;">${grandTotal.toFixed(0)}${currencySuffix}</span>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Общий итог:</span>
+          <span style="font-size: 28px; font-weight: 800; line-height: 1; padding-bottom: 2px;">${grandTotal.toFixed(0)}${currencySuffix}</span>
+        </div>
+        ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Итого со скидкой ${data.discountPercent}% на оборудование:</span>
+          <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #4ade80;">${Math.round(grandTotalNonWork * (1 - data.discountPercent / 100) + grandTotalWork).toFixed(0)}${currencySuffix}</span>
+        </div>` : ''}
       </div>
     </footer>
   `;

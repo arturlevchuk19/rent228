@@ -70,6 +70,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(10);
+  const [discountPercentInput, setDiscountPercentInput] = useState('10');
 
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -461,7 +462,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         budgetItems: budgetItems,
         categories: categories,
         exchangeRate: exchangeRate,
-        paymentMode: paymentMode
+        paymentMode: paymentMode,
+        discountEnabled: discountEnabled,
+        discountPercent: discountPercent
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1018,11 +1021,28 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 {discountEnabled && (
                   <div className="flex items-center gap-1">
                     <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={discountPercent}
-                      onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      type="text"
+                      inputMode="numeric"
+                      value={discountPercentInput}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setDiscountPercentInput(raw);
+                        const parsed = parseFloat(raw);
+                        if (!isNaN(parsed)) {
+                          setDiscountPercent(Math.min(100, Math.max(0, parsed)));
+                        }
+                      }}
+                      onBlur={() => {
+                        const parsed = parseFloat(discountPercentInput);
+                        if (isNaN(parsed) || discountPercentInput.trim() === '') {
+                          setDiscountPercent(0);
+                          setDiscountPercentInput('0');
+                        } else {
+                          const clamped = Math.min(100, Math.max(0, parsed));
+                          setDiscountPercent(clamped);
+                          setDiscountPercentInput(String(clamped));
+                        }
+                      }}
                       className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
                     />
                     <span className="text-xs text-gray-400">%</span>
