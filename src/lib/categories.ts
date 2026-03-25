@@ -10,15 +10,21 @@ export interface Category {
   updated_at: string;
 }
 
-export async function getCategories(): Promise<Category[]> {
-  const { data, error } = await supabase
+export async function getCategories(excludeTemplates: boolean = false): Promise<Category[]> {
+  let query = supabase
     .from('categories')
     .select('*')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
 
+  if (excludeTemplates) {
+    query = query.or('is_template.is.null,is_template.eq.false');
+  }
+
+  const { data, error } = await query;
+
   if (error) throw error;
-  
+
   return data || [];
 }
 

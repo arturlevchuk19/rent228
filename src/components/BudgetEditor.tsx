@@ -100,12 +100,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setLoading(true);
       const [budgetData, categoriesData, equipmentData, workItemsData] = await Promise.all([
         getBudgetItems(eventId),
-        getCategories(),
+        getCategories(true),
         getEquipmentItems(),
         getWorkItems()
       ]);
       setBudgetItems(budgetData);
-      setCategories(categoriesData.filter(cat => cat.is_template !== true));
+      setCategories(categoriesData);
       setEquipment(equipmentData);
       setWorkItems(workItemsData);
 
