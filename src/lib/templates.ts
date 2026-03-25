@@ -191,7 +191,8 @@ export async function applyTemplateToEvent(
     const category = await createCategory(
       categoryName || template.name,
       undefined,
-      false
+      false,
+      eventId
     );
 
     for (let i = 0; i < template.items.length; i++) {

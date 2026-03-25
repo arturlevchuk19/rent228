@@ -6,41 +6,47 @@ export interface Category {
   description: string;
   sort_order: number;
   is_template?: boolean;
+  event_id?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export async function getCategories(excludeTemplates: boolean = false): Promise<Category[]> {
-  let query = supabase
+export async function getCategories(): Promise<Category[]> {
+  const { data, error } = await supabase
     .from('categories')
     .select('*')
+    .is('event_id', null)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
-
-  if (excludeTemplates) {
-    query = query.or('is_template.is.null,is_template.eq.false');
-  }
-
-  const { data, error } = await query;
 
   if (error) throw error;
 
   return data || [];
 }
 
-export async function createCategory(name: string, description?: string, isTemplate: boolean = false): Promise<Category> {
-  // First, check for existing category
-  const { data: existingCategories } = await supabase
+export async function getCategoriesForEvent(eventId: string): Promise<Category[]> {
+  const { data, error } = await supabase
     .from('categories')
     .select('*')
-    .eq('name', name);
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
 
-  if (existingCategories && existingCategories.length > 0) {
-    // If the column exists, we match by isTemplate flag. 
-    // If it doesn't exist, we just take the first match.
-    const existing = existingCategories.find(c => !('is_template' in c) || c.is_template === isTemplate);
-    if (existing) {
-      return existing;
+  if (error) throw error;
+
+  return data || [];
+}
+
+export async function createCategory(name: string, description?: string, isTemplate: boolean = false, eventId?: string): Promise<Category> {
+  if (!eventId) {
+    const { data: existingCategories } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('name', name)
+      .is('event_id', null);
+
+    if (existingCategories && existingCategories.length > 0) {
+      return existingCategories[0];
     }
   }
 
@@ -53,12 +59,16 @@ export async function createCategory(name: string, description?: string, isTempl
 
   const sortOrder = (lastCategory?.sort_order || 0) + 1;
 
-  const insertData: any = { 
-    name, 
-    description: description || '', 
+  const insertData: any = {
+    name,
+    description: description || '',
     sort_order: sortOrder,
-    is_template: isTemplate 
+    is_template: isTemplate,
   };
+
+  if (eventId) {
+    insertData.event_id = eventId;
+  }
 
   const { data, error } = await supabase
     .from('categories')
@@ -66,22 +76,8 @@ export async function createCategory(name: string, description?: string, isTempl
     .select()
     .single();
 
-  if (error) {
-    // If the column doesn't exist (PGRST204 or 42703), retry without it
-    if (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('is_template')) {
-      const { is_template, ...fallbackData } = insertData;
-      const { data: retryData, error: retryError } = await supabase
-        .from('categories')
-        .insert(fallbackData)
-        .select()
-        .single();
-      
-      if (retryError) throw retryError;
-      return retryData;
-    }
-    throw error;
-  }
-  
+  if (error) throw error;
+
   return data;
 }
 
@@ -93,22 +89,7 @@ export async function updateCategory(id: string, updates: Partial<Category>): Pr
     .select()
     .single();
 
-  if (error) {
-    // If the error is about is_template column, retry without it
-    if (error.code === 'PGRST204' || error.code === '42703' || error.message?.includes('is_template')) {
-      const { is_template, ...fallbackUpdates } = updates;
-      const { data: retryData, error: retryError } = await supabase
-        .from('categories')
-        .update({ ...fallbackUpdates, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (retryError) throw retryError;
-      return retryData;
-    }
-    throw error;
-  }
+  if (error) throw error;
   return data;
 }
 

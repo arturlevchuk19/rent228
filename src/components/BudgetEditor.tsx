@@ -3,7 +3,7 @@ import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown } fro
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
-import { Category, getCategories, updateCategory } from '../lib/categories';
+import { Category, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
 import { CategoryBlock } from './CategoryBlock';
 import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
@@ -29,6 +29,7 @@ interface GroupedItems {
 export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps) {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [globalCategories, setGlobalCategories] = useState<Category[]>([]);
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,14 +99,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const loadData = async () => {
     try {
       setLoading(true);
-      const [budgetData, categoriesData, equipmentData, workItemsData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, equipmentData, workItemsData] = await Promise.all([
         getBudgetItems(eventId),
-        getCategories(true),
+        getCategories(),
+        getCategoriesForEvent(eventId),
         getEquipmentItems(),
         getWorkItems()
       ]);
       setBudgetItems(budgetData);
-      setCategories(categoriesData);
+      setGlobalCategories(globalCategoriesData);
+      setCategories([...globalCategoriesData, ...eventCategoriesData]);
       setEquipment(equipmentData);
       setWorkItems(workItemsData);
 
@@ -728,7 +731,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
                 {showCategoryDropdown && (
                   <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar p-0.5">
-                    {categories.filter(cat => cat.is_template !== true).map(category => (
+                    {globalCategories.map(category => (
                       <button
                         key={category.id}
                         onClick={() => handleSelectCategory(category.id)}
