@@ -24,6 +24,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
   const [loadingModules, setLoadingModules] = useState(false);
   const [activeModulesTab, setActiveModulesTab] = useState<'platform' | 'legs'>('platform');
   const [activeAvailableTab, setActiveAvailableTab] = useState<'platform' | 'legs'>('platform');
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
 
   const isLegItem = (name: string) => name.toLowerCase().includes('нога');
 
@@ -308,8 +309,13 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, o
                     <input
                       type="number"
                       min="0"
-                      value={module.quantity}
-                      onChange={(e) => handleQuantityChange(module.id, parseInt(e.target.value) || 0)}
+                      value={draftValues[module.id] ?? String(module.quantity)}
+                      onChange={(e) => setDraftValues(prev => ({ ...prev, [module.id]: e.target.value }))}
+                      onBlur={(e) => {
+                        const n = parseInt(e.target.value);
+                        if (!isNaN(n)) handleQuantityChange(module.id, n);
+                        setDraftValues(prev => { const copy = { ...prev }; delete copy[module.id]; return copy; });
+                      }}
                       className="w-16 bg-transparent text-white text-sm text-center outline-none"
                     />
                     <button

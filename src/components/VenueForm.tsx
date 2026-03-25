@@ -20,6 +20,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
     notes: venue?.notes || ''
   });
   const [saving, setSaving] = useState(false);
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,8 +113,13 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                   type="number"
                   min="0"
                   step="0.1"
-                  value={formData.distance_km}
-                  onChange={(e) => setFormData({ ...formData, distance_km: parseFloat(e.target.value) || 0 })}
+                  value={draftValues['distance_km'] ?? String(formData.distance_km)}
+                  onChange={(e) => setDraftValues(prev => ({ ...prev, distance_km: e.target.value }))}
+                  onBlur={(e) => {
+                    const n = parseFloat(e.target.value);
+                    if (!isNaN(n)) setFormData(prev => ({ ...prev, distance_km: Math.max(0, n) }));
+                    setDraftValues(prev => { const copy = { ...prev }; delete copy['distance_km']; return copy; });
+                  }}
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                   placeholder="0"
                 />
@@ -141,8 +147,13 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                 <input
                   type="number"
                   min="0"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })}
+                  value={draftValues['capacity'] ?? String(formData.capacity)}
+                  onChange={(e) => setDraftValues(prev => ({ ...prev, capacity: e.target.value }))}
+                  onBlur={(e) => {
+                    const n = parseInt(e.target.value);
+                    if (!isNaN(n)) setFormData(prev => ({ ...prev, capacity: Math.max(0, n) }));
+                    setDraftValues(prev => { const copy = { ...prev }; delete copy['capacity']; return copy; });
+                  }}
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                   placeholder="500"
                 />

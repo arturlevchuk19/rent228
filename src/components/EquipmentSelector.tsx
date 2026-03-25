@@ -21,7 +21,7 @@ export function EquipmentSelector({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Все');
   const [selectedEquipment, setSelectedEquipment] = useState<EquipmentItem | null>(null);
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantityStr, setQuantityStr] = useState('1');
   const [modifications, setModifications] = useState<EquipmentModification[]>([]);
   const [selectedModification, setSelectedModification] = useState<string | null>(null);
   const [loadingModifications, setLoadingModifications] = useState(false);
@@ -56,7 +56,7 @@ export function EquipmentSelector({
 
   const handleSelectEquipment = async (item: EquipmentItem) => {
     setSelectedEquipment(item);
-    setQuantity(1);
+    setQuantityStr('1');
     setSelectedModification(null);
     setModifications([]);
 
@@ -75,6 +75,7 @@ export function EquipmentSelector({
 
   const handleConfirmSelection = () => {
     if (selectedEquipment) {
+      const quantity = Math.max(1, parseInt(quantityStr) || 1);
       console.log('Confirming selection:', {
         equipment: selectedEquipment.name,
         quantity,
@@ -83,7 +84,7 @@ export function EquipmentSelector({
       });
       onSelect(selectedEquipment, quantity, selectedModification || undefined);
       setSelectedEquipment(null);
-      setQuantity(1);
+      setQuantityStr('1');
       setModifications([]);
       setSelectedModification(null);
     }
@@ -193,8 +194,12 @@ export function EquipmentSelector({
                 <input
                   type="number"
                   min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  value={quantityStr}
+                  onChange={(e) => setQuantityStr(e.target.value)}
+                  onBlur={() => {
+                    const n = Math.max(1, parseInt(quantityStr) || 1);
+                    setQuantityStr(String(n));
+                  }}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>

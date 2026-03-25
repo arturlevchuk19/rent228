@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Edit2, Check, X, GripVertical, Users, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, CreditCard as Edit2, Check, X, GripVertical, Users, Trash2 } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 
 interface CategoryBlockProps {
@@ -51,6 +51,7 @@ export function CategoryBlock({
 }: CategoryBlockProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(categoryName);
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -338,8 +339,13 @@ export function CategoryBlock({
                         </button>
                         <input
                           type="number"
-                          value={item.quantity}
-                          onChange={(e) => onUpdateItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
+                          value={draftValues[item.id + '_quantity'] ?? String(item.quantity)}
+                          onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_quantity']: e.target.value }))}
+                          onBlur={(e) => {
+                            const n = parseInt(e.target.value);
+                            if (!isNaN(n)) onUpdateItem(item.id, { quantity: Math.max(1, n) });
+                            setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_quantity']; return copy; });
+                          }}
                           className="w-8 px-0.5 py-0.5 bg-transparent text-center text-white text-xs focus:outline-none"
                           min="1"
                         />
@@ -356,7 +362,7 @@ export function CategoryBlock({
                       <input
                         type="number"
                         step="0.01"
-                        value={(() => {
+                        value={draftValues[item.id + '_price'] ?? String((() => {
                           switch (paymentMode) {
                             case 'byn_cash':
                               return convertUSDtoBYNCashPrice(item.price);
@@ -365,21 +371,25 @@ export function CategoryBlock({
                             default:
                               return item.price;
                           }
-                        })()}
-                        onChange={(e) => {
-                          const inputValue = parseFloat(e.target.value) || 0;
-                          let usdPrice: number;
-                          switch (paymentMode) {
-                            case 'byn_cash':
-                              usdPrice = convertBYNCashtoUSDPrice(inputValue);
-                              break;
-                            case 'byn_noncash':
-                              usdPrice = convertBYNNonCashtoUSDPrice(inputValue, item);
-                              break;
-                            default:
-                              usdPrice = inputValue;
+                        })())}
+                        onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
+                        onBlur={(e) => {
+                          const inputValue = parseFloat(e.target.value);
+                          if (!isNaN(inputValue)) {
+                            let usdPrice: number;
+                            switch (paymentMode) {
+                              case 'byn_cash':
+                                usdPrice = convertBYNCashtoUSDPrice(inputValue);
+                                break;
+                              case 'byn_noncash':
+                                usdPrice = convertBYNNonCashtoUSDPrice(inputValue, item);
+                                break;
+                              default:
+                                usdPrice = inputValue;
+                            }
+                            onUpdateItem(item.id, { price: usdPrice });
                           }
-                          onUpdateItem(item.id, { price: usdPrice });
+                          setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_price']; return copy; });
                         }}
                         className="w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
                       />

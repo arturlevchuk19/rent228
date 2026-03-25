@@ -16,6 +16,7 @@ export default function PersonnelPage() {
     phone: '',
     address: ''
   });
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadPersonnel();
@@ -54,6 +55,7 @@ export default function PersonnelPage() {
         address: ''
       });
     }
+    setDraftValues({});
     setIsFormOpen(true);
   }
 
@@ -68,6 +70,7 @@ export default function PersonnelPage() {
       phone: '',
       address: ''
     });
+    setDraftValues({});
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -264,8 +267,13 @@ export default function PersonnelPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })}
+                    value={draftValues['salary'] ?? String(formData.salary)}
+                    onChange={(e) => setDraftValues(prev => ({ ...prev, salary: e.target.value }))}
+                    onBlur={(e) => {
+                      const n = parseFloat(e.target.value);
+                      if (!isNaN(n)) setFormData(prev => ({ ...prev, salary: Math.max(0, n) }));
+                      setDraftValues(prev => { const copy = { ...prev }; delete copy['salary']; return copy; });
+                    }}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>
@@ -279,8 +287,13 @@ export default function PersonnelPage() {
                     step="0.01"
                     min="0"
                     max="100"
-                    value={formData.rate_percentage}
-                    onChange={(e) => setFormData({ ...formData, rate_percentage: parseFloat(e.target.value) || 100 })}
+                    value={draftValues['rate_percentage'] ?? String(formData.rate_percentage)}
+                    onChange={(e) => setDraftValues(prev => ({ ...prev, rate_percentage: e.target.value }))}
+                    onBlur={(e) => {
+                      const n = parseFloat(e.target.value);
+                      if (!isNaN(n)) setFormData(prev => ({ ...prev, rate_percentage: Math.min(100, Math.max(0, n)) }));
+                      setDraftValues(prev => { const copy = { ...prev }; delete copy['rate_percentage']; return copy; });
+                    }}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   />
                 </div>

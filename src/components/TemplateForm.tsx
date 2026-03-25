@@ -29,6 +29,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
   const [templateId, setTemplateId] = useState<string | null>(initialTemplate?.id || null);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [dragOverItemIndex, setDragOverItemIndex] = useState<number | null>(null);
+  const [draftValues, setDraftValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (initialTemplate) {
@@ -343,8 +344,13 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                                 <input
                                   type="number"
                                   min="1"
-                                  value={item.quantity}
-                                  onChange={(e) => handleUpdateQuantity(index, Math.max(1, parseInt(e.target.value) || 1))}
+                                  value={draftValues[item.templateItemId + '_quantity'] ?? String(item.quantity)}
+                                  onChange={(e) => setDraftValues(prev => ({ ...prev, [item.templateItemId + '_quantity']: e.target.value }))}
+                                  onBlur={(e) => {
+                                    const n = parseInt(e.target.value);
+                                    if (!isNaN(n)) handleUpdateQuantity(index, Math.max(1, n));
+                                    setDraftValues(prev => { const copy = { ...prev }; delete copy[item.templateItemId + '_quantity']; return copy; });
+                                  }}
                                   className="w-12 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-cyan-500"
                                 />
                                 <span className="text-gray-400">шт.</span>
@@ -357,8 +363,13 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={item.price}
-                                onChange={(e) => handleUpdatePrice(index, parseFloat(e.target.value) || 0)}
+                                value={draftValues[item.templateItemId + '_price'] ?? String(item.price)}
+                                onChange={(e) => setDraftValues(prev => ({ ...prev, [item.templateItemId + '_price']: e.target.value }))}
+                                onBlur={(e) => {
+                                  const n = parseFloat(e.target.value);
+                                  if (!isNaN(n)) handleUpdatePrice(index, Math.max(0, n));
+                                  setDraftValues(prev => { const copy = { ...prev }; delete copy[item.templateItemId + '_price']; return copy; });
+                                }}
                                 className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-cyan-500"
                               />
                             </div>

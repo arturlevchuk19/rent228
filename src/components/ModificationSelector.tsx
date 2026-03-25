@@ -16,9 +16,10 @@ export function ModificationSelector({
   onClose
 }: ModificationSelectorProps) {
   const [selectedModification, setSelectedModification] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantityStr, setQuantityStr] = useState('1');
 
   const handleConfirm = () => {
+    const quantity = Math.max(1, parseInt(quantityStr) || 1);
     onSelect(selectedModification, quantity);
   };
 
@@ -50,8 +51,12 @@ export function ModificationSelector({
             <input
               type="number"
               min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              value={quantityStr}
+              onChange={(e) => setQuantityStr(e.target.value)}
+              onBlur={() => {
+                const n = Math.max(1, parseInt(quantityStr) || 1);
+                setQuantityStr(String(n));
+              }}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
             />
           </div>
