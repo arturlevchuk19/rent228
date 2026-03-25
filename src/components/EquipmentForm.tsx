@@ -19,8 +19,8 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
     note: item?.note || '',
     attribute: item?.attribute || '',
     sku: item?.sku || '',
-    quantity: item?.quantity || 0,
-    rental_price: item?.rental_price || 0,
+    quantity: String(item?.quantity ?? 0),
+    rental_price: String(item?.rental_price ?? 0),
     power: item?.power || '',
     object_type: item?.object_type || 'physical' as 'physical' | 'virtual',
     rental_type: item?.rental_type || 'rental' as 'rental' | 'sublease',
@@ -32,11 +32,17 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
     setError('');
     setLoading(true);
 
+    const submitData = {
+      ...formData,
+      quantity: parseFloat(formData.quantity) || 0,
+      rental_price: parseFloat(formData.rental_price) || 0,
+    };
+
     try {
       if (item) {
-        await updateEquipmentItem(item.id, formData);
+        await updateEquipmentItem(item.id, submitData);
       } else {
-        await createEquipmentItem(formData);
+        await createEquipmentItem(submitData);
       }
       onClose();
     } catch (err: any) {
@@ -47,11 +53,8 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value
-    }));
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleRadioChange = (field: string, value: string | boolean) => {
