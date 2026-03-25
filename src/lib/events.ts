@@ -105,6 +105,8 @@ export interface BudgetItem {
   category_id?: string | null;
   sort_order: number;
   picked: boolean;
+  is_extra?: boolean;
+  return_picked?: boolean;
   created_at: string;
   updated_at: string;
   name?: string;
@@ -435,6 +437,15 @@ export async function updateBudgetItemPicked(id: string, picked: boolean): Promi
       picked,
       updated_at: new Date().toISOString()
     })
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function updateBudgetItemReturnPicked(id: string, return_picked: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('budget_items')
+    .update({ return_picked, updated_at: new Date().toISOString() })
     .eq('id', id);
 
   if (error) throw error;

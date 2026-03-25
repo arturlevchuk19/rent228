@@ -8,6 +8,7 @@ export interface CableItem {
   quantity: number;
   notes: string;
   picked: boolean;
+  return_picked: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -19,6 +20,7 @@ export interface ConnectorItem {
   quantity: number;
   notes: string;
   picked: boolean;
+  return_picked: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +33,7 @@ export interface OtherItem {
   quantity: number;
   notes: string;
   picked: boolean;
+  return_picked: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -166,6 +169,14 @@ export async function updateCable(id: string, updates: Partial<CableItem>): Prom
   return data;
 }
 
+export async function updateCableReturnPicked(id: string, return_picked: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('warehouse_specification_cables')
+    .update({ return_picked, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteCable(id: string): Promise<void> {
   const { error } = await supabase
     .from('warehouse_specification_cables')
@@ -213,6 +224,14 @@ export async function updateConnector(id: string, updates: Partial<ConnectorItem
   return data;
 }
 
+export async function updateConnectorReturnPicked(id: string, return_picked: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('warehouse_specification_connectors')
+    .update({ return_picked, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteConnector(id: string): Promise<void> {
   const { error } = await supabase
     .from('warehouse_specification_connectors')
@@ -258,6 +277,14 @@ export async function updateOtherItem(id: string, updates: Partial<OtherItem>): 
 
   if (error) throw error;
   return data;
+}
+
+export async function updateOtherItemReturnPicked(id: string, return_picked: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('warehouse_specification_other')
+    .update({ return_picked, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteOtherItem(id: string): Promise<void> {
