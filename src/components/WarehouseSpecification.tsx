@@ -398,10 +398,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         .filter(b => b.parent_budget_item_id === budgetItemId)
         .map(b => b.id)
     );
-    setExpandedItems(prev => prev.filter(item =>
-      !item.budgetItemId.startsWith(`${budgetItemId}-case-`) &&
-      !realChildIds.has(item.budgetItemId)
-    ));
 
     const newCaseItems: ExpandedItem[] = cases.map(calculatedCase => ({
       budgetItemId: `${budgetItemId}-case-${calculatedCase.caseId}`,
@@ -417,19 +413,20 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       parentName: budgetItem.equipment?.name
     }));
 
-    console.log('Created case items:', newCaseItems);
-
-    const ledItemIndex = expandedItems.findIndex(item => item.budgetItemId === budgetItemId);
-    const updatedItems = [...expandedItems];
-
-    if (ledItemIndex >= 0) {
-      updatedItems.splice(ledItemIndex + 1, 0, ...newCaseItems);
-    } else {
-      updatedItems.push(...newCaseItems);
-    }
-
-    console.log('Updated expanded items, new count:', updatedItems.length);
-    setExpandedItems(updatedItems);
+    setExpandedItems(prev => {
+      const filtered = prev.filter(item =>
+        !item.budgetItemId.startsWith(`${budgetItemId}-case-`) &&
+        !realChildIds.has(item.budgetItemId)
+      );
+      const ledItemIndex = filtered.findIndex(item => item.budgetItemId === budgetItemId);
+      const updated = [...filtered];
+      if (ledItemIndex >= 0) {
+        updated.splice(ledItemIndex + 1, 0, ...newCaseItems);
+      } else {
+        updated.push(...newCaseItems);
+      }
+      return updated;
+    });
     setLedItemsWithCases(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
@@ -444,13 +441,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         .map(b => b.id)
     );
 
-    let updatedItems = expandedItems.filter(item =>
-      !item.budgetItemId.startsWith(`${budgetItemId}-podium-`) &&
-      !item.budgetItemId.startsWith(`${budgetItemId}-comp-`) &&
-      !realChildIds.has(item.budgetItemId)
-    );
-
-    const parentIndex = updatedItems.findIndex(item => item.budgetItemId === budgetItemId);
     const newChildItems: ExpandedItem[] = selectedModules.map(module => ({
       budgetItemId: `${budgetItemId}-podium-${module.id}`,
       categoryId: budgetItem.category_id || null,
@@ -465,13 +455,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       parentName: budgetItem.name || budgetItem.equipment?.name
     }));
 
-    if (parentIndex >= 0) {
-      updatedItems.splice(parentIndex + 1, 0, ...newChildItems);
-    } else {
-      updatedItems = [...updatedItems, ...newChildItems];
-    }
-
-    setExpandedItems(updatedItems);
+    setExpandedItems(prev => {
+      const filtered = prev.filter(item =>
+        !item.budgetItemId.startsWith(`${budgetItemId}-podium-`) &&
+        !item.budgetItemId.startsWith(`${budgetItemId}-comp-`) &&
+        !realChildIds.has(item.budgetItemId)
+      );
+      const parentIndex = filtered.findIndex(item => item.budgetItemId === budgetItemId);
+      const updated = [...filtered];
+      if (parentIndex >= 0) {
+        updated.splice(parentIndex + 1, 0, ...newChildItems);
+      } else {
+        updated.push(...newChildItems);
+      }
+      return updated;
+    });
     setPodiumItemsWithComposition(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
