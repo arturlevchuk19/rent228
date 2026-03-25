@@ -168,6 +168,20 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const mainItems = expandedItems.filter(item => !item.isExtra);
   const extraItems = expandedItems.filter(item => item.isExtra);
 
+  const allPickedForShipment =
+    expandedItems.length > 0 &&
+    expandedItems.every(item => item.picked) &&
+    cables.every(c => c.picked) &&
+    connectors.every(c => c.picked) &&
+    otherItems.every(i => i.picked);
+
+  const allPickedForReturn =
+    expandedItems.length > 0 &&
+    expandedItems.every(item => item.return_picked) &&
+    cables.every(c => c.return_picked) &&
+    connectors.every(c => c.return_picked) &&
+    otherItems.every(i => i.return_picked);
+
   const groups = categories
     .map(cat => ({
       name: cat.name,
@@ -573,8 +587,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleConfirmShipment = async () => {
-    if (!confirm('Подтвердить отгрузку оборудования? Убедитесь, что все галочки проставлены.')) return;
-
     try {
       setConfirmingShipment(true);
       await confirmShipment(eventId);
@@ -588,8 +600,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleConfirmReturn = async () => {
-    if (!confirm('Подтвердить приём оборудования? Убедитесь, что всё оборудование возвращено.')) return;
-
     try {
       setConfirmingReturn(true);
       await confirmReturn(eventId);
@@ -1471,7 +1481,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   checked={item.picked}
                                   onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                   className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
-                                  disabled={(eventDetails?.specification_confirmed && !isWarehouseUser) || !!eventDetails?.equipment_shipped}
+                                  disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                 />
                               )}
                             </td>
@@ -1661,7 +1671,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={(eventDetails?.specification_confirmed && !isWarehouseUser) || !!eventDetails?.equipment_shipped}
+                                        disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                       />
                                     ) : null}
                                   </td>
@@ -1794,7 +1804,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleConnectorPickedChange(connector.id, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={(eventDetails?.specification_confirmed && !isWarehouseUser) || !!eventDetails?.equipment_shipped}
+                                        disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                       />
                                     ) : null}
                                   </td>
@@ -1928,7 +1938,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleOtherPickedChange(otherId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={(eventDetails?.specification_confirmed && !isWarehouseUser) || !!eventDetails?.equipment_shipped}
+                                        disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                       />
                                     ) : null}
                                   </td>
@@ -2050,7 +2060,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   checked={item.picked}
                                   onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                   className="w-4 h-4 cursor-pointer rounded border-orange-700 bg-gray-800 text-orange-600"
-                                  disabled={!!eventDetails?.equipment_returned}
+                                  disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                 />
                               )}
                             </td>
@@ -2121,8 +2131,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             {eventDetails?.specification_confirmed && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleConfirmShipment}
-                disabled={confirmingShipment}
-                className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                disabled={confirmingShipment || !allPickedForShipment}
+                title={!allPickedForShipment ? 'Проставьте все галочки перед отгрузкой' : undefined}
+                className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 {confirmingShipment ? <>...</> : (
                   <>
@@ -2135,8 +2146,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
-                disabled={confirmingReturn}
-                className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                disabled={confirmingReturn || !allPickedForReturn}
+                title={!allPickedForReturn ? 'Проставьте все галочки перед приёмкой' : undefined}
+                className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 {confirmingReturn ? <>...</> : (
                   <>
