@@ -816,7 +816,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 </div>
               ) : (
                 <>
-                  {categories.map(category => {
+                  {categories.filter(cat => cat.is_template !== true).map(category => {
                     const categoryItems = groupedItems[category.id] || [];
                     if (categoryItems.length === 0 && !activeCategoryIds.has(category.id)) return null;
 
