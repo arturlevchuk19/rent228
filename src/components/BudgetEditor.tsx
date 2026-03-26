@@ -648,11 +648,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
     const multiplier = 1 - discountPercent / 100;
+    let raw: number;
     switch (paymentMode) {
-      case 'byn_cash': return nonWorkTotalBYNCash * multiplier + workTotalBYNCash;
-      case 'byn_noncash': return nonWorkTotalBYNNonCash * multiplier + workTotalBYNNonCash;
-      default: return nonWorkTotalUSD * multiplier + workTotalUSD;
+      case 'byn_cash': raw = nonWorkTotalBYNCash * multiplier + workTotalBYNCash; break;
+      case 'byn_noncash': raw = nonWorkTotalBYNNonCash * multiplier + workTotalBYNNonCash; break;
+      default: raw = nonWorkTotalUSD * multiplier + workTotalUSD; break;
     }
+    return Math.round(raw / 5) * 5;
   };
 
   const getTotalForMode = () => {
