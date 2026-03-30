@@ -116,6 +116,15 @@ export interface BudgetItem {
   sku?: string;
   equipment?: Equipment;
   work_item?: WorkItem;
+  location?: {
+    id: string;
+    event_id: string;
+    name: string;
+    color: string;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+  } | null;
 }
 
 export const EVENT_TYPES = [
@@ -392,7 +401,8 @@ export async function getBudgetItems(eventId: string): Promise<BudgetItem[]> {
     .select(`
       *,
       equipment:equipment_items (*),
-      work_item:work_items (*)
+      work_item:work_items (*),
+      location:locations (*)
     `)
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -409,7 +419,8 @@ export async function createBudgetItem(item: Partial<BudgetItem>): Promise<Budge
     .select(`
       *,
       equipment:equipment_items (*),
-      work_item:work_items (*)
+      work_item:work_items (*),
+      location:locations (*)
     `)
     .single();
 
@@ -425,7 +436,8 @@ export async function updateBudgetItem(id: string, item: Partial<BudgetItem>): P
     .select(`
       *,
       equipment:equipment_items (*),
-      work_item:work_items (*)
+      work_item:work_items (*),
+      location:locations (*)
     `)
     .single();
 
