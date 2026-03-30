@@ -543,6 +543,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         organizerName: event.organizers?.full_name,
         budgetItems: budgetItems as any,
         categories: categories,
+        locations,
         exchangeRate: exchangeRate,
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,

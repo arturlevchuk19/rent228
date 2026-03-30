@@ -4,6 +4,7 @@ import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, updateBud
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
+import { Location, getLocationsForEvent } from '../lib/locations';
 import { CalculatedCase } from './LedSpecificationPanel';
 import { EquipmentSelector } from './EquipmentSelector';
 import { LedSpecificationPanel } from './LedSpecificationPanel';
@@ -44,6 +45,8 @@ interface WarehouseSpecificationProps {
 interface ExpandedItem {
   budgetItemId: string;
   categoryId: string | null;
+  locationId: string | null;
+  locationName: string;
   name: string;
   sku: string;
   quantity: number;
@@ -82,6 +85,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [connectors, setConnectors] = useState<ConnectorItem[]>([]);
   const [otherItems, setOtherItems] = useState<OtherItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
   const [allEquipment, setAllEquipment] = useState<EquipmentItem[]>([]);
@@ -212,29 +216,71 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     connectors.every(c => c.return_picked) &&
     otherItems.every(i => i.return_picked);
 
-  const groups = categories
-    .map(cat => ({
-      name: cat.name,
-      items: mainItems.filter(item => item.categoryId === cat.id)
-    }))
-    .filter(g => g.items.length > 0);
+  const buildLocationGroups = (items: ExpandedItem[]) => {
+    const categoriesById = new Map(categories.map(cat => [cat.id, cat.name]));
+    const locationsById = new Map(locations.map(location => [location.id, location]));
 
-  const uncategorizedItemsForGroups = mainItems.filter(item => !item.categoryId);
-  if (uncategorizedItemsForGroups.length > 0) {
-    groups.push({ name: 'Без категории', items: uncategorizedItemsForGroups });
-  }
+    const groupedByLocation = items.reduce<Record<string, ExpandedItem[]>>((acc, item) => {
+      const key = item.locationId || 'no-location';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {});
 
-  const extraGroups = categories
-    .map(cat => ({
-      name: cat.name,
-      items: extraItems.filter(item => item.categoryId === cat.id)
-    }))
-    .filter(g => g.items.length > 0);
+    const sortedLocationKeys = Object.keys(groupedByLocation).sort((a, b) => {
+      if (a === 'no-location') return 1;
+      if (b === 'no-location') return -1;
+      const indexA = locations.findIndex(location => location.id === a);
+      const indexB = locations.findIndex(location => location.id === b);
+      const normalizedA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
+      const normalizedB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
+      if (normalizedA !== normalizedB) return normalizedA - normalizedB;
+      const nameA = locationsById.get(a)?.name || '';
+      const nameB = locationsById.get(b)?.name || '';
+      return nameA.localeCompare(nameB, 'ru');
+    });
 
-  const uncategorizedExtraItems = extraItems.filter(item => !item.categoryId);
-  if (uncategorizedExtraItems.length > 0) {
-    extraGroups.push({ name: 'Без категории', items: uncategorizedExtraItems });
-  }
+    return sortedLocationKeys.map(locationKey => {
+      const locationItems = groupedByLocation[locationKey];
+      const groupedByCategory = locationItems.reduce<Record<string, ExpandedItem[]>>((acc, item) => {
+        const categoryKey = item.categoryId || 'uncategorized';
+        if (!acc[categoryKey]) acc[categoryKey] = [];
+        acc[categoryKey].push(item);
+        return acc;
+      }, {});
+
+      const sortedCategoryKeys = Object.keys(groupedByCategory).sort((a, b) => {
+        if (a === 'uncategorized') return 1;
+        if (b === 'uncategorized') return -1;
+        const indexA = categories.findIndex(category => category.id === a);
+        const indexB = categories.findIndex(category => category.id === b);
+        const normalizedA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
+        const normalizedB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
+        if (normalizedA !== normalizedB) return normalizedA - normalizedB;
+        const nameA = categoriesById.get(a) || '';
+        const nameB = categoriesById.get(b) || '';
+        return nameA.localeCompare(nameB, 'ru');
+      });
+
+      const locationData = locationKey === 'no-location' ? null : locationsById.get(locationKey);
+      const fallbackLocationName = locationItems.find(item => item.locationName)?.locationName;
+
+      return {
+        locationId: locationData?.id || null,
+        locationName: locationData?.name || fallbackLocationName || 'Без локации',
+        locationColor: locationData?.color || '#4b5563',
+        categories: sortedCategoryKeys.map(categoryKey => ({
+          categoryName: categoryKey === 'uncategorized'
+            ? 'Без категории'
+            : (categoriesById.get(categoryKey) || 'Без категории'),
+          items: groupedByCategory[categoryKey]
+        }))
+      };
+    });
+  };
+
+  const locationGroups = buildLocationGroups(mainItems);
+  const extraLocationGroups = buildLocationGroups(extraItems);
 
   useEffect(() => {
     loadData();
@@ -243,10 +289,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
-      const [budgetData, globalCategoriesData, eventCategoriesData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
         getBudgetItems(eventId),
         getCategories(),
         getCategoriesForEvent(eventId),
+        getLocationsForEvent(eventId),
         getEquipmentItems(),
         getEvent(eventId),
         getCables(eventId),
@@ -256,6 +303,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
       setCategories(mergedCategories);
+      setLocations(locationsData);
       setAllEquipment(equipmentData);
       setEventDetails(event);
       setBudgetItems(budgetData);
@@ -270,16 +318,25 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
       console.log('Loading warehouse specification for event:', eventId);
 
+      const locationsById = new Map(locationsData.map(location => [location.id, location]));
+
       for (const item of budgetData) {
         if (item.item_type !== 'equipment') continue;
+        const itemLocationId = item.location_id || null;
+        const itemLocation = itemLocationId ? locationsById.get(itemLocationId) : null;
+        const itemLocationName = itemLocation?.name || item.location?.name || 'Без локации';
 
         // Handle child items (e.g., LED cases) - show them as composition items
         if (item.parent_budget_item_id) {
           const parentItem = budgetData.find(b => b.id === item.parent_budget_item_id);
+          const locationId = item.location_id || parentItem?.location_id || null;
+          const location = locationId ? locationsById.get(locationId) : null;
 
           items.push({
             budgetItemId: item.id,
             categoryId: item.category_id || null,
+            locationId,
+            locationName: location?.name || item.location?.name || parentItem?.location?.name || 'Без локации',
             name: item.name || 'Кейс',
             sku: item.sku || '',
             quantity: item.quantity,
@@ -304,6 +361,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           items.push({
             budgetItemId: item.id,
             categoryId: item.category_id || null,
+            locationId: itemLocationId,
+            locationName: itemLocationName,
             name: item.equipment?.name || item.name || 'Unknown',
             sku: item.equipment?.sku || item.sku || '',
             quantity: item.quantity,
@@ -322,6 +381,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
+              locationId: itemLocationId,
+              locationName: itemLocationName,
               name: item.equipment?.name || 'Unknown',
               sku: item.equipment?.sku || '',
               quantity: item.quantity,
@@ -339,6 +400,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
              items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
+              locationId: itemLocationId,
+              locationName: itemLocationName,
               name: item.name || item.equipment?.name || "Unknown",
               sku: item.equipment?.sku || "",
               quantity: item.quantity,
@@ -359,6 +422,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
                     categoryId: item.category_id || null,
+                    locationId: itemLocationId,
+                    locationName: itemLocationName,
                     name: comp.child_name || "Unknown",
                     sku: comp.child_sku || "",
                     quantity: item.quantity * comp.quantity,
@@ -380,6 +445,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
+              locationId: itemLocationId,
+              locationName: itemLocationName,
               name: item.equipment?.name || item.name || 'Unknown',
               sku: item.equipment?.sku || item.sku || '',
               quantity: item.quantity,
@@ -406,6 +473,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
                     categoryId: item.category_id || null,
+                    locationId: itemLocationId,
+                    locationName: itemLocationName,
                     name: comp.child_name || 'Unknown',
                     sku: comp.child_sku || '',
                     quantity: item.quantity * comp.quantity,
@@ -435,6 +504,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   items.push({
                     budgetItemId: `${item.id}-mod-${component.id}`,
                     categoryId: item.category_id || null,
+                    locationId: itemLocationId,
+                    locationName: itemLocationName,
                     name: component.component?.name || 'Unknown',
                     sku: component.component?.sku || '',
                     quantity: item.quantity * component.quantity,
@@ -458,6 +529,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               items.push({
                 budgetItemId: item.id,
                 categoryId: item.category_id || null,
+                locationId: itemLocationId,
+                locationName: itemLocationName,
                 name: item.equipment?.name || item.name || 'Unknown',
                 sku: item.equipment?.sku || item.sku || '',
                 quantity: item.quantity,
@@ -532,6 +605,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     const newCaseItems: ExpandedItem[] = cases.map(calculatedCase => ({
       budgetItemId: `${budgetItemId}-case-${calculatedCase.caseId}`,
       categoryId: budgetItem.category_id || null,
+      locationId: budgetItem.location_id || null,
+      locationName: budgetItem.location?.name || 'Без локации',
       name: calculatedCase.name,
       sku: calculatedCase.sku,
       quantity: calculatedCase.caseCount,
@@ -575,6 +650,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     const newChildItems: ExpandedItem[] = selectedModules.map(module => ({
       budgetItemId: `${budgetItemId}-podium-${module.id}`,
       categoryId: budgetItem.category_id || null,
+      locationId: budgetItem.location_id || null,
+      locationName: budgetItem.location?.name || 'Без локации',
       name: module.child_name,
       sku: module.child_sku,
       quantity: (budgetItem.quantity || 1) * module.quantity,
@@ -807,6 +884,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       .map(comp => ({
         budgetItemId: `${selectedBudgetItemForMod.id}-mod-${comp.id}-${Date.now()}`,
         categoryId: selectedBudgetItemForMod.category_id || null,
+        locationId: selectedBudgetItemForMod.location_id || null,
+        locationName: selectedBudgetItemForMod.location?.name || 'Без локации',
         name: comp.component?.name || 'Unknown',
         sku: comp.component?.sku || '',
         quantity: componentQuantities[comp.id],
@@ -1333,21 +1412,24 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleExportBudget = () => {
-    const csvRows = [['№', 'Наименование', 'Артикул', 'Категория', 'Количество', 'Ед. изм.', 'Взято', 'Примечания']];
+    const csvRows = [['№', 'Наименование', 'Артикул', 'Локация', 'Категория', 'Количество', 'Ед. изм.', 'Взято', 'Примечания']];
     
     let globalIndex = 1;
-    groups.forEach(group => {
-      group.items.forEach(item => {
-        csvRows.push([
-          globalIndex++,
-          `"${item.name}"`,
-          item.sku,
-          `"${group.name}"`,
-          item.quantity,
-          item.unit,
-          item.picked ? 'Да' : 'Нет',
-          `"${item.notes}"`
-        ]);
+    locationGroups.forEach(locationGroup => {
+      locationGroup.categories.forEach(categoryGroup => {
+        categoryGroup.items.forEach(item => {
+          csvRows.push([
+            String(globalIndex++),
+            `"${item.name}"`,
+            item.sku,
+            `"${item.locationName || locationGroup.locationName || 'Без локации'}"`,
+            `"${categoryGroup.categoryName}"`,
+            String(item.quantity),
+            item.unit,
+            item.picked ? 'Да' : 'Нет',
+            `"${item.notes}"`
+          ]);
+        });
       });
     });
 
@@ -1540,13 +1622,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </div>
 
-              {groups.map((group) => (
-                <div key={group.name} className="mb-4">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
-                    {group.name}
-                  </h3>
-                  <div className="overflow-x-auto rounded border border-gray-800">
-                    <table className="w-full border-collapse">
+              {locationGroups.map((locationGroup) => (
+                <div key={locationGroup.locationId || 'no-location'} className="mb-5">
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-gray-800 bg-gray-800/40">
+                    <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
+                    <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">
+                      {locationGroup.locationName}
+                    </h3>
+                  </div>
+                  {locationGroup.categories.map((group) => (
+                    <div key={`${locationGroup.locationId || 'no-location'}-${group.categoryName}`} className="mb-3">
+                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
+                        {group.categoryName}
+                      </h4>
+                      <div className="overflow-x-auto rounded border border-gray-800">
+                        <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-gray-800/50 border-b border-gray-800">
                           {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
@@ -1666,8 +1756,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           </tr>
                         ))}
                       </tbody>
-                    </table>
-                  </div>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
 
@@ -2124,10 +2216,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 </div>
               </div>
 
-              {extraGroups.length > 0 ? extraGroups.map((group) => (
-                <div key={group.name} className="mb-4">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">{group.name}</h3>
-                  <div className="overflow-x-auto rounded border border-orange-900/40">
+              {extraLocationGroups.length > 0 ? extraLocationGroups.map((locationGroup) => (
+                <div key={locationGroup.locationId || `extra-no-location`} className="mb-4">
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-orange-900/30 bg-orange-900/10">
+                    <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
+                    <h3 className="text-xs font-bold text-orange-300 uppercase tracking-wider">{locationGroup.locationName}</h3>
+                  </div>
+                  {locationGroup.categories.map((group) => (
+                    <div key={`${locationGroup.locationId || 'no-location'}-extra-${group.categoryName}`} className="mb-3">
+                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">{group.categoryName}</h4>
+                      <div className="overflow-x-auto rounded border border-orange-900/40">
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-orange-900/10 border-b border-orange-900/30">
@@ -2176,7 +2274,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )) : (
                 <div className="text-center py-12 text-gray-600 border-2 border-dashed border-orange-900/30 rounded-lg">
