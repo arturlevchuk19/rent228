@@ -747,9 +747,22 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
     if (draggedItem.type === 'item') {
       const { categoryId, locationId } = parseGroupId(targetGroupId);
+      const targetGroupItems = budgetItems
+        .filter((item) => {
+          const groupId = item.category_id
+            ? buildCategoryGroupId(item.category_id, item.location_id)
+            : item.location_id
+              ? buildLocationUncategorizedGroupId(item.location_id)
+              : NO_LOCATION_GROUP_ID;
+          return groupId === targetGroupId && item.id !== draggedItem.id;
+        })
+        .sort((a, b) => a.sort_order - b.sort_order);
+      const nextSortOrder = targetGroupItems.length;
+
       await handleUpdateItem(draggedItem.id, {
         category_id: categoryId,
         location_id: locationId,
+        sort_order: nextSortOrder,
         is_extra: isExtraServiceCategory(categoryId)
       });
     } else if (draggedItem.type === 'category') {
@@ -862,7 +875,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (sourceIndex !== -1 && targetIndex !== -1 && sourceIndex !== targetIndex) {
       const newOrder = [...categoryItems];
       const [movedItem] = newOrder.splice(sourceIndex, 1);
-      newOrder.splice(targetIndex, 0, movedItem);
+      const insertIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+      newOrder.splice(insertIndex, 0, movedItem);
 
       for (let i = 0; i < newOrder.length; i++) {
         await updateBudgetItem(newOrder[i].id, { sort_order: i });

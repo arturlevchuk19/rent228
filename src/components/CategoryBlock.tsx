@@ -490,6 +490,20 @@ export function CategoryBlock({
                 </div>
               );
             })}
+            <div
+              className="h-2 border-t border-dashed border-gray-700/50 hover:border-cyan-500/60 transition-colors"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDragOver?.(e, dragTarget);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDrop?.(e, dragTarget);
+              }}
+              title="Перетащите сюда, чтобы переместить в конец категории"
+            />
           </div>
         </div>
       )}
