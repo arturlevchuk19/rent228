@@ -57,6 +57,13 @@ interface ExpandedItem {
   parentName?: string;
 }
 
+interface QuantityChangeRequest {
+  budgetItemId: string;
+  itemName: string;
+  fromQuantity: number;
+  toQuantity: number;
+}
+
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
 
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
@@ -103,6 +110,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [modifiedItems, setModifiedItems] = useState<Set<string>>(new Set());
   const [savingChanges, setSavingChanges] = useState(false);
   const [inputDraftValues, setInputDraftValues] = useState<Record<string, string>>({});
+  const [pendingQuantityChange, setPendingQuantityChange] = useState<QuantityChangeRequest | null>(null);
 
   const isLedScreenItem = (item: ExpandedItem) => {
     const name = (item.name || '').toLowerCase();
@@ -829,20 +837,31 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       return;
     }
 
-    const itemName = currentItem?.name || 'элемента';
-    const isConfirmed = confirm(
-      `Изменить количество для "${itemName}" с ${currentQuantity} на ${normalizedQuantity}?`
-    );
-    if (!isConfirmed) {
-      return;
-    }
+    setPendingQuantityChange({
+      budgetItemId,
+      itemName: currentItem?.name || 'элемента',
+      fromQuantity: currentQuantity,
+      toQuantity: normalizedQuantity
+    });
+  };
+
+  const applyQuantityChange = () => {
+    if (!pendingQuantityChange) return;
 
     setExpandedItems(expandedItems.map(item =>
-      item.budgetItemId === budgetItemId ? { ...item, quantity: normalizedQuantity } : item
+      item.budgetItemId === pendingQuantityChange.budgetItemId
+        ? { ...item, quantity: pendingQuantityChange.toQuantity }
+        : item
     ));
+
     // Track modified item (extract real budget item ID for composed items)
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = pendingQuantityChange.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
+    setPendingQuantityChange(null);
+  };
+
+  const cancelQuantityChange = () => {
+    setPendingQuantityChange(null);
   };
 
   const handleNotesChange = (budgetItemId: string, newNotes: string) => {
@@ -2338,6 +2357,36 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               onSelect={activeTab === 'extra' ? handleAddExtraEquipment : handleAddEquipment}
               onClose={() => setShowEquipmentSelector(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {pendingQuantityChange && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
+              Подтверждение изменения
+            </h3>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Изменить количество для{' '}
+              <span className="text-white font-medium">«{pendingQuantityChange.itemName}»</span>{' '}
+              с <span className="text-white font-semibold">{pendingQuantityChange.fromQuantity}</span> на{' '}
+              <span className="text-white font-semibold">{pendingQuantityChange.toQuantity}</span>?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={cancelQuantityChange}
+                className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={applyQuantityChange}
+                className="flex-1 px-4 py-2 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 transition-colors"
+              >
+                Подтвердить
+              </button>
+            </div>
           </div>
         </div>
       )}
