@@ -773,6 +773,41 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         return;
       }
 
+      if (target.type === 'category' && destinationGroup.categoryId) {
+        if (sourceGroup.categoryId === destinationGroup.categoryId) {
+          setDraggedItem(null);
+          return;
+        }
+
+        const sourceIndex = categories.findIndex((category) => category.id === sourceGroup.categoryId);
+        const targetIndex = categories.findIndex((category) => category.id === destinationGroup.categoryId);
+
+        if (sourceIndex === -1 || targetIndex === -1) {
+          setDraggedItem(null);
+          return;
+        }
+
+        const reorderedCategories = [...categories];
+        const [movedCategory] = reorderedCategories.splice(sourceIndex, 1);
+        reorderedCategories.splice(targetIndex, 0, movedCategory);
+
+        for (let index = 0; index < reorderedCategories.length; index += 1) {
+          const category = reorderedCategories[index];
+          if (category.sort_order !== index) {
+            await updateCategory(category.id, { sort_order: index });
+          }
+        }
+
+        setCategories(
+          reorderedCategories.map((category, index) => ({
+            ...category,
+            sort_order: index
+          }))
+        );
+        setDraggedItem(null);
+        return;
+      }
+
       const itemsToMove = budgetItems.filter((item) =>
         item.category_id === sourceGroup.categoryId &&
         (item.location_id || null) === (sourceGroup.locationId || null)
