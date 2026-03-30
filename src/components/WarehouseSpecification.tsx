@@ -149,6 +149,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     return name.includes("п-образная конструкция");
   };
 
+  const isTotemBudgetItem = (item: BudgetItem) => {
+    const name = (item.equipment?.name || item.name || "").toLowerCase();
+    return name.includes("тотем");
+  };
+
   const hasModifications = (budgetItemId: string) => {
     // Check if modifications have been applied to this item
     if (itemsWithAppliedModifications.has(budgetItemId)) {
@@ -369,7 +374,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 console.error("Error loading composition for", item.name || item.equipment?.name, ":", error);
               }
             }
-          } else if (isUShapeBudgetItem(item)) {
+          } else if (isUShapeBudgetItem(item) || isTotemBudgetItem(item)) {
             items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
