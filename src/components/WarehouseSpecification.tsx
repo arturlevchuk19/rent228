@@ -57,6 +57,18 @@ interface ExpandedItem {
   parentName?: string;
 }
 
+interface QuantityChangeRequest {
+  budgetItemId: string;
+  itemName: string;
+  fromQuantity: number;
+  toQuantity: number;
+}
+
+interface CustomNotification {
+  message: string;
+  type: 'success' | 'error';
+}
+
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
 
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
@@ -103,6 +115,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [modifiedItems, setModifiedItems] = useState<Set<string>>(new Set());
   const [savingChanges, setSavingChanges] = useState(false);
   const [inputDraftValues, setInputDraftValues] = useState<Record<string, string>>({});
+  const [pendingQuantityChange, setPendingQuantityChange] = useState<QuantityChangeRequest | null>(null);
+  const [notification, setNotification] = useState<CustomNotification | null>(null);
+  const [showSpecificationConfirmDialog, setShowSpecificationConfirmDialog] = useState(false);
+
+  const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
+    setNotification({ message, type });
+    window.setTimeout(() => setNotification(null), 3000);
+  };
 
   const isLedScreenItem = (item: ExpandedItem) => {
     const name = (item.name || '').toLowerCase();
@@ -366,10 +386,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             });
           } else {
             // Non-LED virtual item - expand it into its components
+            let hasExpandedChildren = false;
+
             // Check for composition
             if (item.equipment_id) {
               try {
                 const compositions = await getEquipmentCompositions(item.equipment_id);
+                if (compositions.length > 0) {
+                  hasExpandedChildren = true;
+                }
                 for (const comp of compositions) {
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
@@ -396,6 +421,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             if (item.modification_id) {
               try {
                 const components = await getModificationComponents(item.modification_id);
+                if (components.length > 0) {
+                  hasExpandedChildren = true;
+                }
                 for (const component of components) {
                   items.push({
                     budgetItemId: `${item.id}-mod-${component.id}`,
@@ -416,6 +444,24 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               } catch (error) {
                 console.error('Error loading modification components:', error);
               }
+            }
+
+            // Fallback: if a virtual item has no composition/modification parts, show the item itself
+            if (!hasExpandedChildren) {
+              items.push({
+                budgetItemId: item.id,
+                categoryId: item.category_id || null,
+                name: item.equipment?.name || item.name || 'Unknown',
+                sku: item.equipment?.sku || item.sku || '',
+                quantity: item.quantity,
+                unit: 'шт.',
+                category: item.equipment?.category || 'Other',
+                notes: item.notes || '',
+                picked: item.picked || false,
+                return_picked: item.return_picked || false,
+                isFromComposition: false,
+                isExtra: item.is_extra || false,
+              });
             }
             }
             }
@@ -567,7 +613,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       ));
     } catch (error) {
       console.error('Error updating picked status:', error);
-      alert('Ошибка при обновлении статуса');
+      showNotification('Ошибка при обновлении статуса');
     }
   };
 
@@ -577,7 +623,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setCables(cables.map(c => c.id === id ? { ...c, picked } : c));
     } catch (error) {
       console.error('Error updating cable picked status:', error);
-      alert('Ошибка при обновлении статуса');
+      showNotification('Ошибка при обновлении статуса');
     }
   };
 
@@ -587,20 +633,20 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setConnectors(connectors.map(c => c.id === id ? { ...c, picked } : c));
     } catch (error) {
       console.error('Error updating connector picked status:', error);
-      alert('Ошибка при обновлении статуса');
+      showNotification('Ошибка при обновлении статуса');
     }
   };
 
   const handleConfirmSpecification = async () => {
-    if (!confirm('Подтвердить спецификацию? После подтверждения она будет доступна всем для просмотра.')) return;
-
     try {
       setConfirming(true);
       await confirmSpecification(eventId, user?.id || '');
       setEventDetails({ ...eventDetails, specification_confirmed: true });
+      setShowSpecificationConfirmDialog(false);
+      showNotification('Спецификация подтверждена', 'success');
     } catch (error) {
       console.error('Error confirming specification:', error);
-      alert('Ошибка при подтверждении спецификации');
+      showNotification('Ошибка при подтверждении спецификации');
     } finally {
       setConfirming(false);
     }
@@ -613,7 +659,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setEventDetails({ ...eventDetails, equipment_shipped: true });
     } catch (error) {
       console.error('Error confirming shipment:', error);
-      alert('Ошибка при подтверждении отгрузки');
+      showNotification('Ошибка при подтверждении отгрузки');
     } finally {
       setConfirmingShipment(false);
     }
@@ -626,7 +672,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setEventDetails({ ...eventDetails, equipment_returned: true });
     } catch (error) {
       console.error('Error confirming return:', error);
-      alert('Ошибка при подтверждении приёма');
+      showNotification('Ошибка при подтверждении приёма');
     } finally {
       setConfirmingReturn(false);
     }
@@ -641,7 +687,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       ));
     } catch (error) {
       console.error('Error updating return picked status:', error);
-      alert('Ошибка при обновлении статуса');
+      showNotification('Ошибка при обновлении статуса');
     }
   };
 
@@ -690,7 +736,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       await loadData();
     } catch (error) {
       console.error('Error adding extra equipment:', error);
-      alert('Ошибка при добавлении оборудования');
+      showNotification('Ошибка при добавлении оборудования');
     }
   };
 
@@ -709,7 +755,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         }));
       } catch (error) {
         console.error('Error loading modifications for equipment', budgetItem.equipment_id, ':', error);
-        alert('Ошибка загрузки модификаций');
+        showNotification('Ошибка загрузки модификаций');
         setLoadingModifications(false);
         return;
       }
@@ -814,20 +860,46 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         .filter(i => modifiedItems.has(i.budgetItemId))
         .map(i => ({ id: i.budgetItemId, quantity: i.quantity, notes: i.notes }));
       await loadData(pending);
-      alert(`Добавлено: ${equipment.name} x ${quantity}${modificationId ? ' (с модификацией)' : ''}`);
     } catch (error) {
       console.error('Error adding equipment:', error);
-      alert('Ошибка при добавлении оборудования');
+      showNotification('Ошибка при добавлении оборудования');
     }
   };
 
   const handleQuantityChange = (budgetItemId: string, newQuantity: number) => {
+    const currentItem = expandedItems.find(item => item.budgetItemId === budgetItemId);
+    const currentQuantity = currentItem?.quantity ?? 0;
+    const normalizedQuantity = Math.max(0, newQuantity);
+
+    if (normalizedQuantity === currentQuantity) {
+      return;
+    }
+
+    setPendingQuantityChange({
+      budgetItemId,
+      itemName: currentItem?.name || 'элемента',
+      fromQuantity: currentQuantity,
+      toQuantity: normalizedQuantity
+    });
+  };
+
+  const applyQuantityChange = () => {
+    if (!pendingQuantityChange) return;
+
     setExpandedItems(expandedItems.map(item =>
-      item.budgetItemId === budgetItemId ? { ...item, quantity: Math.max(0, newQuantity) } : item
+      item.budgetItemId === pendingQuantityChange.budgetItemId
+        ? { ...item, quantity: pendingQuantityChange.toQuantity }
+        : item
     ));
+
     // Track modified item (extract real budget item ID for composed items)
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = pendingQuantityChange.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
+    setPendingQuantityChange(null);
+  };
+
+  const cancelQuantityChange = () => {
+    setPendingQuantityChange(null);
   };
 
   const handleNotesChange = (budgetItemId: string, newNotes: string) => {
@@ -1036,16 +1108,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       }
       
       if (errors.length > 0) {
-        alert('Ошибка при сохранении: ' + errors.join(', '));
+        showNotification('Ошибка при сохранении: ' + errors.join(', '));
       } else {
         setModifiedItems(new Set());
-        alert('Изменения сохранены');
+        showNotification('Изменения сохранены', 'success');
         // Перезагружаем данные после успешного сохранения, чтобы получить реальные ID из базы
         await loadData();
       }
     } catch (error) {
       console.error('Error saving changes:', error);
-      alert('Ошибка при сохранении изменений');
+      showNotification('Ошибка при сохранении изменений');
     } finally {
       setSavingChanges(false);
     }
@@ -1073,7 +1145,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       }
     } catch (error) {
       console.error('Error adding cable:', error);
-      alert('Ошибка при добавлении кабеля');
+      showNotification('Ошибка при добавлении кабеля');
     }
   };
 
@@ -1088,7 +1160,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       }
     } catch (error) {
       console.error('Error updating cable:', error);
-      alert('Ошибка при обновлении кабеля');
+      showNotification('Ошибка при обновлении кабеля');
     }
   };
 
@@ -1122,7 +1194,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       }
     } catch (error) {
       console.error('Error adding connector:', error);
-      alert('Ошибка при добавлении коннектора');
+      showNotification('Ошибка при добавлении коннектора');
     }
   };
 
@@ -1137,7 +1209,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       }
     } catch (error) {
       console.error('Error updating connector:', error);
-      alert('Ошибка при обновлении коннектора');
+      showNotification('Ошибка при обновлении коннектора');
     }
   };
 
@@ -1195,7 +1267,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       }
     } catch (error) {
       console.error('Error adding other item:', error);
-      alert('Ошибка при добавлении предмета');
+      showNotification('Ошибка при добавлении предмета');
     }
   };
 
@@ -1210,7 +1282,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       }
     } catch (error) {
       console.error('Error updating other item:', error);
-      alert('Ошибка при обновлении предмета');
+      showNotification('Ошибка при обновлении предмета');
     }
   };
 
@@ -1229,7 +1301,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setOtherItems(otherItems.map(i => i.id === updated.id ? updated : i));
     } catch (error) {
       console.error('Error updating other item picked status:', error);
-      alert('Ошибка при обновлении статуса');
+      showNotification('Ошибка при обновлении статуса');
     }
   };
 
@@ -2136,7 +2208,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             </button>
             {!eventDetails?.specification_confirmed && (
               <button
-                onClick={handleConfirmSpecification}
+                onClick={() => setShowSpecificationConfirmDialog(true)}
                 disabled={confirming}
                 className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -2323,6 +2395,78 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               onSelect={activeTab === 'extra' ? handleAddExtraEquipment : handleAddEquipment}
               onClose={() => setShowEquipmentSelector(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {showSpecificationConfirmDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
+              Подтвердить спецификацию
+            </h3>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              После подтверждения спецификация будет доступна всем для просмотра.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setShowSpecificationConfirmDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleConfirmSpecification}
+                disabled={confirming}
+                className="flex-1 px-4 py-2 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {confirming ? '...' : 'Подтвердить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingQuantityChange && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
+              Подтверждение изменения
+            </h3>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Изменить количество для{' '}
+              <span className="text-white font-medium">«{pendingQuantityChange.itemName}»</span>{' '}
+              с <span className="text-white font-semibold">{pendingQuantityChange.fromQuantity}</span> на{' '}
+              <span className="text-white font-semibold">{pendingQuantityChange.toQuantity}</span>?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={cancelQuantityChange}
+                className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={applyQuantityChange}
+                className="flex-1 px-4 py-2 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 transition-colors"
+              >
+                Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {notification && (
+        <div className="fixed top-4 right-4 z-[80] max-w-sm">
+          <div
+            className={`px-4 py-3 rounded-lg border text-sm shadow-lg ${
+              notification.type === 'success'
+                ? 'bg-emerald-900/90 border-emerald-700 text-emerald-100'
+                : 'bg-red-900/90 border-red-700 text-red-100'
+            }`}
+          >
+            {notification.message}
           </div>
         </div>
       )}
