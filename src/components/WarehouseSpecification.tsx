@@ -219,10 +219,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const buildLocationGroups = (items: ExpandedItem[]) => {
     const categoriesById = new Map(categories.map(cat => [cat.id, cat.name]));
     const locationsById = new Map(locations.map(location => [location.id, location]));
-    const itemsWithLocation = items.filter((item) => !!item.locationId);
 
-    const groupedByLocation = itemsWithLocation.reduce<Record<string, ExpandedItem[]>>((acc, item) => {
-      const key = item.locationId as string;
+    const groupedByLocation = items.reduce<Record<string, ExpandedItem[]>>((acc, item) => {
+      const key = item.locationId || 'no-location';
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
       return acc;
@@ -263,10 +262,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
       const locationData = locationsById.get(locationKey);
       const fallbackLocationName = locationItems.find(item => item.locationName)?.locationName;
+      const isNoLocation = locationKey === 'no-location';
 
       return {
-        locationId: locationData?.id || null,
-        locationName: locationData?.name || fallbackLocationName || '',
+        locationId: isNoLocation ? null : (locationData?.id || null),
+        locationName: isNoLocation ? '' : (locationData?.name || fallbackLocationName || ''),
         locationColor: locationData?.color || '#4b5563',
         categories: sortedCategoryKeys.map(categoryKey => ({
           categoryName: categoryKey === 'uncategorized'
@@ -1623,12 +1623,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
               {locationGroups.map((locationGroup) => (
                 <div key={locationGroup.locationId || 'no-location'} className="mb-5">
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-gray-800 bg-gray-800/40">
-                    <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
-                    <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">
-                      {locationGroup.locationName}
-                    </h3>
-                  </div>
+                  {locationGroup.locationName && (
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-gray-800 bg-gray-800/40">
+                      <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
+                      <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">
+                        {locationGroup.locationName}
+                      </h3>
+                    </div>
+                  )}
                   {locationGroup.categories.map((group) => (
                     <div key={`${locationGroup.locationId || 'no-location'}-${group.categoryName}`} className="mb-3">
                       <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
@@ -2217,10 +2219,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
               {extraLocationGroups.length > 0 ? extraLocationGroups.map((locationGroup) => (
                 <div key={locationGroup.locationId || `extra-no-location`} className="mb-4">
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-orange-900/30 bg-orange-900/10">
-                    <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
-                    <h3 className="text-xs font-bold text-orange-300 uppercase tracking-wider">{locationGroup.locationName}</h3>
-                  </div>
+                  {locationGroup.locationName && (
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-orange-900/30 bg-orange-900/10">
+                      <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
+                      <h3 className="text-xs font-bold text-orange-300 uppercase tracking-wider">{locationGroup.locationName}</h3>
+                    </div>
+                  )}
                   {locationGroup.categories.map((group) => (
                     <div key={`${locationGroup.locationId || 'no-location'}-extra-${group.categoryName}`} className="mb-3">
                       <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">{group.categoryName}</h4>

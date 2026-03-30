@@ -91,8 +91,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const logoDataURL = await loadImageAsDataURL('/image.png');
 
-  const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra && !!item.location_id);
-  const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra && !!item.location_id);
+  const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra);
+  const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra);
 
   const groupedByLocation: Record<string, Record<string, BudgetItem[]>> = {};
   mainBudgetItems.forEach((item) => {
@@ -171,8 +171,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       return a.localeCompare(b, 'ru');
     });
 
-    const locationName = locationNameById.get(locationId) || 'Локация';
-    const locationAccent = locationColorById.get(locationId) || '#14532d';
+    const isNoLocation = locationId === 'no-location';
+    const locationName = isNoLocation ? '' : (locationNameById.get(locationId) || 'Локация');
+    const locationAccent = isNoLocation ? '#4b5563' : (locationColorById.get(locationId) || '#14532d');
 
     let locationHtml = '';
 
@@ -243,14 +244,18 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       `;
     });
 
-    categoriesHtml += `
-      <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+    const locationHeaderHtml = isNoLocation
+      ? ''
+      : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
           <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
           <div style="padding: 5px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent};">
             ${locationName}
           </div>
-        </div>
+        </div>`;
+
+    categoriesHtml += `
+      <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
+        ${locationHeaderHtml}
         ${locationHtml}
         <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
           <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
