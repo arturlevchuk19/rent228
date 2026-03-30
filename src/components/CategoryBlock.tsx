@@ -418,11 +418,23 @@ export function CategoryBlock({
                   </button>
                 </div>
                 {/* Notes row */}
-                {item.notes && (
-                  <div className="px-1.5 py-0.5 bg-gray-800/30 text-[9px] text-gray-500 truncate pl-4">
-                    {item.notes}
-                  </div>
-                )}
+                <div className="px-1.5 py-0.5 bg-gray-800/30 pl-4 border-b border-gray-800/30">
+                  <input
+                    type="text"
+                    value={draftValues[item.id + '_notes'] ?? item.notes ?? ''}
+                    onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_notes']: e.target.value }))}
+                    onBlur={(e) => {
+                      onUpdateItem(item.id, { notes: e.target.value });
+                      setDraftValues(prev => {
+                        const copy = { ...prev };
+                        delete copy[item.id + '_notes'];
+                        return copy;
+                      });
+                    }}
+                    placeholder="Примечание"
+                    className="w-full bg-transparent text-[9px] text-gray-500 placeholder-gray-600 focus:outline-none focus:text-gray-300"
+                  />
+                </div>
               </div>
             ))}
           </div>
