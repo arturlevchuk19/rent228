@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown } from 'lucide-react';
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
-import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification } from '../lib/equipment';
+import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
-import { CategoryBlock } from './CategoryBlock';
+import { CategoryBlock, BudgetDragTarget } from './CategoryBlock';
 import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
@@ -22,8 +22,8 @@ interface BudgetEditorProps {
   onClose: () => void;
 }
 
-interface GroupedItems {
-  [categoryId: string]: BudgetItem[];
+interface GroupedItemsByLocation {
+  [locationCategoryKey: string]: BudgetItem[];
 }
 
 export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps) {
@@ -44,7 +44,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [selectedCategoryForPersonnel, setSelectedCategoryForPersonnel] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [draggedItem, setDraggedItem] = useState<{ type: 'category' | 'item'; id: string } | null>(null);
-  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<BudgetDragTarget | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(new Set());
@@ -511,15 +511,19 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     e.dataTransfer.setData('text/plain', id);
   };
 
-  const handleDragOver = (e: React.DragEvent, targetCategoryId: string) => {
+  const buildLocationCategoryKey = (locationId: string | null | undefined, categoryId: string | null | undefined) => {
+    return `${locationId || 'no-location'}::${categoryId || 'uncategorized'}`;
+  };
+
+  const handleDragOver = (e: React.DragEvent, target: BudgetDragTarget) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    setDragOverTarget(targetCategoryId);
+    setDragOverTarget(target);
     setDragOverItemId(null);
   };
 
-  const handleDrop = async (e: React.DragEvent, targetCategoryId: string) => {
+  const handleDrop = async (e: React.DragEvent, target: BudgetDragTarget) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOverTarget(null);
@@ -528,13 +532,21 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (!draggedItem) return;
 
     if (draggedItem.type === 'item') {
-      const targetCat = targetCategoryId === 'uncategorized' ? null : targetCategoryId;
-      await handleUpdateItem(draggedItem.id, { category_id: targetCat });
+      const updates: Partial<BudgetItem> = {
+        category_id: target.type === 'category' ? target.id : null,
+        location_id: target.type === 'uncategorized' ? null : (target.locationId ?? (target.type === 'location' ? target.id : null))
+      };
+      await handleUpdateItem(draggedItem.id, updates);
     } else if (draggedItem.type === 'category') {
+      if (target.type !== 'category') {
+        setDraggedItem(null);
+        return;
+      }
+
       const sourceCategoryId = draggedItem.id;
-      if (sourceCategoryId !== targetCategoryId) {
+      if (sourceCategoryId !== target.id) {
         const sourceIndex = categories.findIndex(c => c.id === sourceCategoryId);
-        const targetIndex = categories.findIndex(c => c.id === targetCategoryId);
+        const targetIndex = categories.findIndex(c => c.id === target.id);
 
         if (sourceIndex !== -1 && targetIndex !== -1) {
           const newCategories = [...categories];
@@ -553,7 +565,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     setDraggedItem(null);
   };
 
-  const handleDragOverItem = (e: React.DragEvent, itemId: string) => {
+  const handleDragOverItem = (_e: React.DragEvent, itemId: string) => {
     if (draggedItem?.type === 'item') {
       setDragOverItemId(itemId);
     }
@@ -574,20 +586,28 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
     if (!sourceItem || !targetItem) return;
 
-    const sourceCategoryId = sourceItem.category_id || 'uncategorized';
-    const targetCategoryId = targetItem.category_id || 'uncategorized';
+    const sourceLocationId = sourceItem.location_id || null;
+    const targetLocationId = targetItem.location_id || null;
+    const sourceCategoryId = sourceItem.category_id || null;
+    const targetCategoryId = targetItem.category_id || null;
+    const targetLocationCategoryKey = buildLocationCategoryKey(targetLocationId, targetCategoryId);
 
     // Create a working copy with the source item moved to the target category if needed
     let workingItems = [...budgetItems];
-    if (sourceCategoryId !== targetCategoryId) {
-      await updateBudgetItem(sourceItemId, { category_id: targetItem.category_id });
+    if (sourceCategoryId !== targetCategoryId || sourceLocationId !== targetLocationId) {
+      await updateBudgetItem(sourceItemId, {
+        category_id: targetItem.category_id,
+        location_id: targetItem.location_id || null
+      });
       workingItems = budgetItems.map(item =>
-        item.id === sourceItemId ? { ...item, category_id: targetItem.category_id } : item
+        item.id === sourceItemId
+          ? { ...item, category_id: targetItem.category_id, location_id: targetItem.location_id || null }
+          : item
       );
     }
 
     const categoryItems = workingItems
-      .filter(item => (item.category_id || 'uncategorized') === targetCategoryId)
+      .filter(item => buildLocationCategoryKey(item.location_id || null, item.category_id || null) === targetLocationCategoryKey)
       .sort((a, b) => a.sort_order - b.sort_order);
 
     const sourceIndex = categoryItems.findIndex(item => item.id === sourceItemId);
@@ -604,7 +624,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       // Build the final array with items in correct order
       const otherCategoryItems = workingItems.filter(
-        item => (item.category_id || 'uncategorized') !== targetCategoryId
+        item => buildLocationCategoryKey(item.location_id || null, item.category_id || null) !== targetLocationCategoryKey
       );
       const reorderedItems = otherCategoryItems.concat(newOrder);
       setBudgetItems(reorderedItems);
@@ -650,12 +670,22 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     !searchTerm || item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const groupedItems: GroupedItems = budgetItems.reduce((acc, item) => {
-    const catId = item.category_id || 'uncategorized';
-    if (!acc[catId]) acc[catId] = [];
-    acc[catId].push(item);
+  const groupedItemsByLocation: GroupedItemsByLocation = budgetItems.reduce((acc, item) => {
+    const key = buildLocationCategoryKey(item.location_id || null, item.category_id || null);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
     return acc;
-  }, {} as GroupedItems);
+  }, {} as GroupedItemsByLocation);
+
+  const sortedLocationIds = Array.from(new Set(budgetItems.map(item => item.location_id || null))).sort((a, b) => {
+    if (a === b) return 0;
+    if (a === null) return 1;
+    if (b === null) return -1;
+    return a.localeCompare(b);
+  });
+  if (!sortedLocationIds.includes(null)) {
+    sortedLocationIds.push(null);
+  }
 
   const totalUSD = budgetItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const totalBYNCash = budgetItems.reduce((sum, item) =>
@@ -879,70 +909,108 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 </div>
               ) : (
                 <>
-                  {categories.filter(cat => cat.is_template !== true).map(category => {
-                    const categoryItems = groupedItems[category.id] || [];
-                    if (categoryItems.length === 0 && !activeCategoryIds.has(category.id)) return null;
+                  {sortedLocationIds.map((locationId) => {
+                    const locationLabel = locationId ? `Локация ${locationId.slice(0, 8)}` : 'Без локации';
+                    const locationColor = locationId
+                      ? `hsl(${Math.abs(locationId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 360} 70% 45%)`
+                      : undefined;
 
                     return (
-                      <div
-                        key={category.id}
-                        className={`transition-all duration-200 ${dragOverTarget === category.id ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
-                      >
-                        <CategoryBlock
-                          categoryId={category.id}
-                          categoryName={category.name}
-                          items={categoryItems}
-                          isExpanded={expandedCategories[category.id] || false}
-                          isSelected={selectedCategoryId === category.id}
-                          onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, [category.id]: !prev[category.id] }))}
-                          onSelect={() => setSelectedCategoryId(selectedCategoryId === category.id ? null : category.id)}
-                          onUpdateCategoryName={(name) => handleUpdateCategoryName(category.id, name)}
-                          onUpdateItem={handleUpdateItem}
-                          onDeleteItem={handleDeleteItem}
-                          onDeleteCategory={handleDeleteCategory}
-                          onManagePersonnel={handleOpenWorkPersonnelManager}
-                          paymentMode={paymentMode}
-                          exchangeRate={exchangeRate}
-                          onDragStart={handleDragStart}
-                          onDragOver={(e) => handleDragOver(e, category.id)}
-                          onDrop={(e) => handleDrop(e, category.id)}
-                          onDragOverItem={handleDragOverItem}
-                          onDropOnItem={handleDropOnItem}
-                          dragOverItemId={dragOverItemId}
-                          categoryRef={(el) => { categoryRefs.current[category.id] = el; }}
-                        />
+                      <div key={locationId || 'no-location'} className="space-y-1">
+                        <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-500 border-b border-gray-800/70">
+                          {locationLabel}
+                        </div>
+                        {categories.filter(cat => cat.is_template !== true).map(category => {
+                          const key = buildLocationCategoryKey(locationId, category.id);
+                          const categoryItems = (groupedItemsByLocation[key] || []).sort((a, b) => a.sort_order - b.sort_order);
+                          if (categoryItems.length === 0 && (!activeCategoryIds.has(category.id) || locationId !== null)) return null;
+
+                          const isDropTarget = dragOverTarget?.type === 'category'
+                            && dragOverTarget.id === category.id
+                            && (dragOverTarget.locationId || null) === (locationId || null);
+
+                          return (
+                            <div
+                              key={key}
+                              className={`transition-all duration-200 ${isDropTarget ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                            >
+                              <CategoryBlock
+                                categoryId={category.id}
+                                categoryName={category.name}
+                                locationId={locationId}
+                                isLocationContainer={locationId !== null}
+                                locationColor={locationColor}
+                                items={categoryItems}
+                                isExpanded={(expandedCategories[key] ?? expandedCategories[category.id]) || false}
+                                isSelected={selectedCategoryId === key}
+                                onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, [key]: !(prev[key] ?? prev[category.id]) }))}
+                                onSelect={() => setSelectedCategoryId(selectedCategoryId === key ? null : key)}
+                                onUpdateCategoryName={(name) => handleUpdateCategoryName(category.id, name)}
+                                onUpdateItem={handleUpdateItem}
+                                onDeleteItem={handleDeleteItem}
+                                onDeleteCategory={handleDeleteCategory}
+                                onManagePersonnel={handleOpenWorkPersonnelManager}
+                                paymentMode={paymentMode}
+                                exchangeRate={exchangeRate}
+                                onDragStart={handleDragStart}
+                                onDragOver={handleDragOver}
+                                onDrop={handleDrop}
+                                onDragOverItem={handleDragOverItem}
+                                onDropOnItem={handleDropOnItem}
+                                dragOverItemId={dragOverItemId}
+                                categoryRef={(el) => { categoryRefs.current[key] = el; }}
+                              />
+                            </div>
+                          );
+                        })}
+                        {/* Uncategorized items block */}
+                        {(() => {
+                          const uncategorizedKey = buildLocationCategoryKey(locationId, null);
+                          const uncategorizedItems = (groupedItemsByLocation[uncategorizedKey] || []).sort((a, b) => a.sort_order - b.sort_order);
+                          if (uncategorizedItems.length === 0) return null;
+
+                          const uncategorizedTarget: BudgetDragTarget =
+                            locationId === null
+                              ? { type: 'uncategorized', id: 'uncategorized', locationId: null }
+                              : { type: 'location', id: locationId, locationId };
+                          const isDropTarget = dragOverTarget?.type === uncategorizedTarget.type
+                            && dragOverTarget.id === uncategorizedTarget.id;
+
+                          return (
+                            <div
+                              className={`transition-all duration-200 ${isDropTarget ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                            >
+                              <CategoryBlock
+                                categoryId="uncategorized"
+                                categoryName="Без категории"
+                                locationId={locationId}
+                                isLocationContainer={locationId !== null}
+                                locationColor={locationColor}
+                                items={uncategorizedItems}
+                                isExpanded={(expandedCategories[uncategorizedKey] ?? expandedCategories['uncategorized']) || false}
+                                isSelected={selectedCategoryId === uncategorizedKey}
+                                onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, [uncategorizedKey]: !(prev[uncategorizedKey] ?? prev['uncategorized']) }))}
+                                onSelect={() => setSelectedCategoryId(selectedCategoryId === uncategorizedKey ? null : uncategorizedKey)}
+                                onUpdateCategoryName={() => {}}
+                                onUpdateItem={handleUpdateItem}
+                                onDeleteItem={handleDeleteItem}
+                                onDeleteCategory={handleDeleteCategory}
+                                onManagePersonnel={handleOpenWorkPersonnelManager}
+                                paymentMode={paymentMode}
+                                exchangeRate={exchangeRate}
+                                onDragStart={handleDragStart}
+                                onDragOver={handleDragOver}
+                                onDrop={handleDrop}
+                                onDragOverItem={handleDragOverItem}
+                                onDropOnItem={handleDropOnItem}
+                                dragOverItemId={dragOverItemId}
+                              />
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
-                  {/* Uncategorized items block */}
-                  {groupedItems['uncategorized'] && groupedItems['uncategorized'].length > 0 && (
-                    <div
-                      className={`transition-all duration-200 ${dragOverTarget === 'uncategorized' ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
-                    >
-                      <CategoryBlock
-                        categoryId="uncategorized"
-                        categoryName="Без категории"
-                        items={groupedItems['uncategorized']}
-                        isExpanded={expandedCategories['uncategorized'] || false}
-                        isSelected={selectedCategoryId === 'uncategorized'}
-                        onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, ['uncategorized']: !prev['uncategorized'] }))}
-                        onSelect={() => setSelectedCategoryId(selectedCategoryId === 'uncategorized' ? null : 'uncategorized')}
-                        onUpdateCategoryName={() => {}}
-                        onUpdateItem={handleUpdateItem}
-                        onDeleteItem={handleDeleteItem}
-                        onDeleteCategory={handleDeleteCategory}
-                        onManagePersonnel={handleOpenWorkPersonnelManager}
-                        paymentMode={paymentMode}
-                        exchangeRate={exchangeRate}
-                        onDragStart={handleDragStart}
-                        onDragOver={(e) => handleDragOver(e, 'uncategorized')}
-                        onDrop={(e) => handleDrop(e, 'uncategorized')}
-                        onDragOverItem={handleDragOverItem}
-                        onDropOnItem={handleDropOnItem}
-                        dragOverItemId={dragOverItemId}
-                      />
-                    </div>
-                  )}
                 </>
               )}
             </div>

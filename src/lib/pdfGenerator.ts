@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 
 // Интерфейсы данных [cite: 53]
 interface BudgetItem {
-  category_id?: string;
+  category_id?: string | null;
   equipment?: { name: string };
   work_item?: { name: string; unit?: string };
   quantity: number;

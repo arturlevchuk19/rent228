@@ -2,9 +2,18 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, CreditCard as Edit2, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 
+export interface BudgetDragTarget {
+  type: 'category' | 'location' | 'uncategorized';
+  id: string;
+  locationId?: string | null;
+}
+
 interface CategoryBlockProps {
   categoryId: string;
   categoryName: string;
+  locationId?: string | null;
+  isLocationContainer?: boolean;
+  locationColor?: string;
   items: BudgetItem[];
   isExpanded: boolean;
   isSelected?: boolean;
@@ -18,8 +27,8 @@ interface CategoryBlockProps {
   paymentMode: 'usd' | 'byn_cash' | 'byn_noncash';
   exchangeRate: number;
   onDragStart?: (e: React.DragEvent, type: 'category' | 'item', id: string) => void;
-  onDragOver?: (e: React.DragEvent, categoryId: string) => void;
-  onDrop?: (e: React.DragEvent, categoryId: string) => void;
+  onDragOver?: (e: React.DragEvent, target: BudgetDragTarget) => void;
+  onDrop?: (e: React.DragEvent, target: BudgetDragTarget) => void;
   onDragOverItem?: (e: React.DragEvent, itemId: string) => void;
   onDropOnItem?: (e: React.DragEvent, targetItemId: string) => void;
   dragOverItemId?: string | null;
@@ -29,6 +38,9 @@ interface CategoryBlockProps {
 export function CategoryBlock({
   categoryId,
   categoryName,
+  locationId = null,
+  isLocationContainer = false,
+  locationColor,
   items,
   isExpanded,
   isSelected = false,
@@ -146,15 +158,20 @@ export function CategoryBlock({
   const categoryTotal = getCategoryTotal();
 
   const hasWorkItems = items.some(item => item.item_type === 'work');
+  const dragTarget: BudgetDragTarget =
+    categoryId === 'uncategorized'
+      ? { type: isLocationContainer ? 'location' : 'uncategorized', id: locationId || 'uncategorized', locationId }
+      : { type: 'category', id: categoryId, locationId };
 
   return (
     <div
       ref={categoryRef}
       className={`bg-gray-900 border-b border-gray-800 transition-all ${
         isSelected ? 'bg-gray-800/50' : ''
-      }`}
-      onDragOver={(e) => onDragOver?.(e, categoryId)}
-      onDrop={(e) => onDrop?.(e, categoryId)}
+      } ${locationColor ? 'border-l-2' : ''}`}
+      style={locationColor ? { borderLeftColor: locationColor } : undefined}
+      onDragOver={(e) => onDragOver?.(e, dragTarget)}
+      onDrop={(e) => onDrop?.(e, dragTarget)}
     >
       {/* Category header - compact, sticky */}
       <div

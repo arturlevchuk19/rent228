@@ -105,6 +105,7 @@ export interface BudgetItem {
   notes: string;
   exchange_rate: number;
   category_id?: string | null;
+  location_id?: string | null;
   sort_order: number;
   picked: boolean;
   is_extra?: boolean;
