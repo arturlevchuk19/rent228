@@ -228,8 +228,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }, {});
 
     const sortedLocationKeys = Object.keys(groupedByLocation).sort((a, b) => {
-      if (a === 'no-location') return 1;
-      if (b === 'no-location') return -1;
       const indexA = locations.findIndex(location => location.id === a);
       const indexB = locations.findIndex(location => location.id === b);
       const normalizedA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
@@ -262,12 +260,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         return nameA.localeCompare(nameB, 'ru');
       });
 
-      const locationData = locationKey === 'no-location' ? null : locationsById.get(locationKey);
+      const locationData = locationsById.get(locationKey);
       const fallbackLocationName = locationItems.find(item => item.locationName)?.locationName;
+      const isNoLocation = locationKey === 'no-location';
 
       return {
-        locationId: locationData?.id || null,
-        locationName: locationData?.name || fallbackLocationName || 'Без локации',
+        locationId: isNoLocation ? null : (locationData?.id || null),
+        locationName: isNoLocation ? '' : (locationData?.name || fallbackLocationName || ''),
         locationColor: locationData?.color || '#4b5563',
         categories: sortedCategoryKeys.map(categoryKey => ({
           categoryName: categoryKey === 'uncategorized'
@@ -1422,7 +1421,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             String(globalIndex++),
             `"${item.name}"`,
             item.sku,
-            `"${item.locationName || locationGroup.locationName || 'Без локации'}"`,
+            `"${item.locationName || locationGroup.locationName || ''}"`,
             `"${categoryGroup.categoryName}"`,
             String(item.quantity),
             item.unit,
@@ -1624,12 +1623,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
               {locationGroups.map((locationGroup) => (
                 <div key={locationGroup.locationId || 'no-location'} className="mb-5">
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-gray-800 bg-gray-800/40">
-                    <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
-                    <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">
-                      {locationGroup.locationName}
-                    </h3>
-                  </div>
+                  {locationGroup.locationName && (
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-gray-800 bg-gray-800/40">
+                      <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
+                      <h3 className="text-xs font-bold text-gray-200 uppercase tracking-wider">
+                        {locationGroup.locationName}
+                      </h3>
+                    </div>
+                  )}
                   {locationGroup.categories.map((group) => (
                     <div key={`${locationGroup.locationId || 'no-location'}-${group.categoryName}`} className="mb-3">
                       <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
@@ -2218,10 +2219,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
               {extraLocationGroups.length > 0 ? extraLocationGroups.map((locationGroup) => (
                 <div key={locationGroup.locationId || `extra-no-location`} className="mb-4">
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-orange-900/30 bg-orange-900/10">
-                    <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
-                    <h3 className="text-xs font-bold text-orange-300 uppercase tracking-wider">{locationGroup.locationName}</h3>
-                  </div>
+                  {locationGroup.locationName && (
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded mb-2 border border-orange-900/30 bg-orange-900/10">
+                      <span className="w-2 h-6 rounded-full" style={{ backgroundColor: locationGroup.locationColor }} />
+                      <h3 className="text-xs font-bold text-orange-300 uppercase tracking-wider">{locationGroup.locationName}</h3>
+                    </div>
+                  )}
                   {locationGroup.categories.map((group) => (
                     <div key={`${locationGroup.locationId || 'no-location'}-extra-${group.categoryName}`} className="mb-3">
                       <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">{group.categoryName}</h4>

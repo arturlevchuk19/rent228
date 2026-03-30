@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
@@ -30,6 +30,7 @@ interface GroupedItemsByLocation {
 
 const NO_LOCATION_GROUP_ID = 'no-location';
 const UNCATEGORIZED_IN_LOCATION_KEY = 'uncategorized';
+const EXTRA_SERVICE_DESCRIPTION_FLAG = '__extra_service__';
 
 const buildCategoryGroupId = (categoryId: string, locationId?: string | null) =>
   locationId ? `location:${locationId}::category:${categoryId}` : `category:${categoryId}`;
@@ -103,6 +104,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
+  const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
+  const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
 
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -213,6 +216,39 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } catch (error) {
       console.error('Error creating local category copy:', error);
       alert('Ошибка создания категории');
+    }
+  };
+
+  const isExtraServiceCategory = (categoryId: string | null | undefined) => {
+    if (!categoryId) return false;
+    const category = categories.find((item) => item.id === categoryId);
+    return category?.description === EXTRA_SERVICE_DESCRIPTION_FLAG;
+  };
+
+  const handleCreateExtraServiceCategory = async () => {
+    const baseName = 'Дополнительные услуги';
+    const existingNames = categories.map((item) => item.name.trim().toLowerCase());
+    let nextName = baseName;
+    let index = 2;
+    while (existingNames.includes(nextName.toLowerCase())) {
+      nextName = `${baseName} ${index}`;
+      index += 1;
+    }
+
+    try {
+      const category = await createCategory(nextName, EXTRA_SERVICE_DESCRIPTION_FLAG, false, eventId);
+      const groupId = buildCategoryGroupId(category.id);
+      setCategories((prev) => [...prev, category]);
+      setActiveCategoryIds((prev) => {
+        const next = new Set(prev);
+        next.add(groupId);
+        return next;
+      });
+      setExpandedCategories((prev) => ({ ...prev, [groupId]: true }));
+      setSelectedCategoryId(groupId);
+    } catch (error) {
+      console.error('Error creating extra service category:', error);
+      alert('Ошибка создания категории "Дополнительные услуги"');
     }
   };
 
@@ -447,6 +483,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const selectedPlacement = selectedCategoryId ? parseGroupId(selectedCategoryId) : { categoryId: null, locationId: null };
       const targetCategoryId = categoryId || selectedPlacement.categoryId || undefined;
       const targetLocationId = locationId || selectedPlacement.locationId || undefined;
+      const isExtra = isExtraServiceCategory(targetCategoryId);
 
       const newItem = await createBudgetItem({
         event_id: eventId,
@@ -458,7 +495,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         exchange_rate: exchangeRate,
         category_id: targetCategoryId,
         location_id: targetLocationId,
-        notes: customName || ''
+        notes: customName || '',
+        is_extra: isExtra
       });
       const updatedItems = [...budgetItems, newItem];
       setBudgetItems(updatedItems);
@@ -507,6 +545,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const selectedPlacement = selectedCategoryId ? parseGroupId(selectedCategoryId) : { categoryId: null, locationId: null };
       const targetCategoryId = categoryId || selectedPlacement.categoryId || undefined;
       const targetLocationId = selectedPlacement.locationId || undefined;
+      const isExtra = isExtraServiceCategory(targetCategoryId);
 
       const newItem = await createBudgetItem({
         event_id: eventId,
@@ -517,7 +556,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         exchange_rate: exchangeRate,
         category_id: targetCategoryId,
         location_id: targetLocationId,
-        notes: ''
+        notes: '',
+        is_extra: isExtra
       });
       const updatedItems = [...budgetItems, newItem];
       setBudgetItems(updatedItems);
@@ -709,7 +749,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const { categoryId, locationId } = parseGroupId(targetGroupId);
       await handleUpdateItem(draggedItem.id, {
         category_id: categoryId,
-        location_id: locationId
+        location_id: locationId,
+        is_extra: isExtraServiceCategory(categoryId)
       });
     } else if (draggedItem.type === 'category') {
       const sourceGroup = parseGroupId(draggedItem.id);
@@ -789,11 +830,17 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (sourceGroupId !== targetGroupId) {
       await updateBudgetItem(sourceItemId, {
         category_id: targetItem.category_id || null,
-        location_id: targetItem.location_id || null
+        location_id: targetItem.location_id || null,
+        is_extra: isExtraServiceCategory(targetItem.category_id || null)
       });
       workingItems = budgetItems.map(item =>
         item.id === sourceItemId
-          ? { ...item, category_id: targetItem.category_id || null, location_id: targetItem.location_id || null }
+          ? {
+              ...item,
+              category_id: targetItem.category_id || null,
+              location_id: targetItem.location_id || null,
+              is_extra: isExtraServiceCategory(targetItem.category_id || null)
+            }
           : item
       );
     }
@@ -887,16 +934,17 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return acc;
   }, {} as GroupedItemsByLocation);
 
-  const totalUSD = budgetItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const totalBYNCash = budgetItems.reduce((sum, item) =>
+  const mainBudgetItems = budgetItems.filter((item) => !item.is_extra);
+  const totalUSD = mainBudgetItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalBYNCash = mainBudgetItems.reduce((sum, item) =>
     sum + calculateBYNCash(item.price, item.quantity), 0
   );
-  const totalBYNNonCash = budgetItems.reduce((sum, item) =>
+  const totalBYNNonCash = mainBudgetItems.reduce((sum, item) =>
     sum + calculateBYNNonCash(item.price, item.quantity, item), 0
   );
 
-  const nonWorkItems = budgetItems.filter(item => item.item_type !== 'work');
-  const workItems2 = budgetItems.filter(item => item.item_type === 'work');
+  const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');
+  const workItems2 = mainBudgetItems.filter(item => item.item_type === 'work');
 
   const nonWorkTotalUSD = nonWorkItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const nonWorkTotalBYNCash = nonWorkItems.reduce((sum, item) => sum + calculateBYNCash(item.price, item.quantity), 0);
@@ -931,6 +979,58 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       case 'byn_cash': return 'BYN';
       case 'byn_noncash': return 'BYN';
       default: return 'USD';
+    }
+  };
+
+  const handleLocationDragStart = (e: React.DragEvent, locationId: string) => {
+    e.stopPropagation();
+    setDraggedLocationId(locationId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', locationId);
+  };
+
+  const handleLocationDragOver = (e: React.DragEvent, locationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedLocationId && draggedLocationId !== locationId) {
+      setLocationDragOverId(locationId);
+    }
+  };
+
+  const handleLocationDrop = async (e: React.DragEvent, targetLocationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLocationDragOverId(null);
+
+    if (!draggedLocationId || draggedLocationId === targetLocationId) {
+      setDraggedLocationId(null);
+      return;
+    }
+
+    const sourceIndex = locations.findIndex((location) => location.id === draggedLocationId);
+    const targetIndex = locations.findIndex((location) => location.id === targetLocationId);
+
+    if (sourceIndex === -1 || targetIndex === -1) {
+      setDraggedLocationId(null);
+      return;
+    }
+
+    const reordered = [...locations];
+    const [movedLocation] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, movedLocation);
+
+    try {
+      for (let index = 0; index < reordered.length; index += 1) {
+        if (reordered[index].sort_order !== index) {
+          await updateLocation(reordered[index].id, { sort_order: index });
+        }
+      }
+      setLocations(reordered.map((location, index) => ({ ...location, sort_order: index })));
+    } catch (error) {
+      console.error('Error reordering locations:', error);
+      alert('Ошибка изменения порядка локаций');
+    } finally {
+      setDraggedLocationId(null);
     }
   };
 
@@ -1015,6 +1115,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   >
                     <MapPin className="w-3.5 h-3.5" />
                     Добавить локацию
+                  </button>
+                  <button
+                    onClick={handleCreateExtraServiceCategory}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Дополнительные услуги
                   </button>
 
                   <button
@@ -1128,19 +1235,42 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     return (
                       <div
                         key={location.id}
-                        className={`transition-all duration-200 rounded-xl border border-emerald-900/30 ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''}`}
+                        className={`transition-all duration-200 rounded-xl border border-emerald-900/30 ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`}
                         onDragOver={(e) => handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })}
                         onDrop={(e) => handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}
                       >
                         <div
                           className="w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2"
                           style={{ backgroundColor: location.color || '#14532d' }}
+                          onDragOver={(e) => {
+                            if (!draggedLocationId) return;
+                            handleLocationDragOver(e, location.id);
+                          }}
+                          onDrop={(e) => {
+                            if (!draggedLocationId) return;
+                            handleLocationDrop(e, location.id);
+                          }}
                         >
                           <button
                             type="button"
                             className="flex-1 flex items-center gap-2 text-left"
                             onClick={() => setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }))}
                           >
+                            <div
+                              draggable
+                              onDragStart={(e) => handleLocationDragStart(e, location.id)}
+                              onDragOver={(e) => handleLocationDragOver(e, location.id)}
+                              onDrop={(e) => handleLocationDrop(e, location.id)}
+                              className="text-white/70 hover:text-white cursor-move"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <GripVertical className="w-3.5 h-3.5" />
+                            </div>
+                            {(expandedCategories[locationGroupId] ?? true) ? (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            )}
                             <MapPin className="w-3.5 h-3.5" />
                             <span>{location.name}</span>
                           </button>
