@@ -391,10 +391,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             });
           } else {
             // Non-LED virtual item - expand it into its components
+            let hasExpandedChildren = false;
+
             // Check for composition
             if (item.equipment_id) {
               try {
                 const compositions = await getEquipmentCompositions(item.equipment_id);
+                if (compositions.length > 0) {
+                  hasExpandedChildren = true;
+                }
                 for (const comp of compositions) {
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
@@ -421,6 +426,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             if (item.modification_id) {
               try {
                 const components = await getModificationComponents(item.modification_id);
+                if (components.length > 0) {
+                  hasExpandedChildren = true;
+                }
                 for (const component of components) {
                   items.push({
                     budgetItemId: `${item.id}-mod-${component.id}`,
@@ -441,6 +449,24 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               } catch (error) {
                 console.error('Error loading modification components:', error);
               }
+            }
+
+            // Fallback: if a virtual item has no composition/modification parts, show the item itself
+            if (!hasExpandedChildren) {
+              items.push({
+                budgetItemId: item.id,
+                categoryId: item.category_id || null,
+                name: item.equipment?.name || item.name || 'Unknown',
+                sku: item.equipment?.sku || item.sku || '',
+                quantity: item.quantity,
+                unit: 'шт.',
+                category: item.equipment?.category || 'Other',
+                notes: item.notes || '',
+                picked: item.picked || false,
+                return_picked: item.return_picked || false,
+                isFromComposition: false,
+                isExtra: item.is_extra || false,
+              });
             }
             }
             }
