@@ -15,3 +15,5 @@ export type { DialogResult as UShapeLedDialogResult } from './UShapeLedDialog';
 
 export { UShapeUnifiedDialog } from './UShapeUnifiedDialog';
 export type { DialogResult as UShapeUnifiedDialogResult } from './UShapeUnifiedDialog';
+
+export { AddLocationDialog } from './AddLocationDialog';
