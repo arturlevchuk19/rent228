@@ -3,7 +3,7 @@ import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCirc
 import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, updateBudgetItemReturnPicked, confirmSpecification, confirmShipment, confirmReturn, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
-import { Category, getCategories } from '../lib/categories';
+import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
 import { CalculatedCase } from './LedSpecificationPanel';
 import { EquipmentSelector } from './EquipmentSelector';
 import { LedSpecificationPanel } from './LedSpecificationPanel';
@@ -243,9 +243,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
-      const [budgetData, categoriesData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
         getBudgetItems(eventId),
         getCategories(),
+        getCategoriesForEvent(eventId),
         getEquipmentItems(),
         getEvent(eventId),
         getCables(eventId),
@@ -253,7 +254,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         getOtherItems(eventId)
       ]);
 
-      setCategories(categoriesData);
+      const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
+      setCategories(mergedCategories);
       setAllEquipment(equipmentData);
       setEventDetails(event);
       setBudgetItems(budgetData);
