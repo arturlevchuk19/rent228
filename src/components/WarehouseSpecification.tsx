@@ -44,6 +44,8 @@ interface WarehouseSpecificationProps {
 interface ExpandedItem {
   budgetItemId: string;
   categoryId: string | null;
+  locationId?: string | null;
+  locationName?: string | null;
   name: string;
   sku: string;
   quantity: number;
@@ -70,6 +72,17 @@ interface CustomNotification {
 }
 
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
+
+interface CategoryItemsGroup {
+  name: string;
+  items: ExpandedItem[];
+}
+
+interface LocationItemsGroup {
+  locationId: string;
+  locationName: string;
+  categories: CategoryItemsGroup[];
+}
 
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
   const { user } = useAuth();
@@ -212,29 +225,50 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     connectors.every(c => c.return_picked) &&
     otherItems.every(i => i.return_picked);
 
-  const groups = categories
-    .map(cat => ({
-      name: cat.name,
-      items: mainItems.filter(item => item.categoryId === cat.id)
-    }))
-    .filter(g => g.items.length > 0);
+  const buildLocationGroups = (items: ExpandedItem[]): LocationItemsGroup[] => {
+    const locationMap = new Map<string, ExpandedItem[]>();
 
-  const uncategorizedItemsForGroups = mainItems.filter(item => !item.categoryId);
-  if (uncategorizedItemsForGroups.length > 0) {
-    groups.push({ name: 'Без категории', items: uncategorizedItemsForGroups });
-  }
+    items.forEach((item) => {
+      const locationKey = item.locationId || 'without-location';
+      const existing = locationMap.get(locationKey) || [];
+      existing.push(item);
+      locationMap.set(locationKey, existing);
+    });
 
-  const extraGroups = categories
-    .map(cat => ({
-      name: cat.name,
-      items: extraItems.filter(item => item.categoryId === cat.id)
-    }))
-    .filter(g => g.items.length > 0);
+    const sortedLocationKeys = Array.from(locationMap.keys()).sort((a, b) => {
+      if (a === 'without-location') return 1;
+      if (b === 'without-location') return -1;
+      const aName = locationMap.get(a)?.[0]?.locationName || '';
+      const bName = locationMap.get(b)?.[0]?.locationName || '';
+      return aName.localeCompare(bName, 'ru');
+    });
 
-  const uncategorizedExtraItems = extraItems.filter(item => !item.categoryId);
-  if (uncategorizedExtraItems.length > 0) {
-    extraGroups.push({ name: 'Без категории', items: uncategorizedExtraItems });
-  }
+    return sortedLocationKeys.map((locationKey) => {
+      const locationItems = locationMap.get(locationKey) || [];
+      const groupedByCategory = categories
+        .map(cat => ({
+          name: cat.name,
+          items: locationItems.filter(item => item.categoryId === cat.id)
+        }))
+        .filter(g => g.items.length > 0);
+
+      const uncategorizedItems = locationItems.filter(item => !item.categoryId);
+      if (uncategorizedItems.length > 0) {
+        groupedByCategory.push({ name: 'Без категории', items: uncategorizedItems });
+      }
+
+      return {
+        locationId: locationKey,
+        locationName: locationKey === 'without-location'
+          ? 'Без локации'
+          : (locationItems[0]?.locationName || 'Без локации'),
+        categories: groupedByCategory
+      };
+    }).filter(group => group.categories.length > 0);
+  };
+
+  const groups = buildLocationGroups(mainItems);
+  const extraGroups = buildLocationGroups(extraItems);
 
   useEffect(() => {
     loadData();
@@ -280,6 +314,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           items.push({
             budgetItemId: item.id,
             categoryId: item.category_id || null,
+            locationId: item.location_id || null,
+            locationName: item.location?.name || null,
             name: item.name || 'Кейс',
             sku: item.sku || '',
             quantity: item.quantity,
@@ -304,6 +340,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           items.push({
             budgetItemId: item.id,
             categoryId: item.category_id || null,
+            locationId: item.location_id || null,
+            locationName: item.location?.name || null,
             name: item.equipment?.name || item.name || 'Unknown',
             sku: item.equipment?.sku || item.sku || '',
             quantity: item.quantity,
@@ -322,6 +360,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
+              locationId: item.location_id || null,
+              locationName: item.location?.name || null,
               name: item.equipment?.name || 'Unknown',
               sku: item.equipment?.sku || '',
               quantity: item.quantity,
@@ -339,6 +379,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
              items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
+              locationId: item.location_id || null,
+              locationName: item.location?.name || null,
               name: item.name || item.equipment?.name || "Unknown",
               sku: item.equipment?.sku || "",
               quantity: item.quantity,
@@ -359,6 +401,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
                     categoryId: item.category_id || null,
+                    locationId: item.location_id || null,
+                    locationName: item.location?.name || null,
                     name: comp.child_name || "Unknown",
                     sku: comp.child_sku || "",
                     quantity: item.quantity * comp.quantity,
@@ -380,6 +424,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
+              locationId: item.location_id || null,
+              locationName: item.location?.name || null,
               name: item.equipment?.name || item.name || 'Unknown',
               sku: item.equipment?.sku || item.sku || '',
               quantity: item.quantity,
@@ -406,6 +452,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
                     categoryId: item.category_id || null,
+                    locationId: item.location_id || null,
+                    locationName: item.location?.name || null,
                     name: comp.child_name || 'Unknown',
                     sku: comp.child_sku || '',
                     quantity: item.quantity * comp.quantity,
@@ -435,6 +483,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   items.push({
                     budgetItemId: `${item.id}-mod-${component.id}`,
                     categoryId: item.category_id || null,
+                    locationId: item.location_id || null,
+                    locationName: item.location?.name || null,
                     name: component.component?.name || 'Unknown',
                     sku: component.component?.sku || '',
                     quantity: item.quantity * component.quantity,
@@ -458,6 +508,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               items.push({
                 budgetItemId: item.id,
                 categoryId: item.category_id || null,
+                locationId: item.location_id || null,
+                locationName: item.location?.name || null,
                 name: item.equipment?.name || item.name || 'Unknown',
                 sku: item.equipment?.sku || item.sku || '',
                 quantity: item.quantity,
@@ -956,6 +1008,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               event_id: eventId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
+              location_id: caseItem.locationId || null,
               equipment_id: null,
               parent_budget_item_id: budgetItemId,
               name: caseItem.name,
@@ -972,6 +1025,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               event_id: eventId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
+              location_id: caseItem.locationId || null,
               equipment_id: null,
               parent_budget_item_id: budgetItemId,
               name: caseItem.name,
@@ -1013,6 +1067,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 event_id: eventId,
                 item_type: 'equipment',
                 category_id: childItem.categoryId,
+                location_id: childItem.locationId || null,
                 equipment_id: null,
                 parent_budget_item_id: budgetItemId,
                 name: childItem.name,
@@ -1064,6 +1119,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               equipment_id: null,
               work_item_id: null,
               category_id: expandedItem.categoryId,
+              location_id: expandedItem.locationId || null,
               name: expandedItem.name,
               sku: expandedItem.sku,
               quantity: expandedItem.quantity,
@@ -1333,21 +1389,24 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleExportBudget = () => {
-    const csvRows = [['№', 'Наименование', 'Артикул', 'Категория', 'Количество', 'Ед. изм.', 'Взято', 'Примечания']];
+    const csvRows = [['№', 'Наименование', 'Артикул', 'Локация', 'Категория', 'Количество', 'Ед. изм.', 'Взято', 'Примечания']];
     
     let globalIndex = 1;
-    groups.forEach(group => {
-      group.items.forEach(item => {
-        csvRows.push([
-          globalIndex++,
-          `"${item.name}"`,
-          item.sku,
-          `"${group.name}"`,
-          item.quantity,
-          item.unit,
-          item.picked ? 'Да' : 'Нет',
-          `"${item.notes}"`
-        ]);
+    groups.forEach(locationGroup => {
+      locationGroup.categories.forEach(group => {
+        group.items.forEach(item => {
+          csvRows.push([
+            globalIndex++,
+            `"${item.name}"`,
+            item.sku,
+            `"${locationGroup.locationName}"`,
+            `"${group.name}"`,
+            item.quantity,
+            item.unit,
+            item.picked ? 'Да' : 'Нет',
+            `"${item.notes}"`
+          ]);
+        });
       });
     });
 
@@ -1540,15 +1599,22 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </div>
 
-              {groups.map((group) => (
-                <div key={group.name} className="mb-4">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
-                    {group.name}
-                  </h3>
-                  <div className="overflow-x-auto rounded border border-gray-800">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-gray-800/50 border-b border-gray-800">
+              {groups.map((locationGroup) => (
+                <div key={locationGroup.locationId} className="mb-5">
+                  <div className="mb-2 px-3 py-1.5 rounded border-l-4 border-cyan-500 bg-cyan-900/20">
+                    <h3 className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                      Локация: {locationGroup.locationName}
+                    </h3>
+                  </div>
+                  {locationGroup.categories.map((group) => (
+                    <div key={`${locationGroup.locationId}-${group.name}`} className="mb-4">
+                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
+                        {group.name}
+                      </h4>
+                      <div className="overflow-x-auto rounded border border-gray-800">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-gray-800/50 border-b border-gray-800">
                           {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-green-500 uppercase tracking-wider" title="Принято">↩</th>
                           ) : (
@@ -1561,11 +1627,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           {!isWarehouseUser && !eventDetails?.equipment_shipped && (
                             <th className="px-3 py-1.5 text-left text-[10px] text-gray-500 uppercase tracking-wider">Примечания</th>
                           )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {group.items.map((item, index) => (
-                          <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-800">
+                            {group.items.map((item, index) => (
+                              <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
                               {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <input
@@ -1663,11 +1729,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 />
                               </td>
                             )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
 
@@ -2124,13 +2192,20 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 </div>
               </div>
 
-              {extraGroups.length > 0 ? extraGroups.map((group) => (
-                <div key={group.name} className="mb-4">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">{group.name}</h3>
-                  <div className="overflow-x-auto rounded border border-orange-900/40">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-orange-900/10 border-b border-orange-900/30">
+              {extraGroups.length > 0 ? extraGroups.map((locationGroup) => (
+                <div key={locationGroup.locationId} className="mb-5">
+                  <div className="mb-2 px-3 py-1.5 rounded border-l-4 border-orange-500 bg-orange-900/20">
+                    <h3 className="text-xs font-bold text-orange-300 uppercase tracking-wider">
+                      Локация: {locationGroup.locationName}
+                    </h3>
+                  </div>
+                  {locationGroup.categories.map((group) => (
+                    <div key={`${locationGroup.locationId}-${group.name}`} className="mb-4">
+                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">{group.name}</h4>
+                      <div className="overflow-x-auto rounded border border-orange-900/40">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-orange-900/10 border-b border-orange-900/30">
                           {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-green-500" title="Принято">↩</th>
                           ) : (
@@ -2140,11 +2215,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           <th className="px-3 py-1.5 text-left text-[10px] text-gray-500 uppercase">Наименование</th>
                           <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500 uppercase">Кол-во</th>
                           <th className="px-3 py-1.5 text-left w-20 text-[10px] text-gray-500 uppercase">Ед. изм.</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-orange-900/20">
-                        {group.items.map((item, index) => (
-                          <tr key={`${item.budgetItemId}-${index}`} className="bg-orange-900/5 hover:bg-orange-900/15 transition-colors">
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-orange-900/20">
+                            {group.items.map((item, index) => (
+                              <tr key={`${item.budgetItemId}-${index}`} className="bg-orange-900/5 hover:bg-orange-900/15 transition-colors">
                             <td className="px-3 py-1.5 text-center">
                               {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <input
@@ -2172,11 +2247,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                             </td>
                             <td className="px-3 py-1.5 text-center text-xs text-white font-bold">{item.quantity}</td>
                             <td className="px-3 py-1.5 text-xs text-gray-500">{item.unit}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )) : (
                 <div className="text-center py-12 text-gray-600 border-2 border-dashed border-orange-900/30 rounded-lg">
