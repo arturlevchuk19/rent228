@@ -3,7 +3,7 @@ import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCirc
 import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, updateBudgetItemReturnPicked, confirmSpecification, confirmShipment, confirmReturn, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
-import { Category, getCategories } from '../lib/categories';
+import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
 import { CalculatedCase } from './LedSpecificationPanel';
 import { EquipmentSelector } from './EquipmentSelector';
 import { LedSpecificationPanel } from './LedSpecificationPanel';
@@ -149,6 +149,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     return name.includes("п-образная конструкция");
   };
 
+  const isTotemBudgetItem = (item: BudgetItem) => {
+    const name = (item.equipment?.name || item.name || "").toLowerCase();
+    return name.includes("тотем");
+  };
+
   const hasModifications = (budgetItemId: string) => {
     // Check if modifications have been applied to this item
     if (itemsWithAppliedModifications.has(budgetItemId)) {
@@ -238,9 +243,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
-      const [budgetData, categoriesData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
         getBudgetItems(eventId),
         getCategories(),
+        getCategoriesForEvent(eventId),
         getEquipmentItems(),
         getEvent(eventId),
         getCables(eventId),
@@ -248,7 +254,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         getOtherItems(eventId)
       ]);
 
-      setCategories(categoriesData);
+      const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
+      setCategories(mergedCategories);
       setAllEquipment(equipmentData);
       setEventDetails(event);
       setBudgetItems(budgetData);
@@ -369,7 +376,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 console.error("Error loading composition for", item.name || item.equipment?.name, ":", error);
               }
             }
-          } else if (isUShapeBudgetItem(item)) {
+          } else if (isUShapeBudgetItem(item) || isTotemBudgetItem(item)) {
             items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
@@ -391,8 +398,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             // Check for composition
             if (item.equipment_id) {
               try {
-                const compositionsRaw = await getEquipmentCompositions(item.equipment_id);
-                const compositions = Array.isArray(compositionsRaw) ? compositionsRaw : [];
+                const compositions = await getEquipmentCompositions(item.equipment_id);
                 if (compositions.length > 0) {
                   hasExpandedChildren = true;
                 }
@@ -421,8 +427,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             // Check for modifications
             if (item.modification_id) {
               try {
-                const componentsRaw = await getModificationComponents(item.modification_id);
-                const components = Array.isArray(componentsRaw) ? componentsRaw : [];
+                const components = await getModificationComponents(item.modification_id);
                 if (components.length > 0) {
                   hasExpandedChildren = true;
                 }

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown } from 'lucide-react';
+import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, MapPin } from 'lucide-react';
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
-import { Category, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
+import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
+import { Location, createLocation, getLocationsForEvent } from '../lib/locations';
 import { CategoryBlock } from './CategoryBlock';
 import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
@@ -13,7 +14,8 @@ import {
   UShapeUnifiedDialog,
   LedSizeDialog,
   PodiumDialog,
-  TotemDialog
+  TotemDialog,
+  AddLocationDialog
 } from './dialogs';
 
 interface BudgetEditorProps {
@@ -26,10 +28,13 @@ interface GroupedItems {
   [categoryId: string]: BudgetItem[];
 }
 
+const NO_LOCATION_GROUP_ID = 'no-location';
+
 export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps) {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [globalCategories, setGlobalCategories] = useState<Category[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +57,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [showTemplates, setShowTemplates] = useState(false);
   const [showWarehouseSpec, setShowWarehouseSpec] = useState(false);
   const [showExchangeRatePopover, setShowExchangeRatePopover] = useState(false);
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [showLedSizeDialog, setShowLedSizeDialog] = useState(false);
   const [selectedLedEquipment, setSelectedLedEquipment] = useState<EquipmentItem | null>(null);
   
@@ -103,10 +109,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const loadData = async () => {
     try {
       setLoading(true);
-      const [budgetData, globalCategoriesData, eventCategoriesData, equipmentData, workItemsData, eventData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, equipmentData, workItemsData, eventData] = await Promise.all([
         getBudgetItems(eventId),
         getCategories(),
         getCategoriesForEvent(eventId),
+        getLocationsForEvent(eventId),
         getEquipmentItems(),
         getWorkItems(),
         getEvent(eventId)
@@ -114,6 +121,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setBudgetItems(budgetData);
       setGlobalCategories(globalCategoriesData);
       setCategories([...globalCategoriesData, ...eventCategoriesData]);
+      setLocations(locationsData);
       setEquipment(equipmentData);
       setWorkItems(workItemsData);
 
@@ -138,8 +146,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       });
 
       budgetData.forEach(item => {
+        if (item.location_id) {
+          initialActive.add(`location:${item.location_id}`);
+          return;
+        }
+
         if (item.category_id) {
-          initialActive.add(item.category_id);
+          initialActive.add(`category:${item.category_id}`);
+        } else {
+          initialActive.add(NO_LOCATION_GROUP_ID);
         }
       });
 
@@ -153,14 +168,57 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleSelectCategory = async (categoryId: string) => {
+  const handleSelectCategory = async (templateCategory: Category) => {
     setShowCategoryDropdown(false);
 
-    const newActiveCategoryIds = new Set(activeCategoryIds);
-    newActiveCategoryIds.add(categoryId);
-    setActiveCategoryIds(newActiveCategoryIds);
+    try {
+      const localCategory = await createCategory(
+        templateCategory.name,
+        templateCategory.description,
+        false,
+        eventId
+      );
 
-    setExpandedCategories({ ...expandedCategories, [categoryId]: true });
+      setCategories(prev => [...prev, localCategory]);
+      setActiveCategoryIds(prev => {
+        const next = new Set(prev);
+        next.add(`category:${localCategory.id}`);
+        return next;
+      });
+      setExpandedCategories(prev => ({ ...prev, [`category:${localCategory.id}`]: true }));
+      setSelectedCategoryId(`category:${localCategory.id}`);
+    } catch (error) {
+      console.error('Error creating local category copy:', error);
+      alert('Ошибка создания категории');
+    }
+  };
+
+  const handleCreateLocation = async ({ name, color }: { name: string; color: string }) => {
+    const normalizedName = name.trim().toLowerCase();
+    if (!normalizedName) {
+      alert('Название локации обязательно');
+      return;
+    }
+
+    if (locations.some((location) => location.name.trim().toLowerCase() === normalizedName)) {
+      alert('Локация с таким названием уже существует в этом событии');
+      return;
+    }
+
+    try {
+      const newLocation = await createLocation(eventId, name, color);
+      setLocations((prev) => [...prev, newLocation]);
+      setActiveCategoryIds(prev => {
+        const next = new Set(prev);
+        next.add(`location:${newLocation.id}`);
+        return next;
+      });
+      setExpandedCategories(prev => ({ ...prev, [`location:${newLocation.id}`]: true }));
+      setSelectedCategoryId(`location:${newLocation.id}`);
+    } catch (error) {
+      console.error('Error creating location:', error);
+      alert('Ошибка создания локации');
+    }
   };
 
   const isLedScreen = (equipmentItem: EquipmentItem) => {
@@ -227,7 +285,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setShowUShapeUnifiedDialog(true);
       return;
     }
-    await handleAddItem(equipmentItem, 1, undefined, selectedCategoryId || undefined);
+    await handleAddItem(equipmentItem, 1, undefined, selectedCategoryId?.startsWith('category:') ? selectedCategoryId.replace('category:', '') : undefined);
   };
   const handleLedSizeConfirm = (result: { quantity: number; customName: string; customPrice: number }) => {
     if (!selectedLedEquipment) return;
@@ -235,7 +293,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       selectedLedEquipment,
       result.quantity,
       undefined,
-      selectedCategoryId || undefined,
+      selectedCategoryId?.startsWith('category:') ? selectedCategoryId.replace('category:', '') : undefined,
       result.customName,
       result.customPrice
     );
@@ -249,7 +307,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       selectedPodiumEquipment,
       result.quantity,
       undefined,
-      selectedCategoryId || undefined,
+      selectedCategoryId?.startsWith('category:') ? selectedCategoryId.replace('category:', '') : undefined,
       result.customName,
       result.customPrice
     );
@@ -263,7 +321,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       selectedTotemEquipment,
       result.quantity,
       undefined,
-      selectedCategoryId || undefined,
+      selectedCategoryId?.startsWith('category:') ? selectedCategoryId.replace('category:', '') : undefined,
       result.customName,
       result.customPrice
     );
@@ -277,7 +335,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       selectedUShapeEquipment,
       result.quantity,
       undefined,
-      selectedCategoryId || undefined,
+      selectedCategoryId?.startsWith('category:') ? selectedCategoryId.replace('category:', '') : undefined,
       result.customName,
       result.customPrice
     );
@@ -287,7 +345,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const handleAddItem = async (equipmentItem: EquipmentItem, quantity: number = 1, modificationId?: string, categoryId?: string, customName?: string, customPrice?: number) => {
     try {
-      const targetCategoryId = categoryId || selectedCategoryId || undefined;
+      const selectedCategoryKey = selectedCategoryId?.startsWith('category:') ? selectedCategoryId.replace('category:', '') : undefined;
+      const targetCategoryId = categoryId || selectedCategoryKey || undefined;
 
       const newItem = await createBudgetItem({
         event_id: eventId,
@@ -306,11 +365,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       if (targetCategoryId) {
         const newActiveCategoryIds = new Set(activeCategoryIds);
-        newActiveCategoryIds.add(targetCategoryId);
+        newActiveCategoryIds.add(`category:${targetCategoryId}`);
         setActiveCategoryIds(newActiveCategoryIds);
 
-        if (!expandedCategories[targetCategoryId]) {
-          setExpandedCategories({ ...expandedCategories, [targetCategoryId]: true });
+        const categoryGroupId = `category:${targetCategoryId}`;
+        if (!expandedCategories[categoryGroupId]) {
+          setExpandedCategories({ ...expandedCategories, [categoryGroupId]: true });
         }
       }
 
@@ -337,7 +397,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const handleAddWorkItem = async (workItem: WorkItem, categoryId?: string) => {
     try {
-      const targetCategoryId = categoryId || selectedCategoryId || undefined;
+      const selectedCategoryKey = selectedCategoryId?.startsWith('category:') ? selectedCategoryId.replace('category:', '') : undefined;
+      const targetCategoryId = categoryId || selectedCategoryKey || undefined;
 
       const newItem = await createBudgetItem({
         event_id: eventId,
@@ -355,12 +416,17 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       if (targetCategoryId) {
         const newActiveCategoryIds = new Set(activeCategoryIds);
-        newActiveCategoryIds.add(targetCategoryId);
+        newActiveCategoryIds.add(`category:${targetCategoryId}`);
+        setActiveCategoryIds(newActiveCategoryIds);
+      } else {
+        const newActiveCategoryIds = new Set(activeCategoryIds);
+        newActiveCategoryIds.add(NO_LOCATION_GROUP_ID);
         setActiveCategoryIds(newActiveCategoryIds);
 
-        if (!expandedCategories[targetCategoryId]) {
-          setExpandedCategories({ ...expandedCategories, [targetCategoryId]: true });
-        }
+      }
+
+      if (targetCategoryId && !expandedCategories[`category:${targetCategoryId}`]) {
+        setExpandedCategories({ ...expandedCategories, [`category:${targetCategoryId}`]: true });
       }
 
       setTimeout(() => {
@@ -418,10 +484,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setCategories(categories.filter(cat => cat.id !== categoryId));
       setActiveCategoryIds(prev => {
         const newSet = new Set(prev);
-        newSet.delete(categoryId);
+        newSet.delete(`category:${categoryId}`);
         return newSet;
       });
-      setSelectedCategoryId(prev => prev === categoryId ? null : prev);
+      setSelectedCategoryId(prev => prev === `category:${categoryId}` ? null : prev);
     } catch (error: any) {
       console.error('Error deleting category:', error);
       alert(`Ошибка удаления категории: ${error.message}`);
@@ -475,7 +541,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         venueName: event.venues?.name,
         clientName: event.clients?.organization,
         organizerName: event.organizers?.full_name,
-        budgetItems: budgetItems,
+        budgetItems: budgetItems as any,
         categories: categories,
         exchangeRate: exchangeRate,
         paymentMode: paymentMode,
@@ -513,13 +579,26 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (!draggedItem) return;
 
     if (draggedItem.type === 'item') {
-      const targetCat = targetCategoryId === 'uncategorized' ? null : targetCategoryId;
-      await handleUpdateItem(draggedItem.id, { category_id: targetCat });
+      if (targetCategoryId.startsWith('location:')) {
+        await handleUpdateItem(draggedItem.id, { location_id: targetCategoryId.replace('location:', '') });
+      } else if (targetCategoryId === NO_LOCATION_GROUP_ID) {
+        await handleUpdateItem(draggedItem.id, { location_id: null });
+      } else if (targetCategoryId.startsWith('category:')) {
+        await handleUpdateItem(draggedItem.id, {
+          category_id: targetCategoryId.replace('category:', ''),
+          location_id: null
+        });
+      }
     } else if (draggedItem.type === 'category') {
+      if (!targetCategoryId.startsWith('category:')) {
+        setDraggedItem(null);
+        return;
+      }
       const sourceCategoryId = draggedItem.id;
-      if (sourceCategoryId !== targetCategoryId) {
+      const normalizedTargetCategoryId = targetCategoryId.replace('category:', '');
+      if (sourceCategoryId !== normalizedTargetCategoryId) {
         const sourceIndex = categories.findIndex(c => c.id === sourceCategoryId);
-        const targetIndex = categories.findIndex(c => c.id === targetCategoryId);
+        const targetIndex = categories.findIndex(c => c.id === normalizedTargetCategoryId);
 
         if (sourceIndex !== -1 && targetIndex !== -1) {
           const newCategories = [...categories];
@@ -544,9 +623,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleDropOnItem = async (e: React.DragEvent, targetItemId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDropOnItem = async (_e: React.DragEvent, targetItemId: string) => {
+    _e.preventDefault();
+    _e.stopPropagation();
     setDragOverItemId(null);
 
     if (!draggedItem || draggedItem.type !== 'item') return;
@@ -559,20 +638,40 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
     if (!sourceItem || !targetItem) return;
 
-    const sourceCategoryId = sourceItem.category_id || 'uncategorized';
-    const targetCategoryId = targetItem.category_id || 'uncategorized';
+    const sourceGroupId = sourceItem.location_id
+      ? `location:${sourceItem.location_id}`
+      : sourceItem.category_id
+        ? `category:${sourceItem.category_id}`
+        : NO_LOCATION_GROUP_ID;
+    const targetGroupId = targetItem.location_id
+      ? `location:${targetItem.location_id}`
+      : targetItem.category_id
+        ? `category:${targetItem.category_id}`
+        : NO_LOCATION_GROUP_ID;
 
     // Create a working copy with the source item moved to the target category if needed
     let workingItems = [...budgetItems];
-    if (sourceCategoryId !== targetCategoryId) {
-      await updateBudgetItem(sourceItemId, { category_id: targetItem.category_id });
+    if (sourceGroupId !== targetGroupId) {
+      await updateBudgetItem(sourceItemId, {
+        category_id: targetItem.category_id || null,
+        location_id: targetItem.location_id || null
+      });
       workingItems = budgetItems.map(item =>
-        item.id === sourceItemId ? { ...item, category_id: targetItem.category_id } : item
+        item.id === sourceItemId
+          ? { ...item, category_id: targetItem.category_id || null, location_id: targetItem.location_id || null }
+          : item
       );
     }
 
     const categoryItems = workingItems
-      .filter(item => (item.category_id || 'uncategorized') === targetCategoryId)
+      .filter(item => {
+        const groupId = item.location_id
+          ? `location:${item.location_id}`
+          : item.category_id
+            ? `category:${item.category_id}`
+            : NO_LOCATION_GROUP_ID;
+        return groupId === targetGroupId;
+      })
       .sort((a, b) => a.sort_order - b.sort_order);
 
     const sourceIndex = categoryItems.findIndex(item => item.id === sourceItemId);
@@ -589,7 +688,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       // Build the final array with items in correct order
       const otherCategoryItems = workingItems.filter(
-        item => (item.category_id || 'uncategorized') !== targetCategoryId
+        item => {
+          const groupId = item.location_id
+            ? `location:${item.location_id}`
+            : item.category_id
+              ? `category:${item.category_id}`
+              : NO_LOCATION_GROUP_ID;
+          return groupId !== targetGroupId;
+        }
       );
       const reorderedItems = otherCategoryItems.concat(newOrder);
       setBudgetItems(reorderedItems);
@@ -636,9 +742,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   );
 
   const groupedItems: GroupedItems = budgetItems.reduce((acc, item) => {
-    const catId = item.category_id || 'uncategorized';
-    if (!acc[catId]) acc[catId] = [];
-    acc[catId].push(item);
+    const groupId = item.location_id
+      ? `location:${item.location_id}`
+      : item.category_id
+        ? `category:${item.category_id}`
+        : NO_LOCATION_GROUP_ID;
+    if (!acc[groupId]) acc[groupId] = [];
+    acc[groupId].push(item);
     return acc;
   }, {} as GroupedItems);
 
@@ -764,6 +874,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     <Plus className="w-3.5 h-3.5" />
                     Добавить категорию
                   </button>
+                  <button
+                    onClick={() => setShowLocationDialog(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium rounded-lg transition-all shadow-lg shadow-emerald-900/20"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    Добавить локацию
+                  </button>
 
                   <button
                     onClick={() => setShowTemplates(true)}
@@ -779,7 +896,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     {globalCategories.map(category => (
                       <button
                         key={category.id}
-                        onClick={() => handleSelectCategory(category.id)}
+                        onClick={() => handleSelectCategory(category)}
                         className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors rounded-lg"
                       >
                         {category.name}
@@ -865,22 +982,23 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               ) : (
                 <>
                   {categories.filter(cat => cat.is_template !== true).map(category => {
-                    const categoryItems = groupedItems[category.id] || [];
-                    if (categoryItems.length === 0 && !activeCategoryIds.has(category.id)) return null;
+                    const categoryGroupId = `category:${category.id}`;
+                    const categoryItems = groupedItems[categoryGroupId] || [];
+                    if (categoryItems.length === 0 && !activeCategoryIds.has(categoryGroupId)) return null;
 
                     return (
                       <div
                         key={category.id}
-                        className={`transition-all duration-200 ${dragOverTarget === category.id ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                        className={`transition-all duration-200 ${dragOverTarget === categoryGroupId ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
                       >
                         <CategoryBlock
                           categoryId={category.id}
                           categoryName={category.name}
                           items={categoryItems}
-                          isExpanded={expandedCategories[category.id] || false}
-                          isSelected={selectedCategoryId === category.id}
-                          onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, [category.id]: !prev[category.id] }))}
-                          onSelect={() => setSelectedCategoryId(selectedCategoryId === category.id ? null : category.id)}
+                          isExpanded={expandedCategories[categoryGroupId] || false}
+                          isSelected={selectedCategoryId === categoryGroupId}
+                          onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, [categoryGroupId]: !prev[categoryGroupId] }))}
+                          onSelect={() => setSelectedCategoryId(selectedCategoryId === categoryGroupId ? null : categoryGroupId)}
                           onUpdateCategoryName={(name) => handleUpdateCategoryName(category.id, name)}
                           onUpdateItem={handleUpdateItem}
                           onDeleteItem={handleDeleteItem}
@@ -889,8 +1007,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                           paymentMode={paymentMode}
                           exchangeRate={exchangeRate}
                           onDragStart={handleDragStart}
-                          onDragOver={(e) => handleDragOver(e, category.id)}
-                          onDrop={(e) => handleDrop(e, category.id)}
+                          onDragOver={(e) => handleDragOver(e, categoryGroupId)}
+                          onDrop={(e) => handleDrop(e, categoryGroupId)}
                           onDragOverItem={handleDragOverItem}
                           onDropOnItem={handleDropOnItem}
                           dragOverItemId={dragOverItemId}
@@ -899,19 +1017,53 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                       </div>
                     );
                   })}
-                  {/* Uncategorized items block */}
-                  {groupedItems['uncategorized'] && groupedItems['uncategorized'].length > 0 && (
+                  {locations.map((location) => {
+                    const locationGroupId = `location:${location.id}`;
+                    const locationItems = groupedItems[locationGroupId] || [];
+                    if (locationItems.length === 0 && !activeCategoryIds.has(locationGroupId)) return null;
+
+                    return (
+                      <div
+                        key={location.id}
+                        className={`transition-all duration-200 ${dragOverTarget === locationGroupId ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                      >
+                        <CategoryBlock
+                          categoryId={locationGroupId}
+                          categoryName={`📍 ${location.name}`}
+                          items={locationItems}
+                          isExpanded={expandedCategories[locationGroupId] || false}
+                          isSelected={selectedCategoryId === locationGroupId}
+                          onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }))}
+                          onSelect={() => setSelectedCategoryId(selectedCategoryId === locationGroupId ? null : locationGroupId)}
+                          onUpdateCategoryName={() => {}}
+                          onUpdateItem={handleUpdateItem}
+                          onDeleteItem={handleDeleteItem}
+                          paymentMode={paymentMode}
+                          exchangeRate={exchangeRate}
+                          onDragStart={handleDragStart}
+                          onDragOver={(e) => handleDragOver(e, locationGroupId)}
+                          onDrop={(e) => handleDrop(e, locationGroupId)}
+                          onDragOverItem={handleDragOverItem}
+                          onDropOnItem={handleDropOnItem}
+                          dragOverItemId={dragOverItemId}
+                          headerStyle={{ backgroundColor: location.color || '#14532d' }}
+                          headerClassName="hover:brightness-110"
+                        />
+                      </div>
+                    );
+                  })}
+                  {groupedItems[NO_LOCATION_GROUP_ID] && groupedItems[NO_LOCATION_GROUP_ID].length > 0 && (
                     <div
-                      className={`transition-all duration-200 ${dragOverTarget === 'uncategorized' ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                      className={`transition-all duration-200 ${dragOverTarget === NO_LOCATION_GROUP_ID ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
                     >
                       <CategoryBlock
-                        categoryId="uncategorized"
-                        categoryName="Без категории"
-                        items={groupedItems['uncategorized']}
-                        isExpanded={expandedCategories['uncategorized'] || false}
-                        isSelected={selectedCategoryId === 'uncategorized'}
-                        onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, ['uncategorized']: !prev['uncategorized'] }))}
-                        onSelect={() => setSelectedCategoryId(selectedCategoryId === 'uncategorized' ? null : 'uncategorized')}
+                        categoryId={NO_LOCATION_GROUP_ID}
+                        categoryName="Без локации / категории"
+                        items={groupedItems[NO_LOCATION_GROUP_ID]}
+                        isExpanded={expandedCategories[NO_LOCATION_GROUP_ID] || false}
+                        isSelected={selectedCategoryId === NO_LOCATION_GROUP_ID}
+                        onToggleExpand={() => setExpandedCategories(prev => ({ ...prev, [NO_LOCATION_GROUP_ID]: !prev[NO_LOCATION_GROUP_ID] }))}
+                        onSelect={() => setSelectedCategoryId(selectedCategoryId === NO_LOCATION_GROUP_ID ? null : NO_LOCATION_GROUP_ID)}
                         onUpdateCategoryName={() => {}}
                         onUpdateItem={handleUpdateItem}
                         onDeleteItem={handleDeleteItem}
@@ -920,8 +1072,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                         paymentMode={paymentMode}
                         exchangeRate={exchangeRate}
                         onDragStart={handleDragStart}
-                        onDragOver={(e) => handleDragOver(e, 'uncategorized')}
-                        onDrop={(e) => handleDrop(e, 'uncategorized')}
+                        onDragOver={(e) => handleDragOver(e, NO_LOCATION_GROUP_ID)}
+                        onDrop={(e) => handleDrop(e, NO_LOCATION_GROUP_ID)}
                         onDragOverItem={handleDragOverItem}
                         onDropOnItem={handleDropOnItem}
                         dragOverItemId={dragOverItemId}
@@ -1118,7 +1270,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       {/* Modals */}
       {workPersonnelManagerOpen && selectedCategoryForPersonnel && (
         <WorkPersonnelManager
-          workItems={budgetItems.filter(item => item.item_type === 'work' && (selectedCategoryForPersonnel === 'uncategorized' ? !item.category_id : item.category_id === selectedCategoryForPersonnel))}
+          workItems={budgetItems.filter((item) => {
+            if (item.item_type !== 'work') return false;
+            if (selectedCategoryForPersonnel === NO_LOCATION_GROUP_ID) return !item.category_id && !item.location_id;
+            if (selectedCategoryForPersonnel.startsWith('category:')) {
+              return item.category_id === selectedCategoryForPersonnel.replace('category:', '');
+            }
+            return item.category_id === selectedCategoryForPersonnel;
+          })}
           onClose={() => { setWorkPersonnelManagerOpen(false); setSelectedCategoryForPersonnel(null); }}
           onSave={handleWorkPersonnelSave}
           paymentMode={paymentMode}
@@ -1141,6 +1300,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           onClose={() => setShowWarehouseSpec(false)}
         />
       )}
+
+      <AddLocationDialog
+        isOpen={showLocationDialog}
+        existingNames={locations.map((location) => location.name)}
+        onClose={() => setShowLocationDialog(false)}
+        onConfirm={handleCreateLocation}
+      />
 
       {showLedSizeDialog && selectedLedEquipment && (
         <LedSizeDialog

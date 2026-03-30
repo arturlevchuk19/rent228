@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, CreditCard as Edit2, Check, X, GripVertical, Users, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, CreditCard as Edit2, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 
 interface CategoryBlockProps {
@@ -24,6 +24,8 @@ interface CategoryBlockProps {
   onDropOnItem?: (e: React.DragEvent, targetItemId: string) => void;
   dragOverItemId?: string | null;
   categoryRef?: (el: HTMLDivElement | null) => void;
+  headerStyle?: React.CSSProperties;
+  headerClassName?: string;
 }
 
 export function CategoryBlock({
@@ -47,11 +49,14 @@ export function CategoryBlock({
   onDragOverItem,
   onDropOnItem,
   dragOverItemId,
-  categoryRef
+  categoryRef,
+  headerStyle,
+  headerClassName
 }: CategoryBlockProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(categoryName);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -157,9 +162,10 @@ export function CategoryBlock({
     >
       {/* Category header - compact, sticky */}
       <div
+        style={headerStyle}
         className={`flex items-center gap-1 px-1.5 py-1 transition-colors cursor-pointer sticky top-0 z-10 ${
           isSelected ? 'bg-cyan-900/20' : 'bg-gray-900 hover:bg-gray-800'
-        }`}
+        } ${headerClassName || ''}`}
         onClick={onSelect}
       >
         {categoryId !== 'uncategorized' && (
@@ -297,22 +303,24 @@ export function CategoryBlock({
 
           {/* Items */}
           <div>
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="group"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onDragOverItem?.(e, item.id);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onDropOnItem?.(e, item.id);
-                }}
-              >
-                <div className={`flex items-center gap-0.5 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}>
+            {items.map((item) => {
+              const isNoteEditorOpen = noteEditorsOpen[item.id] ?? Boolean(item.notes);
+              return (
+                <div
+                  key={item.id}
+                  className="group"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDragOverItem?.(e, item.id);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDropOnItem?.(e, item.id);
+                  }}
+                >
+                  <div className={`flex items-center gap-0.5 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}>
                   <div
                     draggable
                     onDragStart={(e) => {
@@ -411,20 +419,60 @@ export function CategoryBlock({
 
                   <button
                     type="button"
+                    onClick={() => setNoteEditorsOpen(prev => ({ ...prev, [item.id]: !isNoteEditorOpen }))}
+                    className={`transition-opacity w-5 flex justify-center flex-shrink-0 ${isNoteEditorOpen || item.notes ? 'text-cyan-500 hover:text-cyan-400 opacity-100' : 'text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100'}`}
+                    title="Примечание"
+                  >
+                    <MessageSquarePlus className="w-3 h-3" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => onDeleteItem(item.id)}
                     className="text-red-500/50 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity w-5 flex justify-center flex-shrink-0"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
-                {/* Notes row */}
-                {item.notes && (
-                  <div className="px-1.5 py-0.5 bg-gray-800/30 text-[9px] text-gray-500 truncate pl-4">
-                    {item.notes}
-                  </div>
-                )}
-              </div>
-            ))}
+                  {/* Notes row */}
+                  {isNoteEditorOpen && (
+                    <div className="px-1.5 py-0.5 bg-gray-800/30 pl-4 border-b border-gray-800/30 flex items-center gap-1">
+                      <input
+                        type="text"
+                        value={draftValues[item.id + '_notes'] ?? item.notes ?? ''}
+                        onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_notes']: e.target.value }))}
+                        onBlur={(e) => {
+                          onUpdateItem(item.id, { notes: e.target.value });
+                          setDraftValues(prev => {
+                            const copy = { ...prev };
+                            delete copy[item.id + '_notes'];
+                            return copy;
+                          });
+                        }}
+                        placeholder="Примечание"
+                        className="flex-1 bg-transparent text-[9px] text-gray-500 placeholder-gray-600 focus:outline-none focus:text-gray-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdateItem(item.id, { notes: '' });
+                          setDraftValues(prev => {
+                            const copy = { ...prev };
+                            delete copy[item.id + '_notes'];
+                            return copy;
+                          });
+                          setNoteEditorsOpen(prev => ({ ...prev, [item.id]: false }));
+                        }}
+                        className="text-red-500/60 hover:text-red-400"
+                        title="Удалить примечание"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
