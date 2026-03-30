@@ -3,7 +3,7 @@ import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown } fro
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
-import { Category, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
+import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
 import { CategoryBlock } from './CategoryBlock';
 import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
@@ -153,14 +153,29 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleSelectCategory = async (categoryId: string) => {
+  const handleSelectCategory = async (templateCategory: Category) => {
     setShowCategoryDropdown(false);
 
-    const newActiveCategoryIds = new Set(activeCategoryIds);
-    newActiveCategoryIds.add(categoryId);
-    setActiveCategoryIds(newActiveCategoryIds);
+    try {
+      const localCategory = await createCategory(
+        templateCategory.name,
+        templateCategory.description,
+        false,
+        eventId
+      );
 
-    setExpandedCategories({ ...expandedCategories, [categoryId]: true });
+      setCategories(prev => [...prev, localCategory]);
+      setActiveCategoryIds(prev => {
+        const next = new Set(prev);
+        next.add(localCategory.id);
+        return next;
+      });
+      setExpandedCategories(prev => ({ ...prev, [localCategory.id]: true }));
+      setSelectedCategoryId(localCategory.id);
+    } catch (error) {
+      console.error('Error creating local category copy:', error);
+      alert('Ошибка создания категории');
+    }
   };
 
   const isLedScreen = (equipmentItem: EquipmentItem) => {
@@ -779,7 +794,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     {globalCategories.map(category => (
                       <button
                         key={category.id}
-                        onClick={() => handleSelectCategory(category.id)}
+                        onClick={() => handleSelectCategory(category)}
                         className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors rounded-lg"
                       >
                         {category.name}
