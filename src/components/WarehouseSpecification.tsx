@@ -219,17 +219,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const buildLocationGroups = (items: ExpandedItem[]) => {
     const categoriesById = new Map(categories.map(cat => [cat.id, cat.name]));
     const locationsById = new Map(locations.map(location => [location.id, location]));
+    const itemsWithLocation = items.filter((item) => !!item.locationId);
 
-    const groupedByLocation = items.reduce<Record<string, ExpandedItem[]>>((acc, item) => {
-      const key = item.locationId || 'no-location';
+    const groupedByLocation = itemsWithLocation.reduce<Record<string, ExpandedItem[]>>((acc, item) => {
+      const key = item.locationId as string;
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
       return acc;
     }, {});
 
     const sortedLocationKeys = Object.keys(groupedByLocation).sort((a, b) => {
-      if (a === 'no-location') return 1;
-      if (b === 'no-location') return -1;
       const indexA = locations.findIndex(location => location.id === a);
       const indexB = locations.findIndex(location => location.id === b);
       const normalizedA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
@@ -262,12 +261,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         return nameA.localeCompare(nameB, 'ru');
       });
 
-      const locationData = locationKey === 'no-location' ? null : locationsById.get(locationKey);
+      const locationData = locationsById.get(locationKey);
       const fallbackLocationName = locationItems.find(item => item.locationName)?.locationName;
 
       return {
         locationId: locationData?.id || null,
-        locationName: locationData?.name || fallbackLocationName || 'Без локации',
+        locationName: locationData?.name || fallbackLocationName || '',
         locationColor: locationData?.color || '#4b5563',
         categories: sortedCategoryKeys.map(categoryKey => ({
           categoryName: categoryKey === 'uncategorized'
@@ -1422,7 +1421,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             String(globalIndex++),
             `"${item.name}"`,
             item.sku,
-            `"${item.locationName || locationGroup.locationName || 'Без локации'}"`,
+            `"${item.locationName || locationGroup.locationName || ''}"`,
             `"${categoryGroup.categoryName}"`,
             String(item.quantity),
             item.unit,

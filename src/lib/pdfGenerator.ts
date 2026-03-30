@@ -91,8 +91,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const logoDataURL = await loadImageAsDataURL('/image.png');
 
-  const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra);
-  const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra);
+  const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra && !!item.location_id);
+  const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra && !!item.location_id);
 
   const groupedByLocation: Record<string, Record<string, BudgetItem[]>> = {};
   mainBudgetItems.forEach((item) => {
@@ -171,12 +171,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       return a.localeCompare(b, 'ru');
     });
 
-    const locationName = locationId === 'no-location'
-      ? 'Без локации'
-      : (locationNameById.get(locationId) || 'Локация');
-    const locationAccent = locationId === 'no-location'
-      ? '#6b7280'
-      : (locationColorById.get(locationId) || '#14532d');
+    const locationName = locationNameById.get(locationId) || 'Локация';
+    const locationAccent = locationColorById.get(locationId) || '#14532d';
 
     let locationHtml = '';
 
@@ -276,6 +272,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const extraCategoriesHtml = Object.entries(extraGrouped).map(([categoryId, items]) => {
       const category = data.categories.find((c) => c.id === categoryId);
       const categoryName = category?.name || 'Дополнительные услуги';
+      let categoryTotal = 0;
       const rows = items.map((item) => {
         const name = item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
@@ -284,6 +281,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const unit = item.work_item?.unit || 'шт';
         const price = calculatePrice(item.price || 0, item);
         const total = price * qty;
+        categoryTotal += total;
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
             <td style="padding: 5px 8px; font-size: 12px; color: #ffffff; width: 60%;">${displayName}</td>
@@ -298,7 +296,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <div style="margin-bottom: 14px;">
           <div style="font-size: 12px; font-weight: 700; color: #c4b5fd; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
           <table style="width: 100%; border-collapse: collapse;">
-            <tbody>${rows}</tbody>
+            <tbody>
+              ${rows}
+              <tr style="background: rgba(255,255,255,0.06);">
+                <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">ИТОГО ПО РАЗДЕЛУ:</td>
+                <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #ffffff;">${categoryTotal.toFixed(0)}${currencySuffix}</td>
+              </tr>
+            </tbody>
           </table>
         </div>
       `;
@@ -306,9 +310,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     extraServicesHtml = `
       <section style="margin-top: 20px; padding: 12px 14px; border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 10px; background: rgba(91, 33, 182, 0.08);">
-        <div style="font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #ddd6fe; margin-bottom: 8px;">
-          Дополнительные услуги (для ознакомления)
-        </div>
         ${extraCategoriesHtml}
       </section>
     `;
