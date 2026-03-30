@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, MapPin } from 'lucide-react';
+import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, MapPin, Pencil, Trash2 } from 'lucide-react';
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
-import { Location, createLocation, getLocationsForEvent } from '../lib/locations';
+import { Location, createLocation, getLocationsForEvent, updateLocation, deleteLocation } from '../lib/locations';
 import { CategoryBlock, type BudgetDragTarget } from './CategoryBlock';
 import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
@@ -241,6 +241,77 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } catch (error) {
       console.error('Error creating location:', error);
       alert('Ошибка создания локации');
+    }
+  };
+
+  const handleUpdateLocation = async (location: Location) => {
+    const rawName = window.prompt('Введите новое название локации', location.name);
+    if (rawName === null) return;
+
+    const name = rawName.trim();
+    if (!name) {
+      alert('Название локации обязательно');
+      return;
+    }
+
+    if (
+      locations.some(
+        (item) => item.id !== location.id && item.name.trim().toLowerCase() === name.toLowerCase()
+      )
+    ) {
+      alert('Локация с таким названием уже существует в этом событии');
+      return;
+    }
+
+    try {
+      const updated = await updateLocation(location.id, { name });
+      setLocations((prev) => prev.map((item) => (item.id === location.id ? updated : item)));
+    } catch (error: any) {
+      console.error('Error updating location:', error);
+      alert(`Ошибка обновления локации: ${error.message}`);
+    }
+  };
+
+  const handleDeleteLocation = async (location: Location) => {
+    if (!window.confirm(`Удалить локацию «${location.name}» и все категории/позиции внутри?`)) {
+      return;
+    }
+
+    try {
+      const itemsToDelete = budgetItems.filter((item) => item.location_id === location.id);
+
+      for (const item of itemsToDelete) {
+        await deleteBudgetItem(item.id);
+      }
+
+      await deleteLocation(location.id);
+
+      setBudgetItems((prev) => prev.filter((item) => item.location_id !== location.id));
+      setLocations((prev) => prev.filter((item) => item.id !== location.id));
+      setActiveCategoryIds((prev) => {
+        const next = new Set<string>();
+        prev.forEach((groupId) => {
+          if (!groupId.startsWith(`location:${location.id}`)) {
+            next.add(groupId);
+          }
+        });
+        return next;
+      });
+      setExpandedCategories((prev) => {
+        const next: Record<string, boolean> = {};
+        Object.entries(prev).forEach(([groupId, isExpanded]) => {
+          if (!groupId.startsWith(`location:${location.id}`)) {
+            next[groupId] = isExpanded;
+          }
+        });
+        return next;
+      });
+      setSelectedCategoryId((prev) =>
+        prev && prev.startsWith(`location:${location.id}`) ? null : prev
+      );
+    } catch (error: any) {
+      console.error('Error deleting location:', error);
+      alert(`Ошибка удаления локации: ${error.message}`);
     }
   };
 
@@ -672,6 +743,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       setActiveCategoryIds((prev) => {
         const next = new Set(prev);
+        next.delete(buildCategoryGroupId(sourceGroup.categoryId!, sourceGroup.locationId));
         next.add(buildCategoryGroupId(sourceGroup.categoryId!, destinationGroup.locationId));
         return next;
       });
@@ -1060,15 +1132,37 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                         onDragOver={(e) => handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })}
                         onDrop={(e) => handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}
                       >
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-xs font-semibold text-white flex items-center gap-2"
+                        <div
+                          className="w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2"
                           style={{ backgroundColor: location.color || '#14532d' }}
-                          onClick={() => setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }))}
                         >
-                          <MapPin className="w-3.5 h-3.5" />
-                          {location.name}
-                        </button>
+                          <button
+                            type="button"
+                            className="flex-1 flex items-center gap-2 text-left"
+                            onClick={() => setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }))}
+                          >
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>{location.name}</span>
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              title="Переименовать локацию"
+                              className="p-1 rounded hover:bg-black/20"
+                              onClick={() => handleUpdateLocation(location)}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Удалить локацию"
+                              className="p-1 rounded hover:bg-black/20"
+                              onClick={() => handleDeleteLocation(location)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
 
                         {(expandedCategories[locationGroupId] ?? true) && (
                           <div className="pl-2 border-l border-emerald-900/30">
