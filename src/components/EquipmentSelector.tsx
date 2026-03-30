@@ -101,8 +101,8 @@ export function EquipmentSelector({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100]">
-      <div className="bg-gray-900 border border-gray-700 w-full sm:max-w-2xl sm:rounded-lg rounded-t-xl max-h-[92vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[100] p-2 sm:p-4">
+      <div className="bg-gray-900 border border-gray-700 w-full sm:max-w-2xl rounded-xl max-h-[92vh] sm:max-h-[88vh] overflow-hidden flex flex-col mt-2 sm:mt-6">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
           <h2 className="text-lg font-bold text-white">Выбрать оборудование</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1">

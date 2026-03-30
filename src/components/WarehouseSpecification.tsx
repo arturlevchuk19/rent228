@@ -814,7 +814,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         .filter(i => modifiedItems.has(i.budgetItemId))
         .map(i => ({ id: i.budgetItemId, quantity: i.quantity, notes: i.notes }));
       await loadData(pending);
-      alert(`Добавлено: ${equipment.name} x ${quantity}${modificationId ? ' (с модификацией)' : ''}`);
     } catch (error) {
       console.error('Error adding equipment:', error);
       alert('Ошибка при добавлении оборудования');
@@ -822,8 +821,24 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleQuantityChange = (budgetItemId: string, newQuantity: number) => {
+    const currentItem = expandedItems.find(item => item.budgetItemId === budgetItemId);
+    const currentQuantity = currentItem?.quantity ?? 0;
+    const normalizedQuantity = Math.max(0, newQuantity);
+
+    if (normalizedQuantity === currentQuantity) {
+      return;
+    }
+
+    const itemName = currentItem?.name || 'элемента';
+    const isConfirmed = confirm(
+      `Изменить количество для "${itemName}" с ${currentQuantity} на ${normalizedQuantity}?`
+    );
+    if (!isConfirmed) {
+      return;
+    }
+
     setExpandedItems(expandedItems.map(item =>
-      item.budgetItemId === budgetItemId ? { ...item, quantity: Math.max(0, newQuantity) } : item
+      item.budgetItemId === budgetItemId ? { ...item, quantity: normalizedQuantity } : item
     ));
     // Track modified item (extract real budget item ID for composed items)
     const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
