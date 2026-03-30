@@ -25,6 +25,7 @@ export function EquipmentSelector({
   const [modifications, setModifications] = useState<EquipmentModification[]>([]);
   const [selectedModification, setSelectedModification] = useState<string | null>(null);
   const [loadingModifications, setLoadingModifications] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -41,7 +42,8 @@ export function EquipmentSelector({
       setCategories(['Все', ...categoriesData]);
     } catch (error) {
       console.error('Error loading equipment:', error);
-      alert('Ошибка загрузки оборудования');
+      setErrorMessage('Ошибка загрузки оборудования');
+      window.setTimeout(() => setErrorMessage(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -111,6 +113,11 @@ export function EquipmentSelector({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {errorMessage && (
+            <div className="px-3 py-2 rounded-lg bg-red-900/40 border border-red-700 text-red-200 text-sm">
+              {errorMessage}
+            </div>
+          )}
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
