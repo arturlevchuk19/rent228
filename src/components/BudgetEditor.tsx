@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, MapPin } from 'lucide-react';
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
-import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification } from '../lib/equipment';
+import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
 import { Location, createLocation, getLocationsForEvent } from '../lib/locations';
@@ -24,8 +24,8 @@ interface BudgetEditorProps {
   onClose: () => void;
 }
 
-interface GroupedItems {
-  [categoryId: string]: BudgetItem[];
+interface GroupedItemsByLocation {
+  [locationCategoryKey: string]: BudgetItem[];
 }
 
 const NO_LOCATION_GROUP_ID = 'no-location';
@@ -49,7 +49,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [selectedCategoryForPersonnel, setSelectedCategoryForPersonnel] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [draggedItem, setDraggedItem] = useState<{ type: 'category' | 'item'; id: string } | null>(null);
-  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<BudgetDragTarget | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(new Set());
@@ -562,15 +562,19 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     e.dataTransfer.setData('text/plain', id);
   };
 
-  const handleDragOver = (e: React.DragEvent, targetCategoryId: string) => {
+  const buildLocationCategoryKey = (locationId: string | null | undefined, categoryId: string | null | undefined) => {
+    return `${locationId || 'no-location'}::${categoryId || 'uncategorized'}`;
+  };
+
+  const handleDragOver = (e: React.DragEvent, target: BudgetDragTarget) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    setDragOverTarget(targetCategoryId);
+    setDragOverTarget(target);
     setDragOverItemId(null);
   };
 
-  const handleDrop = async (e: React.DragEvent, targetCategoryId: string) => {
+  const handleDrop = async (e: React.DragEvent, target: BudgetDragTarget) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOverTarget(null);
@@ -617,7 +621,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     setDraggedItem(null);
   };
 
-  const handleDragOverItem = (e: React.DragEvent, itemId: string) => {
+  const handleDragOverItem = (_e: React.DragEvent, itemId: string) => {
     if (draggedItem?.type === 'item') {
       setDragOverItemId(itemId);
     }
@@ -750,7 +754,17 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (!acc[groupId]) acc[groupId] = [];
     acc[groupId].push(item);
     return acc;
-  }, {} as GroupedItems);
+  }, {} as GroupedItemsByLocation);
+
+  const sortedLocationIds = Array.from(new Set(budgetItems.map(item => item.location_id || null))).sort((a, b) => {
+    if (a === b) return 0;
+    if (a === null) return 1;
+    if (b === null) return -1;
+    return a.localeCompare(b);
+  });
+  if (!sortedLocationIds.includes(null)) {
+    sortedLocationIds.push(null);
+  }
 
   const totalUSD = budgetItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const totalBYNCash = budgetItems.reduce((sum, item) =>
