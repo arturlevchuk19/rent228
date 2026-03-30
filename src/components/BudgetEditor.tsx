@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown } from 'lucide-react';
-import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent } from '../lib/events';
+import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -103,12 +103,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const loadData = async () => {
     try {
       setLoading(true);
-      const [budgetData, globalCategoriesData, eventCategoriesData, equipmentData, workItemsData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, equipmentData, workItemsData, eventData] = await Promise.all([
         getBudgetItems(eventId),
         getCategories(),
         getCategoriesForEvent(eventId),
         getEquipmentItems(),
-        getWorkItems()
+        getWorkItems(),
+        getEvent(eventId)
       ]);
       setBudgetItems(budgetData);
       setGlobalCategories(globalCategoriesData);
@@ -118,6 +119,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       if (budgetData.length > 0 && budgetData[0].exchange_rate) {
         setExchangeRate(budgetData[0].exchange_rate);
+      }
+
+      // Load discount settings from event
+      if (eventData.discount_enabled !== undefined) {
+        setDiscountEnabled(eventData.discount_enabled);
+      }
+      if (eventData.discount_percent !== undefined) {
+        setDiscountPercent(eventData.discount_percent);
+        setDiscountPercentInput(eventData.discount_percent.toString());
       }
 
       const initialExpanded: Record<string, boolean> = {};
@@ -433,6 +443,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const handleSave = async () => {
     try {
       setSaving(true);
+
+      // Save discount settings to event
+      await updateEvent(eventId, {
+        discount_enabled: discountEnabled,
+        discount_percent: discountPercent
+      });
 
       for (const item of budgetItems) {
         await updateBudgetItem(item.id, { exchange_rate: exchangeRate });

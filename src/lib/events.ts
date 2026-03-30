@@ -59,6 +59,8 @@ export interface Event {
   equipment_shipped_at?: string;
   equipment_returned?: boolean;
   equipment_returned_at?: string;
+  discount_enabled?: boolean;
+  discount_percent?: number;
   venues?: Venue;
   clients?: Client;
   organizers?: Organizer;
