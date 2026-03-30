@@ -10,6 +10,14 @@ export interface Location {
   updated_at: string;
 }
 
+function isMissingLocationsTable(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return false;
+  }
+
+  return (error as { code?: string }).code === 'PGRST205';
+}
+
 export async function getLocationsForEvent(eventId: string): Promise<Location[]> {
   const { data, error } = await supabase
     .from('locations')
@@ -17,6 +25,10 @@ export async function getLocationsForEvent(eventId: string): Promise<Location[]>
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
+
+  if (error && isMissingLocationsTable(error)) {
+    return [];
+  }
 
   if (error) throw error;
   return data || [];
