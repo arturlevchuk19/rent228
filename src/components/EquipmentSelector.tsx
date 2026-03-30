@@ -25,6 +25,7 @@ export function EquipmentSelector({
   const [modifications, setModifications] = useState<EquipmentModification[]>([]);
   const [selectedModification, setSelectedModification] = useState<string | null>(null);
   const [loadingModifications, setLoadingModifications] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -41,7 +42,8 @@ export function EquipmentSelector({
       setCategories(['Все', ...categoriesData]);
     } catch (error) {
       console.error('Error loading equipment:', error);
-      alert('Ошибка загрузки оборудования');
+      setErrorMessage('Ошибка загрузки оборудования');
+      window.setTimeout(() => setErrorMessage(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -101,8 +103,8 @@ export function EquipmentSelector({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100]">
-      <div className="bg-gray-900 border border-gray-700 w-full sm:max-w-2xl sm:rounded-lg rounded-t-xl max-h-[92vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[100] p-2 sm:p-4">
+      <div className="bg-gray-900 border border-gray-700 w-full sm:max-w-2xl rounded-xl max-h-[92vh] sm:max-h-[88vh] overflow-hidden flex flex-col mt-2 sm:mt-6">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
           <h2 className="text-lg font-bold text-white">Выбрать оборудование</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
@@ -111,6 +113,11 @@ export function EquipmentSelector({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {errorMessage && (
+            <div className="px-3 py-2 rounded-lg bg-red-900/40 border border-red-700 text-red-200 text-sm">
+              {errorMessage}
+            </div>
+          )}
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
