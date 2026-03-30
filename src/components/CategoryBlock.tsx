@@ -33,6 +33,8 @@ interface CategoryBlockProps {
   onDropOnItem?: (e: React.DragEvent, targetItemId: string) => void;
   dragOverItemId?: string | null;
   categoryRef?: (el: HTMLDivElement | null) => void;
+  headerStyle?: React.CSSProperties;
+  headerClassName?: string;
 }
 
 export function CategoryBlock({
@@ -59,7 +61,9 @@ export function CategoryBlock({
   onDragOverItem,
   onDropOnItem,
   dragOverItemId,
-  categoryRef
+  categoryRef,
+  headerStyle,
+  headerClassName
 }: CategoryBlockProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(categoryName);
@@ -175,9 +179,10 @@ export function CategoryBlock({
     >
       {/* Category header - compact, sticky */}
       <div
+        style={headerStyle}
         className={`flex items-center gap-1 px-1.5 py-1 transition-colors cursor-pointer sticky top-0 z-10 ${
           isSelected ? 'bg-cyan-900/20' : 'bg-gray-900 hover:bg-gray-800'
-        }`}
+        } ${headerClassName || ''}`}
         onClick={onSelect}
       >
         {categoryId !== 'uncategorized' && (
