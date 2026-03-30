@@ -16,6 +16,7 @@ interface BudgetItem {
   price: number;
   total: number;
   notes?: string;
+  is_extra?: boolean;
 }
 
 interface Category {
@@ -90,8 +91,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const logoDataURL = await loadImageAsDataURL('/image.png');
 
+  const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra);
+  const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra);
+
   const groupedByLocation: Record<string, Record<string, BudgetItem[]>> = {};
-  data.budgetItems.forEach((item) => {
+  mainBudgetItems.forEach((item) => {
     const locationId = item.location_id || 'no-location';
     const categoryId = item.category_id || 'uncategorized';
     if (!groupedByLocation[locationId]) {
@@ -176,6 +180,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     let locationHtml = '';
 
+    let locationTotal = 0;
+
     sortedCategoryIds.forEach(catId => {
       const items = groupedByCategory[catId];
       const category = data.categories.find(c => c.id === catId);
@@ -210,6 +216,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         grandTotalNonWork += categorySum;
       }
       grandTotal += categorySum;
+      locationTotal += categorySum;
 
       locationHtml += `
        <div style="margin-bottom: 20px;">
@@ -249,9 +256,63 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           </div>
         </div>
         ${locationHtml}
+        <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
+          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
+          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotal.toFixed(0)}${currencySuffix}</span>
+        </div>
       </section>
     `;
   });
+
+  let extraServicesHtml = '';
+  if (extraBudgetItems.length > 0) {
+    const extraGrouped = extraBudgetItems.reduce<Record<string, BudgetItem[]>>((acc, item) => {
+      const categoryId = item.category_id || 'uncategorized-extra';
+      if (!acc[categoryId]) acc[categoryId] = [];
+      acc[categoryId].push(item);
+      return acc;
+    }, {});
+
+    const extraCategoriesHtml = Object.entries(extraGrouped).map(([categoryId, items]) => {
+      const category = data.categories.find((c) => c.id === categoryId);
+      const categoryName = category?.name || 'Дополнительные услуги';
+      const rows = items.map((item) => {
+        const name = item.equipment?.name || item.work_item?.name || '—';
+        const notes = item.notes?.trim();
+        const displayName = notes ? `${name} ${notes}` : name;
+        const qty = item.quantity || 0;
+        const unit = item.work_item?.unit || 'шт';
+        const price = calculatePrice(item.price || 0, item);
+        const total = price * qty;
+        return `
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <td style="padding: 5px 8px; font-size: 12px; color: #ffffff; width: 60%;">${displayName}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: right; color: #ffffff; width: 15%;">${price.toFixed(0)}${currencySuffix}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${total.toFixed(0)}${currencySuffix}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div style="margin-bottom: 14px;">
+          <div style="font-size: 12px; font-weight: 700; color: #c4b5fd; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    extraServicesHtml = `
+      <section style="margin-top: 20px; padding: 12px 14px; border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 10px; background: rgba(91, 33, 182, 0.08);">
+        <div style="font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #ddd6fe; margin-bottom: 8px;">
+          Дополнительные услуги (для ознакомления)
+        </div>
+        ${extraCategoriesHtml}
+      </section>
+    `;
+  }
 
   // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
   const clientHtml = data.clientName ? `
@@ -330,6 +391,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         </div>` : ''}
       </div>
     </footer>
+    ${extraServicesHtml}
   `;
 
   document.body.appendChild(container);
