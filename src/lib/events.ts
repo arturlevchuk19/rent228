@@ -395,18 +395,48 @@ export async function deleteOrganizer(id: string): Promise<void> {
   if (error) throw error;
 }
 
+const BUDGET_ITEM_BASE_SELECT = `
+  *,
+  equipment:equipment_items (*),
+  work_item:work_items (*)
+`;
+
+const BUDGET_ITEM_SELECT_WITH_LOCATION = `
+  ${BUDGET_ITEM_BASE_SELECT},
+  location:locations (*)
+`;
+
+function isMissingBudgetLocationRelation(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error) || !('message' in error)) {
+    return false;
+  }
+
+  const code = (error as { code?: string }).code;
+  const message = (error as { message?: string }).message ?? '';
+  return code === 'PGRST200' && message.includes("budget_items") && message.includes("locations");
+}
+
 export async function getBudgetItems(eventId: string): Promise<BudgetItem[]> {
-  const { data, error } = await supabase
+  const query = () => supabase
     .from('budget_items')
-    .select(`
-      *,
-      equipment:equipment_items (*),
-      work_item:work_items (*),
-      location:locations (*)
-    `)
+    .select(BUDGET_ITEM_SELECT_WITH_LOCATION)
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
+
+  const { data, error } = await query();
+
+  if (error && isMissingBudgetLocationRelation(error)) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('budget_items')
+      .select(BUDGET_ITEM_BASE_SELECT)
+      .eq('event_id', eventId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (fallbackError) throw fallbackError;
+    return fallbackData || [];
+  }
 
   if (error) throw error;
   return data || [];
@@ -416,12 +446,7 @@ export async function createBudgetItem(item: Partial<BudgetItem>): Promise<Budge
   const { data, error } = await supabase
     .from('budget_items')
     .insert(item)
-    .select(`
-      *,
-      equipment:equipment_items (*),
-      work_item:work_items (*),
-      location:locations (*)
-    `)
+    .select(BUDGET_ITEM_BASE_SELECT)
     .single();
 
   if (error) throw error;
@@ -433,12 +458,7 @@ export async function updateBudgetItem(id: string, item: Partial<BudgetItem>): P
     .from('budget_items')
     .update(item)
     .eq('id', id)
-    .select(`
-      *,
-      equipment:equipment_items (*),
-      work_item:work_items (*),
-      location:locations (*)
-    `)
+    .select(BUDGET_ITEM_BASE_SELECT)
     .single();
 
   if (error) throw error;
