@@ -718,12 +718,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleConnectorPickedChange = async (id: string, picked: boolean) => {
+  const handleConnectorGroupPickedChange = async (connectorType: string, picked: boolean) => {
+    const sameTypeConnectors = connectors.filter(c => c.connector_type === connectorType);
+    if (sameTypeConnectors.length === 0) return;
+
     try {
-      await updateConnector(id, { picked });
-      setConnectors(connectors.map(c => c.id === id ? { ...c, picked } : c));
+      await Promise.all(sameTypeConnectors.map(connector => updateConnector(connector.id, { picked })));
+      setConnectors(prev => prev.map(c => c.connector_type === connectorType ? { ...c, picked } : c));
     } catch (error) {
-      console.error('Error updating connector picked status:', error);
+      console.error('Error updating grouped connector picked status:', error);
       showNotification('Ошибка при обновлении статуса');
     }
   };
@@ -803,12 +806,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleConnectorReturnPickedChange = async (id: string, return_picked: boolean) => {
+  const handleConnectorGroupReturnPickedChange = async (connectorType: string, return_picked: boolean) => {
+    const sameTypeConnectors = connectors.filter(c => c.connector_type === connectorType);
+    if (sameTypeConnectors.length === 0) return;
+
     try {
-      await updateConnectorReturnPicked(id, return_picked);
-      setConnectors(prev => prev.map(c => c.id === id ? { ...c, return_picked } : c));
+      await Promise.all(sameTypeConnectors.map(connector => updateConnectorReturnPicked(connector.id, return_picked)));
+      setConnectors(prev => prev.map(c => c.connector_type === connectorType ? { ...c, return_picked } : c));
     } catch (error) {
-      console.error('Error updating connector return picked:', error);
+      console.error('Error updating grouped connector return picked:', error);
+      showNotification('Ошибка при обновлении статуса');
     }
   };
 
@@ -845,13 +852,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         group: 'cables' as const
       }));
 
-    const connectorsPending = connectors
+    const connectorsPendingByType = new Map<string, PendingConfirmationItem>();
+    connectors
       .filter(item => !isPicked(item.picked, item.return_picked))
-      .map(item => ({
-        id: `connector-${item.id}`,
-        name: fallbackName(normalizeText(item.connector_type), `Коннектор #${item.id.slice(0, 8)}`),
-        group: 'connectors' as const
-      }));
+      .forEach(item => {
+        const normalizedType = normalizeText(item.connector_type);
+        const key = normalizedType || item.id;
+        if (!connectorsPendingByType.has(key)) {
+          connectorsPendingByType.set(key, {
+            id: `connector-${key}`,
+            name: fallbackName(normalizedType, `Коннектор #${item.id.slice(0, 8)}`),
+            group: 'connectors'
+          });
+        }
+      });
+    const connectorsPending = Array.from(connectorsPendingByType.values());
 
     const otherPending = otherItems
       .filter(item => !isPicked(item.picked, item.return_picked))
@@ -2040,11 +2055,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.items.map((itemType) => {
-                              const connector = connectors.find(c => c.connector_type === itemType);
-                              const quantity = connector?.quantity || 0;
+                              const connectorEntries = connectors.filter(c => c.connector_type === itemType);
+                              const connector = connectorEntries[0];
+                              const quantity = connectorEntries.reduce((sum, c) => sum + c.quantity, 0);
                               const notes = connector?.notes || '';
-                              const picked = connector?.picked || false;
-                              const returnPicked = connector?.return_picked || false;
+                              const picked = connectorEntries.length > 0 && connectorEntries.every(c => c.picked);
+                              const returnPicked = connectorEntries.length > 0 && connectorEntries.every(c => c.return_picked);
 
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
@@ -2053,14 +2069,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       <input
                                         type="checkbox"
                                         checked={returnPicked}
-                                        onChange={(e) => handleConnectorReturnPickedChange(connector.id, e.target.checked)}
+                                        onChange={(e) => handleConnectorGroupReturnPickedChange(itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
                                       />
                                     ) : connector ? (
                                       <input
                                         type="checkbox"
                                         checked={picked}
-                                        onChange={(e) => handleConnectorPickedChange(connector.id, e.target.checked)}
+                                        onChange={(e) => handleConnectorGroupPickedChange(itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
                                         disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                       />
