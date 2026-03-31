@@ -72,6 +72,12 @@ interface CustomNotification {
   type: 'success' | 'error';
 }
 
+interface PendingConfirmationItem {
+  id: string;
+  name: string;
+  group: 'equipment' | 'cables' | 'connectors' | 'other';
+}
+
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
 
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
@@ -122,6 +128,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingQuantityChange, setPendingQuantityChange] = useState<QuantityChangeRequest | null>(null);
   const [notification, setNotification] = useState<CustomNotification | null>(null);
   const [showSpecificationConfirmDialog, setShowSpecificationConfirmDialog] = useState(false);
+  const [pendingConfirmItems, setPendingConfirmItems] = useState<PendingConfirmationItem[]>([]);
+  const [pendingConfirmMode, setPendingConfirmMode] = useState<'shipment' | 'return' | null>(null);
 
   const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
     setNotification({ message, type });
@@ -736,6 +744,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleConfirmShipment = async () => {
+    if (!allPickedForShipment) {
+      setPendingConfirmItems(getPendingConfirmationItems('shipment'));
+      setPendingConfirmMode('shipment');
+      return;
+    }
+
     try {
       setConfirmingShipment(true);
       await confirmShipment(eventId);
@@ -749,6 +763,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleConfirmReturn = async () => {
+    if (!allPickedForReturn) {
+      setPendingConfirmItems(getPendingConfirmationItems('return'));
+      setPendingConfirmMode('return');
+      return;
+    }
+
     try {
       setConfirmingReturn(true);
       await confirmReturn(eventId);
@@ -799,6 +819,44 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     } catch (error) {
       console.error('Error updating other item return picked:', error);
     }
+  };
+
+  const getPendingConfirmationItems = (mode: 'shipment' | 'return'): PendingConfirmationItem[] => {
+    const isPicked = (picked: boolean, returnPicked: boolean) => mode === 'shipment' ? picked : returnPicked;
+
+    const equipmentPending = expandedItems
+      .filter(item => !isPicked(item.picked, item.return_picked))
+      .map(item => ({
+        id: `eq-${item.budgetItemId}`,
+        name: item.name,
+        group: 'equipment' as const
+      }));
+
+    const cablesPending = cables
+      .filter(item => !isPicked(item.picked, item.return_picked))
+      .map(item => ({
+        id: `cable-${item.id}`,
+        name: item.name,
+        group: 'cables' as const
+      }));
+
+    const connectorsPending = connectors
+      .filter(item => !isPicked(item.picked, item.return_picked))
+      .map(item => ({
+        id: `connector-${item.id}`,
+        name: item.name,
+        group: 'connectors' as const
+      }));
+
+    const otherPending = otherItems
+      .filter(item => !isPicked(item.picked, item.return_picked))
+      .map(item => ({
+        id: `other-${item.id}`,
+        name: item.name,
+        group: 'other' as const
+      }));
+
+    return [...equipmentPending, ...cablesPending, ...connectorsPending, ...otherPending];
   };
 
   const handleAddExtraEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
@@ -2333,7 +2391,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             {eventDetails?.specification_confirmed && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleConfirmShipment}
-                disabled={confirmingShipment || !allPickedForShipment}
+                disabled={confirmingShipment}
                 title={!allPickedForShipment ? 'Проставьте все галочки перед отгрузкой' : undefined}
                 className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -2348,7 +2406,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
-                disabled={confirmingReturn || !allPickedForReturn}
+                disabled={confirmingReturn}
                 title={!allPickedForReturn ? 'Проставьте все галочки перед приёмкой' : undefined}
                 className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -2413,6 +2471,54 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
               >
                 Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingConfirmMode && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-3">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-lg max-h-[80vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-800">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                {pendingConfirmMode === 'shipment' ? 'Нельзя подтвердить отгрузку' : 'Нельзя подтвердить приёмку'}
+              </h3>
+              <button
+                onClick={() => {
+                  setPendingConfirmMode(null);
+                  setPendingConfirmItems([]);
+                }}
+                className="p-1 hover:bg-gray-800 text-gray-400 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 overflow-y-auto max-h-[60vh]">
+              <p className="text-sm text-gray-300">
+                Проставьте галочки для следующих позиций:
+              </p>
+              <ul className="space-y-1.5 text-sm text-gray-200">
+                {pendingConfirmItems.map(item => (
+                  <li key={item.id} className="flex items-start gap-2">
+                    <span className="text-red-400">•</span>
+                    <span>
+                      {item.name}
+                      <span className="text-gray-500"> ({item.group === 'equipment' ? 'Оборудование' : item.group === 'cables' ? 'Кабели' : item.group === 'connectors' ? 'Коннекторы' : 'Прочее'})</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="p-4 border-t border-gray-800 flex justify-end">
+              <button
+                onClick={() => {
+                  setPendingConfirmMode(null);
+                  setPendingConfirmItems([]);
+                }}
+                className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
+              >
+                Понятно
               </button>
             </div>
           </div>
