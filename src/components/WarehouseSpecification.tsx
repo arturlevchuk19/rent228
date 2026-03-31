@@ -823,6 +823,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const getPendingConfirmationItems = (mode: 'shipment' | 'return'): PendingConfirmationItem[] => {
     const isPicked = (picked: boolean, returnPicked: boolean) => mode === 'shipment' ? picked : returnPicked;
+    const normalizeText = (value?: string | null) => (value || '').trim();
+    const fallbackName = (value: string, fallback: string) => value.length > 0 ? value : fallback;
 
     const equipmentPending = expandedItems
       .filter(item => !isPicked(item.picked, item.return_picked))
@@ -836,7 +838,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `cable-${item.id}`,
-        name: item.name,
+        name: fallbackName(
+          `${normalizeText(item.cable_type)} ${normalizeText(item.cable_length)}`.trim(),
+          `Кабель #${item.id.slice(0, 8)}`
+        ),
         group: 'cables' as const
       }));
 
@@ -844,7 +849,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `connector-${item.id}`,
-        name: item.name,
+        name: fallbackName(normalizeText(item.connector_type), `Коннектор #${item.id.slice(0, 8)}`),
         group: 'connectors' as const
       }));
 
@@ -852,7 +857,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `other-${item.id}`,
-        name: item.name,
+        name: fallbackName(
+          `${normalizeText(item.category)} ${normalizeText(item.item_type)}`.trim(),
+          `Прочее #${item.id.slice(0, 8)}`
+        ),
         group: 'other' as const
       }));
 
