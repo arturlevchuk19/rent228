@@ -419,33 +419,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               isExtra: item.is_extra || false,
             });
 
-            const hasRealChildren = budgetData.some(b => b.parent_budget_item_id === item.id);
-            if (!hasRealChildren && item.equipment_id) {
-              try {
-                const compositions = await getEquipmentCompositions(item.equipment_id);
-                for (const comp of compositions) {
-                  items.push({
-                    budgetItemId: `${item.id}-comp-${comp.id}`,
-                    categoryId: item.category_id || null,
-                    locationId: itemLocationId,
-                    locationName: itemLocationName,
-                    name: comp.child_name || "Unknown",
-                    sku: comp.child_sku || "",
-                    quantity: item.quantity * comp.quantity,
-                    unit: "шт.",
-                    category: comp.child_category || "Components",
-                    notes: item.notes || "",
-                    picked: item.picked || false,
-                    return_picked: item.return_picked || false,
-                    isFromComposition: true,
-                    isExtra: item.is_extra || false,
-                    parentName: item.name || item.equipment?.name
-                  });
-                }
-              } catch (error) {
-                console.error("Error loading composition for", item.name || item.equipment?.name, ":", error);
-              }
-            }
+            // Для подиумов не подгружаем дефолтную composition автоматически.
+            // Дочерние строки должны появляться только после расчета в PodiumSpecificationPanel
+            // и сохранения (как реальные budget items с parent_budget_item_id).
           } else if (isUShapeBudgetItem(item) || isTotemBudgetItem(item)) {
             items.push({
               budgetItemId: item.id,
