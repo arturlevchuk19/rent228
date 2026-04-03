@@ -211,14 +211,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const extraItems = expandedItems.filter(item => item.isExtra);
 
   const allPickedForShipment =
-    expandedItems.length > 0 &&
     expandedItems.every(item => item.picked) &&
     cables.every(c => c.picked) &&
     connectors.every(c => c.picked) &&
     otherItems.every(i => i.picked);
 
   const allPickedForReturn =
-    expandedItems.length > 0 &&
     expandedItems.every(item => item.return_picked) &&
     cables.every(c => c.return_picked) &&
     connectors.every(c => c.return_picked) &&
@@ -748,9 +746,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleConfirmShipment = async () => {
     if (!allPickedForShipment) {
-      setPendingConfirmItems(getPendingConfirmationItems('shipment'));
-      setPendingConfirmMode('shipment');
-      return;
+      const pendingItems = getPendingConfirmationItems('shipment');
+      if (pendingItems.length > 0) {
+        setPendingConfirmItems(pendingItems);
+        setPendingConfirmMode('shipment');
+        return;
+      }
     }
 
     try {
@@ -767,9 +768,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleConfirmReturn = async () => {
     if (!allPickedForReturn) {
-      setPendingConfirmItems(getPendingConfirmationItems('return'));
-      setPendingConfirmMode('return');
-      return;
+      const pendingItems = getPendingConfirmationItems('return');
+      if (pendingItems.length > 0) {
+        setPendingConfirmItems(pendingItems);
+        setPendingConfirmMode('return');
+        return;
+      }
     }
 
     try {
@@ -841,7 +845,19 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         group: 'equipment' as const
       }));
 
-    const cablesPending = cables
+    // Keep only the first record per cable type/length pair to match how cables are rendered in the table.
+    // Historical duplicated rows may exist in DB, and showing each duplicate here can produce false pending items.
+    const visibleCablesByKey = new Map<string, CableItem>();
+    cables.forEach(item => {
+      const normalizedType = normalizeText(item.cable_type);
+      const normalizedLength = normalizeText(item.cable_length);
+      const key = `${normalizedType}|${normalizedLength}`;
+      if (!visibleCablesByKey.has(key)) {
+        visibleCablesByKey.set(key, item);
+      }
+    });
+
+    const cablesPending = Array.from(visibleCablesByKey.values())
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `cable-${item.id}`,
