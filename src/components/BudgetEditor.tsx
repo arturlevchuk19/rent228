@@ -6,17 +6,8 @@ import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
 import { Location, createLocation, getLocationsForEvent, updateLocation, deleteLocation } from '../lib/locations';
 import { CategoryBlock, type BudgetDragTarget } from './CategoryBlock';
-import { WorkPersonnelManager } from './WorkPersonnelManager';
-import { TemplatesInBudget } from './TemplatesInBudget';
-import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
-import {
-  UShapeUnifiedDialog,
-  LedSizeDialog,
-  PodiumDialog,
-  TotemDialog,
-  AddLocationDialog
-} from './dialogs';
+import { BudgetEditorDialogs } from './dialogs';
 
 interface BudgetEditorProps {
   eventId: string;
@@ -418,16 +409,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const placement = selectedCategoryId ? parseGroupId(selectedCategoryId) : { categoryId: null, locationId: null };
     await handleAddItem(equipmentItem, 1, undefined, placement.categoryId || undefined, undefined, undefined, placement.locationId || undefined);
   };
+  const getSelectedPlacement = () =>
+    selectedCategoryId ? parseGroupId(selectedCategoryId) : { categoryId: null, locationId: null };
+
   const handleLedSizeConfirm = (result: { quantity: number; customName: string; customPrice: number }) => {
     if (!selectedLedEquipment) return;
+    const placement = getSelectedPlacement();
     handleAddItem(
       selectedLedEquipment,
       result.quantity,
       undefined,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).categoryId : null) || undefined,
+      placement.categoryId || undefined,
       result.customName,
       result.customPrice,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).locationId : null) || undefined
+      placement.locationId || undefined
     );
     setShowLedSizeDialog(false);
     setSelectedLedEquipment(null);
@@ -435,14 +430,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const handlePodiumConfirm = (result: { quantity: number; customName: string; customPrice: number }) => {
     if (!selectedPodiumEquipment) return;
+    const placement = getSelectedPlacement();
     handleAddItem(
       selectedPodiumEquipment,
       result.quantity,
       undefined,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).categoryId : null) || undefined,
+      placement.categoryId || undefined,
       result.customName,
       result.customPrice,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).locationId : null) || undefined
+      placement.locationId || undefined
     );
     setShowPodiumDialog(false);
     setSelectedPodiumEquipment(null);
@@ -450,14 +446,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const handleTotemConfirm = (result: { quantity: number; customName: string; customPrice?: number }) => {
     if (!selectedTotemEquipment) return;
+    const placement = getSelectedPlacement();
     handleAddItem(
       selectedTotemEquipment,
       result.quantity,
       undefined,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).categoryId : null) || undefined,
+      placement.categoryId || undefined,
       result.customName,
       result.customPrice,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).locationId : null) || undefined
+      placement.locationId || undefined
     );
     setShowTotemDialog(false);
     setSelectedTotemEquipment(null);
@@ -465,14 +462,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const handleUShapeUnifiedConfirm = (result: { quantity: number; customName: string; customPrice: number }) => {
     if (!selectedUShapeEquipment) return;
+    const placement = getSelectedPlacement();
     handleAddItem(
       selectedUShapeEquipment,
       result.quantity,
       undefined,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).categoryId : null) || undefined,
+      placement.categoryId || undefined,
       result.customName,
       result.customPrice,
-      (selectedCategoryId ? parseGroupId(selectedCategoryId).locationId : null) || undefined
+      placement.locationId || undefined
     );
     setShowUShapeUnifiedDialog(false);
     setSelectedUShapeEquipment(null);
@@ -1662,93 +1660,64 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         </div>
       </div>
 
-      {/* Modals */}
-      {workPersonnelManagerOpen && selectedCategoryForPersonnel && (
-        <WorkPersonnelManager
-          workItems={budgetItems.filter((item) => {
-            if (item.item_type !== 'work') return false;
-            const parsed = parseGroupId(selectedCategoryForPersonnel);
-            if (selectedCategoryForPersonnel === NO_LOCATION_GROUP_ID) return !item.category_id && !item.location_id;
-            return (item.category_id || null) === parsed.categoryId && (item.location_id || null) === parsed.locationId;
-          })}
-          onClose={() => { setWorkPersonnelManagerOpen(false); setSelectedCategoryForPersonnel(null); }}
-          onSave={handleWorkPersonnelSave}
-          paymentMode={paymentMode}
-          exchangeRate={exchangeRate}
-        />
-      )}
-
-      {showTemplates && (
-        <TemplatesInBudget
-          eventId={eventId}
-          onClose={() => setShowTemplates(false)}
-          onApply={() => { setShowTemplates(false); loadData(); }}
-        />
-      )}
-
-      {showWarehouseSpec && (
-        <WarehouseSpecification
-          eventId={eventId}
-          eventName={eventName}
-          onClose={() => setShowWarehouseSpec(false)}
-        />
-      )}
-
-      <AddLocationDialog
-        isOpen={showLocationDialog}
-        existingNames={locations.map((location) => location.name)}
-        onClose={() => setShowLocationDialog(false)}
-        onConfirm={handleCreateLocation}
+      <BudgetEditorDialogs
+        eventId={eventId}
+        eventName={eventName}
+        budgetItems={budgetItems}
+        locations={locations}
+        paymentMode={paymentMode}
+        exchangeRate={exchangeRate}
+        parseGroupId={parseGroupId}
+        noLocationGroupId={NO_LOCATION_GROUP_ID}
+        workPersonnelManagerOpen={workPersonnelManagerOpen}
+        selectedCategoryForPersonnel={selectedCategoryForPersonnel}
+        onCloseWorkPersonnelManager={() => {
+          setWorkPersonnelManagerOpen(false);
+          setSelectedCategoryForPersonnel(null);
+        }}
+        onSaveWorkPersonnelManager={handleWorkPersonnelSave}
+        showTemplates={showTemplates}
+        onCloseTemplates={() => setShowTemplates(false)}
+        onApplyTemplates={() => {
+          setShowTemplates(false);
+          loadData();
+        }}
+        showWarehouseSpec={showWarehouseSpec}
+        onCloseWarehouseSpec={() => setShowWarehouseSpec(false)}
+        showLocationDialog={showLocationDialog}
+        onCloseLocationDialog={() => setShowLocationDialog(false)}
+        onConfirmLocation={handleCreateLocation}
+        showLedSizeDialog={showLedSizeDialog}
+        selectedLedEquipment={selectedLedEquipment}
+        onCloseLedSizeDialog={() => {
+          setShowLedSizeDialog(false);
+          setSelectedLedEquipment(null);
+        }}
+        onConfirmLedSizeDialog={handleLedSizeConfirm}
+        showPodiumDialog={showPodiumDialog}
+        selectedPodiumEquipment={selectedPodiumEquipment}
+        onClosePodiumDialog={() => {
+          setShowPodiumDialog(false);
+          setSelectedPodiumEquipment(null);
+        }}
+        onConfirmPodiumDialog={handlePodiumConfirm}
+        showTotemDialog={showTotemDialog}
+        selectedTotemEquipment={selectedTotemEquipment}
+        isMonototem={isMonototem}
+        onCloseTotemDialog={() => {
+          setShowTotemDialog(false);
+          setSelectedTotemEquipment(null);
+        }}
+        onConfirmTotemDialog={handleTotemConfirm}
+        showUShapeUnifiedDialog={showUShapeUnifiedDialog}
+        selectedUShapeEquipment={selectedUShapeEquipment}
+        uShapeMode={uShapeMode}
+        onCloseUShapeUnifiedDialog={() => {
+          setShowUShapeUnifiedDialog(false);
+          setSelectedUShapeEquipment(null);
+        }}
+        onConfirmUShapeUnifiedDialog={handleUShapeUnifiedConfirm}
       />
-
-      {showLedSizeDialog && selectedLedEquipment && (
-        <LedSizeDialog
-          equipment={selectedLedEquipment}
-          isOpen={showLedSizeDialog}
-          onClose={() => {
-            setShowLedSizeDialog(false);
-            setSelectedLedEquipment(null);
-          }}
-          onConfirm={handleLedSizeConfirm}
-        />
-      )}
-
-      {showPodiumDialog && selectedPodiumEquipment && (
-        <PodiumDialog
-          equipment={selectedPodiumEquipment}
-          isOpen={showPodiumDialog}
-          onClose={() => {
-            setShowPodiumDialog(false);
-            setSelectedPodiumEquipment(null);
-          }}
-          onConfirm={handlePodiumConfirm}
-        />
-      )}
-      {showTotemDialog && selectedTotemEquipment && (
-        <TotemDialog
-          equipment={selectedTotemEquipment}
-          isOpen={showTotemDialog}
-          onClose={() => {
-            setShowTotemDialog(false);
-            setSelectedTotemEquipment(null);
-          }}
-          onConfirm={handleTotemConfirm}
-          isMonototem={isMonototem}
-        />
-      )}
-
-      {showUShapeUnifiedDialog && selectedUShapeEquipment && (
-        <UShapeUnifiedDialog
-          equipment={selectedUShapeEquipment}
-          isOpen={showUShapeUnifiedDialog}
-          onClose={() => {
-            setShowUShapeUnifiedDialog(false);
-            setSelectedUShapeEquipment(null);
-          }}
-          onConfirm={handleUShapeUnifiedConfirm}
-          initialMode={uShapeMode}
-        />
-      )}
     </div>
   );
 }
