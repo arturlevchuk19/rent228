@@ -226,7 +226,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const handleCreateExtraServiceCategory = async () => {
-    const baseName = 'Дополнительные услуги';
+    const baseName = 'Доп услуги';
     const existingNames = categories.map((item) => item.name.trim().toLowerCase());
     let nextName = baseName;
     let index = 2;
@@ -248,7 +248,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setSelectedCategoryId(groupId);
     } catch (error) {
       console.error('Error creating extra service category:', error);
-      alert('Ошибка создания категории "Дополнительные услуги"');
+      alert('Ошибка создания категории "Доп услуги"');
     }
   };
 
@@ -1170,7 +1170,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Дополнительные услуги
+                    Доп услуги
                   </button>
 
                   <button
