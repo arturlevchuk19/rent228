@@ -841,7 +841,19 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         group: 'equipment' as const
       }));
 
-    const cablesPending = cables
+    // Keep only the first record per cable type/length pair to match how cables are rendered in the table.
+    // Historical duplicated rows may exist in DB, and showing each duplicate here can produce false pending items.
+    const visibleCablesByKey = new Map<string, CableItem>();
+    cables.forEach(item => {
+      const normalizedType = normalizeText(item.cable_type);
+      const normalizedLength = normalizeText(item.cable_length);
+      const key = `${normalizedType}|${normalizedLength}`;
+      if (!visibleCablesByKey.has(key)) {
+        visibleCablesByKey.set(key, item);
+      }
+    });
+
+    const cablesPending = Array.from(visibleCablesByKey.values())
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `cable-${item.id}`,
