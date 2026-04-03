@@ -98,72 +98,161 @@ export function BudgetLayout({ vm, eventName, onClose }: BudgetLayoutProps) {
             </div>
 
             <div ref={vm.budgetListRef} className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0 custom-scrollbar">
-              {vm.locations.map((location) => {
-                const locationGroupId = `location:${location.id}`;
-                const locationHasContent = vm.categories.some((category) => {
-                  const categoryGroupId = buildCategoryGroupId(category.id, location.id);
-                  return (vm.groupedItems[categoryGroupId]?.length || 0) > 0 || vm.activeCategoryIds.has(categoryGroupId);
-                }) || (vm.groupedItems[buildLocationUncategorizedGroupId(location.id)]?.length || 0) > 0;
+              {vm.budgetItems.length === 0 && vm.activeCategoryIds.size === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4">
+                  <Package className="w-12 h-12 opacity-20" />
+                  <p className="text-sm">Смета пуста. Начните с добавления категорий или оборудования.</p>
+                </div>
+              ) : (
+                <>
+                  {vm.locations.map((location) => {
+                    const locationGroupId = `location:${location.id}`;
+                    const locationHasContent = vm.categories.some((category) => {
+                      const categoryGroupId = buildCategoryGroupId(category.id, location.id);
+                      return (vm.groupedItems[categoryGroupId]?.length || 0) > 0 || vm.activeCategoryIds.has(categoryGroupId);
+                    }) || (vm.groupedItems[buildLocationUncategorizedGroupId(location.id)]?.length || 0) > 0;
 
-                if (!locationHasContent && !vm.activeCategoryIds.has(locationGroupId)) return null;
+                    if (!locationHasContent && !vm.activeCategoryIds.has(locationGroupId)) return null;
 
-                return (
-                  <div key={location.id} className={`transition-all duration-200 rounded-xl border border-emerald-900/30 ${vm.dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${vm.locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`} onDragOver={(e) => vm.handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })} onDrop={(e) => vm.handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}>
-                    <div className="w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2" style={{ backgroundColor: location.color || '#14532d' }}>
-                      <button type="button" className="flex-1 flex items-center gap-2 text-left" onClick={() => vm.setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }))}>
-                        <div draggable onDragStart={(e) => vm.handleLocationDragStart(e, location.id)} onDragOver={(e) => vm.handleLocationDragOver(e, location.id)} onDrop={(e) => vm.handleLocationDrop(e, location.id)} className="text-white/70 hover:text-white cursor-move" onClick={(e) => e.stopPropagation()}>
-                          <GripVertical className="w-3.5 h-3.5" />
+                    return (
+                      <div key={location.id} className={`transition-all duration-200 rounded-xl border border-emerald-900/30 ${vm.dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${vm.locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`} onDragOver={(e) => vm.handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })} onDrop={(e) => vm.handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}>
+                        <div className="w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2" style={{ backgroundColor: location.color || '#14532d' }}>
+                          <button type="button" className="flex-1 flex items-center gap-2 text-left" onClick={() => vm.setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }))}>
+                            <div draggable onDragStart={(e) => vm.handleLocationDragStart(e, location.id)} onDragOver={(e) => vm.handleLocationDragOver(e, location.id)} onDrop={(e) => vm.handleLocationDrop(e, location.id)} className="text-white/70 hover:text-white cursor-move" onClick={(e) => e.stopPropagation()}>
+                              <GripVertical className="w-3.5 h-3.5" />
+                            </div>
+                            {(vm.expandedCategories[locationGroupId] ?? true) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>{location.name}</span>
+                          </button>
+                          <div className="flex items-center gap-1">
+                            <button type="button" className="p-1 rounded hover:bg-black/20" onClick={() => vm.handleUpdateLocation(location)}><Pencil className="w-3.5 h-3.5" /></button>
+                            <button type="button" className="p-1 rounded hover:bg-black/20" onClick={() => vm.handleDeleteLocation(location)}><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
                         </div>
-                        {(vm.expandedCategories[locationGroupId] ?? true) ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>{location.name}</span>
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <button type="button" className="p-1 rounded hover:bg-black/20" onClick={() => vm.handleUpdateLocation(location)}><Pencil className="w-3.5 h-3.5" /></button>
-                        <button type="button" className="p-1 rounded hover:bg-black/20" onClick={() => vm.handleDeleteLocation(location)}><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
-                    </div>
 
-                    {(vm.expandedCategories[locationGroupId] ?? true) && (
-                      <div className="pl-2 border-l border-emerald-900/30">
-                        {vm.categories.filter(cat => cat.is_template !== true).map((category) => {
-                          const categoryGroupId = buildCategoryGroupId(category.id, location.id);
-                          const categoryItems = vm.groupedItems[categoryGroupId] || [];
-                          if (categoryItems.length === 0 && !vm.activeCategoryIds.has(categoryGroupId)) return null;
-                          return (
-                            <CategoryBlock
-                              key={categoryGroupId}
-                              categoryId={categoryGroupId}
-                              categoryName={category.name}
-                              locationId={location.id}
-                              items={categoryItems}
-                              isExpanded={vm.expandedCategories[categoryGroupId] || false}
-                              isSelected={vm.selectedCategoryId === categoryGroupId}
-                              onToggleExpand={() => vm.setExpandedCategories(prev => ({ ...prev, [categoryGroupId]: !prev[categoryGroupId] }))}
-                              onSelect={() => vm.setSelectedCategoryId(vm.selectedCategoryId === categoryGroupId ? null : categoryGroupId)}
-                              onUpdateCategoryName={(name) => vm.handleUpdateCategoryName(category.id, name)}
-                              onUpdateItem={vm.handleUpdateItem}
-                              onDeleteItem={vm.handleDeleteItem}
-                              onDeleteCategory={() => vm.handleDeleteCategory(category.id)}
-                              onManagePersonnel={vm.handleOpenWorkPersonnelManager}
-                              paymentMode={vm.paymentMode}
-                              exchangeRate={vm.exchangeRate}
-                              onDragStart={vm.handleDragStart}
-                              onDragOver={vm.handleDragOver}
-                              onDrop={vm.handleDrop}
-                              onDragOverItem={vm.handleDragOverItem}
-                              onDropOnItem={vm.handleDropOnItem}
-                              dragOverItemId={vm.dragOverItemId}
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                        {(vm.expandedCategories[locationGroupId] ?? true) && (
+                          <div className="pl-2 border-l border-emerald-900/30">
+                            {vm.categories.filter(cat => cat.is_template !== true).map((category) => {
+                              const categoryGroupId = buildCategoryGroupId(category.id, location.id);
+                              const categoryItems = vm.groupedItems[categoryGroupId] || [];
+                              if (categoryItems.length === 0 && !vm.activeCategoryIds.has(categoryGroupId)) return null;
+                              return (
+                                <CategoryBlock
+                                  key={categoryGroupId}
+                                  categoryId={categoryGroupId}
+                                  categoryName={category.name}
+                                  locationId={location.id}
+                                  items={categoryItems}
+                                  isExpanded={vm.expandedCategories[categoryGroupId] || false}
+                                  isSelected={vm.selectedCategoryId === categoryGroupId}
+                                  onToggleExpand={() => vm.setExpandedCategories(prev => ({ ...prev, [categoryGroupId]: !prev[categoryGroupId] }))}
+                                  onSelect={() => vm.setSelectedCategoryId(vm.selectedCategoryId === categoryGroupId ? null : categoryGroupId)}
+                                  onUpdateCategoryName={(name) => vm.handleUpdateCategoryName(category.id, name)}
+                                  onUpdateItem={vm.handleUpdateItem}
+                                  onDeleteItem={vm.handleDeleteItem}
+                                  onDeleteCategory={() => vm.handleDeleteCategory(category.id)}
+                                  onManagePersonnel={vm.handleOpenWorkPersonnelManager}
+                                  paymentMode={vm.paymentMode}
+                                  exchangeRate={vm.exchangeRate}
+                                  onDragStart={vm.handleDragStart}
+                                  onDragOver={vm.handleDragOver}
+                                  onDrop={vm.handleDrop}
+                                  onDragOverItem={vm.handleDragOverItem}
+                                  onDropOnItem={vm.handleDropOnItem}
+                                  dragOverItemId={vm.dragOverItemId}
+                                />
+                              );
+                            })}
 
-              <div className="w-px" />
+                            {(vm.groupedItems[buildLocationUncategorizedGroupId(location.id)] || []).length > 0 && (
+                              <CategoryBlock
+                                categoryId={buildLocationUncategorizedGroupId(location.id)}
+                                categoryName="Без категории"
+                                locationId={location.id}
+                                items={vm.groupedItems[buildLocationUncategorizedGroupId(location.id)] || []}
+                                isExpanded={vm.expandedCategories[buildLocationUncategorizedGroupId(location.id)] || false}
+                                isSelected={vm.selectedCategoryId === buildLocationUncategorizedGroupId(location.id)}
+                                onToggleExpand={() => vm.setExpandedCategories(prev => ({ ...prev, [buildLocationUncategorizedGroupId(location.id)]: !prev[buildLocationUncategorizedGroupId(location.id)] }))}
+                                onSelect={() => vm.setSelectedCategoryId(vm.selectedCategoryId === buildLocationUncategorizedGroupId(location.id) ? null : buildLocationUncategorizedGroupId(location.id))}
+                                onUpdateCategoryName={() => {}}
+                                onUpdateItem={vm.handleUpdateItem}
+                                onDeleteItem={vm.handleDeleteItem}
+                                paymentMode={vm.paymentMode}
+                                exchangeRate={vm.exchangeRate}
+                                onDragStart={vm.handleDragStart}
+                                onDragOver={vm.handleDragOver}
+                                onDrop={vm.handleDrop}
+                                onDragOverItem={vm.handleDragOverItem}
+                                onDropOnItem={vm.handleDropOnItem}
+                                dragOverItemId={vm.dragOverItemId}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {vm.categories.filter(cat => cat.is_template !== true).map((category) => {
+                    const categoryGroupId = buildCategoryGroupId(category.id, null);
+                    const categoryItems = vm.groupedItems[categoryGroupId] || [];
+                    if (categoryItems.length === 0 && !vm.activeCategoryIds.has(categoryGroupId)) return null;
+
+                    return (
+                      <CategoryBlock
+                        key={categoryGroupId}
+                        categoryId={categoryGroupId}
+                        categoryName={category.name}
+                        items={categoryItems}
+                        isExpanded={vm.expandedCategories[categoryGroupId] || false}
+                        isSelected={vm.selectedCategoryId === categoryGroupId}
+                        onToggleExpand={() => vm.setExpandedCategories(prev => ({ ...prev, [categoryGroupId]: !prev[categoryGroupId] }))}
+                        onSelect={() => vm.setSelectedCategoryId(vm.selectedCategoryId === categoryGroupId ? null : categoryGroupId)}
+                        onUpdateCategoryName={(name) => vm.handleUpdateCategoryName(category.id, name)}
+                        onUpdateItem={vm.handleUpdateItem}
+                        onDeleteItem={vm.handleDeleteItem}
+                        onDeleteCategory={() => vm.handleDeleteCategory(category.id)}
+                        onManagePersonnel={vm.handleOpenWorkPersonnelManager}
+                        paymentMode={vm.paymentMode}
+                        exchangeRate={vm.exchangeRate}
+                        onDragStart={vm.handleDragStart}
+                        onDragOver={vm.handleDragOver}
+                        onDrop={vm.handleDrop}
+                        onDragOverItem={vm.handleDragOverItem}
+                        onDropOnItem={vm.handleDropOnItem}
+                        dragOverItemId={vm.dragOverItemId}
+                        categoryRef={(el) => { vm.categoryRefs.current[category.id] = el; }}
+                      />
+                    );
+                  })}
+
+                  {vm.groupedItems[NO_LOCATION_GROUP_ID] && vm.groupedItems[NO_LOCATION_GROUP_ID].length > 0 && (
+                    <CategoryBlock
+                      categoryId={NO_LOCATION_GROUP_ID}
+                      categoryName="Без локации / категории"
+                      items={vm.groupedItems[NO_LOCATION_GROUP_ID]}
+                      isExpanded={vm.expandedCategories[NO_LOCATION_GROUP_ID] || false}
+                      isSelected={vm.selectedCategoryId === NO_LOCATION_GROUP_ID}
+                      onToggleExpand={() => vm.setExpandedCategories(prev => ({ ...prev, [NO_LOCATION_GROUP_ID]: !prev[NO_LOCATION_GROUP_ID] }))}
+                      onSelect={() => vm.setSelectedCategoryId(vm.selectedCategoryId === NO_LOCATION_GROUP_ID ? null : NO_LOCATION_GROUP_ID)}
+                      onUpdateCategoryName={() => {}}
+                      onUpdateItem={vm.handleUpdateItem}
+                      onDeleteItem={vm.handleDeleteItem}
+                      onDeleteCategory={vm.handleDeleteCategory}
+                      onManagePersonnel={vm.handleOpenWorkPersonnelManager}
+                      paymentMode={vm.paymentMode}
+                      exchangeRate={vm.exchangeRate}
+                      onDragStart={vm.handleDragStart}
+                      onDragOver={(e) => vm.handleDragOver(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
+                      onDrop={(e) => vm.handleDrop(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
+                      onDragOverItem={vm.handleDragOverItem}
+                      onDropOnItem={vm.handleDropOnItem}
+                      dragOverItemId={vm.dragOverItemId}
+                    />
+                  )}
+                </>
+              )}
             </div>
           </div>
 
