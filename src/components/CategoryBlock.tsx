@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, CreditCard as Edit2, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 
 export interface BudgetDragTarget {
@@ -273,7 +273,7 @@ export function CategoryBlock({
                 }}
                 className="text-gray-500 hover:text-gray-400 transition-colors"
               >
-                <Edit2 className="w-2.5 h-2.5" />
+                <Pencil className="w-2.5 h-2.5" />
               </button>
             )}
             {categoryId !== 'uncategorized' && onDeleteCategory && (
