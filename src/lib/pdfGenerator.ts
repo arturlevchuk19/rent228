@@ -279,6 +279,21 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     }, 0);
     const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
 
+    const locationTotalsHtml = isNoLocation
+      ? ''
+      : `
+        <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
+          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
+          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotal.toFixed(0)}${currencySuffix}</span>
+        </div>
+        ${!isCombinedOnlyMode ? `
+        <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
+          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
+          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotalCombined.toFixed(0)}${currencySuffix}</span>
+        </div>
+        ` : ''}
+      `;
+
     const locationHeaderHtml = isNoLocation
       ? ''
       : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
@@ -292,16 +307,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
         ${locationHeaderHtml}
         ${locationHtml}
-        <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
-          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
-          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotal.toFixed(0)}${currencySuffix}</span>
-        </div>
-        ${!isCombinedOnlyMode ? `
-        <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
-          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
-          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotalCombined.toFixed(0)}${currencySuffix}</span>
-        </div>
-        ` : ''}
+        ${locationTotalsHtml}
       </section>
     `;
   });

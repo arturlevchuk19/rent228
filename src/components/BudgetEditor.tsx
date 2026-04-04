@@ -1576,25 +1576,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     </div>
                   )}
 
-                  {(() => {
-                    const noLocationItems = budgetItems.filter((item) => !item.location_id);
-                    if (noLocationItems.length === 0) return null;
-                    const noLocationTotals = calculateSectionTotalsForPaymentMode(noLocationItems);
-
-                    return (
-                      <div className="rounded-xl border border-gray-700/60 bg-gray-900/60 px-3 py-2 text-xs text-gray-200">
-                        <div className="font-semibold">Итого без локации</div>
-                        {budgetTotalsMode === 'day1_plus_combined' && (
-                          <div>
-                            За 1 день: <span className="font-semibold">{noLocationTotals.day1Total.toLocaleString()}</span> {getCurrencyLabel()}
-                          </div>
-                        )}
-                        <div>
-                          За {budgetDays} {budgetDays === 1 ? 'день' : 'дней'}: <span className="font-semibold">{noLocationTotals.combinedTotal.toLocaleString()}</span> {getCurrencyLabel()}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  
                 </>
               )}
             </div>
