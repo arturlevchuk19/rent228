@@ -295,13 +295,26 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       `;
 
     const locationHeaderHtml = isNoLocation
-      ? ''
-      : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 22px;">
-          <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
-          <div style="padding: 0 10px; height: 20px; line-height: 20px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent}; display: flex; align-items: center; position: relative; top: -4px;">
-            ${locationName}
-          </div>
-        </div>`;
+  ? ''
+  : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 22px;">
+      <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
+      <div style="
+        padding: 0 12px; 
+        height: 22px; 
+        border-radius: 9999px; 
+        font-size: 10px; 
+        font-weight: 800; 
+        letter-spacing: 0.5px; 
+        text-transform: uppercase; 
+        color: #f3f4f6; 
+        background: ${locationAccent}; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+      ">
+        ${locationName}
+      </div>
+    </div>`;
 
     categoriesHtml += `
       <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
