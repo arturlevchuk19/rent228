@@ -3155,3 +3155,32 @@ CREATE INDEX IF NOT EXISTS idx_locations_event_sort_order ON locations(event_id,
 CREATE INDEX IF NOT EXISTS idx_budget_items_event_id ON budget_items(event_id);
 CREATE INDEX IF NOT EXISTS idx_budget_items_location_id ON budget_items(location_id);
 CREATE INDEX IF NOT EXISTS idx_budget_items_event_location_id ON budget_items(event_id, location_id);
+
+/*
+  # Add multi-day rental coefficient for equipment items
+
+  1. Schema
+    - Add `multi_day_rate` column to `equipment_items`
+
+  2. Data migration
+    - Set coefficient to 0.5 for all items with rental_price > 0
+    - Set coefficient to 0.2 for category "Сцена" items with rental_price > 0
+*/
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'equipment_items' AND column_name = 'multi_day_rate'
+  ) THEN
+    ALTER TABLE equipment_items
+      ADD COLUMN multi_day_rate decimal(10,2) NOT NULL DEFAULT 0;
+  END IF;
+END $$;
+
+UPDATE equipment_items
+SET multi_day_rate = CASE
+  WHEN rental_price > 0 AND lower(trim(category)) = 'сцена' THEN 0.2
+  WHEN rental_price > 0 THEN 0.5
+  ELSE COALESCE(multi_day_rate, 0)
+END;

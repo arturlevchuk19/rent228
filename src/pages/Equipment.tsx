@@ -229,6 +229,9 @@ export function Equipment() {
                 <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
                   Цена $
                 </th>
+                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                  Коэф. многоднев.
+                </th>
                 <th className="px-4 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">
                   Действия
                 </th>
@@ -237,7 +240,7 @@ export function Equipment() {
             <tbody className="divide-y divide-gray-800">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">
                     Оборудование не найдено
                   </td>
                 </tr>
@@ -259,6 +262,9 @@ export function Equipment() {
                     </td>
                     <td className="px-4 py-2 text-white text-sm">
                       {item.rental_price > 0 ? `${item.rental_price}` : '-'}
+                    </td>
+                    <td className="px-4 py-2 text-white text-sm">
+                      {item.rental_price > 0 ? item.multi_day_rate : '-'}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <div className="flex items-center justify-end gap-1">

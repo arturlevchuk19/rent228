@@ -11,6 +11,7 @@ export interface EquipmentItem {
   sku: string;
   quantity: number;
   rental_price: number;
+  multi_day_rate: number;
   power: string;
   object_type: 'physical' | 'virtual';
   rental_type: 'rental' | 'sublease';
@@ -305,6 +306,9 @@ export async function importEquipmentFromCSV(csvText: string): Promise<number> {
 
     const quantity = parseInt(quantityStr) || 0;
     const rental_price = parseFloat(rentalPriceStr.replace(',', '.')) || 0;
+    const multi_day_rate = rental_price > 0
+      ? (category.trim().toLowerCase() === 'сцена' ? 0.2 : 0.5)
+      : 0;
 
     items.push({
       category,
@@ -316,6 +320,7 @@ export async function importEquipmentFromCSV(csvText: string): Promise<number> {
       sku,
       quantity,
       rental_price,
+      multi_day_rate,
       power
     });
   }
