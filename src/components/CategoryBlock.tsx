@@ -166,22 +166,32 @@ export function CategoryBlock({
     }
   };
 
+  const formatSectionTotal = (value: number) =>
+    paymentMode !== 'usd' ? `${value.toFixed(2)} ${getCurrencyLabel()}` : value.toFixed(2);
+
   const categoryTotals = calcGrandTotals(items, budgetDays, budgetTotalsMode);
-  const categoryTotal = (() => {
+  const sectionDay1Total = (() => {
     if (paymentMode === 'usd') {
-      return categoryTotals.totalForMode;
+      return categoryTotals.day1Total;
     }
 
     if (paymentMode === 'byn_cash') {
-      return items.reduce((sum, item) => sum + calculateBYNCash(
-        budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item)
-      ), 0);
+      return items.reduce((sum, item) => sum + calculateBYNCash(calcDay1Total(item)), 0);
     }
 
-    return items.reduce((sum, item) => sum + calculateBYNNonCash(
-      budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item),
-      item
-    ), 0);
+    return items.reduce((sum, item) => sum + calculateBYNNonCash(calcDay1Total(item), item), 0);
+  })();
+
+  const sectionCombinedTotal = (() => {
+    if (paymentMode === 'usd') {
+      return categoryTotals.combinedTotal;
+    }
+
+    if (paymentMode === 'byn_cash') {
+      return items.reduce((sum, item) => sum + calculateBYNCash(calcCombinedTotal(item, budgetDays)), 0);
+    }
+
+    return items.reduce((sum, item) => sum + calculateBYNNonCash(calcCombinedTotal(item, budgetDays), item), 0);
   })();
 
   const hasWorkItems = items.some(item => item.item_type === 'work');
@@ -317,8 +327,15 @@ export function CategoryBlock({
           </>
         )}
 
-        <div className="text-[10px] font-medium text-cyan-400 ml-0.5" onClick={(e) => e.stopPropagation()}>
-          {paymentMode !== 'usd' ? `${categoryTotal.toFixed(2)} ${getCurrencyLabel()}` : `${categoryTotal.toFixed(2)}`}
+        <div className="text-[10px] font-medium text-cyan-400 ml-0.5 text-right leading-tight" onClick={(e) => e.stopPropagation()}>
+          {budgetTotalsMode === 'day1_plus_combined' && (
+            <div>
+              1д: {formatSectionTotal(sectionDay1Total)}
+            </div>
+          )}
+          <div>
+            {budgetDays}д: {formatSectionTotal(sectionCombinedTotal)}
+          </div>
         </div>
 
         <div className="text-[10px] text-gray-600 ml-0.5" onClick={(e) => e.stopPropagation()}>
