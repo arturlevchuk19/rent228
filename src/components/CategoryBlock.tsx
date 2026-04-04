@@ -75,6 +75,9 @@ export function CategoryBlock({
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
   const showCoefficient = budgetDays > 1;
+  const tableTemplateColumns = showCoefficient
+    ? 'minmax(0,1fr) 92px 92px 72px 110px'
+    : 'minmax(0,1fr) 92px 92px 110px';
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -333,12 +336,15 @@ export function CategoryBlock({
           {/* Table header */}
           <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
             <div className="w-3"></div>
-            <div className={`flex-1 grid gap-0.5 ${showCoefficient ? 'grid-cols-14' : 'grid-cols-12'}`}>
-              <div className="col-span-5">Наименование</div>
-              <div className="col-span-2 text-center">Кол-во</div>
-              <div className="col-span-2 text-right">Цена</div>
-              {showCoefficient && <div className="col-span-2 text-right">Коэф.</div>}
-              <div className={`${showCoefficient ? 'col-span-3' : 'col-span-5'} text-right`}>Сумма</div>
+            <div
+              className="flex-1 grid items-center gap-2"
+              style={{ gridTemplateColumns: tableTemplateColumns }}
+            >
+              <div className="text-left">Наименование</div>
+              <div className="text-center">Кол-во</div>
+              <div className="text-right pr-1">Цена</div>
+              {showCoefficient && <div className="text-right pr-1">Коэф.</div>}
+              <div className="text-right pr-1">Сумма</div>
             </div>
             <div className="w-5"></div>
           </div>
@@ -374,13 +380,16 @@ export function CategoryBlock({
                     <GripVertical className="w-3 h-3" />
                   </div>
 
-                  <div className={`flex-1 grid gap-0.5 items-center text-xs ${showCoefficient ? 'grid-cols-14' : 'grid-cols-12'}`}>
-                    <div className="col-span-5 text-gray-300 truncate">
+                  <div
+                    className="flex-1 grid items-center gap-2 text-xs"
+                    style={{ gridTemplateColumns: tableTemplateColumns }}
+                  >
+                    <div className="text-gray-300 truncate pr-2">
                       {item.equipment?.name || item.work_item?.name || 'Без названия'}
                     </div>
 
-                    <div className="col-span-2 flex justify-center">
-                      <div className="flex items-center">
+                    <div className="flex justify-center">
+                      <div className="flex items-center justify-center">
                         <button
                           onClick={() => onUpdateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
                           className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-[10px]"
@@ -408,7 +417,7 @@ export function CategoryBlock({
                       </div>
                     </div>
 
-                    <div className="col-span-2 text-right">
+                    <div className="text-right">
                       <input
                         type="number"
                         step="0.01"
@@ -441,12 +450,12 @@ export function CategoryBlock({
                           }
                           setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_price']; return copy; });
                         }}
-                        className="w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                        className="w-full max-w-[92px] px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
                       />
                     </div>
 
                     {showCoefficient && (
-                      <div className="col-span-2 text-right">
+                      <div className="text-right">
                         <input
                           type="number"
                           step="0.01"
@@ -467,12 +476,12 @@ export function CategoryBlock({
                               return copy;
                             });
                           }}
-                          className="w-12 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                          className="w-full max-w-[72px] px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
                         />
                       </div>
                     )}
 
-                    <div className={`${showCoefficient ? 'col-span-3' : 'col-span-5'} text-right text-cyan-400 font-medium text-xs`}>
+                    <div className="text-right text-cyan-400 font-medium text-xs pr-1">
                       {(() => {
                         switch (paymentMode) {
                           case 'byn_cash':
