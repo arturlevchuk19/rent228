@@ -156,6 +156,30 @@ export function CategoryBlock({
     }
   };
 
+  const getDisplayedPriceUSD = (item: BudgetItem) => {
+    if (budgetTotalsMode === 'combined_only') {
+      const normalizedDays = Math.max(1, budgetDays);
+      const extraDays = Math.max(0, normalizedDays - 1);
+      const appliedRate = item.multi_day_rate_override ?? 0;
+      return item.price + item.price * appliedRate * extraDays;
+    }
+
+    return item.price;
+  };
+
+  const getDisplayedPrice = (item: BudgetItem) => {
+    const usdPrice = getDisplayedPriceUSD(item);
+
+    switch (paymentMode) {
+      case 'byn_cash':
+        return convertUSDtoBYNCashPrice(usdPrice);
+      case 'byn_noncash':
+        return convertUSDtoBYNNonCashPrice(usdPrice, item);
+      default:
+        return usdPrice;
+    }
+  };
+
   const getCurrencyLabel = () => {
     switch (paymentMode) {
       case 'byn_cash':
@@ -346,6 +370,8 @@ export function CategoryBlock({
           <div>
             {items.map((item) => {
               const isNoteEditorOpen = noteEditorsOpen[item.id] ?? Boolean(item.notes);
+              const isCombinedPriceDisplayMode = budgetTotalsMode === 'combined_only';
+              const displayedPrice = getDisplayedPrice(item);
               return (
                 <div
                   key={item.id}
@@ -411,16 +437,11 @@ export function CategoryBlock({
                       <input
                         type="number"
                         step="0.01"
-                        value={draftValues[item.id + '_price'] ?? String((() => {
-                          switch (paymentMode) {
-                            case 'byn_cash':
-                              return convertUSDtoBYNCashPrice(item.price);
-                            case 'byn_noncash':
-                              return convertUSDtoBYNNonCashPrice(item.price, item);
-                            default:
-                              return item.price;
-                          }
-                        })())}
+                        value={
+                          isCombinedPriceDisplayMode
+                            ? String(displayedPrice)
+                            : (draftValues[item.id + '_price'] ?? String(displayedPrice))
+                        }
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
                         onBlur={(e) => {
                           const inputValue = parseFloat(e.target.value);
@@ -440,7 +461,13 @@ export function CategoryBlock({
                           }
                           setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_price']; return copy; });
                         }}
-                        className="w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                        disabled={isCombinedPriceDisplayMode}
+                        title={isCombinedPriceDisplayMode ? `В режиме "combined_only" цена рассчитывается автоматически за ${Math.max(1, budgetDays)} дн.` : undefined}
+                        className={`w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs rounded ${
+                          isCombinedPriceDisplayMode
+                            ? 'cursor-not-allowed opacity-70'
+                            : 'focus:outline-none focus:bg-gray-800'
+                        }`}
                       />
                     </div>
 
