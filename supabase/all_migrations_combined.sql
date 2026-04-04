@@ -3189,3 +3189,43 @@ SET multi_day_rate = 0.2
 WHERE rental_price > 0
   AND lower(trim(category)) = 'сцена'
   AND COALESCE(multi_day_rate, 0) = 0;
+
+/*
+  # Add budget days and totals mode fields to events
+
+  1. Schema
+    - Add `budget_days` column (integer, default 1)
+    - Add `budget_totals_mode` column (text, default 'combined_only')
+
+  2. Constraints
+    - `budget_days >= 1`
+    - `budget_totals_mode IN ('combined_only', 'day1_plus_combined')`
+*/
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'events' AND column_name = 'budget_days'
+  ) THEN
+    ALTER TABLE events
+      ADD COLUMN budget_days integer NOT NULL DEFAULT 1;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'events' AND column_name = 'budget_totals_mode'
+  ) THEN
+    ALTER TABLE events
+      ADD COLUMN budget_totals_mode text NOT NULL DEFAULT 'combined_only';
+  END IF;
+END $$;
+
+ALTER TABLE events
+  DROP CONSTRAINT IF EXISTS events_budget_days_check,
+  ADD CONSTRAINT events_budget_days_check CHECK (budget_days >= 1),
+  DROP CONSTRAINT IF EXISTS events_budget_totals_mode_check,
+  ADD CONSTRAINT events_budget_totals_mode_check CHECK (budget_totals_mode IN ('combined_only', 'day1_plus_combined'));

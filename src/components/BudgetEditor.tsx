@@ -104,6 +104,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
+  const [budgetDays, setBudgetDays] = useState(1);
+  const [budgetTotalsMode, setBudgetTotalsMode] = useState<'combined_only' | 'day1_plus_combined'>('combined_only');
   const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
 
@@ -165,6 +167,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       if (eventData.discount_percent !== undefined) {
         setDiscountPercent(eventData.discount_percent);
         setDiscountPercentInput(eventData.discount_percent.toString());
+      }
+      if (eventData.budget_days !== undefined && eventData.budget_days !== null) {
+        setBudgetDays(Math.max(1, eventData.budget_days));
+      }
+      if (eventData.budget_totals_mode) {
+        setBudgetTotalsMode(eventData.budget_totals_mode);
       }
 
       const initialExpanded: Record<string, boolean> = {};
@@ -667,7 +675,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       // Save discount settings to event
       await updateEvent(eventId, {
         discount_enabled: discountEnabled,
-        discount_percent: discountPercent
+        discount_percent: discountPercent,
+        budget_days: budgetDays,
+        budget_totals_mode: budgetTotalsMode
       });
 
       for (const item of budgetItems) {
@@ -1575,6 +1585,47 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-300 font-medium">Дней</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={budgetDays}
+                  onChange={(e) => {
+                    const nextValue = parseInt(e.target.value, 10);
+                    if (isNaN(nextValue)) {
+                      setBudgetDays(1);
+                      return;
+                    }
+                    setBudgetDays(Math.max(1, nextValue));
+                  }}
+                  className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-gray-300 font-medium">Режим итогов</span>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name={`budget-totals-mode-${eventId}`}
+                    checked={budgetTotalsMode === 'combined_only'}
+                    onChange={() => setBudgetTotalsMode('combined_only')}
+                    className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                  />
+                  <span className="text-[11px] text-gray-300">Только общий за N дней</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name={`budget-totals-mode-${eventId}`}
+                    checked={budgetTotalsMode === 'day1_plus_combined'}
+                    onChange={() => setBudgetTotalsMode('day1_plus_combined')}
+                    className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                  />
+                  <span className="text-[11px] text-gray-300">Итог за 1 день + итог за N дней</span>
+                </label>
+              </div>
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
