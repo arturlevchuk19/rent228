@@ -714,7 +714,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         exchangeRate: exchangeRate,
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
-        discountPercent: discountPercent
+        discountPercent: discountPercent,
+        budgetDays,
+        budgetTotalsMode
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
