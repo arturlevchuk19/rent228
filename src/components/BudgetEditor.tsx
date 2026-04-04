@@ -138,6 +138,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCategoryDropdown, showExchangeRatePopover]);
 
+  useEffect(() => {
+    if (budgetDays <= 1 && budgetTotalsMode === 'day1_plus_combined') {
+      setBudgetTotalsMode('combined_only');
+    }
+  }, [budgetDays, budgetTotalsMode]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -1629,48 +1635,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               </span>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-300 font-medium">Дней</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={budgetDays}
-                  onChange={(e) => {
-                    const nextValue = parseInt(e.target.value, 10);
-                    if (isNaN(nextValue)) {
-                      setBudgetDays(1);
-                      return;
-                    }
-                    setBudgetDays(Math.max(1, nextValue));
-                  }}
-                  className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-300 font-medium">Режим итогов</span>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="radio"
-                    name={`budget-totals-mode-${eventId}`}
-                    checked={budgetTotalsMode === 'combined_only'}
-                    onChange={() => setBudgetTotalsMode('combined_only')}
-                    className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
-                  />
-                  <span className="text-[11px] text-gray-300">Только общий за N дней</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="radio"
-                    name={`budget-totals-mode-${eventId}`}
-                    checked={budgetTotalsMode === 'day1_plus_combined'}
-                    onChange={() => setBudgetTotalsMode('day1_plus_combined')}
-                    className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
-                  />
-                  <span className="text-[11px] text-gray-300">Итог за 1 день + итог за N дней</span>
-                </label>
-              </div>
+            <div className="flex items-start gap-6">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -1710,6 +1675,51 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </div>
                 )}
               </label>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-300 font-medium">Дней</span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={budgetDays}
+                    onChange={(e) => {
+                      const nextValue = parseInt(e.target.value, 10);
+                      if (isNaN(nextValue)) {
+                        setBudgetDays(1);
+                        return;
+                      }
+                      setBudgetDays(Math.max(1, nextValue));
+                    }}
+                    className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                  />
+                </div>
+                {budgetDays > 1 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-gray-300 font-medium">Режим итогов</span>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name={`budget-totals-mode-${eventId}`}
+                        checked={budgetTotalsMode === 'combined_only'}
+                        onChange={() => setBudgetTotalsMode('combined_only')}
+                        className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                      />
+                      <span className="text-[11px] text-gray-300">Только общий за N дней</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name={`budget-totals-mode-${eventId}`}
+                        checked={budgetTotalsMode === 'day1_plus_combined'}
+                        onChange={() => setBudgetTotalsMode('day1_plus_combined')}
+                        className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                      />
+                      <span className="text-[11px] text-gray-300">Итог за 1 день + итог за N дней</span>
+                    </label>
+                  </div>
+                )}
+              </div>
               {discountEnabled && getDiscountedTotal() !== null && (
                 <div className="flex flex-col">
                   <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
