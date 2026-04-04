@@ -1641,45 +1641,56 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             </div>
 
             <div className="flex items-start gap-6">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={discountEnabled}
-                  onChange={(e) => setDiscountEnabled(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
-                />
-                <span className="text-xs text-gray-300 font-medium">Скидка</span>
-                {discountEnabled && (
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={discountPercentInput}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        setDiscountPercentInput(raw);
-                        const parsed = parseFloat(raw);
-                        if (!isNaN(parsed)) {
-                          setDiscountPercent(Math.min(100, Math.max(0, parsed)));
-                        }
-                      }}
-                      onBlur={() => {
-                        const parsed = parseFloat(discountPercentInput);
-                        if (isNaN(parsed) || discountPercentInput.trim() === '') {
-                          setDiscountPercent(0);
-                          setDiscountPercentInput('0');
-                        } else {
-                          const clamped = Math.min(100, Math.max(0, parsed));
-                          setDiscountPercent(clamped);
-                          setDiscountPercentInput(String(clamped));
-                        }
-                      }}
-                      className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
-                    />
-                    <span className="text-xs text-gray-400">%</span>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={discountEnabled}
+                    onChange={(e) => setDiscountEnabled(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                  />
+                  <span className="text-xs text-gray-300 font-medium">Скидка</span>
+                  {discountEnabled && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={discountPercentInput}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setDiscountPercentInput(raw);
+                          const parsed = parseFloat(raw);
+                          if (!isNaN(parsed)) {
+                            setDiscountPercent(Math.min(100, Math.max(0, parsed)));
+                          }
+                        }}
+                        onBlur={() => {
+                          const parsed = parseFloat(discountPercentInput);
+                          if (isNaN(parsed) || discountPercentInput.trim() === '') {
+                            setDiscountPercent(0);
+                            setDiscountPercentInput('0');
+                          } else {
+                            const clamped = Math.min(100, Math.max(0, parsed));
+                            setDiscountPercent(clamped);
+                            setDiscountPercentInput(String(clamped));
+                          }
+                        }}
+                        className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                    </div>
+                  )}
+                </label>
+                {discountEnabled && getDiscountedTotal() !== null && (
+                  <div className="flex flex-col">
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
+                    <span className="text-lg font-black text-white">
+                      <span className="text-green-400">{Math.round(getDiscountedTotal()!).toLocaleString()}</span>
+                      <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
+                    </span>
                   </div>
                 )}
-              </label>
+              </div>
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-300 font-medium">Дней</span>
@@ -1736,15 +1747,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </div>
                 )}
               </div>
-              {discountEnabled && getDiscountedTotal() !== null && (
-                <div className="flex flex-col">
-                  <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
-                  <span className="text-lg font-black text-white">
-                    <span className="text-green-400">{Math.round(getDiscountedTotal()!).toLocaleString()}</span>
-                    <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
