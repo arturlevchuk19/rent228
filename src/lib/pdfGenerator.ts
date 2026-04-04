@@ -234,11 +234,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
       locationHtml += `
        <div style="margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 20px;">
-          <div style="width: 6px; height: 18px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
-          <h2 style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; line-height: 1; display: flex; align-items: center;">
+        <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
+          <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
+          <div style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center;">
             ${categoryName}
-          </h2>
+          </div>
         </div>
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
@@ -296,9 +296,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     const locationHeaderHtml = isNoLocation
       ? ''
-      : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+      : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 22px;">
           <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
-          <div style="padding: 5px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent};">
+          <div style="padding: 0 10px; height: 20px; line-height: 20px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent}; display: flex; align-items: center;">
             ${locationName}
           </div>
         </div>`;
