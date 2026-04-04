@@ -236,7 +236,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
        <div style="margin-bottom: 20px;">
         <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
           <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
-          <div style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center; position: relative; top: -2px;">
+          <div style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center; position: relative; top: -8px;">
             ${categoryName}
           </div>
         </div>
@@ -298,7 +298,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ? ''
       : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 22px;">
           <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
-          <div style="padding: 0 10px; height: 20px; line-height: 20px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent}; display: flex; align-items: center; position: relative; top: -2px;">
+          <div style="padding: 0 10px; height: 20px; line-height: 20px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent}; display: flex; align-items: center; position: relative; top: -8px;">
             ${locationName}
           </div>
         </div>`;
