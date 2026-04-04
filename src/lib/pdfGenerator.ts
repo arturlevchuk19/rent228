@@ -234,11 +234,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
       locationHtml += `
        <div style="margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 20px;">
-          <div style="width: 6px; height: 18px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
-          <h2 style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; line-height: 1; display: flex; align-items: center;">
+        <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
+          <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
+          <div style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center; position: relative; top: -8px;">
             ${categoryName}
-          </h2>
+          </div>
         </div>
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
@@ -279,19 +279,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     }, 0);
     const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
 
-    const locationHeaderHtml = isNoLocation
+    const locationTotalsHtml = isNoLocation
       ? ''
-      : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-          <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
-          <div style="padding: 5px 10px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent};">
-            ${locationName}
-          </div>
-        </div>`;
-
-    categoriesHtml += `
-      <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
-        ${locationHeaderHtml}
-        ${locationHtml}
+      : `
         <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
           <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
           <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotal.toFixed(0)}${currencySuffix}</span>
@@ -302,6 +292,22 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotalCombined.toFixed(0)}${currencySuffix}</span>
         </div>
         ` : ''}
+      `;
+
+    const locationHeaderHtml = isNoLocation
+      ? ''
+      : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 22px;">
+          <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
+          <div style="padding: 0 10px; height: 20px; line-height: 20px; border-radius: 9999px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #f3f4f6; background: ${locationAccent}; display: flex; align-items: center; position: relative; top: -8px;">
+            ${locationName}
+          </div>
+        </div>`;
+
+    categoriesHtml += `
+      <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
+        ${locationHeaderHtml}
+        ${locationHtml}
+        ${locationTotalsHtml}
       </section>
     `;
   });

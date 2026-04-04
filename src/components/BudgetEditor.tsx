@@ -1350,8 +1350,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 <>
                   {locations.map((location) => {
                     const locationGroupId = `location:${location.id}`;
-                    const locationItems = budgetItems.filter((item) => item.location_id === location.id);
-                    const locationTotals = calculateSectionTotalsForPaymentMode(locationItems);
                     const locationHasContent = categories.some((category) => {
                       const categoryGroupId = buildCategoryGroupId(category.id, location.id);
                       return (groupedItems[categoryGroupId]?.length || 0) > 0 || activeCategoryIds.has(categoryGroupId);
@@ -1488,19 +1486,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                               />
                             )}
 
-                            {locationItems.length > 0 && (
-                              <div className="mx-2 my-2 rounded-lg border border-emerald-900/30 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-100">
-                                <div className="font-semibold">Итого локации</div>
-                                {budgetTotalsMode === 'day1_plus_combined' && (
-                                  <div>
-                                    За 1 день: <span className="font-semibold">{locationTotals.day1Total.toLocaleString()}</span> {getCurrencyLabel()}
-                                  </div>
-                                )}
-                                <div>
-                                  За {budgetDays} {budgetDays === 1 ? 'день' : 'дней'}: <span className="font-semibold">{locationTotals.combinedTotal.toLocaleString()}</span> {getCurrencyLabel()}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
@@ -1576,25 +1561,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     </div>
                   )}
 
-                  {(() => {
-                    const noLocationItems = budgetItems.filter((item) => !item.location_id);
-                    if (noLocationItems.length === 0) return null;
-                    const noLocationTotals = calculateSectionTotalsForPaymentMode(noLocationItems);
-
-                    return (
-                      <div className="rounded-xl border border-gray-700/60 bg-gray-900/60 px-3 py-2 text-xs text-gray-200">
-                        <div className="font-semibold">Итого без локации</div>
-                        {budgetTotalsMode === 'day1_plus_combined' && (
-                          <div>
-                            За 1 день: <span className="font-semibold">{noLocationTotals.day1Total.toLocaleString()}</span> {getCurrencyLabel()}
-                          </div>
-                        )}
-                        <div>
-                          За {budgetDays} {budgetDays === 1 ? 'день' : 'дней'}: <span className="font-semibold">{noLocationTotals.combinedTotal.toLocaleString()}</span> {getCurrencyLabel()}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  
                 </>
               )}
             </div>
