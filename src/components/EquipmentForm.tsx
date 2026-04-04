@@ -21,6 +21,7 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
     sku: item?.sku || '',
     quantity: String(item?.quantity ?? 0),
     rental_price: String(item?.rental_price ?? 0),
+    multi_day_rate: String(item?.multi_day_rate ?? 0),
     power: item?.power || '',
     object_type: item?.object_type || 'physical' as 'physical' | 'virtual',
     rental_type: item?.rental_type || 'rental' as 'rental' | 'sublease',
@@ -36,6 +37,7 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
       ...formData,
       quantity: parseFloat(formData.quantity) || 0,
       rental_price: parseFloat(formData.rental_price) || 0,
+      multi_day_rate: parseFloat(formData.multi_day_rate) || 0,
     };
 
     try {
@@ -54,7 +56,31 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      if (name === 'rental_price') {
+        const nextRentalPrice = parseFloat(value) || 0;
+        const prevRentalPrice = parseFloat(prev.rental_price) || 0;
+        const prevMultiDayRate = parseFloat(prev.multi_day_rate) || 0;
+
+        if (nextRentalPrice > 0 && prevRentalPrice <= 0 && prevMultiDayRate <= 0) {
+          return {
+            ...prev,
+            rental_price: value,
+            multi_day_rate: '0.5'
+          };
+        }
+
+        if (nextRentalPrice <= 0) {
+          return {
+            ...prev,
+            rental_price: value,
+            multi_day_rate: '0'
+          };
+        }
+      }
+
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleRadioChange = (field: string, value: string | boolean) => {
@@ -62,6 +88,10 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleNumberWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+    e.currentTarget.blur();
   };
 
   return (
@@ -205,8 +235,9 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
                   name="quantity"
                   value={formData.quantity}
                   onChange={handleChange}
+                  onWheel={handleNumberWheel}
                   min="0"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                   required
                 />
               </div>
@@ -220,11 +251,30 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
                   name="rental_price"
                   value={formData.rental_price}
                   onChange={handleChange}
+                  onWheel={handleNumberWheel}
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
+
+              {(parseFloat(formData.rental_price) || 0) > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Коэф. многоднев. аренды
+                  </label>
+                  <input
+                    type="number"
+                    name="multi_day_rate"
+                    value={formData.multi_day_rate}
+                    onChange={handleChange}
+                    onWheel={handleNumberWheel}
+                    min="0"
+                    step="0.01"
+                    className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">

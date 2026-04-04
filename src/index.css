@@ -61,4 +61,15 @@
   .scrollbar-visible::-webkit-scrollbar {
     display: block !important;
   }
+
+  .no-number-spin {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .no-number-spin::-webkit-outer-spin-button,
+  .no-number-spin::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
