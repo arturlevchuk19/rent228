@@ -110,6 +110,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [budgetTotalsMode, setBudgetTotalsMode] = useState<'combined_only' | 'day1_plus_combined'>('combined_only');
   const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
+  const [isBudgetConfirmed, setIsBudgetConfirmed] = useState(false);
 
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -186,6 +187,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       if (eventData.budget_totals_mode) {
         setBudgetTotalsMode(eventData.budget_totals_mode);
       }
+      setIsBudgetConfirmed(Boolean(eventData.progress_equipment_reserved));
 
       const initialExpanded: Record<string, boolean> = {};
       const initialActive = new Set<string>();
@@ -1790,8 +1792,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             </button>
             <button
               onClick={() => setShowWarehouseSpec(true)}
-              disabled={budgetItems.length === 0}
+              disabled={budgetItems.length === 0 || !isBudgetConfirmed}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all disabled:opacity-30 border border-gray-700"
+              title={
+                !isBudgetConfirmed
+                  ? 'Чтобы открыть спецификацию, измените статус сметы на «подтверждена»'
+                  : undefined
+              }
             >
               <FileText className="w-3.5 h-3.5" />
               <span className="text-xs font-medium">Спецификация</span>

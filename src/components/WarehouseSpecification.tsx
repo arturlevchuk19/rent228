@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck } from 'lucide-react';
-import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, updateBudgetItemReturnPicked, confirmSpecification, confirmShipment, confirmReturn, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../lib/events';
+import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2 } from 'lucide-react';
+import { BudgetItem, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
@@ -32,7 +32,14 @@ import {
   createOtherItem,
   updateOtherItem,
   updateOtherItemReturnPicked,
-  deleteOtherItem
+  deleteOtherItem,
+  getSpecificationBudgetItems,
+  createSpecificationBudgetItem,
+  updateSpecificationBudgetItem,
+  updateSpecificationBudgetItemPicked,
+  updateSpecificationBudgetItemReturnPicked,
+  deleteSpecificationBudgetItem,
+  ensureWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
 
@@ -295,7 +302,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     try {
       setLoading(true);
       const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
-        getBudgetItems(eventId),
+        (async () => {
+          await ensureWarehouseSpecificationSnapshot(eventId);
+          return getSpecificationBudgetItems(eventId);
+        })(),
         getCategories(),
         getCategoriesForEvent(eventId),
         getLocationsForEvent(eventId),
@@ -670,7 +680,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       // We need to extract the full UUID before any suffix
       const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
-      await updateBudgetItemPicked(realId, picked);
+      await updateSpecificationBudgetItemPicked(realId, picked);
       
       // Update all items sharing this budget item ID
       setExpandedItems(expandedItems.map(item =>
@@ -767,7 +777,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
     try {
       const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
-      await updateBudgetItemReturnPicked(realId, return_picked);
+      await updateSpecificationBudgetItemReturnPicked(realId, return_picked);
       setExpandedItems(prev => prev.map(item =>
         item.budgetItemId.startsWith(realId) ? { ...item, return_picked } : item
       ));
@@ -876,7 +886,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleAddExtraEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
-      await createBudgetItem({
+      await createSpecificationBudgetItem({
         event_id: eventId,
         equipment_id: equipment.id,
         modification_id: modificationId,
@@ -1000,7 +1010,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleAddEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
-      const newItem = await createBudgetItem({
+      const newItem = await createSpecificationBudgetItem({
         event_id: eventId,
         equipment_id: equipment.id,
         modification_id: modificationId,
@@ -1069,6 +1079,22 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     setModifiedItems(prev => new Set(prev).add(realId));
   };
 
+  const handleDeleteSpecificationItem = async (budgetItemId: string, itemName: string) => {
+    if (!window.confirm(`Удалить элемент «${itemName}» из спецификации?`)) {
+      return;
+    }
+
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    try {
+      await deleteSpecificationBudgetItem(realId);
+      await loadData();
+      showNotification('Элемент удалён', 'success');
+    } catch (error) {
+      console.error('Error deleting specification item:', error);
+      showNotification('Ошибка при удалении элемента');
+    }
+  };
+
   const handleSaveChanges = async () => {
     if (modifiedItems.size === 0) return;
     
@@ -1089,11 +1115,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Delete existing LED case children from DB before creating new ones (prevent duplicates)
         // Always fetch fresh from DB to avoid stale cache issues
         if (caseItems.length > 0) {
-          const freshItemsForLed = await getBudgetItems(eventId);
+          const freshItemsForLed = await getSpecificationBudgetItems(eventId);
           const existingLedChildren = freshItemsForLed.filter(item => item.parent_budget_item_id === budgetItemId);
           for (const child of existingLedChildren) {
             try {
-              await deleteBudgetItem(child.id);
+              await deleteSpecificationBudgetItem(child.id);
             } catch (err) {
               console.error('Error deleting old LED case budget item:', child.id, err);
             }
@@ -1119,7 +1145,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               picked: caseItem.picked,
               sort_order: 0
             });
-            const newItem = await createBudgetItem({
+            const newItem = await createSpecificationBudgetItem({
               event_id: eventId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
@@ -1147,12 +1173,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Replace podium child rows for parent item
         if (podiumChildItems.length > 0) {
           // Fetch from DB directly to avoid stale state
-          const freshBudgetItems = await getBudgetItems(eventId);
+          const freshBudgetItems = await getSpecificationBudgetItems(eventId);
           const existingPodiumChildren = freshBudgetItems.filter(item => item.parent_budget_item_id === budgetItemId);
 
           for (const child of existingPodiumChildren) {
             try {
-              await deleteBudgetItem(child.id);
+              await deleteSpecificationBudgetItem(child.id);
             } catch (err) {
               console.error('Error deleting old podium child item:', child.id, err);
             }
@@ -1160,7 +1186,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
           for (const childItem of podiumChildItems) {
             try {
-              const newItem = await createBudgetItem({
+              const newItem = await createSpecificationBudgetItem({
                 event_id: eventId,
                 item_type: 'equipment',
                 category_id: childItem.categoryId,
@@ -1197,7 +1223,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           const budgetItem = budgetItems.find(b => b.id === budgetItemId);
           if (budgetItem) {
             try {
-              await updateBudgetItem(budgetItemId, {
+              await updateSpecificationBudgetItem(budgetItemId, {
                 quantity: expandedItem.quantity,
                 notes: expandedItem.notes
               });
@@ -1209,7 +1235,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         } else if (budgetItemId.includes('-case-') || budgetItemId.includes('-mod-')) {
           // For other virtual items (not parent LED), create a new budget item
           try {
-            const newItem = await createBudgetItem({
+            const newItem = await createSpecificationBudgetItem({
               event_id: eventId,
               item_type: 'equipment',
               equipment_id: null,
@@ -1218,7 +1244,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               name: expandedItem.name,
               sku: expandedItem.sku,
               quantity: expandedItem.quantity,
-              unit: expandedItem.unit,
               notes: expandedItem.notes,
               picked: expandedItem.picked
             });
@@ -1233,7 +1258,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           if (!budgetItem) continue;
           
           try {
-            await updateBudgetItem(budgetItemId, {
+            await updateSpecificationBudgetItem(budgetItemId, {
               quantity: expandedItem.quantity,
               notes: expandedItem.notes
             });
@@ -1811,6 +1836,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     className="p-0.5 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                   >
                                     <Plus className="w-5 h-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSpecificationItem(item.budgetItemId, item.name)}
+                                    className="p-0.5 text-red-500/60 hover:text-red-400 transition-colors"
+                                    title="Удалить элемент"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
                               )}
