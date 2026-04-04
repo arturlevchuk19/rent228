@@ -90,6 +90,10 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
     }));
   };
 
+  const handleNumberWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+    e.currentTarget.blur();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
       <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -231,8 +235,9 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
                   name="quantity"
                   value={formData.quantity}
                   onChange={handleChange}
+                  onWheel={handleNumberWheel}
                   min="0"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                   required
                 />
               </div>
@@ -246,9 +251,10 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
                   name="rental_price"
                   value={formData.rental_price}
                   onChange={handleChange}
+                  onWheel={handleNumberWheel}
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
@@ -262,9 +268,10 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
                     name="multi_day_rate"
                     value={formData.multi_day_rate}
                     onChange={handleChange}
+                    onWheel={handleNumberWheel}
                     min="0"
                     step="0.01"
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                    className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                   />
                 </div>
               )}
