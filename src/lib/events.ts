@@ -106,6 +106,7 @@ export interface BudgetItem {
   total: number;
   notes: string;
   exchange_rate: number;
+  multi_day_rate_override?: number | null;
   category_id?: string | null;
   location_id?: string | null;
   sort_order: number;
@@ -399,6 +400,7 @@ export async function deleteOrganizer(id: string): Promise<void> {
 
 const BUDGET_ITEM_BASE_SELECT = `
   *,
+  multi_day_rate_override,
   equipment:equipment_items (*),
   work_item:work_items (*)
 `;
