@@ -61,6 +61,8 @@ export interface Event {
   equipment_returned_at?: string;
   discount_enabled?: boolean;
   discount_percent?: number;
+  budget_days?: number;
+  budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
   venues?: Venue;
   clients?: Client;
   organizers?: Organizer;
