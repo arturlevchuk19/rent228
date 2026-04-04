@@ -342,7 +342,7 @@ export function CategoryBlock({
             >
               <div className="text-left">Наименование</div>
               <div className="text-center">Кол-во</div>
-              <div className="text-right pr-2">Цена</div>
+              <div className="text-center">Цена</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
               <div className="text-right pr-2">Сумма</div>
             </div>
