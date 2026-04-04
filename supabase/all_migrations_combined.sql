@@ -3181,9 +3181,11 @@ END $$;
 UPDATE equipment_items
 SET multi_day_rate = 0.5
 WHERE rental_price > 0
-  AND lower(trim(category)) <> 'сцена';
+  AND lower(trim(category)) <> 'сцена'
+  AND COALESCE(multi_day_rate, 0) = 0;
 
 UPDATE equipment_items
 SET multi_day_rate = 0.2
 WHERE rental_price > 0
-  AND lower(trim(category)) = 'сцена';
+  AND lower(trim(category)) = 'сцена'
+  AND COALESCE(multi_day_rate, 0) = 0;
