@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
+import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
 
 export interface BudgetDragTarget {
   type: 'category' | 'location' | 'uncategorized';
@@ -26,6 +27,8 @@ interface CategoryBlockProps {
   onManagePersonnel?: (categoryId: string) => void;
   paymentMode: 'usd' | 'byn_cash' | 'byn_noncash';
   exchangeRate: number;
+  budgetDays: number;
+  budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
   onDragStart?: (e: React.DragEvent, type: 'category' | 'item', id: string) => void;
   onDragOver?: (e: React.DragEvent, target: BudgetDragTarget) => void;
   onDrop?: (e: React.DragEvent, target: BudgetDragTarget) => void;
@@ -55,6 +58,8 @@ export function CategoryBlock({
   onManagePersonnel,
   paymentMode,
   exchangeRate,
+  budgetDays,
+  budgetTotalsMode,
   onDragStart,
   onDragOver,
   onDrop,
@@ -82,8 +87,8 @@ export function CategoryBlock({
     setIsEditingName(false);
   };
 
-  const calculateBYNCash = (priceUSD: number, quantity: number): number => {
-    const baseAmount = priceUSD * exchangeRate * quantity;
+  const calculateBYNCash = (amountUSD: number): number => {
+    const baseAmount = amountUSD * exchangeRate;
     return Math.round(baseAmount / 5) * 5;
   };
 
@@ -93,8 +98,8 @@ export function CategoryBlock({
     return workName.includes('доставка оборудования') || workName.includes('доставка персонала');
   };
 
-  const calculateBYNNonCash = (priceUSD: number, quantity: number, item?: BudgetItem): number => {
-    const baseAmount = priceUSD * exchangeRate * quantity;
+  const calculateBYNNonCash = (amountUSD: number, item?: BudgetItem): number => {
+    const baseAmount = amountUSD * exchangeRate;
     let withBankRate: number;
     if (item && item.item_type === 'work' && !isDeliveryWork(item)) {
       withBankRate = baseAmount * 1.67;
@@ -136,17 +141,19 @@ export function CategoryBlock({
     return Math.round(usdPrice * 100) / 100;
   };
 
-  const getCategoryTotal = () => {
-    return items.reduce((sum, item) => {
-      switch (paymentMode) {
-        case 'byn_cash':
-          return sum + calculateBYNCash(item.price, item.quantity);
-        case 'byn_noncash':
-          return sum + calculateBYNNonCash(item.price, item.quantity, item);
-        default:
-          return sum + item.price * item.quantity;
-      }
-    }, 0);
+  const getDisplayedAmount = (item: BudgetItem) => {
+    const usdAmount = budgetTotalsMode === 'combined_only'
+      ? calcCombinedTotal(item, budgetDays)
+      : calcDay1Total(item);
+
+    switch (paymentMode) {
+      case 'byn_cash':
+        return calculateBYNCash(usdAmount);
+      case 'byn_noncash':
+        return calculateBYNNonCash(usdAmount, item);
+      default:
+        return usdAmount;
+    }
   };
 
   const getCurrencyLabel = () => {
@@ -159,7 +166,23 @@ export function CategoryBlock({
     }
   };
 
-  const categoryTotal = getCategoryTotal();
+  const categoryTotals = calcGrandTotals(items, budgetDays, budgetTotalsMode);
+  const categoryTotal = (() => {
+    if (paymentMode === 'usd') {
+      return categoryTotals.totalForMode;
+    }
+
+    if (paymentMode === 'byn_cash') {
+      return items.reduce((sum, item) => sum + calculateBYNCash(
+        budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item)
+      ), 0);
+    }
+
+    return items.reduce((sum, item) => sum + calculateBYNNonCash(
+      budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item),
+      item
+    ), 0);
+  })();
 
   const hasWorkItems = items.some(item => item.item_type === 'work');
   const dragTarget: BudgetDragTarget =
@@ -450,11 +473,11 @@ export function CategoryBlock({
                       {(() => {
                         switch (paymentMode) {
                           case 'byn_cash':
-                            return `${calculateBYNCash(item.price, item.quantity).toFixed(2)} BYN`;
+                            return `${getDisplayedAmount(item).toFixed(2)} BYN`;
                           case 'byn_noncash':
-                            return `${calculateBYNNonCash(item.price, item.quantity, item).toFixed(2)} BYN`;
+                            return `${getDisplayedAmount(item).toFixed(2)} BYN`;
                           default:
-                            return `${(item.price * item.quantity).toFixed(2)}`;
+                            return `${getDisplayedAmount(item).toFixed(2)}`;
                         }
                       })()}
                     </div>

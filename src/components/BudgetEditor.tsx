@@ -10,6 +10,7 @@ import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
+import { calcCombinedTotal, calcGrandTotals } from '../lib/budgetPricing';
 import {
   UShapeUnifiedDialog,
   LedSizeDialog,
@@ -953,13 +954,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return workName.includes('доставка оборудования') || workName.includes('доставка тех. персонала');
   };
 
-  const calculateBYNCash = (priceUSD: number, quantity: number): number => {
-    const baseAmount = priceUSD * exchangeRate * quantity;
+  const calculateBYNCash = (amountUSD: number): number => {
+    const baseAmount = amountUSD * exchangeRate;
     return Math.round(baseAmount / 5) * 5;
   };
 
-  const calculateBYNNonCash = (priceUSD: number, quantity: number, item?: BudgetItem): number => {
-    const baseAmount = priceUSD * exchangeRate * quantity;
+  const calculateBYNNonCash = (amountUSD: number, item?: BudgetItem): number => {
+    const baseAmount = amountUSD * exchangeRate;
     let withBankRate: number;
     if (item && item.item_type === 'work' && !isDeliveryWork(item)) {
       withBankRate = baseAmount * 1.67;
@@ -996,43 +997,67 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   }, {} as GroupedItemsByLocation);
 
   const mainBudgetItems = budgetItems.filter((item) => !item.is_extra);
-  const totalUSD = mainBudgetItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const totalBYNCash = mainBudgetItems.reduce((sum, item) =>
-    sum + calculateBYNCash(item.price, item.quantity), 0
-  );
-  const totalBYNNonCash = mainBudgetItems.reduce((sum, item) =>
-    sum + calculateBYNNonCash(item.price, item.quantity, item), 0
-  );
-
   const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');
   const workItems2 = mainBudgetItems.filter(item => item.item_type === 'work');
+  const mainTotalsUSD = calcGrandTotals(mainBudgetItems, budgetDays, budgetTotalsMode);
+  const nonWorkTotalsUSD = calcGrandTotals(nonWorkItems, budgetDays, budgetTotalsMode);
+  const workTotalsUSD = calcGrandTotals(workItems2, budgetDays, budgetTotalsMode);
 
-  const nonWorkTotalUSD = nonWorkItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const nonWorkTotalBYNCash = nonWorkItems.reduce((sum, item) => sum + calculateBYNCash(item.price, item.quantity), 0);
-  const nonWorkTotalBYNNonCash = nonWorkItems.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item.quantity, item), 0);
+  const totalDay1BYNCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNCash(item.price * item.quantity), 0);
+  const totalCombinedBYNCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNCash(calcCombinedTotal(item, budgetDays)), 0);
+  const totalDay1BYNNonCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNNonCash(item.price * item.quantity, item), 0);
+  const totalCombinedBYNNonCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNNonCash(calcCombinedTotal(item, budgetDays), item), 0);
 
-  const workTotalUSD = workItems2.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const workTotalBYNCash = workItems2.reduce((sum, item) => sum + calculateBYNCash(item.price, item.quantity), 0);
-  const workTotalBYNNonCash = workItems2.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item.quantity, item), 0);
+  const nonWorkTotalBYNCashForMode = nonWorkItems.reduce((sum, item) => {
+    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
+    return sum + calculateBYNCash(usdAmount);
+  }, 0);
+  const nonWorkTotalBYNNonCashForMode = nonWorkItems.reduce((sum, item) => {
+    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
+    return sum + calculateBYNNonCash(usdAmount, item);
+  }, 0);
+  const workTotalBYNCashForMode = workItems2.reduce((sum, item) => {
+    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
+    return sum + calculateBYNCash(usdAmount);
+  }, 0);
+  const workTotalBYNNonCashForMode = workItems2.reduce((sum, item) => {
+    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
+    return sum + calculateBYNNonCash(usdAmount, item);
+  }, 0);
 
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
     const multiplier = 1 - discountPercent / 100;
     let raw: number;
     switch (paymentMode) {
-      case 'byn_cash': raw = nonWorkTotalBYNCash * multiplier + workTotalBYNCash; break;
-      case 'byn_noncash': raw = nonWorkTotalBYNNonCash * multiplier + workTotalBYNNonCash; break;
-      default: raw = nonWorkTotalUSD * multiplier + workTotalUSD; break;
+      case 'byn_cash': raw = nonWorkTotalBYNCashForMode * multiplier + workTotalBYNCashForMode; break;
+      case 'byn_noncash': raw = nonWorkTotalBYNNonCashForMode * multiplier + workTotalBYNNonCashForMode; break;
+      default: raw = nonWorkTotalsUSD.totalForMode * multiplier + workTotalsUSD.totalForMode; break;
     }
     return Math.round(raw / 5) * 5;
   };
 
-  const getTotalForMode = () => {
+  const getDay1TotalForPaymentMode = () => {
     switch (paymentMode) {
-      case 'byn_cash': return totalBYNCash;
-      case 'byn_noncash': return totalBYNNonCash;
-      default: return totalUSD;
+      case 'byn_cash': return totalDay1BYNCash;
+      case 'byn_noncash': return totalDay1BYNNonCash;
+      default: return mainTotalsUSD.day1Total;
     }
+  };
+
+  const getCombinedTotalForPaymentMode = () => {
+    switch (paymentMode) {
+      case 'byn_cash': return totalCombinedBYNCash;
+      case 'byn_noncash': return totalCombinedBYNNonCash;
+      default: return mainTotalsUSD.combinedTotal;
+    }
+  };
+
+  const getPrimaryTotalForMode = () => {
+    if (budgetTotalsMode === 'combined_only') {
+      return getCombinedTotalForPaymentMode();
+    }
+    return getDay1TotalForPaymentMode();
   };
 
   const getCurrencyLabel = () => {
@@ -1383,6 +1408,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                     onManagePersonnel={handleOpenWorkPersonnelManager}
                                     paymentMode={paymentMode}
                                     exchangeRate={exchangeRate}
+                                    budgetDays={budgetDays}
+                                    budgetTotalsMode={budgetTotalsMode}
                                     onDragStart={handleDragStart}
                                     onDragOver={handleDragOver}
                                     onDrop={handleDrop}
@@ -1409,6 +1436,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                 onDeleteItem={handleDeleteItem}
                                 paymentMode={paymentMode}
                                 exchangeRate={exchangeRate}
+                                budgetDays={budgetDays}
+                                budgetTotalsMode={budgetTotalsMode}
                                 onDragStart={handleDragStart}
                                 onDragOver={handleDragOver}
                                 onDrop={handleDrop}
@@ -1448,6 +1477,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                           onManagePersonnel={handleOpenWorkPersonnelManager}
                           paymentMode={paymentMode}
                           exchangeRate={exchangeRate}
+                          budgetDays={budgetDays}
+                          budgetTotalsMode={budgetTotalsMode}
                           onDragStart={handleDragStart}
                           onDragOver={handleDragOver}
                           onDrop={handleDrop}
@@ -1478,6 +1509,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                         onManagePersonnel={handleOpenWorkPersonnelManager}
                         paymentMode={paymentMode}
                         exchangeRate={exchangeRate}
+                        budgetDays={budgetDays}
+                        budgetTotalsMode={budgetTotalsMode}
                         onDragStart={handleDragStart}
                         onDragOver={(e) => handleDragOver(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
                         onDrop={(e) => handleDrop(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
@@ -1581,8 +1614,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             <div className="flex flex-col">
               <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итоговая сумма</span>
               <span className="text-xl font-black text-white">
-                <span className="text-cyan-400">{getTotalForMode().toLocaleString()}</span>
+                <span className="text-cyan-400">{getPrimaryTotalForMode().toLocaleString()}</span>
                 <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
+              </span>
+              {budgetTotalsMode === 'day1_plus_combined' && (
+                <span className="text-[11px] text-gray-400">
+                  Итого за 1 день: <span className="text-cyan-300">{getDay1TotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
+                </span>
+              )}
+              <span className="text-[11px] text-gray-400">
+                Итого за {budgetDays} {budgetDays === 1 ? 'день' : 'дней'}: <span className="text-cyan-300">{getCombinedTotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
               </span>
             </div>
 
