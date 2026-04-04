@@ -74,6 +74,7 @@ export function CategoryBlock({
   const [editedName, setEditedName] = useState(categoryName);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
+  const showCoefficient = budgetDays > 1;
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -332,12 +333,12 @@ export function CategoryBlock({
           {/* Table header */}
           <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
             <div className="w-3"></div>
-            <div className="flex-1 grid grid-cols-14 gap-0.5">
+            <div className={`flex-1 grid gap-0.5 ${showCoefficient ? 'grid-cols-14' : 'grid-cols-12'}`}>
               <div className="col-span-5">Наименование</div>
               <div className="col-span-2 text-center">Кол-во</div>
               <div className="col-span-2 text-right">Цена</div>
-              <div className="col-span-2 text-right">Коэф.</div>
-              <div className="col-span-3 text-right">Сумма</div>
+              {showCoefficient && <div className="col-span-2 text-right">Коэф.</div>}
+              <div className={`${showCoefficient ? 'col-span-3' : 'col-span-5'} text-right`}>Сумма</div>
             </div>
             <div className="w-5"></div>
           </div>
@@ -373,7 +374,7 @@ export function CategoryBlock({
                     <GripVertical className="w-3 h-3" />
                   </div>
 
-                  <div className="flex-1 grid grid-cols-14 gap-0.5 items-center text-xs">
+                  <div className={`flex-1 grid gap-0.5 items-center text-xs ${showCoefficient ? 'grid-cols-14' : 'grid-cols-12'}`}>
                     <div className="col-span-5 text-gray-300 truncate">
                       {item.equipment?.name || item.work_item?.name || 'Без названия'}
                     </div>
@@ -444,32 +445,34 @@ export function CategoryBlock({
                       />
                     </div>
 
-                    <div className="col-span-2 text-right">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={draftValues[item.id + '_multi_day_rate_override'] ?? String(item.multi_day_rate_override ?? 0)}
-                        onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_multi_day_rate_override']: e.target.value }))}
-                        onBlur={(e) => {
-                          const inputValue = e.target.value.trim();
-                          const parsedValue = inputValue === '' ? 0 : parseFloat(inputValue);
-                          if (!isNaN(parsedValue)) {
-                            const clampedValue = Math.min(1, Math.max(0, parsedValue));
-                            onUpdateItem(item.id, { multi_day_rate_override: clampedValue });
-                          }
-                          setDraftValues(prev => {
-                            const copy = { ...prev };
-                            delete copy[item.id + '_multi_day_rate_override'];
-                            return copy;
-                          });
-                        }}
-                        className="w-12 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
-                      />
-                    </div>
+                    {showCoefficient && (
+                      <div className="col-span-2 text-right">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          value={draftValues[item.id + '_multi_day_rate_override'] ?? String(item.multi_day_rate_override ?? 0)}
+                          onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_multi_day_rate_override']: e.target.value }))}
+                          onBlur={(e) => {
+                            const inputValue = e.target.value.trim();
+                            const parsedValue = inputValue === '' ? 0 : parseFloat(inputValue);
+                            if (!isNaN(parsedValue)) {
+                              const clampedValue = Math.min(1, Math.max(0, parsedValue));
+                              onUpdateItem(item.id, { multi_day_rate_override: clampedValue });
+                            }
+                            setDraftValues(prev => {
+                              const copy = { ...prev };
+                              delete copy[item.id + '_multi_day_rate_override'];
+                              return copy;
+                            });
+                          }}
+                          className="w-12 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                        />
+                      </div>
+                    )}
 
-                    <div className="col-span-3 text-right text-cyan-400 font-medium text-xs">
+                    <div className={`${showCoefficient ? 'col-span-3' : 'col-span-5'} text-right text-cyan-400 font-medium text-xs`}>
                       {(() => {
                         switch (paymentMode) {
                           case 'byn_cash':

@@ -106,6 +106,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [budgetDays, setBudgetDays] = useState(1);
+  const [budgetDaysInput, setBudgetDaysInput] = useState('1');
   const [budgetTotalsMode, setBudgetTotalsMode] = useState<'combined_only' | 'day1_plus_combined'>('combined_only');
   const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
@@ -143,6 +144,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setBudgetTotalsMode('combined_only');
     }
   }, [budgetDays, budgetTotalsMode]);
+
+  useEffect(() => {
+    setBudgetDaysInput(String(budgetDays));
+  }, [budgetDays]);
 
   const loadData = async () => {
     try {
@@ -1682,14 +1687,25 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     type="number"
                     min={1}
                     step={1}
-                    value={budgetDays}
+                    value={budgetDaysInput}
                     onChange={(e) => {
-                      const nextValue = parseInt(e.target.value, 10);
+                      setBudgetDaysInput(e.target.value);
+                    }}
+                    onBlur={() => {
+                      const nextValue = parseInt(budgetDaysInput, 10);
                       if (isNaN(nextValue)) {
                         setBudgetDays(1);
+                        setBudgetDaysInput('1');
                         return;
                       }
-                      setBudgetDays(Math.max(1, nextValue));
+                      const clamped = Math.max(1, nextValue);
+                      setBudgetDays(clamped);
+                      setBudgetDaysInput(String(clamped));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        (e.currentTarget as HTMLInputElement).blur();
+                      }
                     }}
                     className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
                   />
