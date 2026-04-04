@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { calcCombinedTotal, calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
 interface BudgetItem {
@@ -15,6 +16,7 @@ interface BudgetItem {
   quantity: number;
   price: number;
   total: number;
+  multi_day_rate_override?: number | null;
   notes?: string;
   is_extra?: boolean;
 }
@@ -150,7 +152,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const budgetDays = Math.max(1, data.budgetDays || 1);
   const isCombinedOnlyMode = data.budgetTotalsMode === 'combined_only';
-  const rowMultiplier = isCombinedOnlyMode ? budgetDays : 1;
 
   const calculatePrice = (usdPrice: number, item?: BudgetItem): number => {
     switch (paymentMode) {
@@ -190,7 +191,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const category = data.categories.find(c => c.id === catId);
       const categoryName = category?.name || 'Прочее';
 
-      let categoryDay1Total = 0;
+      let categorySumDay1 = 0;
+      let categorySumCombined = 0;
       const rows = items.map(item => {
         const name = item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
@@ -199,15 +201,22 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const unit = item.work_item?.unit || 'шт';
         const usdPrice = item.price || 0;
         const price = calculatePrice(usdPrice, item);
-        const totalDay1 = price * qty;
-        const rowTotal = totalDay1 * rowMultiplier;
-        categoryDay1Total += totalDay1;
+        const totalDay1 = calcDay1Total({ price, quantity: qty });
+        const combinedTotal = calcCombinedTotal(
+          { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+          budgetDays,
+          item.multi_day_rate_override
+        );
+        const rowTotal = isCombinedOnlyMode ? combinedTotal : totalDay1;
+        const rowPrice = qty > 0 ? rowTotal / qty : price;
+        categorySumDay1 += totalDay1;
+        categorySumCombined += combinedTotal;
 
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
             <td style="padding: 6px 8px; font-size: 13px; color: #ffffff; width: 60%;">${displayName}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${price.toFixed(0)}${currencySuffix}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${rowPrice.toFixed(0)}${currencySuffix}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${rowTotal.toFixed(0)}${currencySuffix}</td>
           </tr>
         `;
@@ -219,27 +228,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       } else {
         grandTotalNonWorkDay1 += categoryDay1Total;
       }
-      grandTotalDay1 += categoryDay1Total;
-      locationDay1Total += categoryDay1Total;
-      const categoryCombinedTotal = categoryDay1Total * budgetDays;
-
-      const categoryTotalsHtml = isCombinedOnlyMode
-        ? `
-            <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">Итого по разделу за ${budgetDays} дн.:</td>
-              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryCombinedTotal.toFixed(0)}${currencySuffix}</td>
-            </tr>
-          `
-        : `
-            <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">Итого по разделу за 1 день:</td>
-              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryDay1Total.toFixed(0)}${currencySuffix}</td>
-            </tr>
-            <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">Итого по разделу за ${budgetDays} дн.:</td>
-              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryCombinedTotal.toFixed(0)}${currencySuffix}</td>
-            </tr>
-          `;
+      grandTotalDay1 += categorySumDay1;
+      locationTotalDay1 += categorySumDay1;
+      const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
 
       locationHtml += `
        <div style="margin-bottom: 20px;">
@@ -260,31 +251,33 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           </thead>
           <tbody>
             ${rows}
-            ${categoryTotalsHtml}
+            <tr style="background: ${grayBg};">
+              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryTotal.toFixed(0)}${currencySuffix}</td>
+            </tr>
+            ${!isCombinedOnlyMode ? `
+            <tr style="background: ${grayBg};">
+              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categorySumCombined.toFixed(0)}${currencySuffix}</td>
+            </tr>
+            ` : ''}
           </tbody>
         </table>
       </div>
       `;
     });
-    const locationCombinedTotal = locationDay1Total * budgetDays;
-
-    const locationTotalsHtml = isCombinedOnlyMode
-      ? `
-          <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
-            <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
-            <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationCombinedTotal.toFixed(0)}${currencySuffix}</span>
-          </div>
-        `
-      : `
-          <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
-            <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за 1 день:</span>
-            <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationDay1Total.toFixed(0)}${currencySuffix}</span>
-          </div>
-          <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
-            <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
-            <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationCombinedTotal.toFixed(0)}${currencySuffix}</span>
-          </div>
-        `;
+    const locationTotalCombined = sortedCategoryIds.reduce((sum, catId) => {
+      return sum + groupedByCategory[catId].reduce((catSum, item) => {
+        const qty = item.quantity || 0;
+        const price = calculatePrice(item.price || 0, item);
+        return catSum + calcCombinedTotal(
+          { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+          budgetDays,
+          item.multi_day_rate_override
+        );
+      }, 0);
+    }, 0);
+    const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
 
     const locationHeaderHtml = isNoLocation
       ? ''
@@ -299,7 +292,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
         ${locationHeaderHtml}
         ${locationHtml}
-        ${locationTotalsHtml}
+        <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
+          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
+          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotal.toFixed(0)}${currencySuffix}</span>
+        </div>
+        ${!isCombinedOnlyMode ? `
+        <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
+          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
+          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotalCombined.toFixed(0)}${currencySuffix}</span>
+        </div>
+        ` : ''}
       </section>
     `;
   });
@@ -389,10 +391,39 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <span style="font-size: 11px; font-weight: 600; color: #ffffff; white-space: nowrap;">${data.organizerName}</span>
     </div>` : '';
 
-  const grandTotalCombined = grandTotalDay1 * budgetDays;
-  // Бизнес-правило скидки: сначала применяем скидку к оборудованию за 1 день, затем масштабируем на N дней.
+  const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
+    const qty = item.quantity || 0;
+    const price = calculatePrice(item.price || 0, item);
+    return sum + calcCombinedTotal(
+      { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+      budgetDays,
+      item.multi_day_rate_override
+    );
+  }, 0);
   const grandTotalWithDiscountDay1 = Math.round(grandTotalNonWorkDay1 * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkDay1);
-  const grandTotalWithDiscountCombined = grandTotalWithDiscountDay1 * budgetDays;
+  const grandTotalNonWorkCombined = mainBudgetItems
+    .filter((item) => !item.work_item)
+    .reduce((sum, item) => {
+      const qty = item.quantity || 0;
+      const price = calculatePrice(item.price || 0, item);
+      return sum + calcCombinedTotal(
+        { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+        budgetDays,
+        item.multi_day_rate_override
+      );
+    }, 0);
+  const grandTotalWorkCombined = mainBudgetItems
+    .filter((item) => !!item.work_item)
+    .reduce((sum, item) => {
+      const qty = item.quantity || 0;
+      const price = calculatePrice(item.price || 0, item);
+      return sum + calcCombinedTotal(
+        { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+        budgetDays,
+        item.multi_day_rate_override
+      );
+    }, 0);
+  const grandTotalWithDiscountCombined = Math.round(grandTotalNonWorkCombined * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkCombined);
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
