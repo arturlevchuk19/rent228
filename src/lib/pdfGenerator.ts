@@ -299,7 +299,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   : `<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 22px;">
       <div style="width: 6px; height: 20px; border-radius: 9999px; background: ${locationAccent};"></div>
       <div style="
-        padding: 0 12px; 
+        padding: 0px 12px 6px; 
         height: 22px; 
         border-radius: 9999px; 
         font-size: 10px; 
