@@ -226,17 +226,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const categoryTotalsHtml = isCombinedOnlyMode
         ? `
             <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">Итого по разделу за ${budgetDays} дн.:</td>
               <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryCombinedTotal.toFixed(0)}${currencySuffix}</td>
             </tr>
           `
         : `
             <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ ЗА 1 ДЕНЬ:</td>
+              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">Итого по разделу за 1 день:</td>
               <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryDay1Total.toFixed(0)}${currencySuffix}</td>
             </tr>
             <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">Итого по разделу за ${budgetDays} дн.:</td>
               <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryCombinedTotal.toFixed(0)}${currencySuffix}</td>
             </tr>
           `;
@@ -341,17 +341,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const categoryTotalsHtml = isCombinedOnlyMode
         ? `
             <tr style="background: rgba(255,255,255,0.06);">
-              <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">Итого по разделу за ${budgetDays} дн.:</td>
               <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #ffffff;">${categoryCombinedTotal.toFixed(0)}${currencySuffix}</td>
             </tr>
           `
         : `
             <tr style="background: rgba(255,255,255,0.06);">
-              <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">ИТОГО ПО РАЗДЕЛУ ЗА 1 ДЕНЬ:</td>
+              <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">Итого по разделу за 1 день:</td>
               <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #ffffff;">${categoryDay1Total.toFixed(0)}${currencySuffix}</td>
             </tr>
             <tr style="background: rgba(255,255,255,0.06);">
-              <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">Итого по разделу за ${budgetDays} дн.:</td>
               <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #ffffff;">${categoryCombinedTotal.toFixed(0)}${currencySuffix}</td>
             </tr>
           `;
