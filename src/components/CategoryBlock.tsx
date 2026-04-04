@@ -342,9 +342,9 @@ export function CategoryBlock({
             >
               <div className="text-left">Наименование</div>
               <div className="text-center">Кол-во</div>
-              <div className="text-center">Цена</div>
+              <div className="text-right pr-2">Цена</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
-              <div className="text-center">Сумма</div>
+              <div className="text-right pr-2">Сумма</div>
             </div>
             <div className="w-5"></div>
           </div>
@@ -417,7 +417,7 @@ export function CategoryBlock({
                       </div>
                     </div>
 
-                    <div className="flex justify-center">
+                    <div className="flex justify-end pr-2">
                       <input
                         type="number"
                         step="0.01"
@@ -450,7 +450,7 @@ export function CategoryBlock({
                           }
                           setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_price']; return copy; });
                         }}
-                        className="w-full max-w-[92px] px-0.5 py-0.5 bg-transparent text-center text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                        className="w-full max-w-[92px] px-1 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
                       />
                     </div>
 
@@ -476,12 +476,12 @@ export function CategoryBlock({
                               return copy;
                             });
                           }}
-                          className="w-full max-w-[72px] px-0.5 py-0.5 bg-transparent text-center text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                          className="w-full max-w-[72px] px-1 py-0.5 bg-transparent text-center text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
                         />
                       </div>
                     )}
 
-                    <div className="text-center text-cyan-400 font-medium text-xs">
+                    <div className="text-right text-cyan-400 font-medium text-xs pr-2">
                       {(() => {
                         switch (paymentMode) {
                           case 'byn_cash':
