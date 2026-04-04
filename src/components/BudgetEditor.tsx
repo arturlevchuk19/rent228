@@ -10,7 +10,7 @@ import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
-import { calcCombinedTotal, calcGrandTotals } from '../lib/budgetPricing';
+import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
 import {
   UShapeUnifiedDialog,
   LedSizeDialog,
@@ -1081,6 +1081,32 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
+  const calculateSectionTotalsForPaymentMode = (items: BudgetItem[]) => {
+    const day1Total = (() => {
+      switch (paymentMode) {
+        case 'byn_cash':
+          return items.reduce((sum, item) => sum + calculateBYNCash(calcDay1Total(item)), 0);
+        case 'byn_noncash':
+          return items.reduce((sum, item) => sum + calculateBYNNonCash(calcDay1Total(item), item), 0);
+        default:
+          return items.reduce((sum, item) => sum + calcDay1Total(item), 0);
+      }
+    })();
+
+    const combinedTotal = (() => {
+      switch (paymentMode) {
+        case 'byn_cash':
+          return items.reduce((sum, item) => sum + calculateBYNCash(calcCombinedTotal(item, budgetDays)), 0);
+        case 'byn_noncash':
+          return items.reduce((sum, item) => sum + calculateBYNNonCash(calcCombinedTotal(item, budgetDays), item), 0);
+        default:
+          return items.reduce((sum, item) => sum + calcCombinedTotal(item, budgetDays), 0);
+      }
+    })();
+
+    return { day1Total, combinedTotal };
+  };
+
   const handleLocationDragStart = (e: React.DragEvent, locationId: string) => {
     e.stopPropagation();
     setDraggedLocationId(locationId);
@@ -1324,6 +1350,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 <>
                   {locations.map((location) => {
                     const locationGroupId = `location:${location.id}`;
+                    const locationItems = budgetItems.filter((item) => item.location_id === location.id);
+                    const locationTotals = calculateSectionTotalsForPaymentMode(locationItems);
                     const locationHasContent = categories.some((category) => {
                       const categoryGroupId = buildCategoryGroupId(category.id, location.id);
                       return (groupedItems[categoryGroupId]?.length || 0) > 0 || activeCategoryIds.has(categoryGroupId);
@@ -1459,6 +1487,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                 dragOverItemId={dragOverItemId}
                               />
                             )}
+
+                            {locationItems.length > 0 && (
+                              <div className="mx-2 my-2 rounded-lg border border-emerald-900/30 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-100">
+                                <div className="font-semibold">Итого локации</div>
+                                {budgetTotalsMode === 'day1_plus_combined' && (
+                                  <div>
+                                    За 1 день: <span className="font-semibold">{locationTotals.day1Total.toLocaleString()}</span> {getCurrencyLabel()}
+                                  </div>
+                                )}
+                                <div>
+                                  За {budgetDays} {budgetDays === 1 ? 'день' : 'дней'}: <span className="font-semibold">{locationTotals.combinedTotal.toLocaleString()}</span> {getCurrencyLabel()}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1533,6 +1575,26 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                       />
                     </div>
                   )}
+
+                  {(() => {
+                    const noLocationItems = budgetItems.filter((item) => !item.location_id);
+                    if (noLocationItems.length === 0) return null;
+                    const noLocationTotals = calculateSectionTotalsForPaymentMode(noLocationItems);
+
+                    return (
+                      <div className="rounded-xl border border-gray-700/60 bg-gray-900/60 px-3 py-2 text-xs text-gray-200">
+                        <div className="font-semibold">Итого без локации</div>
+                        {budgetTotalsMode === 'day1_plus_combined' && (
+                          <div>
+                            За 1 день: <span className="font-semibold">{noLocationTotals.day1Total.toLocaleString()}</span> {getCurrencyLabel()}
+                          </div>
+                        )}
+                        <div>
+                          За {budgetDays} {budgetDays === 1 ? 'день' : 'дней'}: <span className="font-semibold">{noLocationTotals.combinedTotal.toLocaleString()}</span> {getCurrencyLabel()}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>
