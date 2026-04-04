@@ -106,6 +106,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [budgetDays, setBudgetDays] = useState(1);
+  const [budgetDaysInput, setBudgetDaysInput] = useState('1');
   const [budgetTotalsMode, setBudgetTotalsMode] = useState<'combined_only' | 'day1_plus_combined'>('combined_only');
   const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
@@ -137,6 +138,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCategoryDropdown, showExchangeRatePopover]);
+
+  useEffect(() => {
+    if (budgetDays <= 1 && budgetTotalsMode === 'day1_plus_combined') {
+      setBudgetTotalsMode('combined_only');
+    }
+  }, [budgetDays, budgetTotalsMode]);
+
+  useEffect(() => {
+    setBudgetDaysInput(String(budgetDays));
+  }, [budgetDays]);
 
   const loadData = async () => {
     try {
@@ -1691,96 +1702,113 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               </span>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-300 font-medium">Дней</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={budgetDays}
-                  onChange={(e) => {
-                    const nextValue = parseInt(e.target.value, 10);
-                    if (isNaN(nextValue)) {
-                      setBudgetDays(1);
-                      return;
-                    }
-                    setBudgetDays(Math.max(1, nextValue));
-                  }}
-                  className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-300 font-medium">Режим итогов</span>
+            <div className="flex items-start gap-6">
+              <div className="flex flex-col gap-1.5">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
-                    type="radio"
-                    name={`budget-totals-mode-${eventId}`}
-                    checked={budgetTotalsMode === 'combined_only'}
-                    onChange={() => setBudgetTotalsMode('combined_only')}
+                    type="checkbox"
+                    checked={discountEnabled}
+                    onChange={(e) => setDiscountEnabled(e.target.checked)}
                     className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
                   />
-                  <span className="text-[11px] text-gray-300">Только общий за N дней</span>
+                  <span className="text-xs text-gray-300 font-medium">Скидка</span>
+                  {discountEnabled && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={discountPercentInput}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setDiscountPercentInput(raw);
+                          const parsed = parseFloat(raw);
+                          if (!isNaN(parsed)) {
+                            setDiscountPercent(Math.min(100, Math.max(0, parsed)));
+                          }
+                        }}
+                        onBlur={() => {
+                          const parsed = parseFloat(discountPercentInput);
+                          if (isNaN(parsed) || discountPercentInput.trim() === '') {
+                            setDiscountPercent(0);
+                            setDiscountPercentInput('0');
+                          } else {
+                            const clamped = Math.min(100, Math.max(0, parsed));
+                            setDiscountPercent(clamped);
+                            setDiscountPercentInput(String(clamped));
+                          }
+                        }}
+                        className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                    </div>
+                  )}
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="radio"
-                    name={`budget-totals-mode-${eventId}`}
-                    checked={budgetTotalsMode === 'day1_plus_combined'}
-                    onChange={() => setBudgetTotalsMode('day1_plus_combined')}
-                    className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
-                  />
-                  <span className="text-[11px] text-gray-300">Итог за 1 день + итог за N дней</span>
-                </label>
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={discountEnabled}
-                  onChange={(e) => setDiscountEnabled(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
-                />
-                <span className="text-xs text-gray-300 font-medium">Скидка</span>
-                {discountEnabled && (
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={discountPercentInput}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        setDiscountPercentInput(raw);
-                        const parsed = parseFloat(raw);
-                        if (!isNaN(parsed)) {
-                          setDiscountPercent(Math.min(100, Math.max(0, parsed)));
-                        }
-                      }}
-                      onBlur={() => {
-                        const parsed = parseFloat(discountPercentInput);
-                        if (isNaN(parsed) || discountPercentInput.trim() === '') {
-                          setDiscountPercent(0);
-                          setDiscountPercentInput('0');
-                        } else {
-                          const clamped = Math.min(100, Math.max(0, parsed));
-                          setDiscountPercent(clamped);
-                          setDiscountPercentInput(String(clamped));
-                        }
-                      }}
-                      className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
-                    />
-                    <span className="text-xs text-gray-400">%</span>
+                {discountEnabled && getDiscountedTotal() !== null && (
+                  <div className="flex flex-col">
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
+                    <span className="text-lg font-black text-white">
+                      <span className="text-green-400">{Math.round(getDiscountedTotal()!).toLocaleString()}</span>
+                      <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
+                    </span>
                   </div>
                 )}
-              </label>
-              {discountEnabled && getDiscountedTotal() !== null && (
-                <div className="flex flex-col">
-                  <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
-                  <span className="text-lg font-black text-white">
-                    <span className="text-green-400">{Math.round(getDiscountedTotal()!).toLocaleString()}</span>
-                    <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
-                  </span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-300 font-medium">Дней</span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={budgetDaysInput}
+                    onChange={(e) => {
+                      setBudgetDaysInput(e.target.value);
+                    }}
+                    onBlur={() => {
+                      const nextValue = parseInt(budgetDaysInput, 10);
+                      if (isNaN(nextValue)) {
+                        setBudgetDays(1);
+                        setBudgetDaysInput('1');
+                        return;
+                      }
+                      const clamped = Math.max(1, nextValue);
+                      setBudgetDays(clamped);
+                      setBudgetDaysInput(String(clamped));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        (e.currentTarget as HTMLInputElement).blur();
+                      }
+                    }}
+                    className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                  />
                 </div>
-              )}
+                {budgetDays > 1 && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-gray-300 font-medium">Режим итогов</span>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name={`budget-totals-mode-${eventId}`}
+                        checked={budgetTotalsMode === 'combined_only'}
+                        onChange={() => setBudgetTotalsMode('combined_only')}
+                        className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                      />
+                      <span className="text-[11px] text-gray-300">Только общий за N дней</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name={`budget-totals-mode-${eventId}`}
+                        checked={budgetTotalsMode === 'day1_plus_combined'}
+                        onChange={() => setBudgetTotalsMode('day1_plus_combined')}
+                        className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                      />
+                      <span className="text-[11px] text-gray-300">Итог за 1 день + итог за N дней</span>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

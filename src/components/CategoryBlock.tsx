@@ -74,6 +74,10 @@ export function CategoryBlock({
   const [editedName, setEditedName] = useState(categoryName);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
+  const showCoefficient = budgetDays > 1;
+  const tableTemplateColumns = showCoefficient
+    ? 'minmax(0,1fr) 92px 92px 72px 110px'
+    : 'minmax(0,1fr) 92px 92px 110px';
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -373,12 +377,15 @@ export function CategoryBlock({
           {/* Table header */}
           <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
             <div className="w-3"></div>
-            <div className="flex-1 grid grid-cols-14 gap-0.5">
-              <div className="col-span-5">Наименование</div>
-              <div className="col-span-2 text-center">Кол-во</div>
-              <div className="col-span-2 text-right">Цена</div>
-              <div className="col-span-2 text-right">Коэф.</div>
-              <div className="col-span-3 text-right">Сумма</div>
+            <div
+              className="flex-1 grid items-center gap-2"
+              style={{ gridTemplateColumns: tableTemplateColumns }}
+            >
+              <div className="text-left">Наименование</div>
+              <div className="text-center">Кол-во</div>
+              <div className="text-center">Цена</div>
+              {showCoefficient && <div className="text-center">Коэф.</div>}
+              <div className="text-right pr-2">Сумма</div>
             </div>
             <div className="w-5"></div>
           </div>
@@ -416,13 +423,16 @@ export function CategoryBlock({
                     <GripVertical className="w-3 h-3" />
                   </div>
 
-                  <div className="flex-1 grid grid-cols-14 gap-0.5 items-center text-xs">
-                    <div className="col-span-5 text-gray-300 truncate">
+                  <div
+                    className="flex-1 grid items-center gap-2 text-xs"
+                    style={{ gridTemplateColumns: tableTemplateColumns }}
+                  >
+                    <div className="text-gray-300 truncate pr-2">
                       {item.equipment?.name || item.work_item?.name || 'Без названия'}
                     </div>
 
-                    <div className="col-span-2 flex justify-center">
-                      <div className="flex items-center">
+                    <div className="flex justify-center">
+                      <div className="flex items-center justify-center">
                         <button
                           onClick={() => onUpdateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
                           className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-[10px]"
@@ -450,7 +460,7 @@ export function CategoryBlock({
                       </div>
                     </div>
 
-                    <div className="col-span-2 text-right">
+                    <div className="flex justify-end pr-2">
                       <input
                         type="number"
                         step="0.01"
@@ -488,32 +498,34 @@ export function CategoryBlock({
                       />
                     </div>
 
-                    <div className="col-span-2 text-right">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={draftValues[item.id + '_multi_day_rate_override'] ?? String(item.multi_day_rate_override ?? 0)}
-                        onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_multi_day_rate_override']: e.target.value }))}
-                        onBlur={(e) => {
-                          const inputValue = e.target.value.trim();
-                          const parsedValue = inputValue === '' ? 0 : parseFloat(inputValue);
-                          if (!isNaN(parsedValue)) {
-                            const clampedValue = Math.min(1, Math.max(0, parsedValue));
-                            onUpdateItem(item.id, { multi_day_rate_override: clampedValue });
-                          }
-                          setDraftValues(prev => {
-                            const copy = { ...prev };
-                            delete copy[item.id + '_multi_day_rate_override'];
-                            return copy;
-                          });
-                        }}
-                        className="w-12 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
-                      />
-                    </div>
+                    {showCoefficient && (
+                      <div className="flex justify-center">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          value={draftValues[item.id + '_multi_day_rate_override'] ?? String(item.multi_day_rate_override ?? 0)}
+                          onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_multi_day_rate_override']: e.target.value }))}
+                          onBlur={(e) => {
+                            const inputValue = e.target.value.trim();
+                            const parsedValue = inputValue === '' ? 0 : parseFloat(inputValue);
+                            if (!isNaN(parsedValue)) {
+                              const clampedValue = Math.min(1, Math.max(0, parsedValue));
+                              onUpdateItem(item.id, { multi_day_rate_override: clampedValue });
+                            }
+                            setDraftValues(prev => {
+                              const copy = { ...prev };
+                              delete copy[item.id + '_multi_day_rate_override'];
+                              return copy;
+                            });
+                          }}
+                          className="w-full max-w-[72px] px-1 py-0.5 bg-transparent text-center text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                        />
+                      </div>
+                    )}
 
-                    <div className="col-span-3 text-right text-cyan-400 font-medium text-xs">
+                    <div className="text-right text-cyan-400 font-medium text-xs pr-2">
                       {(() => {
                         switch (paymentMode) {
                           case 'byn_cash':
