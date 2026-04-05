@@ -450,8 +450,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 28px; font-weight: 800; line-height: 1; padding-bottom: 2px;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
       </div>` : ''}
     `
@@ -465,12 +465,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 28px; font-weight: 800; line-height: 1; padding-bottom: 2px;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% на оборудование за 1 день:</span>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right;">Со скидкой ${data.discountPercent}% на оборудование за 1 день:</span>
         <span style="font-size: 18px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountDay1.toFixed(0)}${currencySuffix}</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
       </div>` : ''}
     `;
@@ -575,8 +575,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   // Add clickable links over footer labels (PDF content itself is an image).
   // Clickable zones are aligned to the text labels (not the icons/area below).
-  const footerLinksY = Math.max(0, renderedImageHeightMm - 13.2);
-  pdf.link(15, footerLinksY, 16, 3.8, { url: 'https://onpromo.by/' });
-  pdf.link(52, footerLinksY, 12, 3.8, { url: 'https://www.instagram.com/onpromo.by/' });
+  const footerLinksY = Math.max(0, renderedImageHeightMm - 22);
+  pdf.link(14, footerLinksY, 18, 6, { url: 'https://onpromo.by/' });
+  pdf.link(50, footerLinksY, 15, 6, { url: 'https://www.instagram.com/onpromo.by/' });
   pdf.save(`Proposal_${data.eventName || 'event'}.pdf`);
 }
