@@ -510,7 +510,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     <footer style="margin-top: 25px; border-top: 2px solid #1f2937; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
       <div style="display: flex; flex-direction: column; gap: 6px;">
-        <div style="font-size: 8px; color: #4b5563; text-transform: uppercase; letter-spacing: 2px; font-weight: 500;">ONPROMO.BY — Техническое обеспечение</div>
+        <div style="font-size: 8px; color: #4b5563; text-transform: uppercase; letter-spacing: 2px; font-weight: 500;">ONPROMO.BY - ТЕХНИЧЕСКОЕ ОБЕСПЕЧЕНИЕ МЕРОПРИЯТИЙ</div>
         
         <div style="display: flex; gap: 15px; align-items: center;">
           <span style="display: flex; align-items: center; color: #9ca3af; font-size: 10px;">
