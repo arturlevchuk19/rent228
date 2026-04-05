@@ -407,12 +407,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
       <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.organizerName}</span>
     </div>` : '';
-  const participantColumns = data.clientName && data.organizerName
-    ? 'repeat(2, minmax(0, 1fr))'
-    : 'minmax(0, 1fr)';
   const participantsRowHtml = (clientHtml || organizerHtml)
     ? `
-      <div style="grid-column: 1 / -1; display: grid; grid-template-columns: ${participantColumns}; gap: 10px 20px;">
+      <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: flex-start;">
         ${clientHtml}
         ${organizerHtml}
       </div>
