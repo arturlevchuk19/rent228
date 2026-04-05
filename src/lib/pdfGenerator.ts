@@ -397,16 +397,27 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
   const clientHtml = data.clientName ? `
-    <div style="display: flex; flex-direction: column; min-width: 120px; flex: 0 1 auto;">
+    <div style="display: flex; flex-direction: column; min-width: 0;">
       <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
-      <span style="font-size: 11px; font-weight: 600; color: #ffffff; white-space: nowrap;">${data.clientName}</span>
+      <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.clientName}</span>
     </div>` : '';
 
   const organizerHtml = data.organizerName ? `
-    <div style="display: flex; flex-direction: column; min-width: 120px; flex: 0 1 auto;">
+    <div style="display: flex; flex-direction: column; min-width: 0;">
       <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
-      <span style="font-size: 11px; font-weight: 600; color: #ffffff; white-space: nowrap;">${data.organizerName}</span>
+      <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.organizerName}</span>
     </div>` : '';
+  const participantColumns = data.clientName && data.organizerName
+    ? 'repeat(2, minmax(0, 1fr))'
+    : 'minmax(0, 1fr)';
+  const participantsRowHtml = (clientHtml || organizerHtml)
+    ? `
+      <div style="grid-column: 1 / -1; display: grid; grid-template-columns: ${participantColumns}; gap: 10px 20px;">
+        ${clientHtml}
+        ${organizerHtml}
+      </div>
+    `
+    : '';
 
   const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
@@ -487,7 +498,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
         </div>
 
-        <div style="display: flex; flex-wrap: wrap; gap: 10px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 16px; width: fit-content; max-width: 350px; justify-content: flex-start;">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 16px; width: 350px; box-sizing: border-box;">
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Событие</span>
             <span style="font-size: 11px; font-weight: 600; font-style: italic;">${data.eventName || '—'}</span>
@@ -500,11 +511,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
             <span style="font-size: 11px; font-weight: 600;">${data.venueName || '—'}</span>
           </div>
-
-          <div style="flex-basis: 100%; height: 0; margin: 0;"></div>
-
-          ${clientHtml}
-          ${organizerHtml}
+          ${participantsRowHtml}
         </div>
       </div>
     </header>
