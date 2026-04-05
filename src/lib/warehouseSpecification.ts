@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { BudgetItem } from './events';
 
 export interface CableItem {
   id: string;
@@ -63,6 +64,14 @@ export const CABLE_TEMPLATES: CableTemplate[] = [
   {
     type: 'XLR 0.5м - 10м',
     lengths: ['0.5м (12шт)', '1м (10шт)', '2м (10шт)', '5м', '10м']
+  },
+  {
+    type: 'LAN 5м - 100м',
+    lengths: ['5м', '10м', '15м', '15м 2CH', '20м', '20м 2CH', '50м 2CH', '100м']
+  },
+  {
+    type: 'MULTICORE',
+    lengths: ['LAN 4CH 15м', 'LAN 4CH 20м', 'LAN 4CH 30m', 'XLR 6CH 10м', 'XLR 8CH 15м']
   },
   {
     type: 'SCREEN',
@@ -294,4 +303,194 @@ export async function deleteOtherItem(id: string): Promise<void> {
     .eq('id', id);
 
   if (error) throw error;
+}
+
+const SPEC_BUDGET_ITEM_BASE_SELECT = `
+  *,
+  multi_day_rate_override,
+  equipment:equipment_items (*),
+  work_item:work_items (*)
+`;
+
+const SPEC_BUDGET_ITEM_SELECT_WITH_LOCATION = `
+  ${SPEC_BUDGET_ITEM_BASE_SELECT},
+  location:locations (*)
+`;
+
+function isMissingSpecLocationRelation(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || !('code' in error) || !('message' in error)) {
+    return false;
+  }
+
+  const code = (error as { code?: string }).code;
+  const message = (error as { message?: string }).message ?? '';
+  return code === 'PGRST200' && message.includes('warehouse_specification_budget_items') && message.includes('locations');
+}
+
+export async function getSpecificationBudgetItems(eventId: string): Promise<BudgetItem[]> {
+  const query = () => supabase
+    .from('warehouse_specification_budget_items')
+    .select(SPEC_BUDGET_ITEM_SELECT_WITH_LOCATION)
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  const { data, error } = await query();
+
+  if (error && isMissingSpecLocationRelation(error)) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('warehouse_specification_budget_items')
+      .select(SPEC_BUDGET_ITEM_BASE_SELECT)
+      .eq('event_id', eventId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (fallbackError) throw fallbackError;
+    return fallbackData || [];
+  }
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createSpecificationBudgetItem(item: Partial<BudgetItem>): Promise<BudgetItem> {
+  const { data, error } = await supabase
+    .from('warehouse_specification_budget_items')
+    .insert(item)
+    .select(SPEC_BUDGET_ITEM_BASE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSpecificationBudgetItem(id: string, item: Partial<BudgetItem>): Promise<BudgetItem> {
+  const { data, error } = await supabase
+    .from('warehouse_specification_budget_items')
+    .update(item)
+    .eq('id', id)
+    .select(SPEC_BUDGET_ITEM_BASE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSpecificationBudgetItemPicked(id: string, picked: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('warehouse_specification_budget_items')
+    .update({ picked, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function updateSpecificationBudgetItemReturnPicked(id: string, return_picked: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('warehouse_specification_budget_items')
+    .update({ return_picked, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function deleteSpecificationBudgetItem(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('warehouse_specification_budget_items')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function ensureWarehouseSpecificationSnapshot(eventId: string): Promise<void> {
+  const { count, error: countError } = await supabase
+    .from('warehouse_specification_budget_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', eventId);
+
+  if (countError) throw countError;
+  if ((count || 0) > 0) return;
+
+  const { data: budgetItems, error: budgetError } = await supabase
+    .from('budget_items')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('item_type', 'equipment')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (budgetError) throw budgetError;
+  if (!budgetItems || budgetItems.length === 0) return;
+
+  const parentRows = budgetItems.filter(item => !item.parent_budget_item_id);
+  const childRows = budgetItems.filter(item => item.parent_budget_item_id);
+  const sourceToSpecId = new Map<string, string>();
+
+  for (const source of parentRows) {
+    const { data: created, error: createError } = await supabase
+      .from('warehouse_specification_budget_items')
+      .insert({
+        event_id: source.event_id,
+        source_budget_item_id: source.id,
+        parent_budget_item_id: null,
+        item_type: source.item_type,
+        equipment_id: source.equipment_id,
+        modification_id: source.modification_id,
+        work_item_id: source.work_item_id,
+        quantity: source.quantity,
+        price: source.price,
+        total: source.total,
+        notes: source.notes || '',
+        exchange_rate: source.exchange_rate ?? 1,
+        multi_day_rate_override: source.multi_day_rate_override ?? null,
+        category_id: source.category_id,
+        location_id: source.location_id,
+        sort_order: source.sort_order ?? 0,
+        picked: source.picked ?? false,
+        return_picked: source.return_picked ?? false,
+        is_extra: source.is_extra ?? false,
+        name: source.name,
+        sku: source.sku
+      })
+      .select('id, source_budget_item_id')
+      .single();
+
+    if (createError) throw createError;
+    sourceToSpecId.set(created.source_budget_item_id, created.id);
+  }
+
+  for (const source of childRows) {
+    const parentSpecId = source.parent_budget_item_id ? sourceToSpecId.get(source.parent_budget_item_id) : null;
+    const { data: created, error: createError } = await supabase
+      .from('warehouse_specification_budget_items')
+      .insert({
+        event_id: source.event_id,
+        source_budget_item_id: source.id,
+        parent_budget_item_id: parentSpecId || null,
+        item_type: source.item_type,
+        equipment_id: source.equipment_id,
+        modification_id: source.modification_id,
+        work_item_id: source.work_item_id,
+        quantity: source.quantity,
+        price: source.price,
+        total: source.total,
+        notes: source.notes || '',
+        exchange_rate: source.exchange_rate ?? 1,
+        multi_day_rate_override: source.multi_day_rate_override ?? null,
+        category_id: source.category_id,
+        location_id: source.location_id,
+        sort_order: source.sort_order ?? 0,
+        picked: source.picked ?? false,
+        return_picked: source.return_picked ?? false,
+        is_extra: source.is_extra ?? false,
+        name: source.name,
+        sku: source.sku
+      })
+      .select('id, source_budget_item_id')
+      .single();
+
+    if (createError) throw createError;
+    sourceToSpecId.set(created.source_budget_item_id, created.id);
+  }
 }

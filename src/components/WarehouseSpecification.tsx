@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck } from 'lucide-react';
-import { BudgetItem, getBudgetItems, getEvent, updateBudgetItemPicked, updateBudgetItemReturnPicked, confirmSpecification, confirmShipment, confirmReturn, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../lib/events';
+import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2 } from 'lucide-react';
+import { BudgetItem, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
@@ -32,7 +32,14 @@ import {
   createOtherItem,
   updateOtherItem,
   updateOtherItemReturnPicked,
-  deleteOtherItem
+  deleteOtherItem,
+  getSpecificationBudgetItems,
+  createSpecificationBudgetItem,
+  updateSpecificationBudgetItem,
+  updateSpecificationBudgetItemPicked,
+  updateSpecificationBudgetItemReturnPicked,
+  deleteSpecificationBudgetItem,
+  ensureWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
 
@@ -76,6 +83,16 @@ interface PendingConfirmationItem {
   id: string;
   name: string;
   group: 'equipment' | 'cables' | 'connectors' | 'other';
+}
+
+interface AddEquipmentTarget {
+  categoryId: string | null;
+  locationId: string | null;
+}
+
+interface PendingDeleteItem {
+  budgetItemId: string;
+  itemName: string;
 }
 
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
@@ -130,6 +147,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [showSpecificationConfirmDialog, setShowSpecificationConfirmDialog] = useState(false);
   const [pendingConfirmItems, setPendingConfirmItems] = useState<PendingConfirmationItem[]>([]);
   const [pendingConfirmMode, setPendingConfirmMode] = useState<'shipment' | 'return' | null>(null);
+  const [addEquipmentTarget, setAddEquipmentTarget] = useState<AddEquipmentTarget>({ categoryId: null, locationId: null });
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<PendingDeleteItem | null>(null);
 
   const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
     setNotification({ message, type });
@@ -275,6 +294,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         locationName: isNoLocation ? '' : (locationData?.name || fallbackLocationName || ''),
         locationColor: locationData?.color || '#4b5563',
         categories: sortedCategoryKeys.map(categoryKey => ({
+          categoryId: categoryKey === 'uncategorized' ? null : categoryKey,
           categoryName: categoryKey === 'uncategorized'
             ? 'Без категории'
             : (categoriesById.get(categoryKey) || 'Без категории'),
@@ -295,7 +315,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     try {
       setLoading(true);
       const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
-        getBudgetItems(eventId),
+        (async () => {
+          await ensureWarehouseSpecificationSnapshot(eventId);
+          return getSpecificationBudgetItems(eventId);
+        })(),
         getCategories(),
         getCategoriesForEvent(eventId),
         getLocationsForEvent(eventId),
@@ -670,7 +693,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       // We need to extract the full UUID before any suffix
       const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
-      await updateBudgetItemPicked(realId, picked);
+      await updateSpecificationBudgetItemPicked(realId, picked);
       
       // Update all items sharing this budget item ID
       setExpandedItems(expandedItems.map(item =>
@@ -767,7 +790,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
     try {
       const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
-      await updateBudgetItemReturnPicked(realId, return_picked);
+      await updateSpecificationBudgetItemReturnPicked(realId, return_picked);
       setExpandedItems(prev => prev.map(item =>
         item.budgetItemId.startsWith(realId) ? { ...item, return_picked } : item
       ));
@@ -876,7 +899,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleAddExtraEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
-      await createBudgetItem({
+      await createSpecificationBudgetItem({
         event_id: eventId,
         equipment_id: equipment.id,
         modification_id: modificationId,
@@ -889,6 +912,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         is_extra: true,
       });
       setShowEquipmentSelector(false);
+      setAddEquipmentTarget({ categoryId: null, locationId: null });
       await loadData();
     } catch (error) {
       console.error('Error adding extra equipment:', error);
@@ -1000,7 +1024,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleAddEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
-      const newItem = await createBudgetItem({
+      const newItem = await createSpecificationBudgetItem({
         event_id: eventId,
         equipment_id: equipment.id,
         modification_id: modificationId,
@@ -1008,12 +1032,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         quantity,
         price: equipment.rental_price,
         exchange_rate: 1,
-        category_id: null,
+        category_id: addEquipmentTarget.categoryId,
+        location_id: addEquipmentTarget.locationId,
         notes: ''
       });
 
       console.log('Created budget item:', newItem);
       setShowEquipmentSelector(false);
+      setAddEquipmentTarget({ categoryId: null, locationId: null });
       const pending = expandedItems
         .filter(i => modifiedItems.has(i.budgetItemId))
         .map(i => ({ id: i.budgetItemId, quantity: i.quantity, notes: i.notes }));
@@ -1022,6 +1048,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       console.error('Error adding equipment:', error);
       showNotification('Ошибка при добавлении оборудования');
     }
+  };
+
+  const openEquipmentSelectorForCategory = (categoryId: string | null, locationId: string | null) => {
+    setAddEquipmentTarget({ categoryId, locationId });
+    setShowEquipmentSelector(true);
   };
 
   const handleQuantityChange = (budgetItemId: string, newQuantity: number) => {
@@ -1069,6 +1100,22 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     setModifiedItems(prev => new Set(prev).add(realId));
   };
 
+  const handleDeleteSpecificationItem = async (budgetItemId: string) => {
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    try {
+      await deleteSpecificationBudgetItem(realId);
+      await loadData();
+      showNotification('Элемент удалён', 'success');
+    } catch (error) {
+      console.error('Error deleting specification item:', error);
+      showNotification('Ошибка при удалении элемента');
+    }
+  };
+
+  const requestDeleteSpecificationItem = (budgetItemId: string, itemName: string) => {
+    setPendingDeleteItem({ budgetItemId, itemName });
+  };
+
   const handleSaveChanges = async () => {
     if (modifiedItems.size === 0) return;
     
@@ -1089,11 +1136,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Delete existing LED case children from DB before creating new ones (prevent duplicates)
         // Always fetch fresh from DB to avoid stale cache issues
         if (caseItems.length > 0) {
-          const freshItemsForLed = await getBudgetItems(eventId);
+          const freshItemsForLed = await getSpecificationBudgetItems(eventId);
           const existingLedChildren = freshItemsForLed.filter(item => item.parent_budget_item_id === budgetItemId);
           for (const child of existingLedChildren) {
             try {
-              await deleteBudgetItem(child.id);
+              await deleteSpecificationBudgetItem(child.id);
             } catch (err) {
               console.error('Error deleting old LED case budget item:', child.id, err);
             }
@@ -1119,7 +1166,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               picked: caseItem.picked,
               sort_order: 0
             });
-            const newItem = await createBudgetItem({
+            const newItem = await createSpecificationBudgetItem({
               event_id: eventId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
@@ -1147,12 +1194,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Replace podium child rows for parent item
         if (podiumChildItems.length > 0) {
           // Fetch from DB directly to avoid stale state
-          const freshBudgetItems = await getBudgetItems(eventId);
+          const freshBudgetItems = await getSpecificationBudgetItems(eventId);
           const existingPodiumChildren = freshBudgetItems.filter(item => item.parent_budget_item_id === budgetItemId);
 
           for (const child of existingPodiumChildren) {
             try {
-              await deleteBudgetItem(child.id);
+              await deleteSpecificationBudgetItem(child.id);
             } catch (err) {
               console.error('Error deleting old podium child item:', child.id, err);
             }
@@ -1160,7 +1207,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
           for (const childItem of podiumChildItems) {
             try {
-              const newItem = await createBudgetItem({
+              const newItem = await createSpecificationBudgetItem({
                 event_id: eventId,
                 item_type: 'equipment',
                 category_id: childItem.categoryId,
@@ -1197,7 +1244,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           const budgetItem = budgetItems.find(b => b.id === budgetItemId);
           if (budgetItem) {
             try {
-              await updateBudgetItem(budgetItemId, {
+              await updateSpecificationBudgetItem(budgetItemId, {
                 quantity: expandedItem.quantity,
                 notes: expandedItem.notes
               });
@@ -1209,7 +1256,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         } else if (budgetItemId.includes('-case-') || budgetItemId.includes('-mod-')) {
           // For other virtual items (not parent LED), create a new budget item
           try {
-            const newItem = await createBudgetItem({
+            const newItem = await createSpecificationBudgetItem({
               event_id: eventId,
               item_type: 'equipment',
               equipment_id: null,
@@ -1218,7 +1265,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               name: expandedItem.name,
               sku: expandedItem.sku,
               quantity: expandedItem.quantity,
-              unit: expandedItem.unit,
               notes: expandedItem.notes,
               picked: expandedItem.picked
             });
@@ -1233,7 +1279,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           if (!budgetItem) continue;
           
           try {
-            await updateBudgetItem(budgetItemId, {
+            await updateSpecificationBudgetItem(budgetItemId, {
               quantity: expandedItem.quantity,
               notes: expandedItem.notes
             });
@@ -1322,15 +1368,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleCableNotesChange = async (id: string, newNotes: string) => {
-    try {
-      const updated = await updateCable(id, { notes: newNotes });
-      setCables(cables.map(c => c.id === updated.id ? updated : c));
-    } catch (error) {
-      console.error('Error updating cable notes:', error);
-    }
-  };
-
   const handleAddConnectorFromTemplate = async (connectorType: string) => {
     try {
       const existingConnector = connectors.find(c => c.connector_type === connectorType);
@@ -1368,15 +1405,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     } catch (error) {
       console.error('Error updating connector:', error);
       showNotification('Ошибка при обновлении коннектора');
-    }
-  };
-
-  const handleConnectorNotesChange = async (id: string, newNotes: string) => {
-    try {
-      const updated = await updateConnector(id, { notes: newNotes });
-      setConnectors(connectors.map(c => c.id === updated.id ? updated : c));
-    } catch (error) {
-      console.error('Error updating connector notes:', error);
     }
   };
 
@@ -1441,15 +1469,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     } catch (error) {
       console.error('Error updating other item:', error);
       showNotification('Ошибка при обновлении предмета');
-    }
-  };
-
-  const handleOtherNotesChange = async (id: string, newNotes: string) => {
-    try {
-      const updated = await updateOtherItem(id, { notes: newNotes });
-      setOtherItems(otherItems.map(i => i.id === updated.id ? updated : i));
-    } catch (error) {
-      console.error('Error updating other item notes:', error);
     }
   };
 
@@ -1584,11 +1603,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     return cable?.id;
   };
 
-  const getCableNotes = (cableType: string, cableLength: string) => {
-    const cable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
-    return cable?.notes || '';
-  };
-
   const getCablePicked = (cableType: string, cableLength: string) => {
     const cable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
     return cable?.picked || false;
@@ -1650,7 +1664,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     : 'border-transparent text-gray-500 hover:text-gray-300'
                 }`}
               >
-                {tab === 'budget' ? 'Смета' : tab === 'cables' ? 'Кабеля' : tab === 'connectors' ? 'Коннекторы' : 'Прочее'}
+                {tab === 'budget' ? 'Основное' : tab === 'cables' ? 'Кабеля' : tab === 'connectors' ? 'Коннекторы' : 'Прочее'}
               </button>
             ))}
             {eventDetails?.equipment_shipped && (
@@ -1679,7 +1693,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               <div className="mb-3 flex justify-between items-center">
                 {!isWarehouseUser && !eventDetails?.equipment_shipped && (
                   <button
-                    onClick={() => setShowEquipmentSelector(true)}
+                    onClick={() => openEquipmentSelectorForCategory(null, null)}
                     className="px-3 py-1.5 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 flex items-center gap-1.5 transition-colors"
                   >
                     <Plus className="w-5 h-5" />
@@ -1706,9 +1720,22 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   )}
                   {locationGroup.categories.map((group) => (
                     <div key={`${locationGroup.locationId || 'no-location'}-${group.categoryName}`} className="mb-3">
-                      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
-                        {group.categoryName}
-                      </h4>
+                      <div className="mb-2 px-2">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                            {group.categoryName}
+                          </h4>
+                          {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                            <button
+                              onClick={() => openEquipmentSelectorForCategory(group.categoryId, locationGroup.locationId)}
+                              className="p-0.5 text-cyan-500 hover:text-cyan-300 transition-colors"
+                              title="Добавить оборудование в категорию"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <div className="overflow-x-auto rounded border border-gray-800">
                         <table className="w-full border-collapse">
                       <thead>
@@ -1812,6 +1839,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   >
                                     <Plus className="w-5 h-5" />
                                   </button>
+                                  <button
+                                    onClick={() => requestDeleteSpecificationItem(item.budgetItemId, item.name)}
+                                    className="p-0.5 text-red-500/60 hover:text-red-400 transition-colors"
+                                    title="Удалить элемент"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                 </div>
                               )}
                             </td>
@@ -1904,10 +1938,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Длина</th>
                               <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500">Кол-во</th>
                               {!isWarehouseUser && !eventDetails?.equipment_shipped && (
-                                <>
-                                  <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Примечания</th>
-                                  <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
-                                </>
+                                <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
                               )}
                             </tr>
                           </thead>
@@ -1916,7 +1947,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               const cableObj = cables.find(c => c.cable_type === template.type && c.cable_length === length);
                               const quantity = cableObj?.quantity || 0;
                               const cableId = cableObj?.id;
-                              const notes = cableObj?.notes || '';
                               const picked = cableObj?.picked || false;
                               const returnPicked = cableObj?.return_picked || false;
 
@@ -1964,36 +1994,23 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     )}
                                   </td>
                                   {!isWarehouseUser && !eventDetails?.equipment_shipped && (
-                                    <>
-                                      <td className="px-3 py-1.5">
-                                        {cableId && (
-                                          <input
-                                            type="text"
-                                            value={notes}
-                                            onChange={(e) => handleCableNotesChange(cableId, e.target.value)}
-                                            className="w-full px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300"
-                                            placeholder="..."
-                                          />
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-1.5 text-center">
-                                        <div className="flex justify-center gap-1.5">
-                                          <button
-                                            onClick={() => cableId && handleCableQuantityChange(cableId, Math.max(0, quantity - 1))}
-                                            disabled={!cableId || quantity === 0}
-                                            className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
-                                          >
-                                            <Minus className="w-5 h-5" />
-                                          </button>
-                                          <button
-                                            onClick={() => handleAddCableFromTemplate(template.type, length)}
-                                            className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
-                                          >
-                                            <Plus className="w-5 h-5" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <div className="flex justify-center gap-1.5">
+                                        <button
+                                          onClick={() => cableId && handleCableQuantityChange(cableId, Math.max(0, quantity - 1))}
+                                          disabled={!cableId || quantity === 0}
+                                          className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
+                                        >
+                                          <Minus className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleAddCableFromTemplate(template.type, length)}
+                                          className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
+                                        >
+                                          <Plus className="w-5 h-5" />
+                                        </button>
+                                      </div>
+                                    </td>
                                   )}
                                 </tr>
                               );
@@ -2038,10 +2055,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Тип</th>
                               <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500">Кол-во</th>
                               {!isWarehouseUser && !eventDetails?.equipment_shipped && (
-                                <>
-                                  <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Примечания</th>
-                                  <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
-                                </>
+                                <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
                               )}
                             </tr>
                           </thead>
@@ -2050,7 +2064,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               const connectorEntries = connectors.filter(c => c.connector_type === itemType);
                               const connector = connectorEntries[0];
                               const quantity = connectorEntries.reduce((sum, c) => sum + c.quantity, 0);
-                              const notes = connector?.notes || '';
                               const picked = connectorEntries.length > 0 && connectorEntries.every(c => c.picked);
                               const returnPicked = connectorEntries.length > 0 && connectorEntries.every(c => c.return_picked);
 
@@ -2098,36 +2111,23 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     )}
                                   </td>
                                   {!isWarehouseUser && !eventDetails?.equipment_shipped && (
-                                    <>
-                                      <td className="px-3 py-1.5">
-                                        {connector && (
-                                          <input
-                                            type="text"
-                                            value={notes}
-                                            onChange={(e) => handleConnectorNotesChange(connector.id, e.target.value)}
-                                            className="w-full px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300"
-                                            placeholder="..."
-                                          />
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-1.5 text-center">
-                                        <div className="flex justify-center gap-1.5">
-                                          <button
-                                            onClick={() => connector && handleConnectorQuantityChange(connector.id, Math.max(0, quantity - 1))}
-                                            disabled={!connector || quantity === 0}
-                                            className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
-                                          >
-                                            <Minus className="w-5 h-5" />
-                                          </button>
-                                          <button
-                                            onClick={() => handleAddConnectorFromTemplate(itemType)}
-                                            className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
-                                          >
-                                            <Plus className="w-5 h-5" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <div className="flex justify-center gap-1.5">
+                                        <button
+                                          onClick={() => connector && handleConnectorQuantityChange(connector.id, Math.max(0, quantity - 1))}
+                                          disabled={!connector || quantity === 0}
+                                          className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
+                                        >
+                                          <Minus className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleAddConnectorFromTemplate(itemType)}
+                                          className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
+                                        >
+                                          <Plus className="w-5 h-5" />
+                                        </button>
+                                      </div>
+                                    </td>
                                   )}
                                 </tr>
                               );
@@ -2172,10 +2172,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Предмет</th>
                               <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500">Кол-во</th>
                               {!isWarehouseUser && !eventDetails?.equipment_shipped && (
-                                <>
-                                  <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Примечания</th>
-                                  <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
-                                </>
+                                <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
                               )}
                             </tr>
                           </thead>
@@ -2184,7 +2181,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               const otherObj = otherItems.find(i => i.category === template.category && i.item_type === itemType);
                               const otherId = otherObj?.id;
                               const quantity = otherObj?.quantity || 0;
-                              const notes = otherObj?.notes || '';
                               const picked = otherObj?.picked || false;
                               const returnPicked = otherObj?.return_picked || false;
 
@@ -2232,36 +2228,23 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     )}
                                   </td>
                                   {!isWarehouseUser && !eventDetails?.equipment_shipped && (
-                                    <>
-                                      <td className="px-3 py-1.5">
-                                        {otherId && (
-                                          <input
-                                            type="text"
-                                            value={notes}
-                                            onChange={(e) => handleOtherNotesChange(otherId, e.target.value)}
-                                            className="w-full px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300"
-                                            placeholder="..."
-                                          />
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-1.5 text-center">
-                                        <div className="flex justify-center gap-1.5">
-                                          <button
-                                            onClick={() => otherId && handleOtherQuantityChange(otherId, Math.max(0, quantity - 1))}
-                                            disabled={!otherId || quantity === 0}
-                                            className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
-                                          >
-                                            <Minus className="w-5 h-5" />
-                                          </button>
-                                          <button
-                                            onClick={() => handleAddOtherFromTemplate(template.category, itemType)}
-                                            className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
-                                          >
-                                            <Plus className="w-5 h-5" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </>
+                                    <td className="px-3 py-1.5 text-center">
+                                      <div className="flex justify-center gap-1.5">
+                                        <button
+                                          onClick={() => otherId && handleOtherQuantityChange(otherId, Math.max(0, quantity - 1))}
+                                          disabled={!otherId || quantity === 0}
+                                          className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
+                                        >
+                                          <Minus className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleAddOtherFromTemplate(template.category, itemType)}
+                                          className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
+                                        >
+                                          <Plus className="w-5 h-5" />
+                                        </button>
+                                      </div>
+                                    </td>
                                   )}
                                 </tr>
                               );
@@ -2617,7 +2600,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 {activeTab === 'extra' ? 'Добавить в добор' : 'Добавить оборудование'}
               </h3>
               <button
-                onClick={() => setShowEquipmentSelector(false)}
+                onClick={() => {
+                  setShowEquipmentSelector(false);
+                  setAddEquipmentTarget({ categoryId: null, locationId: null });
+                }}
                 className="p-1 hover:bg-gray-800 text-gray-400 rounded"
               >
                 <X className="w-5 h-5" />
@@ -2625,7 +2611,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             </div>
             <EquipmentSelector
               onSelect={activeTab === 'extra' ? handleAddExtraEquipment : handleAddEquipment}
-              onClose={() => setShowEquipmentSelector(false)}
+              onClose={() => {
+                setShowEquipmentSelector(false);
+                setAddEquipmentTarget({ categoryId: null, locationId: null });
+              }}
             />
           </div>
         </div>
@@ -2683,6 +2672,39 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 className="flex-1 px-4 py-2 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 transition-colors"
               >
                 Подтвердить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingDeleteItem && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
+              Подтверждение удаления
+            </h3>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Удалить элемент <span className="text-white font-medium">«{pendingDeleteItem.itemName}»</span> из спецификации?
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setPendingDeleteItem(null)}
+                className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  const target = pendingDeleteItem;
+                  setPendingDeleteItem(null);
+                  if (target) {
+                    await handleDeleteSpecificationItem(target.budgetItemId);
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-red-700 text-white text-xs rounded hover:bg-red-600 transition-colors"
+              >
+                Удалить
               </button>
             </div>
           </div>

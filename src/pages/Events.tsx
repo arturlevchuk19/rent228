@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, Package, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES, EVENT_STATUSES } from '../lib/events';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -227,9 +227,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                           className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
                           title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
                         />
-                        <Package
+                        <CheckCircle
                           className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
-                          title={event.progress_equipment_reserved ? 'Оборудование зарезервировано' : 'Оборудование не зарезервировано'}
+                          title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
                         />
                         <ClipboardCheck
                           className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
@@ -369,9 +369,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                     className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
                     title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
                   />
-                  <Package
+                  <CheckCircle
                     className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
-                    title={event.progress_equipment_reserved ? 'Оборудование зарезервировано' : 'Оборудование не зарезервировано'}
+                    title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
                   />
                   <ClipboardCheck
                     className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}

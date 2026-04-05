@@ -303,7 +303,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                     onChange={(e) => setFormData({ ...formData, progress_equipment_reserved: e.target.checked })}
                     className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900"
                   />
-                  <span className="text-gray-300 text-sm">Оборудование зарезервировано</span>
+                  <span className="text-gray-300 text-sm">Смета подтверждена</span>
                 </label>
 
                 <label className="flex items-center gap-2 cursor-pointer text-sm">
