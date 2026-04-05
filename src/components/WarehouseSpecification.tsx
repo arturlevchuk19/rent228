@@ -1720,19 +1720,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   )}
                   {locationGroup.categories.map((group) => (
                     <div key={`${locationGroup.locationId || 'no-location'}-${group.categoryName}`} className="mb-3">
-                      <div className="mb-2 px-2 flex items-center justify-between">
-                        <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                          {group.categoryName}
-                        </h4>
-                        {!isWarehouseUser && !eventDetails?.equipment_shipped && (
-                          <button
-                            onClick={() => openEquipmentSelectorForCategory(group.categoryId, locationGroup.locationId)}
-                            className="p-1 text-cyan-500 hover:text-cyan-300 transition-colors"
-                            title="Добавить оборудование в категорию"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        )}
+                      <div className="mb-2 px-2">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                            {group.categoryName}
+                          </h4>
+                          {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                            <button
+                              onClick={() => openEquipmentSelectorForCategory(group.categoryId, locationGroup.locationId)}
+                              className="p-0.5 text-cyan-500 hover:text-cyan-300 transition-colors"
+                              title="Добавить оборудование в категорию"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="overflow-x-auto rounded border border-gray-800">
                         <table className="w-full border-collapse">
