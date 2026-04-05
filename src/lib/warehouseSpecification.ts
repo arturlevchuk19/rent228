@@ -66,6 +66,14 @@ export const CABLE_TEMPLATES: CableTemplate[] = [
     lengths: ['0.5м (12шт)', '1м (10шт)', '2м (10шт)', '5м', '10м']
   },
   {
+    type: 'LAN 5м - 100м',
+    lengths: ['5м', '10м', '15м', '15м 2CH', '20м', '20м 2CH', '50м 2CH', '100м']
+  },
+  {
+    type: 'MULTICORE',
+    lengths: ['LAN 4CH 15м', 'LAN 4CH 20м', 'LAN 4CH 30m', 'XLR 6CH 10м', 'XLR 8CH 15м']
+  },
+  {
     type: 'SCREEN',
     lengths: ['powercon 1.2м (10шт)', 'ethernet 1.2м (10шт)','powercon 2м (10шт)','ethernet 2м (10шт)']
   },
