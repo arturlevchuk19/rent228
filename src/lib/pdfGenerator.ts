@@ -407,14 +407,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
       <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.organizerName}</span>
     </div>` : '';
-  const participantsRowHtml = (clientHtml || organizerHtml)
-    ? `
-      <div style="grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: flex-start;">
-        ${clientHtml}
-        ${organizerHtml}
-      </div>
-    `
-    : '';
+  const participantsCellsHtml = `${clientHtml}${organizerHtml}`;
 
   const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
@@ -508,7 +501,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
             <span style="font-size: 11px; font-weight: 600;">${data.venueName || '—'}</span>
           </div>
-          ${participantsRowHtml}
+          ${participantsCellsHtml}
         </div>
       </div>
     </header>
