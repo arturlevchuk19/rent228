@@ -451,7 +451,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
       <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% за ${budgetDays} дн.:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
       </div>` : ''}
     `
@@ -466,11 +466,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
       <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% за 1 день:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% на оборудование за 1 день:</span>
         <span style="font-size: 18px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountDay1.toFixed(0)}${currencySuffix}</span>
       </div>
       <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% за ${budgetDays} дн.:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
       </div>` : ''}
     `;
@@ -569,6 +569,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     compress: true
   });
 
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, imgHeightPx * pageWidth / imgWidthPx);
+  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
+
+  // Add clickable links over footer labels (PDF content itself is an image).
+  const footerLinksY = Math.max(0, renderedImageHeightMm - 10);
+  pdf.link(10, footerLinksY, 30, 5, { url: 'https://onpromo.by/' });
+  pdf.link(44, footerLinksY, 24, 5, { url: 'https://www.instagram.com/onpromo.by/' });
   pdf.save(`Proposal_${data.eventName || 'event'}.pdf`);
 }
