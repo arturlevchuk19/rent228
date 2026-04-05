@@ -105,6 +105,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
+  const [budgetVersion, setBudgetVersion] = useState('2.0');
   const [budgetDays, setBudgetDays] = useState(1);
   const [budgetDaysInput, setBudgetDaysInput] = useState('1');
   const [budgetTotalsMode, setBudgetTotalsMode] = useState<'combined_only' | 'day1_plus_combined'>('combined_only');
@@ -149,6 +150,19 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   useEffect(() => {
     setBudgetDaysInput(String(budgetDays));
   }, [budgetDays]);
+
+  useEffect(() => {
+    const savedVersion = localStorage.getItem(`budget_version_${eventId}`);
+    if (savedVersion && savedVersion.trim().length > 0) {
+      setBudgetVersion(savedVersion);
+    } else {
+      setBudgetVersion('2.0');
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    localStorage.setItem(`budget_version_${eventId}`, budgetVersion);
+  }, [eventId, budgetVersion]);
 
   const loadData = async () => {
     try {
@@ -718,9 +732,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       await generateBudgetPDF({
         eventName: event.event_type,
         eventDate: event.event_date,
+        createdDate: new Date().toISOString(),
         venueName: event.venues?.name,
         clientName: event.clients?.organization,
         organizerName: event.organizers?.full_name,
+        version: budgetVersion,
         budgetItems: budgetItems as any,
         categories: categories,
         locations,
@@ -1273,6 +1289,17 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     ))}
                   </div>
                 )}
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Версия</span>
+                  <input
+                    type="text"
+                    value={budgetVersion}
+                    onChange={(e) => setBudgetVersion(e.target.value)}
+                    placeholder="2.0"
+                    className="w-16 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                  />
+                </div>
 
                 <div className="relative exchange-rate-container">
                   <button

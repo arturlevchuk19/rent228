@@ -110,6 +110,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [categories, setCategories] = useState<Category[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
   const [allEquipment, setAllEquipment] = useState<EquipmentItem[]>([]);
   const [eventDetails, setEventDetails] = useState<any>(null);
@@ -583,6 +584,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -1608,7 +1610,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     return cable?.picked || false;
   };
 
-  if (loading) {
+  if (initialLoading && loading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
@@ -1620,7 +1622,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4">
-      <div className="bg-gray-900 border border-gray-800 md:rounded-lg shadow-xl w-full md:w-[95vw] md:max-w-[1400px] h-full md:h-auto md:max-h-[90vh] flex flex-col">
+      <div className="relative bg-gray-900 border border-gray-800 md:rounded-lg shadow-xl w-full md:w-[95vw] md:max-w-[1400px] h-full md:h-auto md:max-h-[90vh] flex flex-col">
+        {loading && (
+          <div className="absolute top-3 right-14 z-20 rounded-md border border-cyan-700/50 bg-gray-900/90 px-2 py-1 text-[11px] text-cyan-300">
+            Обновление...
+          </div>
+        )}
         <div className="flex justify-between items-center px-4 py-3 border-b border-gray-800">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2 leading-tight">

@@ -35,6 +35,8 @@ interface Location {
 interface PDFData {
   eventName: string;
   eventDate?: string;
+  createdDate?: string;
+  version?: string;
   venueName?: string;
   clientName?: string;
   organizerName?: string;
@@ -48,6 +50,15 @@ interface PDFData {
   budgetDays: number;
   budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
 }
+
+const formatDateRu = (dateValue?: string): string => {
+  if (!dateValue) return '—';
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateValue;
+  }
+  return parsedDate.toLocaleDateString('ru-RU');
+};
 
 const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
   const baseAmount = priceUSD * exchangeRate;
@@ -72,6 +83,10 @@ const calculateBYNNonCashPrice = (priceUSD: number, exchangeRate: number, item?:
 };
 
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
+  const formattedEventDate = formatDateRu(data.eventDate);
+  const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
+  const versionLabel = (data.version || '2.0').trim() || '2.0';
+
   const loadImageAsDataURL = async (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -468,7 +483,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <div style="flex: 1; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-end;">
         <div style="text-align: right; margin-bottom: 8px;">
           <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #ffffff;">Коммерческое предложение</div>
-          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Версия 2.0</div>
+          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Версия ${versionLabel}</div>
+          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
         </div>
 
         <div style="display: flex; flex-wrap: wrap; gap: 10px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 16px; width: fit-content; max-width: 350px; justify-content: flex-start;">
@@ -478,7 +494,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           </div>
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
-            <span style="font-size: 11px; font-weight: 600;">${data.eventDate || '—'}</span>
+            <span style="font-size: 11px; font-weight: 600;">${formattedEventDate}</span>
           </div>
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>

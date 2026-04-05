@@ -462,8 +462,8 @@ export function CategoryBlock({
 
                     <div className="flex justify-end pr-2">
                       <input
-                        type="number"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={
                           isCombinedPriceDisplayMode
                             ? String(displayedPrice)
@@ -471,7 +471,8 @@ export function CategoryBlock({
                         }
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
                         onBlur={(e) => {
-                          const inputValue = parseFloat(e.target.value);
+                          const normalizedValue = e.target.value.replace(',', '.').trim();
+                          const inputValue = parseFloat(normalizedValue);
                           if (!isNaN(inputValue)) {
                             let usdPrice: number;
                             switch (paymentMode) {
@@ -488,6 +489,12 @@ export function CategoryBlock({
                           }
                           setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_price']; return copy; });
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            (e.currentTarget as HTMLInputElement).blur();
+                          }
+                        }}
+                        onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                         disabled={isCombinedPriceDisplayMode}
                         title={isCombinedPriceDisplayMode ? `В режиме "combined_only" цена рассчитывается автоматически за ${Math.max(1, budgetDays)} дн.` : undefined}
                         className={`w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs rounded ${
