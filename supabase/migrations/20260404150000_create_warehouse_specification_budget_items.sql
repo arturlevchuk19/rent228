@@ -45,26 +45,70 @@ CREATE INDEX IF NOT EXISTS idx_ws_budget_items_parent_id
 
 ALTER TABLE warehouse_specification_budget_items ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can view warehouse specification budget items" ON warehouse_specification_budget_items;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'warehouse_specification_budget_items'
+      AND policyname = 'Users can view warehouse specification budget items'
+  ) THEN
+    DROP POLICY "Users can view warehouse specification budget items" ON warehouse_specification_budget_items;
+  END IF;
+END $$;
 CREATE POLICY "Users can view warehouse specification budget items"
   ON warehouse_specification_budget_items FOR SELECT
   TO authenticated
   USING (true);
 
-DROP POLICY IF EXISTS "Users can insert warehouse specification budget items" ON warehouse_specification_budget_items;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'warehouse_specification_budget_items'
+      AND policyname = 'Users can insert warehouse specification budget items'
+  ) THEN
+    DROP POLICY "Users can insert warehouse specification budget items" ON warehouse_specification_budget_items;
+  END IF;
+END $$;
 CREATE POLICY "Users can insert warehouse specification budget items"
   ON warehouse_specification_budget_items FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Users can update warehouse specification budget items" ON warehouse_specification_budget_items;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'warehouse_specification_budget_items'
+      AND policyname = 'Users can update warehouse specification budget items'
+  ) THEN
+    DROP POLICY "Users can update warehouse specification budget items" ON warehouse_specification_budget_items;
+  END IF;
+END $$;
 CREATE POLICY "Users can update warehouse specification budget items"
   ON warehouse_specification_budget_items FOR UPDATE
   TO authenticated
   USING (true)
   WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Users can delete warehouse specification budget items" ON warehouse_specification_budget_items;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'warehouse_specification_budget_items'
+      AND policyname = 'Users can delete warehouse specification budget items'
+  ) THEN
+    DROP POLICY "Users can delete warehouse specification budget items" ON warehouse_specification_budget_items;
+  END IF;
+END $$;
 CREATE POLICY "Users can delete warehouse specification budget items"
   ON warehouse_specification_budget_items FOR DELETE
   TO authenticated
