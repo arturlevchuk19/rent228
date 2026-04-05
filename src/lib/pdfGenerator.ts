@@ -530,6 +530,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>
     </footer>
     ${extraServicesHtml}
+    <div style="height: 56px; background: #0a0a0a;"></div>
   `;
 
   document.body.appendChild(container);
