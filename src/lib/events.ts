@@ -81,6 +81,8 @@ export interface Equipment {
   rental_price: number;
   power: string;
   object_type: 'physical' | 'virtual';
+  has_composition?: boolean;
+  is_component?: boolean;
   created_at: string;
   updated_at: string;
 }

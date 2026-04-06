@@ -207,6 +207,54 @@ export interface ModuleCase {
   moduleChildId: string; // ID модуля, который хранится в кейсе
 }
 
+export interface ComponentCaseOption {
+  caseId: string;
+  caseName: string;
+  caseSku: string;
+  caseCategory: string;
+  caseType: string;
+  componentQuantityInCase: number;
+}
+
+export async function findCasesContainingComponent(componentId: string): Promise<ComponentCaseOption[]> {
+  const { data, error } = await supabase
+    .from('equipment_compositions')
+    .select(`
+      parent_id,
+      quantity,
+      parent:equipment_items!equipment_compositions_parent_id_fkey (
+        id,
+        name,
+        sku,
+        category,
+        type,
+        object_type,
+        has_composition
+      )
+    `)
+    .eq('child_id', componentId);
+
+  if (error) throw error;
+
+  return (data || [])
+    .map((item: any) => {
+      const parent = item.parent;
+      if (!parent) return null;
+      if (parent.object_type !== 'physical') return null;
+      if (!parent.has_composition) return null;
+
+      return {
+        caseId: parent.id,
+        caseName: parent.name || 'Кейс',
+        caseSku: parent.sku || '',
+        caseCategory: parent.category || '',
+        caseType: parent.type || '',
+        componentQuantityInCase: Number(item.quantity) || 1
+      } satisfies ComponentCaseOption;
+    })
+    .filter((item): item is ComponentCaseOption => Boolean(item));
+}
+
 export async function findCasesForModules(moduleIds: string[]): Promise<ModuleCase[]> {
   // Находим все кейсы (физические элементы), которые содержат указанные модули в своем составе
   const { data, error } = await supabase
