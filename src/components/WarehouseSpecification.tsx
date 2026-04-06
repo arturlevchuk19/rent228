@@ -108,6 +108,7 @@ interface ComponentDecisionItem {
   picked: boolean;
   return_picked: boolean;
   isExtra: boolean;
+  caseCapacityByCaseId: Record<string, number>;
 }
 
 interface ComponentDecisionGroup {
@@ -210,28 +211,40 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const buildCaseExpandedItems = (group: ComponentDecisionGroup, selectedCase: ComponentCaseOption): ExpandedItem[] => {
-    return group.items.map(item => {
-      const perCase = Math.max(1, selectedCase.componentQuantityInCase || 1);
-      const caseCount = Math.max(1, Math.ceil(item.quantity / perCase));
+    if (group.items.length === 0) return [];
 
-      return {
-        budgetItemId: `${item.budgetItemId}-component-case-${selectedCase.caseId}`,
-        categoryId: item.categoryId,
-        locationId: item.locationId,
-        locationName: item.locationName,
-        name: selectedCase.caseName,
-        sku: selectedCase.caseSku,
-        quantity: caseCount,
-        unit: 'шт.',
-        category: selectedCase.caseCategory || selectedCase.caseType || 'Кейсы',
-        notes: `Вместо комплектующего: ${item.name}`,
-        picked: item.picked,
-        return_picked: item.return_picked,
-        isFromComposition: true,
-        isExtra: item.isExtra,
-        parentName: item.name
-      };
-    });
+    const caseCount = group.items.reduce((maxCount, item) => {
+      const perCase = Math.max(
+        1,
+        item.caseCapacityByCaseId[selectedCase.caseId] || selectedCase.componentQuantityInCase || 1
+      );
+      const requiredForItem = Math.max(1, Math.ceil(item.quantity / perCase));
+      return Math.max(maxCount, requiredForItem);
+    }, 1);
+
+    const componentsSummary = group.items
+      .map(item => `${item.name} (${item.quantity} шт.)`)
+      .join(', ');
+
+    const firstItem = group.items[0];
+
+    return [{
+      budgetItemId: `${firstItem.budgetItemId}-component-case-${selectedCase.caseId}`,
+      categoryId: firstItem.categoryId,
+      locationId: firstItem.locationId,
+      locationName: firstItem.locationName,
+      name: selectedCase.caseName,
+      sku: selectedCase.caseSku,
+      quantity: caseCount,
+      unit: 'шт.',
+      category: selectedCase.caseCategory || selectedCase.caseType || 'Кейсы',
+      notes: `Вместо комплектующих: ${componentsSummary}`,
+      picked: firstItem.picked,
+      return_picked: firstItem.return_picked,
+      isFromComposition: true,
+      isExtra: firstItem.isExtra,
+      parentName: componentsSummary
+    }];
   };
 
   const hasModifications = (budgetItemId: string) => {
@@ -438,8 +451,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             try {
               const caseOptions = await findCasesContainingComponent(item.equipment_id);
               if (caseOptions.length > 0) {
+                const caseCapacityByCaseId = caseOptions.reduce<Record<string, number>>((acc, option) => {
+                  acc[option.caseId] = option.componentQuantityInCase;
+                  return acc;
+                }, {});
                 const optionsKey = caseOptions
-                  .map(option => option.caseId)
+                  .map(option => `${option.caseId}:${option.componentQuantityInCase}`)
                   .sort()
                   .join('|');
                 const groupKey = `${optionsKey}::${item.location_id || 'no-location'}::${item.category_id || 'no-category'}::${item.is_extra ? 'extra' : 'regular'}`;
@@ -455,7 +472,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   locationName: itemLocationName,
                   picked: item.picked || false,
                   return_picked: item.return_picked || false,
-                  isExtra: item.is_extra || false
+                  isExtra: item.is_extra || false,
+                  caseCapacityByCaseId
                 };
 
                 const existingGroup = pendingGroupsByKey.get(groupKey);
