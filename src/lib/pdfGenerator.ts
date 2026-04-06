@@ -35,6 +35,8 @@ interface Location {
 interface PDFData {
   eventName: string;
   eventDate?: string;
+  createdDate?: string;
+  version?: string;
   venueName?: string;
   clientName?: string;
   organizerName?: string;
@@ -48,6 +50,15 @@ interface PDFData {
   budgetDays: number;
   budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
 }
+
+const formatDateRu = (dateValue?: string): string => {
+  if (!dateValue) return '—';
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateValue;
+  }
+  return parsedDate.toLocaleDateString('ru-RU');
+};
 
 const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
   const baseAmount = priceUSD * exchangeRate;
@@ -72,6 +83,10 @@ const calculateBYNNonCashPrice = (priceUSD: number, exchangeRate: number, item?:
 };
 
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
+  const formattedEventDate = formatDateRu(data.eventDate);
+  const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
+  const versionLabel = (data.version || '2.0').trim() || '2.0';
+
   const loadImageAsDataURL = async (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -382,16 +397,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
   const clientHtml = data.clientName ? `
-    <div style="display: flex; flex-direction: column; min-width: 120px; flex: 0 1 auto;">
+    <div style="display: flex; flex-direction: column; min-width: 0;">
       <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
-      <span style="font-size: 11px; font-weight: 600; color: #ffffff; white-space: nowrap;">${data.clientName}</span>
+      <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.clientName}</span>
     </div>` : '';
 
   const organizerHtml = data.organizerName ? `
-    <div style="display: flex; flex-direction: column; min-width: 120px; flex: 0 1 auto;">
+    <div style="display: flex; flex-direction: column; min-width: 0;">
       <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
-      <span style="font-size: 11px; font-weight: 600; color: #ffffff; white-space: nowrap;">${data.organizerName}</span>
+      <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.organizerName}</span>
     </div>` : '';
+  const participantsCellsHtml = `${clientHtml}${organizerHtml}`;
 
   const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
@@ -429,33 +445,33 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Итого за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1; padding-bottom: 2px;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
+      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% за ${budgetDays} дн.:</span>
-        <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
+      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
       </div>` : ''}
     `
     : `
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Итого за 1 день:</span>
-        <span style="font-size: 22px; font-weight: 800; line-height: 1; padding-bottom: 2px;">${grandTotalDay1.toFixed(0)}${currencySuffix}</span>
+      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за 1 день:</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${grandTotalDay1.toFixed(0)}${currencySuffix}</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Итого за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1; padding-bottom: 2px;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
+      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% за 1 день:</span>
-        <span style="font-size: 18px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountDay1.toFixed(0)}${currencySuffix}</span>
+      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за 1 день:</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${grandTotalWithDiscountDay1.toFixed(0)}${currencySuffix}</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 15px;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px;">Со скидкой ${data.discountPercent}% за ${budgetDays} дн.:</span>
-        <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #4ade80;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
+      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
       </div>` : ''}
     `;
 
@@ -468,55 +484,37 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <div style="flex: 1; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-end;">
         <div style="text-align: right; margin-bottom: 8px;">
           <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #ffffff;">Коммерческое предложение</div>
-          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Версия 2.0</div>
+          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Версия ${versionLabel}</div>
+          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
         </div>
 
-        <div style="display: flex; flex-wrap: wrap; gap: 10px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 16px; width: fit-content; max-width: 350px; justify-content: flex-start;">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 16px; width: 350px; box-sizing: border-box;">
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Событие</span>
             <span style="font-size: 11px; font-weight: 600; font-style: italic;">${data.eventName || '—'}</span>
           </div>
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
-            <span style="font-size: 11px; font-weight: 600;">${data.eventDate || '—'}</span>
+            <span style="font-size: 11px; font-weight: 600;">${formattedEventDate}</span>
           </div>
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
             <span style="font-size: 11px; font-weight: 600;">${data.venueName || '—'}</span>
           </div>
-
-          <div style="flex-basis: 100%; height: 0; margin: 0;"></div>
-
-          ${clientHtml}
-          ${organizerHtml}
+          ${participantsCellsHtml}
         </div>
       </div>
     </header>
 
     ${categoriesHtml}
 
-    <footer style="margin-top: 25px; border-top: 2px solid #1f2937; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <div style="font-size: 8px; color: #4b5563; text-transform: uppercase; letter-spacing: 2px; font-weight: 500;">ONPROMO.BY — Техническое обеспечение</div>
-        
-        <div style="display: flex; gap: 15px; align-items: center;">
-          <span style="display: flex; align-items: center; color: #9ca3af; font-size: 10px;">
-            <svg style="width: 14px; height: 14px; margin-right: 5px; fill: currentColor; display: block;" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-            <span style="line-height: 1;">onpromo.by</span>
-          </span>
-          <span style="display: flex; align-items: center; color: #9ca3af; font-size: 10px;">
-            <svg style="width: 14px; height: 14px; margin-right: 5px; fill: currentColor; display: block;" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771
-            .919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-            <span style="line-height: 1;">instagram</span>
-          </span>
-        </div>
-      </div>
-      
-      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+    <footer style="margin-top: 25px; border-top: 2px solid #1f2937; padding-top: 15px; padding-bottom: 16px; display: flex; justify-content: flex-end;">
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-right: 12px; width: min(560px, 100%);">
         ${footerTotalsHtml}
       </div>
     </footer>
     ${extraServicesHtml}
+    <div style="height: 84px; background: #0a0a0a;"></div>
   `;
 
   document.body.appendChild(container);
@@ -556,6 +554,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     compress: true
   });
 
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, imgHeightPx * pageWidth / imgWidthPx);
+  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
+
   pdf.save(`Proposal_${data.eventName || 'event'}.pdf`);
 }
