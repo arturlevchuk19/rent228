@@ -394,8 +394,17 @@ export function CategoryBlock({
           <div>
             {items.map((item) => {
               const isNoteEditorOpen = noteEditorsOpen[item.id] ?? Boolean(item.notes);
-              const isCombinedPriceDisplayMode = budgetTotalsMode === 'combined_only';
               const displayedPrice = getDisplayedPrice(item);
+              const editablePrice = (() => {
+                switch (paymentMode) {
+                  case 'byn_cash':
+                    return convertUSDtoBYNCashPrice(item.price);
+                  case 'byn_noncash':
+                    return convertUSDtoBYNNonCashPrice(item.price, item);
+                  default:
+                    return item.price;
+                }
+              })();
               return (
                 <div
                   key={item.id}
@@ -464,11 +473,7 @@ export function CategoryBlock({
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={
-                          isCombinedPriceDisplayMode
-                            ? String(displayedPrice)
-                            : (draftValues[item.id + '_price'] ?? String(displayedPrice))
-                        }
+                        value={draftValues[item.id + '_price'] ?? String(editablePrice)}
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
                         onBlur={(e) => {
                           const normalizedValue = e.target.value.replace(',', '.').trim();
@@ -495,13 +500,7 @@ export function CategoryBlock({
                           }
                         }}
                         onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                        disabled={isCombinedPriceDisplayMode}
-                        title={isCombinedPriceDisplayMode ? `В режиме "combined_only" цена рассчитывается автоматически за ${Math.max(1, budgetDays)} дн.` : undefined}
-                        className={`w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs rounded ${
-                          isCombinedPriceDisplayMode
-                            ? 'cursor-not-allowed opacity-70'
-                            : 'focus:outline-none focus:bg-gray-800'
-                        }`}
+                        className="w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs rounded focus:outline-none focus:bg-gray-800"
                       />
                     </div>
 
