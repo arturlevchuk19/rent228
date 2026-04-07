@@ -229,7 +229,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     const firstItem = group.items[0];
 
     return [{
-      budgetItemId: `${firstItem.budgetItemId}-component-case-${selectedCase.caseId}`,
+      budgetItemId: `${firstItem.budgetItemId}-kitcase-${selectedCase.caseId}`,
       categoryId: firstItem.categoryId,
       locationId: firstItem.locationId,
       locationName: firstItem.locationName,
@@ -456,7 +456,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   return acc;
                 }, {});
                 const optionsKey = caseOptions
-                  .map(option => `${option.caseId}:${option.componentQuantityInCase}`)
+                  .map(option => option.caseId)
                   .sort()
                   .join('|');
                 const groupKey = `${optionsKey}::${item.location_id || 'no-location'}::${item.category_id || 'no-category'}::${item.is_extra ? 'extra' : 'regular'}`;
@@ -838,7 +838,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       // Find the real budget item ID (ignoring composition suffixes like -comp-, -mod-, or -case-)
       // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       // We need to extract the full UUID before any suffix
-      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
       await updateSpecificationBudgetItemPicked(realId, picked);
       
       // Update all items sharing this budget item ID
@@ -935,7 +935,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
     try {
-      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
       await updateSpecificationBudgetItemReturnPicked(realId, return_picked);
       setExpandedItems(prev => prev.map(item =>
         item.budgetItemId.startsWith(realId) ? { ...item, return_picked } : item
@@ -1228,7 +1228,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     ));
 
     // Track modified item (extract real budget item ID for composed items)
-    const realId = pendingQuantityChange.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = pendingQuantityChange.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
     setPendingQuantityChange(null);
   };
@@ -1242,12 +1242,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       item.budgetItemId === budgetItemId ? { ...item, notes: newNotes } : item
     ));
     // Track modified item (extract real budget item ID for composed items)
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
   };
 
   const handleDeleteSpecificationItem = async (budgetItemId: string) => {
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
     try {
       await deleteSpecificationBudgetItem(realId);
       await loadData();
@@ -1972,7 +1972,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               </div>
                             </td>
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped ? (
+                              {eventDetails?.equipment_shipped || item.budgetItemId.includes('-kitcase-') ? (
                                 <span className="text-xs text-white font-bold">{item.quantity}</span>
                               ) : (
                                 <div className="flex justify-center items-center gap-1">
@@ -2007,6 +2007,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   type="text"
                                   value={item.notes}
                                   onChange={(e) => handleNotesChange(item.budgetItemId, e.target.value)}
+                                  disabled={item.budgetItemId.includes('-kitcase-')}
                                   className="w-full px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300 focus:outline-none focus:border-cyan-500"
                                   placeholder="..."
                                 />
