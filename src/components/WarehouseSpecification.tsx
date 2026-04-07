@@ -39,7 +39,8 @@ import {
   updateSpecificationBudgetItemPicked,
   updateSpecificationBudgetItemReturnPicked,
   deleteSpecificationBudgetItem,
-  ensureWarehouseSpecificationSnapshot
+  ensureWarehouseSpecificationSnapshot,
+  resetWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
 
@@ -174,6 +175,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingDeleteItem, setPendingDeleteItem] = useState<PendingDeleteItem | null>(null);
   const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resettingSpecification, setResettingSpecification] = useState(false);
 
   const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
     setNotification({ message, type });
@@ -930,6 +933,27 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       showNotification('Ошибка при подтверждении приёма');
     } finally {
       setConfirmingReturn(false);
+    }
+  };
+
+  const handleResetSpecification = async () => {
+    try {
+      setResettingSpecification(true);
+      await resetWarehouseSpecificationSnapshot(eventId);
+      setModifiedItems(new Set());
+      setItemsWithAppliedModifications(new Set());
+      setLedItemsWithCases(new Set());
+      setPodiumItemsWithComposition(new Set());
+      setComponentDecisionQueue([]);
+      setActiveComponentDecisionIndex(0);
+      setShowResetDialog(false);
+      await loadData();
+      showNotification('Спецификация сброшена до состояния сметы', 'success');
+    } catch (error) {
+      console.error('Error resetting specification:', error);
+      showNotification('Ошибка при сбросе спецификации');
+    } finally {
+      setResettingSpecification(false);
     }
   };
 
@@ -2519,6 +2543,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </button>
             )}
+            {!eventDetails?.equipment_shipped && (
+              <button
+                onClick={() => setShowResetDialog(true)}
+                className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
+              >
+                Сбросить
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-3 py-1.5 text-xs text-gray-400 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
@@ -2855,6 +2887,35 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 className="flex-1 px-4 py-2 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {confirming ? '...' : 'Подтвердить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResetDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
+              Сбросить спецификацию
+            </h3>
+            <p className="text-sm text-gray-300 mb-5">
+              Вернуть спецификацию к исходному состоянию из сметы? Все несохранённые изменения в текущей спецификации будут удалены.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowResetDialog(false)}
+                disabled={resettingSpecification}
+                className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleResetSpecification}
+                disabled={resettingSpecification}
+                className="px-3 py-1.5 text-xs bg-amber-700 text-white rounded hover:bg-amber-600 transition-colors disabled:opacity-50"
+              >
+                {resettingSpecification ? 'Сброс...' : 'Да, сбросить'}
               </button>
             </div>
           </div>
