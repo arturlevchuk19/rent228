@@ -563,5 +563,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
 
-  pdf.save(`Proposal_${data.eventName || 'event'}.pdf`);
+  // Формируем имя файла: {Наименование} {Площадка} {Дата} Версия {номер версии}
+  const fileNameParts = [data.eventName];
+  if (data.venueName) {
+    fileNameParts.push(data.venueName);
+  }
+  if (formattedEventDate && formattedEventDate !== '—') {
+    fileNameParts.push(formattedEventDate);
+  }
+  fileNameParts.push(`Версия ${versionLabel}`);
+  
+  // Убираем недопустимые символы для имени файла
+  const fileName = fileNameParts.join(' ').replace(/[<>:"/\\|?*]/g, '_');
+  pdf.save(`${fileName}.pdf`);
 }
