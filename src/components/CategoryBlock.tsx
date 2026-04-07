@@ -449,7 +449,8 @@ export function CategoryBlock({
                           −
                         </button>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={draftValues[item.id + '_quantity'] ?? String(item.quantity)}
                           onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_quantity']: e.target.value }))}
                           onBlur={(e) => {
@@ -458,7 +459,7 @@ export function CategoryBlock({
                             setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_quantity']; return copy; });
                           }}
                           className="w-8 px-0.5 py-0.5 bg-transparent text-center text-white text-xs focus:outline-none"
-                          min="1"
+                          onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                         />
                         <button
                           onClick={() => onUpdateItem(item.id, { quantity: item.quantity + 1 })}
@@ -507,10 +508,8 @@ export function CategoryBlock({
                     {showCoefficient && (
                       <div className="flex justify-center">
                         <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="1"
+                          type="text"
+                          inputMode="decimal"
                           value={draftValues[item.id + '_multi_day_rate_override'] ?? String(item.multi_day_rate_override ?? 0)}
                           onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_multi_day_rate_override']: e.target.value }))}
                           onBlur={(e) => {
@@ -527,6 +526,7 @@ export function CategoryBlock({
                             });
                           }}
                           className="w-full max-w-[72px] px-1 py-0.5 bg-transparent text-center text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                          onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                         />
                       </div>
                     )}
