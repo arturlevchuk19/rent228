@@ -564,10 +564,21 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
 
   // Формируем имя файла: {Наименование} {Площадка} {Дата} Версия {номер версии}
-  const fileNameParts = [data.eventName];
-  if (data.venueName) {
+  // Название мероприятия (eventName) - если пустое, пропускаем
+  const fileNameParts: string[] = [];
+  
+  if (data.eventName) {
+    fileNameParts.push(data.eventName);
+  } else if (data.venueName) {
+    // Если название пустое, первым элементом берем площадку
     fileNameParts.push(data.venueName);
   }
+  
+  // Если eventName уже добавлен, добавляем venueName вторым
+  if (data.eventName && data.venueName) {
+    fileNameParts.push(data.venueName);
+  }
+  
   if (formattedEventDate && formattedEventDate !== '—') {
     fileNameParts.push(formattedEventDate);
   }
