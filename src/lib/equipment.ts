@@ -16,6 +16,7 @@ export interface EquipmentItem {
   object_type: 'physical' | 'virtual';
   rental_type: 'rental' | 'sublease';
   has_composition: boolean;
+  is_component: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -494,3 +494,14 @@ export async function ensureWarehouseSpecificationSnapshot(eventId: string): Pro
     sourceToSpecId.set(created.source_budget_item_id, created.id);
   }
 }
+
+export async function resetWarehouseSpecificationSnapshot(eventId: string): Promise<void> {
+  const { error } = await supabase
+    .from('warehouse_specification_budget_items')
+    .delete()
+    .eq('event_id', eventId);
+
+  if (error) throw error;
+
+  await ensureWarehouseSpecificationSnapshot(eventId);
+}

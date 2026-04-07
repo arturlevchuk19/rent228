@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2 } from 'lucide-react';
 import { BudgetItem, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
-import { getEquipmentCompositions } from '../lib/equipmentCompositions';
+import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
 import { Location, getLocationsForEvent } from '../lib/locations';
 import { CalculatedCase } from './LedSpecificationPanel';
@@ -39,7 +39,8 @@ import {
   updateSpecificationBudgetItemPicked,
   updateSpecificationBudgetItemReturnPicked,
   deleteSpecificationBudgetItem,
-  ensureWarehouseSpecificationSnapshot
+  ensureWarehouseSpecificationSnapshot,
+  resetWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
 
@@ -93,6 +94,28 @@ interface AddEquipmentTarget {
 interface PendingDeleteItem {
   budgetItemId: string;
   itemName: string;
+}
+
+interface ComponentDecisionItem {
+  budgetItemId: string;
+  equipmentId: string;
+  name: string;
+  sku: string;
+  quantity: number;
+  notes: string;
+  categoryId: string | null;
+  locationId: string | null;
+  locationName: string;
+  picked: boolean;
+  return_picked: boolean;
+  isExtra: boolean;
+  caseCapacityByCaseId: Record<string, number>;
+}
+
+interface ComponentDecisionGroup {
+  groupId: string;
+  caseOptions: ComponentCaseOption[];
+  items: ComponentDecisionItem[];
 }
 
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
@@ -150,6 +173,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingConfirmMode, setPendingConfirmMode] = useState<'shipment' | 'return' | null>(null);
   const [addEquipmentTarget, setAddEquipmentTarget] = useState<AddEquipmentTarget>({ categoryId: null, locationId: null });
   const [pendingDeleteItem, setPendingDeleteItem] = useState<PendingDeleteItem | null>(null);
+  const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
+  const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resettingSpecification, setResettingSpecification] = useState(false);
 
   const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
     setNotification({ message, type });
@@ -184,6 +211,43 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const isTotemBudgetItem = (item: BudgetItem) => {
     const name = (item.equipment?.name || item.name || "").toLowerCase();
     return name.includes("тотем");
+  };
+
+  const buildCaseExpandedItems = (group: ComponentDecisionGroup, selectedCase: ComponentCaseOption): ExpandedItem[] => {
+    if (group.items.length === 0) return [];
+
+    const caseCount = group.items.reduce((maxCount, item) => {
+      const perCase = Math.max(
+        1,
+        item.caseCapacityByCaseId[selectedCase.caseId] || selectedCase.componentQuantityInCase || 1
+      );
+      const requiredForItem = Math.max(1, Math.ceil(item.quantity / perCase));
+      return Math.max(maxCount, requiredForItem);
+    }, 1);
+
+    const componentsSummary = group.items
+      .map(item => `${item.name} (${item.quantity} шт.)`)
+      .join(', ');
+
+    const firstItem = group.items[0];
+
+    return [{
+      budgetItemId: `${firstItem.budgetItemId}-kitcase-${selectedCase.caseId}`,
+      categoryId: firstItem.categoryId,
+      locationId: firstItem.locationId,
+      locationName: firstItem.locationName,
+      name: selectedCase.caseName,
+      sku: selectedCase.caseSku,
+      quantity: caseCount,
+      unit: 'шт.',
+      category: selectedCase.caseCategory || selectedCase.caseType || 'Кейсы',
+      notes: `Вместо комплектующих: ${componentsSummary}`,
+      picked: firstItem.picked,
+      return_picked: firstItem.return_picked,
+      isFromComposition: true,
+      isExtra: firstItem.isExtra,
+      parentName: componentsSummary
+    }];
   };
 
   const hasModifications = (budgetItemId: string) => {
@@ -344,6 +408,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setEquipmentModifications({});
 
       const items: ExpandedItem[] = [];
+      const pendingComponentDecisions: ComponentDecisionGroup[] = [];
+      const pendingGroupsByKey = new Map<string, ComponentDecisionGroup>();
 
       console.log('Loading warehouse specification for event:', eventId);
 
@@ -384,6 +450,53 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         const isVirtual = item.equipment?.object_type === 'virtual';
 
         if (!isVirtual) {
+          if (item.equipment?.is_component && item.equipment_id) {
+            try {
+              const caseOptions = await findCasesContainingComponent(item.equipment_id);
+              if (caseOptions.length > 0) {
+                const caseCapacityByCaseId = caseOptions.reduce<Record<string, number>>((acc, option) => {
+                  acc[option.caseId] = option.componentQuantityInCase;
+                  return acc;
+                }, {});
+                const optionsKey = caseOptions
+                  .map(option => option.caseId)
+                  .sort()
+                  .join('|');
+                const groupKey = `${optionsKey}::${item.location_id || 'no-location'}::${item.category_id || 'no-category'}::${item.is_extra ? 'extra' : 'regular'}`;
+                const componentItem: ComponentDecisionItem = {
+                  budgetItemId: item.id,
+                  equipmentId: item.equipment_id,
+                  name: item.equipment?.name || item.name || 'Unknown',
+                  sku: item.equipment?.sku || item.sku || '',
+                  quantity: item.quantity,
+                  notes: item.notes || '',
+                  categoryId: item.category_id || null,
+                  locationId: itemLocationId,
+                  locationName: itemLocationName,
+                  picked: item.picked || false,
+                  return_picked: item.return_picked || false,
+                  isExtra: item.is_extra || false,
+                  caseCapacityByCaseId
+                };
+
+                const existingGroup = pendingGroupsByKey.get(groupKey);
+                if (existingGroup) {
+                  existingGroup.items.push(componentItem);
+                } else {
+                  const newGroup: ComponentDecisionGroup = {
+                    groupId: groupKey,
+                    caseOptions,
+                    items: [componentItem]
+                  };
+                  pendingGroupsByKey.set(groupKey, newGroup);
+                  pendingComponentDecisions.push(newGroup);
+                }
+              }
+            } catch (error) {
+              console.error('Error loading component case options:', error);
+            }
+          }
+
           // Add parent item if it's physical or a saved virtual item
           // For virtual items (equipment is null), use name/sku from the budget item itself
           const isSavedVirtualItem = !item.equipment && item.name;
@@ -552,6 +665,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             }
             }
 
+            setComponentDecisionQueue(pendingComponentDecisions);
+            setActiveComponentDecisionIndex(0);
+
             // Pre-load modifications for all equipment items to know which ones have modifications
             const equipmentIds = budgetData
               .filter(item => item.item_type === 'equipment' && item.equipment_id && item.equipment?.object_type !== 'virtual')
@@ -689,12 +805,43 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
 
+  const handleComponentDecisionSeparate = () => {
+    if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
+      setComponentDecisionQueue([]);
+      setActiveComponentDecisionIndex(0);
+      return;
+    }
+
+    setActiveComponentDecisionIndex(prev => prev + 1);
+  };
+
+  const handleComponentDecisionUseCase = (selectedCase: ComponentCaseOption) => {
+    const currentGroup = componentDecisionQueue[activeComponentDecisionIndex];
+    if (!currentGroup) return;
+
+    const groupedItemIds = new Set(currentGroup.items.map(item => item.budgetItemId));
+    const replacementItems = buildCaseExpandedItems(currentGroup, selectedCase);
+
+    setExpandedItems(prev => {
+      const filtered = prev.filter(item => !groupedItemIds.has(item.budgetItemId));
+      return [...filtered, ...replacementItems];
+    });
+
+    if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
+      setComponentDecisionQueue([]);
+      setActiveComponentDecisionIndex(0);
+      return;
+    }
+
+    setActiveComponentDecisionIndex(prev => prev + 1);
+  };
+
   const handlePickedChange = async (budgetItemId: string, picked: boolean) => {
     try {
       // Find the real budget item ID (ignoring composition suffixes like -comp-, -mod-, or -case-)
       // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       // We need to extract the full UUID before any suffix
-      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
       await updateSpecificationBudgetItemPicked(realId, picked);
       
       // Update all items sharing this budget item ID
@@ -789,9 +936,30 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
+  const handleResetSpecification = async () => {
+    try {
+      setResettingSpecification(true);
+      await resetWarehouseSpecificationSnapshot(eventId);
+      setModifiedItems(new Set());
+      setItemsWithAppliedModifications(new Set());
+      setLedItemsWithCases(new Set());
+      setPodiumItemsWithComposition(new Set());
+      setComponentDecisionQueue([]);
+      setActiveComponentDecisionIndex(0);
+      setShowResetDialog(false);
+      await loadData();
+      showNotification('Спецификация сброшена до состояния сметы', 'success');
+    } catch (error) {
+      console.error('Error resetting specification:', error);
+      showNotification('Ошибка при сбросе спецификации');
+    } finally {
+      setResettingSpecification(false);
+    }
+  };
+
   const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
     try {
-      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
       await updateSpecificationBudgetItemReturnPicked(realId, return_picked);
       setExpandedItems(prev => prev.map(item =>
         item.budgetItemId.startsWith(realId) ? { ...item, return_picked } : item
@@ -1084,7 +1252,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     ));
 
     // Track modified item (extract real budget item ID for composed items)
-    const realId = pendingQuantityChange.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = pendingQuantityChange.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
     setPendingQuantityChange(null);
   };
@@ -1098,12 +1266,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       item.budgetItemId === budgetItemId ? { ...item, notes: newNotes } : item
     ));
     // Track modified item (extract real budget item ID for composed items)
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
     setModifiedItems(prev => new Set(prev).add(realId));
   };
 
   const handleDeleteSpecificationItem = async (budgetItemId: string) => {
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-podium-.*)$/, '');
+    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
     try {
       await deleteSpecificationBudgetItem(realId);
       await loadData();
@@ -1828,7 +1996,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               </div>
                             </td>
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped ? (
+                              {eventDetails?.equipment_shipped || item.budgetItemId.includes('-kitcase-') ? (
                                 <span className="text-xs text-white font-bold">{item.quantity}</span>
                               ) : (
                                 <div className="flex justify-center items-center gap-1">
@@ -1863,6 +2031,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   type="text"
                                   value={item.notes}
                                   onChange={(e) => handleNotesChange(item.budgetItemId, e.target.value)}
+                                  disabled={item.budgetItemId.includes('-kitcase-')}
                                   className="w-full px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300 focus:outline-none focus:border-cyan-500"
                                   placeholder="..."
                                 />
@@ -2374,6 +2543,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </button>
             )}
+            {!eventDetails?.equipment_shipped && (
+              <button
+                onClick={() => setShowResetDialog(true)}
+                className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
+              >
+                Сбросить
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-3 py-1.5 text-xs text-gray-400 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
@@ -2477,6 +2654,67 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
               >
                 Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {componentDecisionQueue.length > 0 && componentDecisionQueue[activeComponentDecisionIndex] && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[80] p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Комплектующие: выбор кейса ({activeComponentDecisionIndex + 1}/{componentDecisionQueue.length})
+              </h3>
+              <button
+                onClick={handleComponentDecisionSeparate}
+                className="p-1 hover:bg-gray-800 text-gray-400 rounded"
+                title="Пропустить"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-gray-300">
+                Для выбранных комплектующих можно взять их отдельно или заменить на целый кейс.
+              </p>
+
+              <div className="bg-gray-950/50 border border-gray-800 rounded-lg p-3">
+                <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Комплектующие</div>
+                <ul className="space-y-2">
+                  {componentDecisionQueue[activeComponentDecisionIndex].items.map(item => (
+                    <li key={item.budgetItemId} className="text-sm text-white flex justify-between gap-3">
+                      <span>{item.name} <span className="text-gray-500">{item.sku ? `(${item.sku})` : ''}</span></span>
+                      <span className="text-cyan-400 font-medium">{item.quantity} шт.</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                {componentDecisionQueue[activeComponentDecisionIndex].caseOptions.map(option => (
+                  <button
+                    key={option.caseId}
+                    onClick={() => handleComponentDecisionUseCase(option)}
+                    className="w-full text-left px-3 py-2 bg-gray-800 border border-gray-700 rounded hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="text-sm text-white font-medium">{option.caseName}</div>
+                    <div className="text-xs text-gray-400">
+                      {option.caseSku ? `${option.caseSku} • ` : ''}В кейсе: {option.componentQuantityInCase} шт. комплектующего
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-4 py-3 border-t border-gray-800 flex justify-end">
+              <button
+                onClick={handleComponentDecisionSeparate}
+                className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
+              >
+                Взять отдельно
               </button>
             </div>
           </div>
@@ -2649,6 +2887,35 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 className="flex-1 px-4 py-2 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {confirming ? '...' : 'Подтвердить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResetDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
+              Сбросить спецификацию
+            </h3>
+            <p className="text-sm text-gray-300 mb-5">
+              Вернуть спецификацию к исходному состоянию из сметы? Все несохранённые изменения в текущей спецификации будут удалены.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowResetDialog(false)}
+                disabled={resettingSpecification}
+                className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleResetSpecification}
+                disabled={resettingSpecification}
+                className="px-3 py-1.5 text-xs bg-amber-700 text-white rounded hover:bg-amber-600 transition-colors disabled:opacity-50"
+              >
+                {resettingSpecification ? 'Сброс...' : 'Да, сбросить'}
               </button>
             </div>
           </div>

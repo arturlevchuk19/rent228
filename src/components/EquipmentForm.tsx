@@ -25,7 +25,8 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
     power: item?.power || '',
     object_type: item?.object_type || 'physical' as 'physical' | 'virtual',
     rental_type: item?.rental_type || 'rental' as 'rental' | 'sublease',
-    has_composition: item?.has_composition || false
+    has_composition: item?.has_composition || false,
+    is_component: item?.is_component || false
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,6 +88,13 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handleCheckboxChange = (field: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: checked
     }));
   };
 
@@ -299,6 +307,20 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-4">
                   Тип объекта
+                </label>
+                <label className="flex items-center gap-3 mb-4 px-3 py-2 rounded-lg border border-gray-700 bg-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_component}
+                    onChange={(e) => handleCheckboxChange('is_component', e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-white">Комплектующее</div>
+                    <div className="text-xs text-gray-400">
+                      Предмет является элементом комплекта и может быть заменён на кейс при создании спецификации
+                    </div>
+                  </div>
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
