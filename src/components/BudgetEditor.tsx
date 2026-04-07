@@ -730,7 +730,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const event = await getEvent(eventId);
 
       await generateBudgetPDF({
-        eventName: event.event_type,
+        eventName: event.name || event.event_type,
         eventDate: event.event_date,
         createdDate: new Date().toISOString(),
         venueName: event.venues?.name,
