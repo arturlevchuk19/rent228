@@ -272,7 +272,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
               <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ:</td>
               <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
-            ${!isCombinedOnlyMode ? `
+            ${!isCombinedOnlyMode && budgetDays > 1 ? `
             <tr style="background: ${grayBg};">
               <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
               <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
@@ -303,7 +303,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
           <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${formatMoney(locationTotal)}${currencySuffix}</span>
         </div>
-        ${!isCombinedOnlyMode ? `
+        ${!isCombinedOnlyMode && budgetDays > 1 ? `
         <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
           <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
           <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
@@ -470,7 +470,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ` : ''}
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
       <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за 1 день:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'Со скидкой ' + data.discountPercent + '% на оборудование:' : 'Со скидкой ' + data.discountPercent + '% на оборудование за 1 день:'}</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithDiscountDay1)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
@@ -563,5 +563,28 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
 
-  pdf.save(`Proposal_${data.eventName || 'event'}.pdf`);
+  // Формируем имя файла: {Наименование} {Площадка} {Дата} Версия {номер версии}
+  // Название мероприятия (eventName) - если пустое, пропускаем
+  const fileNameParts: string[] = [];
+  
+  if (data.eventName) {
+    fileNameParts.push(data.eventName);
+  } else if (data.venueName) {
+    // Если название пустое, первым элементом берем площадку
+    fileNameParts.push(data.venueName);
+  }
+  
+  // Если eventName уже добавлен, добавляем venueName вторым
+  if (data.eventName && data.venueName) {
+    fileNameParts.push(data.venueName);
+  }
+  
+  if (formattedEventDate && formattedEventDate !== '—') {
+    fileNameParts.push(formattedEventDate);
+  }
+  fileNameParts.push(`Версия ${versionLabel}`);
+  
+  // Убираем недопустимые символы для имени файла
+  const fileName = fileNameParts.join(' ').replace(/[<>:"/\\|?*]/g, '_');
+  pdf.save(`${fileName}.pdf`);
 }
