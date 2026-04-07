@@ -82,6 +82,8 @@ const calculateBYNNonCashPrice = (priceUSD: number, exchangeRate: number, item?:
   return Math.round(withBankRate / 5) * 5;
 };
 
+const formatMoney = (value: number): string => value.toFixed(2);
+
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
   const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
@@ -231,8 +233,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
             <td style="padding: 6px 8px; font-size: 13px; color: #ffffff; width: 60%;">${displayName}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${rowPrice.toFixed(0)}${currencySuffix}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${rowTotal.toFixed(0)}${currencySuffix}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${formatMoney(rowPrice)}${currencySuffix}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${formatMoney(rowTotal)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -268,12 +270,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             ${rows}
             <tr style="background: ${grayBg};">
               <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ:</td>
-              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categoryTotal.toFixed(0)}${currencySuffix}</td>
+              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode ? `
             <tr style="background: ${grayBg};">
               <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
-              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${categorySumCombined.toFixed(0)}${currencySuffix}</td>
+              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -299,12 +301,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       : `
         <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
           <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
-          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotal.toFixed(0)}${currencySuffix}</span>
+          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${formatMoney(locationTotal)}${currencySuffix}</span>
         </div>
         ${!isCombinedOnlyMode ? `
         <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
           <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
-          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${locationTotalCombined.toFixed(0)}${currencySuffix}</span>
+          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
         </div>
         ` : ''}
       `;
@@ -366,8 +368,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
             <td style="padding: 5px 8px; font-size: 12px; color: #ffffff; width: 60%;">${displayName}</td>
             <td style="padding: 5px 8px; font-size: 12px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
-            <td style="padding: 5px 8px; font-size: 12px; text-align: right; color: #ffffff; width: 15%;">${price.toFixed(0)}${currencySuffix}</td>
-            <td style="padding: 5px 8px; font-size: 12px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${total.toFixed(0)}${currencySuffix}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: right; color: #ffffff; width: 15%;">${formatMoney(price)}${currencySuffix}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${formatMoney(total)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -380,7 +382,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
               ${rows}
               <tr style="background: rgba(255,255,255,0.06);">
                 <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #ffffff;">${categoryTotal.toFixed(0)}${currencySuffix}</td>
+                <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #ffffff;">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
             </tbody>
           </table>
@@ -418,7 +420,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       item.multi_day_rate_override
     );
   }, 0);
-  const grandTotalWithDiscountDay1 = Math.round(grandTotalNonWorkDay1 * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkDay1);
+  const grandTotalWithDiscountDay1 = grandTotalNonWorkDay1 * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkDay1;
   const grandTotalNonWorkCombined = mainBudgetItems
     .filter((item) => !item.work_item)
     .reduce((sum, item) => {
@@ -441,38 +443,42 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         item.multi_day_rate_override
       );
     }, 0);
-  const grandTotalWithDiscountCombined = Math.round(grandTotalNonWorkCombined * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkCombined);
+  const grandTotalWithDiscountCombined = grandTotalNonWorkCombined * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkCombined;
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
       <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(grandTotalCombined)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
       <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithDiscountCombined)}${currencySuffix}</span>
       </div>` : ''}
     `
     : `
       <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за 1 день:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${grandTotalDay1.toFixed(0)}${currencySuffix}</span>
+        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(grandTotalDay1)}${currencySuffix}</span>
       </div>
+      ${budgetDays > 1 ? `
       <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${grandTotalCombined.toFixed(0)}${currencySuffix}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(grandTotalCombined)}${currencySuffix}</span>
       </div>
+      ` : ''}
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
       <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за 1 день:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${grandTotalWithDiscountDay1.toFixed(0)}${currencySuffix}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithDiscountDay1)}${currencySuffix}</span>
       </div>
+      ${budgetDays > 1 ? `
       <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${grandTotalWithDiscountCombined.toFixed(0)}${currencySuffix}</span>
-      </div>` : ''}
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithDiscountCombined)}${currencySuffix}</span>
+      </div>
+      ` : ''}` : ''}
     `;
 
   container.innerHTML = `

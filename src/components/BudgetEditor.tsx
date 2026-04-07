@@ -801,7 +801,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           return groupId === targetGroupId && item.id !== draggedItem.id;
         })
         .sort((a, b) => a.sort_order - b.sort_order);
-      const nextSortOrder = targetGroupItems.length;
+      const nextSortOrder = targetGroupItems.length > 0
+        ? Math.max(...targetGroupItems.map((item) => item.sort_order)) + 1
+        : 0;
 
       await handleUpdateItem(draggedItem.id, {
         category_id: categoryId,
@@ -954,7 +956,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (sourceIndex !== -1 && targetIndex !== -1 && sourceIndex !== targetIndex) {
       const newOrder = [...categoryItems];
       const [movedItem] = newOrder.splice(sourceIndex, 1);
-      const insertIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+      const insertIndex = targetIndex;
       newOrder.splice(insertIndex, 0, movedItem);
 
       for (let i = 0; i < newOrder.length; i++) {
@@ -1690,12 +1692,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               </span>
               {budgetTotalsMode === 'day1_plus_combined' && (
                 <span className="text-[11px] text-gray-400">
-                  Итого за 1 день: <span className="text-cyan-300">{getDay1TotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
+                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{getDay1TotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
-              <span className="text-[11px] text-gray-400">
-                Итого за {budgetDays} {budgetDays === 1 ? 'день' : 'дней'}: <span className="text-cyan-300">{getCombinedTotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
-              </span>
+              {budgetDays > 1 && (
+                <span className="text-[11px] text-gray-400">
+                  Итого за {budgetDays} дней: <span className="text-cyan-300">{getCombinedTotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
+                </span>
+              )}
             </div>
 
             <div className="flex items-start gap-6">
