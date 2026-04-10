@@ -55,9 +55,10 @@ function isValidDate(day: string, month: string, year: string): boolean {
   const d = parseInt(day, 10);
   const m = parseInt(month, 10);
   const y = parseInt(year, 10);
-  if (isNaN(y) || y < 0) return false;
-  if (isNaN(m) || m < 0 || m > 12) return false;
-  if (isNaN(d) || d < 0 || d > 31) return false;
+  if (isNaN(y) || y < 1000 || y > 9999) return false;
+  // Разрешаем 00-99 для дня и месяца (для приблизительных дат)
+  if (isNaN(m) || m < 0 || m > 99) return false;
+  if (isNaN(d) || d < 0 || d > 99) return false;
   return true;
 }
 
@@ -198,9 +199,25 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
     setDateParts(prev => ({ ...prev, [field]: numericValue }));
   };
 
-  const handleCopySuccess = () => {
+  const handleCopySuccess = (eventData?: Partial<Event>) => {
     setCopySuccess(true);
     checkBudgetItems();
+
+    // Если скопированы данные мероприятия, обновляем форму
+    if (eventData) {
+      setFormData(prev => ({
+        ...prev,
+        name: eventData.name || prev.name,
+        event_type: eventData.event_type || prev.event_type,
+        venue_id: eventData.venue_id ?? prev.venue_id,
+        client_id: eventData.client_id ?? prev.client_id,
+        organizer_id: eventData.organizer_id ?? prev.organizer_id,
+        budget: eventData.budget || prev.budget,
+        specification: eventData.specification || prev.specification,
+        notes: eventData.notes || prev.notes
+      }));
+    }
+
     setTimeout(() => setCopySuccess(false), 2000);
   };
 

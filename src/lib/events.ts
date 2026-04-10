@@ -501,7 +501,76 @@ export async function deleteBudgetItem(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function copyBudgetFromEvent(sourceEventId: string, targetEventId: string): Promise<void> {
+export async function copyBudgetFromEvent(
+  sourceEventId: string,
+  targetEventId: string,
+  options?: { copyCategories?: boolean; copyLocations?: boolean }
+): Promise<void> {
+  // Сначала копируем категории, если нужно
+  let categoryIdMap: Record<string, string> = {};
+  let locationIdMap: Record<string, string> = {};
+
+  if (options?.copyCategories !== false) {
+    const { data: sourceCategories, error: catError } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('event_id', sourceEventId);
+
+    if (!catError && sourceCategories && sourceCategories.length > 0) {
+      const categoriesToInsert = sourceCategories.map(cat => ({
+        name: cat.name,
+        description: cat.description,
+        sort_order: cat.sort_order,
+        event_id: targetEventId,
+        is_template: false
+      }));
+
+      const { data: newCategories, error: insertCatError } = await supabase
+        .from('categories')
+        .insert(categoriesToInsert)
+        .select();
+
+      if (!insertCatError && newCategories) {
+        sourceCategories.forEach((oldCat, index) => {
+          if (newCategories[index]) {
+            categoryIdMap[oldCat.id] = newCategories[index].id;
+          }
+        });
+      }
+    }
+  }
+
+  // Копируем локации, если нужно
+  if (options?.copyLocations !== false) {
+    const { data: sourceLocations, error: locError } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('event_id', sourceEventId);
+
+    if (!locError && sourceLocations && sourceLocations.length > 0) {
+      const locationsToInsert = sourceLocations.map(loc => ({
+        name: loc.name,
+        color: loc.color,
+        sort_order: loc.sort_order,
+        event_id: targetEventId
+      }));
+
+      const { data: newLocations, error: insertLocError } = await supabase
+        .from('locations')
+        .insert(locationsToInsert)
+        .select();
+
+      if (!insertLocError && newLocations) {
+        sourceLocations.forEach((oldLoc, index) => {
+          if (newLocations[index]) {
+            locationIdMap[oldLoc.id] = newLocations[index].id;
+          }
+        });
+      }
+    }
+  }
+
+  // Копируем позиции бюджета
   const { data: sourceItems, error: fetchError } = await supabase
     .from('budget_items')
     .select(`
@@ -526,8 +595,8 @@ export async function copyBudgetFromEvent(sourceEventId: string, targetEventId: 
     notes: item.notes,
     exchange_rate: item.exchange_rate,
     multi_day_rate_override: item.multi_day_rate_override,
-    category_id: null,
-    location_id: null,
+    category_id: item.category_id ? categoryIdMap[item.category_id] || null : null,
+    location_id: item.location_id ? locationIdMap[item.location_id] || null : null,
     sort_order: item.sort_order,
     picked: false,
     is_extra: item.is_extra || false,
