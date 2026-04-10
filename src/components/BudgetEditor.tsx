@@ -158,11 +158,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } else {
       setBudgetVersion('2.0');
     }
+
+    const savedPaymentMode = localStorage.getItem(`budget_payment_mode_${eventId}`);
+    if (savedPaymentMode === 'usd' || savedPaymentMode === 'byn_cash' || savedPaymentMode === 'byn_noncash') {
+      setPaymentMode(savedPaymentMode as any);
+    }
   }, [eventId]);
 
   useEffect(() => {
     localStorage.setItem(`budget_version_${eventId}`, budgetVersion);
   }, [eventId, budgetVersion]);
+
+  useEffect(() => {
+    localStorage.setItem(`budget_payment_mode_${eventId}`, paymentMode);
+  }, [eventId, paymentMode]);
 
   const loadData = async () => {
     try {
@@ -1036,26 +1045,32 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const nonWorkTotalsUSD = calcGrandTotals(nonWorkItems, budgetDays, budgetTotalsMode);
   const workTotalsUSD = calcGrandTotals(workItems2, budgetDays, budgetTotalsMode);
 
-  const totalDay1BYNCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNCash(item.price * item.quantity), 0);
-  const totalCombinedBYNCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNCash(calcCombinedTotal(item, budgetDays)), 0);
-  const totalDay1BYNNonCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNNonCash(item.price * item.quantity, item), 0);
-  const totalCombinedBYNNonCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNNonCash(calcCombinedTotal(item, budgetDays), item), 0);
+  const totalDay1BYNCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNCash(item.price) * item.quantity, 0);
+  const totalCombinedBYNCash = mainBudgetItems.reduce((sum, item) => {
+    const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNCash(priceNDays) * item.quantity;
+  }, 0);
+  const totalDay1BYNNonCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item) * item.quantity, 0);
+  const totalCombinedBYNNonCash = mainBudgetItems.reduce((sum, item) => {
+    const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNNonCash(priceNDays, item) * item.quantity;
+  }, 0);
 
   const nonWorkTotalBYNCashForMode = nonWorkItems.reduce((sum, item) => {
-    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
-    return sum + calculateBYNCash(usdAmount);
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
   }, 0);
   const nonWorkTotalBYNNonCashForMode = nonWorkItems.reduce((sum, item) => {
-    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
-    return sum + calculateBYNNonCash(usdAmount, item);
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
   const workTotalBYNCashForMode = workItems2.reduce((sum, item) => {
-    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
-    return sum + calculateBYNCash(usdAmount);
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
   }, 0);
   const workTotalBYNNonCashForMode = workItems2.reduce((sum, item) => {
-    const usdAmount = budgetTotalsMode === 'combined_only' ? calcCombinedTotal(item, budgetDays) : item.price * item.quantity;
-    return sum + calculateBYNNonCash(usdAmount, item);
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
 
   const getDiscountedTotal = () => {
@@ -1105,9 +1120,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const day1Total = (() => {
       switch (paymentMode) {
         case 'byn_cash':
-          return items.reduce((sum, item) => sum + calculateBYNCash(calcDay1Total(item)), 0);
+          return items.reduce((sum, item) => sum + calculateBYNCash(item.price) * item.quantity, 0);
         case 'byn_noncash':
-          return items.reduce((sum, item) => sum + calculateBYNNonCash(calcDay1Total(item), item), 0);
+          return items.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item) * item.quantity, 0);
         default:
           return items.reduce((sum, item) => sum + calcDay1Total(item), 0);
       }
@@ -1116,9 +1131,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const combinedTotal = (() => {
       switch (paymentMode) {
         case 'byn_cash':
-          return items.reduce((sum, item) => sum + calculateBYNCash(calcCombinedTotal(item, budgetDays)), 0);
+          return items.reduce((sum, item) => {
+            const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+            return sum + calculateBYNCash(priceNDays) * item.quantity;
+          }, 0);
         case 'byn_noncash':
-          return items.reduce((sum, item) => sum + calculateBYNNonCash(calcCombinedTotal(item, budgetDays), item), 0);
+          return items.reduce((sum, item) => {
+            const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+            return sum + calculateBYNNonCash(priceNDays, item) * item.quantity;
+          }, 0);
         default:
           return items.reduce((sum, item) => sum + calcCombinedTotal(item, budgetDays), 0);
       }

@@ -203,6 +203,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     let locationHtml = '';
 
     let locationTotalDay1 = 0;
+    let locationTotalCombined = 0;
 
     sortedCategoryIds.forEach(catId => {
       const items = groupedByCategory[catId];
@@ -217,18 +218,25 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || 'шт';
-        const usdPrice = item.price || 0;
-        const price = calculatePrice(usdPrice, item);
-        const totalDay1 = calcDay1Total({ price, quantity: qty });
-        const combinedTotal = calcCombinedTotal(
-          { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+        const usdPriceDay1 = item.price || 0;
+
+        // Calculate unit prices and totals consistently with UI
+        const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item);
+        const totalDay1BYN = unitPriceBYNDay1 * qty;
+
+        const usdUnitPriceCombined = calcCombinedTotal(
+          { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
           budgetDays,
           item.multi_day_rate_override
         );
-        const rowTotal = isCombinedOnlyMode ? combinedTotal : totalDay1;
-        const rowPrice = qty > 0 ? rowTotal / qty : price;
-        categorySumDay1 += totalDay1;
-        categorySumCombined += combinedTotal;
+        const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
+        const totalCombinedBYN = unitPriceBYNCombined * qty;
+
+        const rowTotal = isCombinedOnlyMode ? totalCombinedBYN : totalDay1BYN;
+        const rowPrice = isCombinedOnlyMode ? unitPriceBYNCombined : unitPriceBYNDay1;
+
+        categorySumDay1 += totalDay1BYN;
+        categorySumCombined += totalCombinedBYN;
 
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -248,6 +256,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       }
       grandTotalDay1 += categorySumDay1;
       locationTotalDay1 += categorySumDay1;
+      locationTotalCombined += categorySumCombined;
       const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
 
       locationHtml += `
@@ -284,17 +293,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>
       `;
     });
-    const locationTotalCombined = sortedCategoryIds.reduce((sum, catId) => {
-      return sum + groupedByCategory[catId].reduce((catSum, item) => {
-        const qty = item.quantity || 0;
-        const price = calculatePrice(item.price || 0, item);
-        return catSum + calcCombinedTotal(
-          { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
-          budgetDays,
-          item.multi_day_rate_override
-        );
-      }, 0);
-    }, 0);
     const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
 
     const locationTotalsHtml = isNoLocation
@@ -414,35 +412,41 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
-    const price = calculatePrice(item.price || 0, item);
-    return sum + calcCombinedTotal(
-      { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+    const usdUnitPriceCombined = calcCombinedTotal(
+      { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
       budgetDays,
       item.multi_day_rate_override
     );
+    const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
+    return sum + unitPriceBYNCombined * qty;
   }, 0);
+
   const grandTotalWithDiscountDay1 = grandTotalNonWorkDay1 * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkDay1;
+
   const grandTotalNonWorkCombined = mainBudgetItems
     .filter((item) => !item.work_item)
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const price = calculatePrice(item.price || 0, item);
-      return sum + calcCombinedTotal(
-        { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+      const usdUnitPriceCombined = calcCombinedTotal(
+        { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
         item.multi_day_rate_override
       );
+      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
+      return sum + unitPriceBYNCombined * qty;
     }, 0);
+
   const grandTotalWorkCombined = mainBudgetItems
     .filter((item) => !!item.work_item)
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const price = calculatePrice(item.price || 0, item);
-      return sum + calcCombinedTotal(
-        { price, quantity: qty, multi_day_rate_override: item.multi_day_rate_override },
+      const usdUnitPriceCombined = calcCombinedTotal(
+        { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
         item.multi_day_rate_override
       );
+      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
+      return sum + unitPriceBYNCombined * qty;
     }, 0);
   const grandTotalWithDiscountCombined = grandTotalNonWorkCombined * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkCombined;
 

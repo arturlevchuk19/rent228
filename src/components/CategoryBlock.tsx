@@ -146,18 +146,15 @@ export function CategoryBlock({
   };
 
   const getDisplayedAmount = (item: BudgetItem) => {
-    const usdAmount = budgetTotalsMode === 'combined_only'
-      ? calcCombinedTotal(item, budgetDays)
-      : calcDay1Total(item);
-
-    switch (paymentMode) {
-      case 'byn_cash':
-        return calculateBYNCash(usdAmount);
-      case 'byn_noncash':
-        return calculateBYNNonCash(usdAmount, item);
-      default:
-        return usdAmount;
+    if (paymentMode === 'usd') {
+      const usdAmount = budgetTotalsMode === 'combined_only'
+        ? calcCombinedTotal(item, budgetDays)
+        : calcDay1Total(item);
+      return usdAmount;
     }
+
+    const displayedPrice = getDisplayedPrice(item);
+    return displayedPrice * item.quantity;
   };
 
   const getDisplayedPriceUSD = (item: BudgetItem) => {
@@ -203,11 +200,13 @@ export function CategoryBlock({
       return categoryTotals.day1Total;
     }
 
-    if (paymentMode === 'byn_cash') {
-      return items.reduce((sum, item) => sum + calculateBYNCash(calcDay1Total(item)), 0);
-    }
-
-    return items.reduce((sum, item) => sum + calculateBYNNonCash(calcDay1Total(item), item), 0);
+    return items.reduce((sum, item) => {
+      const unitPriceUSD = item.price;
+      const unitPriceBYN = paymentMode === 'byn_cash'
+        ? convertUSDtoBYNCashPrice(unitPriceUSD)
+        : convertUSDtoBYNNonCashPrice(unitPriceUSD, item);
+      return sum + unitPriceBYN * item.quantity;
+    }, 0);
   })();
 
   const sectionCombinedTotal = (() => {
@@ -215,11 +214,13 @@ export function CategoryBlock({
       return categoryTotals.combinedTotal;
     }
 
-    if (paymentMode === 'byn_cash') {
-      return items.reduce((sum, item) => sum + calculateBYNCash(calcCombinedTotal(item, budgetDays)), 0);
-    }
-
-    return items.reduce((sum, item) => sum + calculateBYNNonCash(calcCombinedTotal(item, budgetDays), item), 0);
+    return items.reduce((sum, item) => {
+      const unitPriceUSDForNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+      const unitPriceBYN = paymentMode === 'byn_cash'
+        ? convertUSDtoBYNCashPrice(unitPriceUSDForNDays)
+        : convertUSDtoBYNNonCashPrice(unitPriceUSDForNDays, item);
+      return sum + unitPriceBYN * item.quantity;
+    }, 0);
   })();
 
   const hasWorkItems = items.some(item => item.item_type === 'work');
