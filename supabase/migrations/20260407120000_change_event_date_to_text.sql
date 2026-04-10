@@ -9,20 +9,18 @@ ALTER COLUMN event_date TYPE TEXT;
 
 -- Re-create the trigger with updated function to handle text dates
 CREATE OR REPLACE FUNCTION update_payments_month_on_event_date_change()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
   IF OLD.event_date IS DISTINCT FROM NEW.event_date THEN
     -- Only update if the new date is a valid full date (not partial with 00)
-    -- Parse YYYY-MM-DD format and check for 00 in month or day
     UPDATE payments
     SET month = date_trunc('month', NEW.event_date::date)::date
     WHERE event_id = NEW.id
-      AND NEW.event_date ~ '^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])
-; -- Only valid full dates
+      AND NEW.event_date ~ '^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$';
   END IF;
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_payments_month_on_event_date_change_trigger
   AFTER UPDATE OF event_date ON events
