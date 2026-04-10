@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calculator } from 'lucide-react';
+import { X, Calculator, Copy, Check } from 'lucide-react';
 import { BudgetEditor } from './BudgetEditor';
+import { CopyBudgetDialog } from './dialogs/CopyBudgetDialog';
 import {
   createEvent,
   updateEvent,
@@ -22,7 +23,47 @@ interface EventFormProps {
   onSave: () => void;
 }
 
+interface DateParts {
+  day: string;
+  month: string;
+  year: string;
+}
+
+function parseEventDate(dateString: string): DateParts {
+  if (!dateString) return { day: '', month: '', year: '' };
+  const parts = dateString.split('-');
+  if (parts.length === 3) {
+    return {
+      year: parts[0],
+      month: parts[1],
+      day: parts[2]
+    };
+  }
+  return { day: '', month: '', year: '' };
+}
+
+function formatEventDate(day: string, month: string, year: string): string {
+  const d = day.padStart(2, '0');
+  const m = month.padStart(2, '0');
+  const y = year.padStart(4, '0');
+  if (y === '0000') return '';
+  return `${y}-${m}-${d}`;
+}
+
+function isValidDate(day: string, month: string, year: string): boolean {
+  if (!year || year === '0000') return false;
+  const d = parseInt(day, 10);
+  const m = parseInt(month, 10);
+  const y = parseInt(year, 10);
+  if (isNaN(y) || y < 0) return false;
+  if (isNaN(m) || m < 0 || m > 12) return false;
+  if (isNaN(d) || d < 0 || d > 31) return false;
+  return true;
+}
+
 export function EventForm({ event, onClose, onSave }: EventFormProps) {
+  const initialDate = parseEventDate(event?.event_date || '');
+
   const [formData, setFormData] = useState<{
     name: string;
     event_date: string;
@@ -55,13 +96,16 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
     notes: event?.notes || ''
   });
 
+  const [dateParts, setDateParts] = useState<DateParts>(initialDate);
   const [clients, setClients] = useState<Client[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [hasBudgetItems, setHasBudgetItems] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -72,6 +116,11 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
       checkBudgetItems();
     }
   }, [event?.id]);
+
+  useEffect(() => {
+    const formatted = formatEventDate(dateParts.day, dateParts.month, dateParts.year);
+    setFormData(prev => ({ ...prev, event_date: formatted }));
+  }, [dateParts]);
 
   const checkBudgetItems = async () => {
     if (!event?.id) return;
@@ -104,8 +153,8 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.event_date) {
-      alert('Укажите дату мероприятия');
+    if (!isValidDate(dateParts.day, dateParts.month, dateParts.year)) {
+      alert('Укажите корректную дату мероприятия');
       return;
     }
 
@@ -144,6 +193,25 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
     }
   };
 
+  const handleDateChange = (field: keyof DateParts, value: string) => {
+    const numericValue = value.replace(/\D/g, '');
+    setDateParts(prev => ({ ...prev, [field]: numericValue }));
+  };
+
+  const handleCopySuccess = () => {
+    setCopySuccess(true);
+    checkBudgetItems();
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  const formatDateDisplay = () => {
+    const d = dateParts.day.padStart(2, '0');
+    const m = dateParts.month.padStart(2, '0');
+    const y = dateParts.year;
+    if (!y) return '';
+    return `${d}.${m}.${y}`;
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -173,14 +241,44 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
                   Дата <span className="text-red-400/80">*</span>
+                  <span className="text-gray-500 font-normal ml-1">(ДД.ММ.ГГГГ, можно 00)</span>
                 </label>
-                <input
-                  type="date"
-                  required
-                  value={formData.event_date}
-                  onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 [color-scheme:dark]"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ДД"
+                    maxLength={2}
+                    value={dateParts.day}
+                    onChange={(e) => handleDateChange('day', e.target.value)}
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                  />
+                  <span className="text-gray-500">.</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ММ"
+                    maxLength={2}
+                    value={dateParts.month}
+                    onChange={(e) => handleDateChange('month', e.target.value)}
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                  />
+                  <span className="text-gray-500">.</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ГГГГ"
+                    maxLength={4}
+                    value={dateParts.year}
+                    onChange={(e) => handleDateChange('year', e.target.value)}
+                    className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                  />
+                </div>
+                {formData.event_date && (
+                  <div className="text-xs text-cyan-400 mt-1">
+                    Сохранится как: {formData.event_date}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -343,7 +441,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
           </div>
 
           <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-2">
               {event && (
                 <button
                   type="button"
@@ -356,6 +454,21 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                 >
                   <Calculator className="w-3.5 h-3.5" />
                   {hasBudgetItems ? 'Редактировать смету' : 'Составить смету'}
+                </button>
+              )}
+              {event && (
+                <button
+                  type="button"
+                  onClick={() => setShowCopyDialog(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors"
+                  title="Скопировать смету из другого мероприятия"
+                >
+                  {copySuccess ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  {copySuccess ? 'Скопировано!' : 'Скопировать смету'}
                 </button>
               )}
             </div>
@@ -387,6 +500,14 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
             setShowBudgetEditor(false);
             checkBudgetItems();
           }}
+        />
+      )}
+
+      {showCopyDialog && event && (
+        <CopyBudgetDialog
+          currentEventId={event.id}
+          onClose={() => setShowCopyDialog(false)}
+          onSuccess={handleCopySuccess}
         />
       )}
     </div>

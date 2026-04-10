@@ -500,3 +500,43 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 
   if (error) throw error;
 }
+
+export async function copyBudgetFromEvent(sourceEventId: string, targetEventId: string): Promise<void> {
+  const { data: sourceItems, error: fetchError } = await supabase
+    .from('budget_items')
+    .select(`
+      *,
+      equipment:equipment_items (*)
+    `)
+    .eq('event_id', sourceEventId);
+
+  if (fetchError) throw fetchError;
+  if (!sourceItems || sourceItems.length === 0) return;
+
+  const itemsToInsert = sourceItems.map(item => ({
+    event_id: targetEventId,
+    equipment_id: item.equipment_id,
+    work_item_id: item.work_item_id,
+    modification_id: item.modification_id,
+    parent_budget_item_id: null,
+    item_type: item.item_type,
+    quantity: item.quantity,
+    price: item.price,
+    total: item.total,
+    notes: item.notes,
+    exchange_rate: item.exchange_rate,
+    multi_day_rate_override: item.multi_day_rate_override,
+    category_id: null,
+    location_id: null,
+    sort_order: item.sort_order,
+    picked: false,
+    is_extra: item.is_extra || false,
+    return_picked: false
+  }));
+
+  const { error: insertError } = await supabase
+    .from('budget_items')
+    .insert(itemsToInsert);
+
+  if (insertError) throw insertError;
+}

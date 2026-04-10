@@ -53,11 +53,12 @@ interface PDFData {
 
 const formatDateRu = (dateValue?: string): string => {
   if (!dateValue) return '—';
-  const parsedDate = new Date(dateValue);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return dateValue;
+  const parts = dateValue.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${day}.${month}.${year}`;
   }
-  return parsedDate.toLocaleDateString('ru-RU');
+  return dateValue;
 };
 
 const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
