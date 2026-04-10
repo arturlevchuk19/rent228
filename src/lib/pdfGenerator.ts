@@ -448,34 +448,34 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
-      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+      <div style="display: grid; grid-template-columns: 1fr 200px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(grandTotalCombined)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
-      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+      <div style="display: grid; grid-template-columns: 1fr 200px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithDiscountCombined)}${currencySuffix}</span>
       </div>` : ''}
     `
     : `
-      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+      <div style="display: grid; grid-template-columns: 1fr 200px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(grandTotalDay1)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
-      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+      <div style="display: grid; grid-template-columns: 1fr 200px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(grandTotalCombined)}${currencySuffix}</span>
       </div>
       ` : ''}
       ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
-      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+      <div style="display: grid; grid-template-columns: 1fr 200px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'Со скидкой ' + data.discountPercent + '% на оборудование:' : 'Со скидкой ' + data.discountPercent + '% на оборудование за 1 день:'}</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithDiscountDay1)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
-      <div style="display: grid; grid-template-columns: 1fr 140px; column-gap: 12px; align-items: center; width: 100%;">
+      <div style="display: grid; grid-template-columns: 1fr 200px; column-gap: 12px; align-items: center; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithDiscountCombined)}${currencySuffix}</span>
       </div>
@@ -516,7 +516,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     ${categoriesHtml}
 
     <footer style="margin-top: 25px; border-top: 2px solid #1f2937; padding-top: 15px; padding-bottom: 16px; display: flex; justify-content: flex-end;">
-      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-right: 12px; width: min(560px, 100%);">
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-right: 24px; width: min(560px, 100%);">
         ${footerTotalsHtml}
       </div>
     </footer>
