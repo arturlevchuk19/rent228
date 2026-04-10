@@ -17,3 +17,4 @@ export { UShapeUnifiedDialog } from './UShapeUnifiedDialog';
 export type { DialogResult as UShapeUnifiedDialogResult } from './UShapeUnifiedDialog';
 
 export { AddLocationDialog } from './AddLocationDialog';
+export { CopyBudgetDialog } from './CopyBudgetDialog';
