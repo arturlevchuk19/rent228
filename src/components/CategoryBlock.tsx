@@ -93,7 +93,7 @@ export function CategoryBlock({
 
   const calculateBYNCash = (amountUSD: number): number => {
     const baseAmount = amountUSD * exchangeRate;
-    return Math.round(baseAmount / 5) * 5;
+    return Math.ceil(baseAmount);
   };
 
   const isDeliveryWork = (item: BudgetItem): boolean => {
@@ -110,17 +110,14 @@ export function CategoryBlock({
     } else {
       withBankRate = baseAmount / 0.8;
     }
-    return Math.round(withBankRate / 5) * 5;
+    return Math.ceil(withBankRate);
   };
 
   const convertUSDtoBYNCashPrice = (priceUSD: number): number => {
     const baseAmount = priceUSD * exchangeRate;
-    return Math.round(baseAmount / 5) * 5;
+    return Math.ceil(baseAmount);
   };
 
-  const convertUSDtoBYNCashPriceRaw = (priceUSD: number): number => {
-    return Math.round(priceUSD * exchangeRate * 100) / 100;
-  };
 
   const convertUSDtoBYNNonCashPrice = (priceUSD: number, item?: BudgetItem): number => {
     const baseAmount = priceUSD * exchangeRate;
@@ -130,15 +127,9 @@ export function CategoryBlock({
     } else {
       withBankRate = baseAmount / 0.8;
     }
-    return Math.round(withBankRate / 5) * 5;
+    return Math.ceil(withBankRate);
   };
 
-  const convertUSDtoBYNNonCashPriceRaw = (priceUSD: number, item?: BudgetItem): number => {
-    const baseAmount = priceUSD * exchangeRate;
-    const hasPrice = item?.equipment?.rental_price ? item.equipment.rental_price > 0 : false;
-    const withBankRate = hasPrice ? baseAmount * 1.67 : baseAmount * 0.8;
-    return Math.round(withBankRate * 100) / 100;
-  };
 
   const convertBYNCashtoUSDPrice = (priceBYN: number): number => {
     const usdPrice = priceBYN / exchangeRate;
@@ -407,16 +398,7 @@ export function CategoryBlock({
             {items.map((item) => {
               const isNoteEditorOpen = noteEditorsOpen[item.id] ?? Boolean(item.notes);
               const displayedPrice = getDisplayedPrice(item);
-              const editablePrice = (() => {
-                switch (paymentMode) {
-                  case 'byn_cash':
-                    return convertUSDtoBYNCashPriceRaw(item.price);
-                  case 'byn_noncash':
-                    return convertUSDtoBYNNonCashPriceRaw(item.price, item);
-                  default:
-                    return item.price;
-                }
-              })();
+              const editablePrice = getDisplayedPrice(item);
               return (
                 <div
                   key={item.id}
@@ -489,23 +471,27 @@ export function CategoryBlock({
                         value={draftValues[item.id + '_price'] ?? String(editablePrice)}
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
                         onBlur={(e) => {
-                          const normalizedValue = e.target.value.replace(',', '.').trim();
-                          const inputValue = parseFloat(normalizedValue);
-                          if (!isNaN(inputValue)) {
-                            let usdPrice: number;
-                            switch (paymentMode) {
-                              case 'byn_cash':
-                                usdPrice = convertBYNCashtoUSDPrice(inputValue);
-                                break;
-                              case 'byn_noncash':
-                                usdPrice = convertBYNNonCashtoUSDPrice(inputValue, item);
-                                break;
-                              default:
-                                usdPrice = inputValue;
+                          const draftKey = item.id + '_price';
+                          const hasDraft = draftValues[draftKey] !== undefined;
+                          if (hasDraft) {
+                            const normalizedValue = e.target.value.replace(',', '.').trim();
+                            const inputValue = parseFloat(normalizedValue);
+                            if (!isNaN(inputValue)) {
+                              let usdPrice: number;
+                              switch (paymentMode) {
+                                case 'byn_cash':
+                                  usdPrice = convertBYNCashtoUSDPrice(inputValue);
+                                  break;
+                                case 'byn_noncash':
+                                  usdPrice = convertBYNNonCashtoUSDPrice(inputValue, item);
+                                  break;
+                                default:
+                                  usdPrice = inputValue;
+                              }
+                              onUpdateItem(item.id, { price: usdPrice });
                             }
-                            onUpdateItem(item.id, { price: usdPrice });
                           }
-                          setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_price']; return copy; });
+                          setDraftValues(prev => { const copy = { ...prev }; delete copy[draftKey]; return copy; });
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {

@@ -998,7 +998,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const calculateBYNCash = (amountUSD: number): number => {
     const baseAmount = amountUSD * exchangeRate;
-    return Math.round(baseAmount / 5) * 5;
+    return Math.ceil(baseAmount);
   };
 
   const calculateBYNNonCash = (amountUSD: number, item?: BudgetItem): number => {
@@ -1009,7 +1009,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } else {
       withBankRate = baseAmount / 0.8;
     }
-    return Math.round(withBankRate / 5) * 5;
+    return Math.ceil(withBankRate);
   };
 
   const equipmentCategories = ['Все', ...Array.from(new Set(equipment.map(item => item.category)))];
@@ -1082,7 +1082,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       case 'byn_noncash': raw = nonWorkTotalBYNNonCashForMode * multiplier + workTotalBYNNonCashForMode; break;
       default: raw = nonWorkTotalsUSD.totalForMode * multiplier + workTotalsUSD.totalForMode; break;
     }
-    return Math.round(raw / 5) * 5;
+    return roundGrandTotalForPaymentMode(raw);
   };
 
   const getDay1TotalForPaymentMode = () => {
@@ -1101,11 +1101,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const getPrimaryTotalForMode = () => {
-    if (budgetTotalsMode === 'combined_only') {
-      return getCombinedTotalForPaymentMode();
+  const roundGrandTotalForPaymentMode = (value: number) => {
+    if (paymentMode === 'usd') {
+      return Math.floor(value);
     }
-    return getDay1TotalForPaymentMode();
+
+    return Math.floor(value / 5) * 5;
+  };
+
+  const getPrimaryTotalForMode = () => {
+    const rawTotal = budgetTotalsMode === 'combined_only'
+      ? getCombinedTotalForPaymentMode()
+      : getDay1TotalForPaymentMode();
+
+    return roundGrandTotalForPaymentMode(rawTotal);
   };
 
   const getCurrencyLabel = () => {
@@ -1713,12 +1722,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               </span>
               {budgetTotalsMode === 'day1_plus_combined' && (
                 <span className="text-[11px] text-gray-400">
-                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{getDay1TotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
+                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{roundGrandTotalForPaymentMode(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               {budgetDays > 1 && (
                 <span className="text-[11px] text-gray-400">
-                  Итого за {budgetDays} дней: <span className="text-cyan-300">{getCombinedTotalForPaymentMode().toLocaleString()}</span> {getCurrencyLabel()}
+                  Итого за {budgetDays} дней: <span className="text-cyan-300">{roundGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
             </div>
@@ -1768,7 +1777,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   <div className="flex flex-col">
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
                     <span className="text-lg font-black text-white">
-                      <span className="text-green-400">{Math.round(getDiscountedTotal()!).toLocaleString()}</span>
+                      <span className="text-green-400">{getDiscountedTotal()!.toLocaleString()}</span>
                       <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
                     </span>
                   </div>
