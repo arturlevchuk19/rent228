@@ -444,7 +444,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     return sum + unitPriceBYNCombined * qty;
   }, 0);
 
-  const grandTotalWithDiscountDay1 = grandTotalNonWorkDay1 * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkDay1;
+  const discountPercentInt = Math.round(data.discountPercent || 0);
+  const grandTotalWithDiscountDay1 = grandTotalNonWorkDay1 * (1 - discountPercentInt / 100) + grandTotalWorkDay1;
 
   const grandTotalNonWorkCombined = mainBudgetItems
     .filter((item) => !item.work_item)
@@ -471,7 +472,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
-  const grandTotalWithDiscountCombined = grandTotalNonWorkCombined * (1 - (data.discountPercent || 0) / 100) + grandTotalWorkCombined;
+  const grandTotalWithDiscountCombined = grandTotalNonWorkCombined * (1 - discountPercentInt / 100) + grandTotalWorkCombined;
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
@@ -479,9 +480,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalCombined))}${currencySuffix}</span>
       </div>
-      ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
+      ${data.discountEnabled && discountPercentInt > 0 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentInt}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalWithDiscountCombined))}${currencySuffix}</span>
       </div>` : ''}
     `
@@ -496,17 +497,18 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalCombined))}${currencySuffix}</span>
       </div>
       ` : ''}
-      ${data.discountEnabled && data.discountPercent && data.discountPercent > 0 ? `
-      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'Со скидкой ' + data.discountPercent + '% на оборудование:' : 'Со скидкой ' + data.discountPercent + '% на оборудование за 1 день:'}</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalWithDiscountDay1))}${currencySuffix}</span>
-      </div>
+      ${data.discountEnabled && discountPercentInt > 0 ? `
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${data.discountPercent}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentInt}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalWithDiscountCombined))}${currencySuffix}</span>
       </div>
-      ` : ''}` : ''}
+      ` : `
+      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentInt}% на оборудование:</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalWithDiscountDay1))}${currencySuffix}</span>
+      </div>
+      `}` : ''}
     `;
 
   container.innerHTML = `

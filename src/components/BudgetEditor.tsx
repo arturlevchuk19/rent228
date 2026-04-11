@@ -105,6 +105,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
+  const [discountedTotalInput, setDiscountedTotalInput] = useState('');
   const [budgetVersion, setBudgetVersion] = useState('1.0');
   const [budgetDays, setBudgetDays] = useState(1);
   const [budgetDaysInput, setBudgetDaysInput] = useState('1');
@@ -1072,17 +1073,76 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
     return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
+  const nonWorkTotalBYNCashCombined = nonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+  }, 0);
+  const nonWorkTotalBYNNonCashCombined = nonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+  }, 0);
+  const workTotalBYNCashCombined = workItems2.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+  }, 0);
+  const workTotalBYNNonCashCombined = workItems2.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+  }, 0);
 
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
     const multiplier = 1 - discountPercent / 100;
     let raw: number;
     switch (paymentMode) {
-      case 'byn_cash': raw = nonWorkTotalBYNCashForMode * multiplier + workTotalBYNCashForMode; break;
-      case 'byn_noncash': raw = nonWorkTotalBYNNonCashForMode * multiplier + workTotalBYNNonCashForMode; break;
-      default: raw = nonWorkTotalsUSD.totalForMode * multiplier + workTotalsUSD.totalForMode; break;
+      case 'byn_cash': raw = nonWorkTotalBYNCashCombined * multiplier + workTotalBYNCashCombined; break;
+      case 'byn_noncash': raw = nonWorkTotalBYNNonCashCombined * multiplier + workTotalBYNNonCashCombined; break;
+      default: raw = nonWorkTotalsUSD.combinedTotal * multiplier + workTotalsUSD.combinedTotal; break;
     }
     return roundGrandTotalForPaymentMode(raw);
+  };
+
+  const getDiscountTotalsBaseForPaymentMode = () => {
+    switch (paymentMode) {
+      case 'byn_cash':
+        return { nonWork: nonWorkTotalBYNCashCombined, work: workTotalBYNCashCombined };
+      case 'byn_noncash':
+        return { nonWork: nonWorkTotalBYNNonCashCombined, work: workTotalBYNNonCashCombined };
+      default:
+        return { nonWork: nonWorkTotalsUSD.combinedTotal, work: workTotalsUSD.combinedTotal };
+    }
+  };
+
+  useEffect(() => {
+    const discountedTotal = getDiscountedTotal();
+    if (discountedTotal === null) {
+      setDiscountedTotalInput('');
+      return;
+    }
+    setDiscountedTotalInput(String(discountedTotal));
+  }, [discountEnabled, discountPercent, paymentMode, budgetTotalsMode, budgetDays, budgetItems, exchangeRate]);
+
+  const applyDiscountedTotalInput = () => {
+    const parsedValue = parseFloat(discountedTotalInput.replace(',', '.'));
+    if (isNaN(parsedValue) || discountedTotalInput.trim() === '') {
+      const recalculatedTotal = getDiscountedTotal();
+      setDiscountedTotalInput(recalculatedTotal !== null ? String(recalculatedTotal) : '');
+      return;
+    }
+
+    const { nonWork, work } = getDiscountTotalsBaseForPaymentMode();
+    if (nonWork <= 0) {
+      setDiscountPercent(0);
+      setDiscountPercentInput('0');
+      const recalculatedTotal = getDiscountedTotal();
+      setDiscountedTotalInput(recalculatedTotal !== null ? String(recalculatedTotal) : '');
+      return;
+    }
+
+    const nextPercent = (1 - (parsedValue - work) / nonWork) * 100;
+    const clampedPercent = Math.min(100, Math.max(0, nextPercent));
+    setDiscountPercent(clampedPercent);
+    setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
   };
 
   const getDay1TotalForPaymentMode = () => {
@@ -1776,10 +1836,22 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 {discountEnabled && getDiscountedTotal() !== null && (
                   <div className="flex flex-col">
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
-                    <span className="text-lg font-black text-white">
-                      <span className="text-green-400">{getDiscountedTotal()!.toLocaleString()}</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={discountedTotalInput}
+                        onChange={(e) => setDiscountedTotalInput(e.target.value)}
+                        onBlur={applyDiscountedTotalInput}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            (e.currentTarget as HTMLInputElement).blur();
+                          }
+                        }}
+                        className="w-28 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-sm font-black text-green-400 focus:ring-1 focus:ring-cyan-500 outline-none text-right"
+                      />
                       <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
-                    </span>
+                    </div>
                   </div>
                 )}
               </div>
