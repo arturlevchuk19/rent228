@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { EquipmentItem } from './equipment';
 import { createBudgetItem } from './events';
 import { createCategory } from './categories';
+import { DEFAULT_UNIT } from './units';
 
 export interface Template {
   id: string;
@@ -212,7 +213,8 @@ export async function applyTemplateToEvent(
         exchange_rate: 1,
         category_id: category.id,
         notes: '',
-        sort_order: i
+        sort_order: i,
+        unit: DEFAULT_UNIT
       });
     }
   } catch (error) {

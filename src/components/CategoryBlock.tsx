@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
+import { UNIT_OF_MEASUREMENT, UnitOfMeasurement } from '../lib/units';
 
 export interface BudgetDragTarget {
   type: 'category' | 'location' | 'uncategorized';
@@ -76,8 +77,8 @@ export function CategoryBlock({
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
   const showCoefficient = budgetDays > 1;
   const tableTemplateColumns = showCoefficient
-    ? 'minmax(0,1fr) 92px 92px 72px 110px'
-    : 'minmax(0,1fr) 92px 92px 110px';
+    ? 'minmax(0,1fr) 52px 92px 92px 72px 110px'
+    : 'minmax(0,1fr) 52px 92px 92px 110px';
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -383,6 +384,7 @@ export function CategoryBlock({
               style={{ gridTemplateColumns: tableTemplateColumns }}
             >
               <div className="text-left">Наименование</div>
+              <div className="text-center">Ед.изм.</div>
               <div className="text-center">Кол-во</div>
               <div className="text-center">Цена</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
@@ -440,6 +442,11 @@ export function CategoryBlock({
                     <div className="text-gray-300 truncate pr-2">
                       {item.equipment?.name || item.work_item?.name || 'Без названия'}
                     </div>
+
+                    <UnitSelect
+                      value={(item.unit as UnitOfMeasurement) || 'шт.'}
+                      onChange={(unit) => onUpdateItem(item.id, { unit })}
+                    />
 
                     <div className="flex justify-center">
                       <div className="flex items-center justify-center">
@@ -617,6 +624,56 @@ export function CategoryBlock({
               title="Перетащите сюда, чтобы переместить в конец категории"
             />
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface UnitSelectProps {
+  value: UnitOfMeasurement;
+  onChange: (unit: UnitOfMeasurement) => void;
+}
+
+function UnitSelect({ value, onChange }: UnitSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative flex justify-center">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="text-[10px] text-gray-400 hover:text-gray-200 hover:bg-gray-700 px-1.5 py-0.5 rounded transition-colors"
+        title="Единица измерения"
+      >
+        {value}
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 py-1 min-w-[60px]">
+          {UNIT_OF_MEASUREMENT.map((unit) => (
+            <button
+              key={unit}
+              onClick={() => {
+                onChange(unit);
+                setIsOpen(false);
+              }}
+              className={`w-full text-left px-2 py-1 text-[10px] hover:bg-gray-700 transition-colors ${
+                unit === value ? 'text-cyan-400 bg-gray-700/50' : 'text-gray-300'
+              }`}
+            >
+              {unit}
+            </button>
+          ))}
         </div>
       )}
     </div>

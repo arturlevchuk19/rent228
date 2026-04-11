@@ -11,6 +11,7 @@ import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
 import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
+import { DEFAULT_UNIT, UnitOfMeasurement } from '../lib/units';
 import {
   UShapeUnifiedDialog,
   LedSizeDialog,
@@ -542,7 +543,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         category_id: targetCategoryId,
         location_id: targetLocationId,
         notes: customName || '',
-        is_extra: isExtra
+        is_extra: isExtra,
+        unit: DEFAULT_UNIT
       });
       const updatedItems = [...budgetItems, newItem];
       setBudgetItems(updatedItems);
@@ -604,7 +606,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         category_id: targetCategoryId,
         location_id: targetLocationId,
         notes: '',
-        is_extra: isExtra
+        is_extra: isExtra,
+        unit: (workItem.unit as UnitOfMeasurement) || DEFAULT_UNIT
       });
       const updatedItems = [...budgetItems, newItem];
       setBudgetItems(updatedItems);

@@ -115,6 +115,7 @@ export interface BudgetItem {
   picked: boolean;
   is_extra?: boolean;
   return_picked?: boolean;
+  unit?: string;
   created_at: string;
   updated_at: string;
   name?: string;
@@ -600,7 +601,8 @@ export async function copyBudgetFromEvent(
     sort_order: item.sort_order,
     picked: false,
     is_extra: item.is_extra || false,
-    return_picked: false
+    return_picked: false,
+    unit: item.unit || 'шт.'
   }));
 
   const { error: insertError } = await supabase
