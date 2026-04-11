@@ -77,7 +77,7 @@ const formatDateRu = (dateValue?: string): string => {
 
 const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
   const baseAmount = priceUSD * exchangeRate;
-  return Math.round(baseAmount / 5) * 5;
+  return baseAmount;
 };
 
 const isWorkNonDelivery = (item: BudgetItem): boolean => {
@@ -94,7 +94,7 @@ const calculateBYNNonCashPrice = (priceUSD: number, exchangeRate: number, item?:
   } else {
     withBankRate = baseAmount / 0.8;
   }
-  return Math.round(withBankRate / 5) * 5;
+  return withBankRate;
 };
 
 const formatMoney = (value: number): string => value.toFixed(2);
@@ -233,10 +233,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const usdPriceDay1 = item.price || 0;
+        const usdTotalDay1 = item.total ?? usdPriceDay1 * qty;
 
-        // Calculate unit prices and totals consistently with UI
+        // Use item price/total from estimate without PDF-specific rounding
         const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item);
-        const totalDay1BYN = unitPriceBYNDay1 * qty;
+        const totalDay1BYN = calculatePrice(usdTotalDay1, item);
 
         const usdUnitPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
@@ -375,7 +376,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const price = calculatePrice(item.price || 0, item);
-        const total = price * qty;
+        const total = calculatePrice(item.total ?? (item.price || 0) * qty, item);
         categoryTotal += total;
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
