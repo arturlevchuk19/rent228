@@ -118,6 +118,10 @@ export function CategoryBlock({
     return Math.round(baseAmount / 5) * 5;
   };
 
+  const convertUSDtoBYNCashPriceRaw = (priceUSD: number): number => {
+    return Math.round(priceUSD * exchangeRate * 100) / 100;
+  };
+
   const convertUSDtoBYNNonCashPrice = (priceUSD: number, item?: BudgetItem): number => {
     const baseAmount = priceUSD * exchangeRate;
     let withBankRate: number;
@@ -127,6 +131,13 @@ export function CategoryBlock({
       withBankRate = baseAmount / 0.8;
     }
     return Math.round(withBankRate / 5) * 5;
+  };
+
+  const convertUSDtoBYNNonCashPriceRaw = (priceUSD: number, item?: BudgetItem): number => {
+    const baseAmount = priceUSD * exchangeRate;
+    const hasPrice = item?.equipment?.rental_price ? item.equipment.rental_price > 0 : false;
+    const withBankRate = hasPrice ? baseAmount * 1.67 : baseAmount * 0.8;
+    return Math.round(withBankRate * 100) / 100;
   };
 
   const convertBYNCashtoUSDPrice = (priceBYN: number): number => {
@@ -399,9 +410,9 @@ export function CategoryBlock({
               const editablePrice = (() => {
                 switch (paymentMode) {
                   case 'byn_cash':
-                    return convertUSDtoBYNCashPrice(item.price);
+                    return convertUSDtoBYNCashPriceRaw(item.price);
                   case 'byn_noncash':
-                    return convertUSDtoBYNNonCashPrice(item.price, item);
+                    return convertUSDtoBYNNonCashPriceRaw(item.price, item);
                   default:
                     return item.price;
                 }
