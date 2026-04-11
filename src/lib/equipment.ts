@@ -1,5 +1,8 @@
 import { supabase } from './supabase';
 
+export const EQUIPMENT_UNITS = ['шт.', 'м.', 'комп.', 'ед.', 'чел.'] as const;
+export type EquipmentUnit = typeof EQUIPMENT_UNITS[number];
+
 export interface EquipmentItem {
   id: string;
   category: string;
@@ -9,6 +12,7 @@ export interface EquipmentItem {
   note: string;
   attribute: string;
   sku: string;
+  unit: EquipmentUnit;
   quantity: number;
   rental_price: number;
   multi_day_rate: number;
@@ -319,6 +323,7 @@ export async function importEquipmentFromCSV(csvText: string): Promise<number> {
       note,
       attribute,
       sku,
+      unit: 'шт.',
       quantity,
       rental_price,
       multi_day_rate,

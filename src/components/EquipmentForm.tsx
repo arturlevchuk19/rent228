@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { createEquipmentItem, updateEquipmentItem, EquipmentItem } from '../lib/equipment';
+import { createEquipmentItem, updateEquipmentItem, EquipmentItem, EQUIPMENT_UNITS } from '../lib/equipment';
 
 interface EquipmentFormProps {
   item: EquipmentItem | null;
@@ -19,6 +19,7 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
     note: item?.note || '',
     attribute: item?.attribute || '',
     sku: item?.sku || '',
+    unit: item?.unit || 'шт.',
     quantity: String(item?.quantity ?? 0),
     rental_price: String(item?.rental_price ?? 0),
     multi_day_rate: String(item?.multi_day_rate ?? 0),
@@ -232,6 +233,23 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
                   placeholder="VI_FIX_FRM"
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 font-mono"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Ед. изм.
+                </label>
+                <select
+                  name="unit"
+                  value={formData.unit}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  required
+                >
+                  {EQUIPMENT_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>{`1 ${unit}`}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
