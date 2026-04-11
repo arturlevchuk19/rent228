@@ -53,12 +53,26 @@ interface PDFData {
 
 const formatDateRu = (dateValue?: string): string => {
   if (!dateValue) return '—';
-  const parts = dateValue.split('-');
-  if (parts.length === 3) {
-    const [year, month, day] = parts;
+
+  const trimmedDate = dateValue.trim();
+  if (!trimmedDate) return '—';
+
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(trimmedDate)) {
+    return trimmedDate;
+  }
+
+  const isoDateMatch = trimmedDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoDateMatch) {
+    const [, year, month, day] = isoDateMatch;
     return `${day}.${month}.${year}`;
   }
-  return dateValue;
+
+  const parsedDate = new Date(trimmedDate);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return parsedDate.toLocaleDateString('ru-RU');
+  }
+
+  return trimmedDate;
 };
 
 const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
@@ -88,7 +102,7 @@ const formatMoney = (value: number): string => value.toFixed(2);
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
   const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
-  const versionLabel = (data.version || '2.0').trim() || '2.0';
+  const versionLabel = (data.version || '1.0').trim() || '1.0';
 
   const loadImageAsDataURL = async (url: string): Promise<string> => {
     return new Promise((resolve, reject) => {

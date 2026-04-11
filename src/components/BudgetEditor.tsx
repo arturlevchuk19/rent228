@@ -105,7 +105,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
-  const [budgetVersion, setBudgetVersion] = useState('2.0');
+  const [budgetVersion, setBudgetVersion] = useState('1.0');
   const [budgetDays, setBudgetDays] = useState(1);
   const [budgetDaysInput, setBudgetDaysInput] = useState('1');
   const [budgetTotalsMode, setBudgetTotalsMode] = useState<'combined_only' | 'day1_plus_combined'>('combined_only');
@@ -156,7 +156,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (savedVersion && savedVersion.trim().length > 0) {
       setBudgetVersion(savedVersion);
     } else {
-      setBudgetVersion('2.0');
+      setBudgetVersion('1.0');
     }
 
     const savedPaymentMode = localStorage.getItem(`budget_payment_mode_${eventId}`);
@@ -1319,7 +1319,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     type="text"
                     value={budgetVersion}
                     onChange={(e) => setBudgetVersion(e.target.value)}
-                    placeholder="2.0"
+                    placeholder="1.0"
                     className="w-16 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none"
                   />
                 </div>
