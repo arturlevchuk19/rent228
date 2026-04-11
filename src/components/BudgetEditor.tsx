@@ -1073,15 +1073,31 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
     return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
+  const nonWorkTotalBYNCashCombined = nonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+  }, 0);
+  const nonWorkTotalBYNNonCashCombined = nonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+  }, 0);
+  const workTotalBYNCashCombined = workItems2.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+  }, 0);
+  const workTotalBYNNonCashCombined = workItems2.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+  }, 0);
 
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
     const multiplier = 1 - discountPercent / 100;
     let raw: number;
     switch (paymentMode) {
-      case 'byn_cash': raw = nonWorkTotalBYNCashForMode * multiplier + workTotalBYNCashForMode; break;
-      case 'byn_noncash': raw = nonWorkTotalBYNNonCashForMode * multiplier + workTotalBYNNonCashForMode; break;
-      default: raw = nonWorkTotalsUSD.totalForMode * multiplier + workTotalsUSD.totalForMode; break;
+      case 'byn_cash': raw = nonWorkTotalBYNCashCombined * multiplier + workTotalBYNCashCombined; break;
+      case 'byn_noncash': raw = nonWorkTotalBYNNonCashCombined * multiplier + workTotalBYNNonCashCombined; break;
+      default: raw = nonWorkTotalsUSD.combinedTotal * multiplier + workTotalsUSD.combinedTotal; break;
     }
     return roundGrandTotalForPaymentMode(raw);
   };
@@ -1089,11 +1105,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getDiscountTotalsBaseForPaymentMode = () => {
     switch (paymentMode) {
       case 'byn_cash':
-        return { nonWork: nonWorkTotalBYNCashForMode, work: workTotalBYNCashForMode };
+        return { nonWork: nonWorkTotalBYNCashCombined, work: workTotalBYNCashCombined };
       case 'byn_noncash':
-        return { nonWork: nonWorkTotalBYNNonCashForMode, work: workTotalBYNNonCashForMode };
+        return { nonWork: nonWorkTotalBYNNonCashCombined, work: workTotalBYNNonCashCombined };
       default:
-        return { nonWork: nonWorkTotalsUSD.totalForMode, work: workTotalsUSD.totalForMode };
+        return { nonWork: nonWorkTotalsUSD.combinedTotal, work: workTotalsUSD.combinedTotal };
     }
   };
 
