@@ -11,7 +11,7 @@ interface BudgetItem {
     name: string;
     color?: string;
   } | null;
-  equipment?: { name: string };
+  equipment?: { name: string; unit?: string };
   work_item?: { name: string; unit?: string };
   quantity: number;
   price: number;
@@ -217,7 +217,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const notes = item.notes?.trim();
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
-        const unit = item.work_item?.unit || 'шт';
+        const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const usdPriceDay1 = item.price || 0;
 
         // Calculate unit prices and totals consistently with UI
@@ -359,7 +359,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const notes = item.notes?.trim();
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
-        const unit = item.work_item?.unit || 'шт';
+        const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const price = calculatePrice(item.price || 0, item);
         const total = price * qty;
         categoryTotal += total;

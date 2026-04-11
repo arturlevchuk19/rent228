@@ -77,6 +77,7 @@ export interface Equipment {
   note: string;
   attribute: string;
   sku: string;
+  unit: string;
   quantity: number;
   rental_price: number;
   power: string;
