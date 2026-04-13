@@ -827,10 +827,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               ? buildLocationUncategorizedGroupId(item.location_id)
               : NO_LOCATION_GROUP_ID;
           return groupId === targetGroupId && item.id !== draggedItem.id;
-        })
-        .sort((a, b) => a.sort_order - b.sort_order);
+        });
       const nextSortOrder = targetGroupItems.length > 0
-        ? Math.max(...targetGroupItems.map((item) => item.sort_order)) + 1
+        ? Math.max(...targetGroupItems.map((item) => item.sort_order || 0)) + 1
         : 0;
 
       await handleUpdateItem(draggedItem.id, {
@@ -975,8 +974,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             ? buildLocationUncategorizedGroupId(item.location_id)
             : NO_LOCATION_GROUP_ID;
         return groupId === targetGroupId;
-      })
-      .sort((a, b) => a.sort_order - b.sort_order);
+      });
 
     const sourceIndex = categoryItems.findIndex(item => item.id === sourceItemId);
     const targetIndex = categoryItems.findIndex(item => item.id === targetItemId);
@@ -984,11 +982,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (sourceIndex !== -1 && targetIndex !== -1 && sourceIndex !== targetIndex) {
       const newOrder = [...categoryItems];
       const [movedItem] = newOrder.splice(sourceIndex, 1);
-      const insertIndex = targetIndex;
-      newOrder.splice(insertIndex, 0, movedItem);
+      newOrder.splice(targetIndex, 0, movedItem);
 
-      for (let i = 0; i < newOrder.length; i++) {
-        await updateBudgetItem(newOrder[i].id, { sort_order: i });
+      const updatedCategoryItems = newOrder.map((item, index) => ({
+        ...item,
+        sort_order: index
+      }));
+
+      for (const item of updatedCategoryItems) {
+        await updateBudgetItem(item.id, { sort_order: item.sort_order });
       }
 
       // Build the final array with items in correct order
@@ -1002,7 +1004,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           return groupId !== targetGroupId;
         }
       );
-      const reorderedItems = otherCategoryItems.concat(newOrder);
+      const reorderedItems = [...otherCategoryItems, ...updatedCategoryItems];
       setBudgetItems(reorderedItems);
     }
 
