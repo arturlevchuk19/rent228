@@ -185,12 +185,20 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const budgetDays = Math.max(1, data.budgetDays || 1);
   const isCombinedOnlyMode = data.budgetTotalsMode === 'combined_only';
 
-  const calculatePrice = (usdPrice: number, item?: BudgetItem): number => {
+  const calculatePrice = (usdPrice: number, item?: BudgetItem, round = true): number => {
+    const baseAmount = usdPrice * data.exchangeRate;
     switch (paymentMode) {
       case 'byn_cash':
-        return calculateBYNCashPrice(usdPrice, data.exchangeRate);
-      case 'byn_noncash':
-        return calculateBYNNonCashPrice(usdPrice, data.exchangeRate, item);
+        return round ? Math.ceil(baseAmount) : baseAmount;
+      case 'byn_noncash': {
+        let withBankRate: number;
+        if (item && item.work_item && isWorkNonDelivery(item)) {
+          withBankRate = baseAmount * 1.67;
+        } else {
+          withBankRate = baseAmount / 0.8;
+        }
+        return round ? Math.ceil(withBankRate) : withBankRate;
+      }
       default:
         return usdPrice;
     }
@@ -207,6 +215,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   let grandTotalNonWorkDay1 = 0;
   let grandTotalWorkDay1 = 0;
 
+  let locationIdx = 0;
   sortedLocationIds.forEach(locationId => {
     const groupedByCategory = groupedByLocation[locationId];
     const sortedCategoryIds = Object.keys(groupedByCategory).sort((a, b) => {
@@ -219,7 +228,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     });
 
     const isNoLocation = locationId === 'no-location';
+    locationIdx++;
+    const locationPrefix = `${locationIdx}. `;
     const locationName = isNoLocation ? '' : (locationNameById.get(locationId) || 'Локация');
+    const displayLocationName = isNoLocation ? '' : `${locationPrefix}${locationName}`;
     const locationAccent = isNoLocation ? '#4b5563' : (locationColorById.get(locationId) || '#14532d');
 
     let locationHtml = '';
@@ -227,46 +239,56 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     let locationTotalDay1 = 0;
     let locationTotalCombined = 0;
 
+    let categoryIdx = 0;
     sortedCategoryIds.forEach(catId => {
+      categoryIdx++;
       const items = groupedByCategory[catId];
       const category = data.categories.find(c => c.id === catId);
       const categoryName = category?.name || 'Прочее';
+      const categoryPrefix = `${locationIdx}.${categoryIdx}. `;
 
       let categorySumDay1 = 0;
       let categorySumCombined = 0;
-      const rows = items.map(item => {
+      const rows = items.map((item, itemIdx) => {
+        const itemPrefix = `${locationIdx}.${categoryIdx}.${itemIdx + 1}. `;
         const name = item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
-        const displayName = notes ? `${name} ${notes}` : name;
+        const displayName = `${itemPrefix}${notes ? `${name} ${notes}` : name}`;
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const usdPriceDay1 = item.price || 0;
         const usdTotalDay1 = item.total ?? usdPriceDay1 * qty;
 
-        // Use item price/total from estimate without PDF-specific rounding
-        const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item);
-        const totalDay1BYN = calculatePrice(usdTotalDay1, item);
+        // Use rounded values for display
+        const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
+        const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
+
+        // Use raw values for math
+        const rawTotalDay1BYN = calculatePrice(usdTotalDay1, item, false);
 
         const usdUnitPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
           budgetDays,
           item.multi_day_rate_override
         );
-        const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
-        const totalCombinedBYN = unitPriceBYNCombined * qty;
+        const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
+        const rawUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+        
+        const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+        const rawTotalCombinedBYN = rawUnitPriceBYNCombined * qty;
 
-        const rowTotal = isCombinedOnlyMode ? totalCombinedBYN : totalDay1BYN;
-        const rowPrice = isCombinedOnlyMode ? unitPriceBYNCombined : unitPriceBYNDay1;
+        const rowTotalDisplay = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
+        const rowPriceDisplay = isCombinedOnlyMode ? displayUnitPriceBYNCombined : displayUnitPriceBYNDay1;
 
-        categorySumDay1 += totalDay1BYN;
-        categorySumCombined += totalCombinedBYN;
+        categorySumDay1 += rawTotalDay1BYN;
+        categorySumCombined += rawTotalCombinedBYN;
 
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
             <td style="padding: 6px 8px; font-size: 13px; color: #ffffff; width: 60%;">${displayName}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${formatMoney(rowPrice)}${currencySuffix}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${formatMoney(rowTotal)}${currencySuffix}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -287,7 +309,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
           <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
           <div style="font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center; position: relative; top: -4px;">
-            ${categoryName}
+            ${categoryPrefix}${categoryName}
           </div>
         </div>
         <table style="width: 100%; border-collapse: collapse;">
@@ -351,7 +373,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         align-items: center; 
         justify-content: center;
       ">
-        ${locationName}
+        ${displayLocationName}
       </div>
     </div>`;
 
@@ -440,12 +462,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       budgetDays,
       item.multi_day_rate_override
     );
-    const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
+    const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
     return sum + unitPriceBYNCombined * qty;
   }, 0);
 
-  const discountPercentInt = Math.round(data.discountPercent || 0);
-  const grandTotalWithDiscountDay1 = grandTotalNonWorkDay1 * (1 - discountPercentInt / 100) + grandTotalWorkDay1;
+  const discountPercentRaw = data.discountPercent || 0;
+  const discountPercentDisplay = Math.round(discountPercentRaw);
+  const grandTotalWithDiscountDay1 = grandTotalNonWorkDay1 * (1 - discountPercentRaw / 100) + grandTotalWorkDay1;
 
   const grandTotalNonWorkCombined = mainBudgetItems
     .filter((item) => !item.work_item)
@@ -456,7 +479,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         budgetDays,
         item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
+      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
 
@@ -469,10 +492,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         budgetDays,
         item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item);
+      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
-  const grandTotalWithDiscountCombined = grandTotalNonWorkCombined * (1 - discountPercentInt / 100) + grandTotalWorkCombined;
+  const grandTotalWithDiscountCombined = grandTotalNonWorkCombined * (1 - discountPercentRaw / 100) + grandTotalWorkCombined;
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
@@ -480,9 +503,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalCombined))}${currencySuffix}</span>
       </div>
-      ${data.discountEnabled && discountPercentInt > 0 ? `
+      ${data.discountEnabled && discountPercentRaw > 0 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentInt}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalWithDiscountCombined))}${currencySuffix}</span>
       </div>` : ''}
     `
@@ -497,15 +520,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalCombined))}${currencySuffix}</span>
       </div>
       ` : ''}
-      ${data.discountEnabled && discountPercentInt > 0 ? `
+      ${data.discountEnabled && discountPercentRaw > 0 ? `
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentInt}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalWithDiscountCombined))}${currencySuffix}</span>
       </div>
       ` : `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentInt}% на оборудование:</span>
+        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalWithDiscountDay1))}${currencySuffix}</span>
       </div>
       `}` : ''}
