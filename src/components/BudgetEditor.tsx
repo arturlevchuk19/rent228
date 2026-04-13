@@ -1180,11 +1180,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const roundGrandTotalForPaymentMode = (value: number) => {
-    if (paymentMode === 'usd') {
-      return Math.floor(value);
-    }
-
-    return Math.floor(value / 5) * 5;
+    return Math.floor(value);
   };
 
   const getPrimaryTotalForMode = () => {

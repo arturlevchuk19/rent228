@@ -205,11 +205,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   };
 
   const roundGrandTotalForPaymentMode = (value: number): number => {
-    if (paymentMode === 'usd') {
-      return Math.floor(value);
-    }
-
-    return Math.floor(value / 5) * 5;
+    return Math.floor(value);
   };
 
   let grandTotalNonWorkDay1 = 0;
@@ -245,12 +241,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const items = groupedByCategory[catId];
       const category = data.categories.find(c => c.id === catId);
       const categoryName = category?.name || 'Прочее';
-      const categoryPrefix = `${locationIdx}.${categoryIdx}. `;
+      const categoryPrefix = `${categoryIdx}. `;
 
       let categorySumDay1 = 0;
       let categorySumCombined = 0;
       const rows = items.map((item, itemIdx) => {
-        const itemPrefix = `${locationIdx}.${categoryIdx}.${itemIdx + 1}. `;
+        const itemPrefix = `${itemIdx + 1}. `;
         const name = item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
         const displayName = `${itemPrefix}${notes ? `${name} ${notes}` : name}`;
