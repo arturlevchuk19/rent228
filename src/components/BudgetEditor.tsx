@@ -531,6 +531,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const targetLocationId = locationId || selectedPlacement.locationId || undefined;
       const isExtra = isExtraServiceCategory(targetCategoryId);
 
+      const targetGroupItems = budgetItems.filter(item => 
+        (item.category_id || undefined) === targetCategoryId && 
+        (item.location_id || undefined) === targetLocationId
+      );
+      const maxSortOrder = targetGroupItems.length > 0 
+        ? Math.max(...targetGroupItems.map(i => i.sort_order || 0)) 
+        : -1;
+
       const newItem = await createBudgetItem({
         event_id: eventId,
         equipment_id: equipmentItem.id,
@@ -543,7 +551,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         category_id: targetCategoryId,
         location_id: targetLocationId,
         notes: customName || '',
-        is_extra: isExtra
+        is_extra: isExtra,
+        sort_order: maxSortOrder + 1
       });
       const updatedItems = [...budgetItems, newItem];
       setBudgetItems(updatedItems);
@@ -594,6 +603,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const targetLocationId = selectedPlacement.locationId || undefined;
       const isExtra = isExtraServiceCategory(targetCategoryId);
 
+      const targetGroupItems = budgetItems.filter(item => 
+        (item.category_id || undefined) === targetCategoryId && 
+        (item.location_id || undefined) === targetLocationId
+      );
+      const maxSortOrder = targetGroupItems.length > 0 
+        ? Math.max(...targetGroupItems.map(i => i.sort_order || 0)) 
+        : -1;
+
       const newItem = await createBudgetItem({
         event_id: eventId,
         work_item_id: workItem.id,
@@ -605,7 +622,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         category_id: targetCategoryId,
         location_id: targetLocationId,
         notes: '',
-        is_extra: isExtra
+        is_extra: isExtra,
+        sort_order: maxSortOrder + 1
       });
       const updatedItems = [...budgetItems, newItem];
       setBudgetItems(updatedItems);
@@ -1162,11 +1180,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const roundGrandTotalForPaymentMode = (value: number) => {
-    if (paymentMode === 'usd') {
-      return Math.floor(value);
-    }
-
-    return Math.floor(value / 5) * 5;
+    return Math.floor(value);
   };
 
   const getPrimaryTotalForMode = () => {
