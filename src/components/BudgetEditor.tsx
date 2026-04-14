@@ -773,7 +773,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         discountEnabled: discountEnabled,
         discountPercent: discountPercent,
         budgetDays,
-        budgetTotalsMode
+        budgetTotalsMode,
+        totalDay1FromEditor: getDay1TotalForPaymentMode(),
+        totalCombinedFromEditor: getCombinedTotalForPaymentMode()
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1165,7 +1167,58 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
   };
 
+  const roundGrandTotalForPaymentMode = (value: number) => {
+    return Math.floor(value);
+  };
+
+  const calculateCategoryTotalForPaymentMode = (items: BudgetItem[], mode: 'day1' | 'combined') => {
+    switch (paymentMode) {
+      case 'byn_cash':
+        return items.reduce((sum, item) => {
+          const unitPriceUSD = mode === 'combined'
+            ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays)
+            : item.price;
+          return sum + calculateBYNCash(unitPriceUSD) * item.quantity;
+        }, 0);
+      case 'byn_noncash':
+        return items.reduce((sum, item) => {
+          const unitPriceUSD = mode === 'combined'
+            ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays)
+            : item.price;
+          return sum + calculateBYNNonCash(unitPriceUSD, item) * item.quantity;
+        }, 0);
+      default:
+        return items.reduce(
+          (sum, item) => sum + (mode === 'combined' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item)),
+          0
+        );
+    }
+  };
+
+  const getRoundedCategoriesSumForPaymentMode = (mode: 'day1' | 'combined') => {
+    const groupedMainItems = mainBudgetItems.reduce((acc, item) => {
+      const groupId = item.category_id
+        ? buildCategoryGroupId(item.category_id, item.location_id)
+        : item.location_id
+          ? buildLocationUncategorizedGroupId(item.location_id)
+          : NO_LOCATION_GROUP_ID;
+
+      if (!acc[groupId]) acc[groupId] = [];
+      acc[groupId].push(item);
+      return acc;
+    }, {} as GroupedItemsByLocation);
+
+    return Object.values(groupedMainItems).reduce((sum, items) => {
+      const categoryTotal = calculateCategoryTotalForPaymentMode(items, mode);
+      return sum + roundGrandTotalForPaymentMode(categoryTotal);
+    }, 0);
+  };
+
   const getDay1TotalForPaymentMode = () => {
+    if (mainBudgetItems.length > 0) {
+      return getRoundedCategoriesSumForPaymentMode('day1');
+    }
+
     switch (paymentMode) {
       case 'byn_cash': return totalDay1BYNCash;
       case 'byn_noncash': return totalDay1BYNNonCash;
@@ -1174,15 +1227,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getCombinedTotalForPaymentMode = () => {
+    if (mainBudgetItems.length > 0) {
+      return getRoundedCategoriesSumForPaymentMode('combined');
+    }
+
     switch (paymentMode) {
       case 'byn_cash': return totalCombinedBYNCash;
       case 'byn_noncash': return totalCombinedBYNNonCash;
       default: return mainTotalsUSD.combinedTotal;
     }
-  };
-
-  const roundGrandTotalForPaymentMode = (value: number) => {
-    return Math.floor(value);
   };
 
   const getPrimaryTotalForMode = () => {
