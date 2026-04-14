@@ -1199,7 +1199,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getCategoriesSumForPaymentMode = (mode: 'day1' | 'combined') => {
-    const groupedMainItems = mainBudgetItems.reduce((acc, item) => {
+    const groupedMainItems = budgetItems.reduce((acc, item) => {
       const groupId = item.category_id
         ? buildCategoryGroupId(item.category_id, item.location_id)
         : item.location_id
@@ -1218,7 +1218,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getDay1TotalForPaymentMode = () => {
-    if (mainBudgetItems.length > 0) {
+    if (budgetItems.length > 0) {
       return getCategoriesSumForPaymentMode('day1');
     }
 
@@ -1230,7 +1230,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getCombinedTotalForPaymentMode = () => {
-    if (mainBudgetItems.length > 0) {
+    if (budgetItems.length > 0) {
       return getCategoriesSumForPaymentMode('combined');
     }
 
