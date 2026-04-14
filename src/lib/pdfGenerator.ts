@@ -49,6 +49,8 @@ interface PDFData {
   discountPercent?: number;
   budgetDays: number;
   budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
+  totalDay1FromEditor?: number;
+  totalCombinedFromEditor?: number;
 }
 
 const formatDateRu = (dateValue?: string): string => {
@@ -208,6 +210,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     return Math.floor(value);
   };
 
+  const roundDownToNearestFive = (value: number): number => {
+    return Math.floor(value / 5) * 5;
+  };
+
   let grandTotalNonWorkDay1 = 0;
   let grandTotalWorkDay1 = 0;
 
@@ -253,14 +259,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const usdPriceDay1 = item.price || 0;
-        const usdTotalDay1 = item.total ?? usdPriceDay1 * qty;
+        const usdTotalDay1 = calcDay1Total(item);
 
         // Use rounded values for display
         const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
         const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
-
-        // Use raw values for math
-        const rawTotalDay1BYN = calculatePrice(usdTotalDay1, item, false);
 
         const usdUnitPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
@@ -268,16 +271,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           item.multi_day_rate_override
         );
         const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
-        const rawUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
-        
         const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
-        const rawTotalCombinedBYN = rawUnitPriceBYNCombined * qty;
 
         const rowTotalDisplay = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
         const rowPriceDisplay = isCombinedOnlyMode ? displayUnitPriceBYNCombined : displayUnitPriceBYNDay1;
 
-        categorySumDay1 += rawTotalDay1BYN;
-        categorySumCombined += rawTotalCombinedBYN;
+        categorySumDay1 += paymentMode === 'usd' ? usdTotalDay1 : displayTotalDay1BYN;
+        categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
 
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -402,7 +402,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const price = calculatePrice(item.price || 0, item);
-        const total = calculatePrice(item.total ?? (item.price || 0) * qty, item);
+        const total = price * qty;
         categoryTotal += total;
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -493,11 +493,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     }, 0);
   const grandTotalWithDiscountCombined = grandTotalNonWorkCombined * (1 - discountPercentRaw / 100) + grandTotalWorkCombined;
 
+  const editorDay1Total = data.totalDay1FromEditor ?? roundGrandTotalForPaymentMode(grandTotalDay1);
+  const editorCombinedTotal = data.totalCombinedFromEditor ?? roundGrandTotalForPaymentMode(grandTotalCombined);
+  const pdfDay1Total = roundDownToNearestFive(editorDay1Total);
+  const pdfCombinedTotal = roundDownToNearestFive(editorCombinedTotal);
+
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalCombined))}${currencySuffix}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
@@ -508,12 +513,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     : `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalDay1))}${currencySuffix}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
         <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
-        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(roundGrandTotalForPaymentMode(grandTotalCombined))}${currencySuffix}</span>
+        <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ` : ''}
       ${data.discountEnabled && discountPercentRaw > 0 ? `

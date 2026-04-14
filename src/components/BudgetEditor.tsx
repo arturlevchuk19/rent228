@@ -773,7 +773,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         discountEnabled: discountEnabled,
         discountPercent: discountPercent,
         budgetDays,
-        budgetTotalsMode
+        budgetTotalsMode,
+        totalDay1FromEditor: getDay1TotalForPaymentMode(),
+        totalCombinedFromEditor: getCombinedTotalForPaymentMode()
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1119,7 +1121,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       case 'byn_noncash': raw = nonWorkTotalBYNNonCashCombined * multiplier + workTotalBYNNonCashCombined; break;
       default: raw = nonWorkTotalsUSD.combinedTotal * multiplier + workTotalsUSD.combinedTotal; break;
     }
-    return roundGrandTotalForPaymentMode(raw);
+    return normalizeGrandTotalForPaymentMode(raw);
   };
 
   const getDiscountTotalsBaseForPaymentMode = () => {
@@ -1165,7 +1167,61 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
   };
 
+  const normalizeGrandTotalForPaymentMode = (value: number) => {
+    if (paymentMode === 'usd') {
+      return Math.round(value * 100) / 100;
+    }
+    return Math.floor(value);
+  };
+
+  const calculateCategoryTotalForPaymentMode = (items: BudgetItem[], mode: 'day1' | 'combined') => {
+    switch (paymentMode) {
+      case 'byn_cash':
+        return items.reduce((sum, item) => {
+          const unitPriceUSD = mode === 'combined'
+            ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays)
+            : item.price;
+          return sum + calculateBYNCash(unitPriceUSD) * item.quantity;
+        }, 0);
+      case 'byn_noncash':
+        return items.reduce((sum, item) => {
+          const unitPriceUSD = mode === 'combined'
+            ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays)
+            : item.price;
+          return sum + calculateBYNNonCash(unitPriceUSD, item) * item.quantity;
+        }, 0);
+      default:
+        return items.reduce(
+          (sum, item) => sum + (mode === 'combined' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item)),
+          0
+        );
+    }
+  };
+
+  const getCategoriesSumForPaymentMode = (mode: 'day1' | 'combined') => {
+    const groupedMainItems = mainBudgetItems.reduce((acc, item) => {
+      const groupId = item.category_id
+        ? buildCategoryGroupId(item.category_id, item.location_id)
+        : item.location_id
+          ? buildLocationUncategorizedGroupId(item.location_id)
+          : NO_LOCATION_GROUP_ID;
+
+      if (!acc[groupId]) acc[groupId] = [];
+      acc[groupId].push(item);
+      return acc;
+    }, {} as GroupedItemsByLocation);
+
+    return Object.values(groupedMainItems).reduce((sum, items) => {
+      const categoryTotal = calculateCategoryTotalForPaymentMode(items, mode);
+      return sum + categoryTotal;
+    }, 0);
+  };
+
   const getDay1TotalForPaymentMode = () => {
+    if (mainBudgetItems.length > 0) {
+      return getCategoriesSumForPaymentMode('day1');
+    }
+
     switch (paymentMode) {
       case 'byn_cash': return totalDay1BYNCash;
       case 'byn_noncash': return totalDay1BYNNonCash;
@@ -1174,6 +1230,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getCombinedTotalForPaymentMode = () => {
+    if (mainBudgetItems.length > 0) {
+      return getCategoriesSumForPaymentMode('combined');
+    }
+
     switch (paymentMode) {
       case 'byn_cash': return totalCombinedBYNCash;
       case 'byn_noncash': return totalCombinedBYNNonCash;
@@ -1181,16 +1241,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const roundGrandTotalForPaymentMode = (value: number) => {
-    return Math.floor(value);
-  };
-
   const getPrimaryTotalForMode = () => {
     const rawTotal = budgetTotalsMode === 'combined_only'
       ? getCombinedTotalForPaymentMode()
       : getDay1TotalForPaymentMode();
 
-    return roundGrandTotalForPaymentMode(rawTotal);
+    return normalizeGrandTotalForPaymentMode(rawTotal);
   };
 
   const getCurrencyLabel = () => {
@@ -1798,12 +1854,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               </span>
               {budgetTotalsMode === 'day1_plus_combined' && (
                 <span className="text-[11px] text-gray-400">
-                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{roundGrandTotalForPaymentMode(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               {budgetDays > 1 && (
                 <span className="text-[11px] text-gray-400">
-                  Итого за {budgetDays} дней: <span className="text-cyan-300">{roundGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                  Итого за {budgetDays} дней: <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
             </div>
