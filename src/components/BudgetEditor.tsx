@@ -1121,7 +1121,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       case 'byn_noncash': raw = nonWorkTotalBYNNonCashCombined * multiplier + workTotalBYNNonCashCombined; break;
       default: raw = nonWorkTotalsUSD.combinedTotal * multiplier + workTotalsUSD.combinedTotal; break;
     }
-    return roundGrandTotalForPaymentMode(raw);
+    return normalizeGrandTotalForPaymentMode(raw);
   };
 
   const getDiscountTotalsBaseForPaymentMode = () => {
@@ -1167,7 +1167,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
   };
 
-  const roundGrandTotalForPaymentMode = (value: number) => {
+  const normalizeGrandTotalForPaymentMode = (value: number) => {
+    if (paymentMode === 'usd') {
+      return Math.round(value * 100) / 100;
+    }
     return Math.floor(value);
   };
 
@@ -1195,7 +1198,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const getRoundedCategoriesSumForPaymentMode = (mode: 'day1' | 'combined') => {
+  const getCategoriesSumForPaymentMode = (mode: 'day1' | 'combined') => {
     const groupedMainItems = mainBudgetItems.reduce((acc, item) => {
       const groupId = item.category_id
         ? buildCategoryGroupId(item.category_id, item.location_id)
@@ -1210,13 +1213,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
     return Object.values(groupedMainItems).reduce((sum, items) => {
       const categoryTotal = calculateCategoryTotalForPaymentMode(items, mode);
-      return sum + roundGrandTotalForPaymentMode(categoryTotal);
+      return sum + categoryTotal;
     }, 0);
   };
 
   const getDay1TotalForPaymentMode = () => {
     if (mainBudgetItems.length > 0) {
-      return getRoundedCategoriesSumForPaymentMode('day1');
+      return getCategoriesSumForPaymentMode('day1');
     }
 
     switch (paymentMode) {
@@ -1228,7 +1231,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const getCombinedTotalForPaymentMode = () => {
     if (mainBudgetItems.length > 0) {
-      return getRoundedCategoriesSumForPaymentMode('combined');
+      return getCategoriesSumForPaymentMode('combined');
     }
 
     switch (paymentMode) {
@@ -1243,7 +1246,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       ? getCombinedTotalForPaymentMode()
       : getDay1TotalForPaymentMode();
 
-    return roundGrandTotalForPaymentMode(rawTotal);
+    return normalizeGrandTotalForPaymentMode(rawTotal);
   };
 
   const getCurrencyLabel = () => {
@@ -1851,12 +1854,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               </span>
               {budgetTotalsMode === 'day1_plus_combined' && (
                 <span className="text-[11px] text-gray-400">
-                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{roundGrandTotalForPaymentMode(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               {budgetDays > 1 && (
                 <span className="text-[11px] text-gray-400">
-                  Итого за {budgetDays} дней: <span className="text-cyan-300">{roundGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                  Итого за {budgetDays} дней: <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
             </div>
