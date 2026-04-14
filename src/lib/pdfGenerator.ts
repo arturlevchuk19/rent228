@@ -253,14 +253,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const usdPriceDay1 = item.price || 0;
-        const usdTotalDay1 = item.total ?? usdPriceDay1 * qty;
+        const usdTotalDay1 = calcDay1Total(item);
 
         // Use rounded values for display
         const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
         const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
-
-        // Use raw values for math
-        const rawTotalDay1BYN = calculatePrice(usdTotalDay1, item, false);
 
         const usdUnitPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
@@ -268,16 +265,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           item.multi_day_rate_override
         );
         const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
-        const rawUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
-        
         const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
-        const rawTotalCombinedBYN = rawUnitPriceBYNCombined * qty;
 
         const rowTotalDisplay = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
         const rowPriceDisplay = isCombinedOnlyMode ? displayUnitPriceBYNCombined : displayUnitPriceBYNDay1;
 
-        categorySumDay1 += rawTotalDay1BYN;
-        categorySumCombined += rawTotalCombinedBYN;
+        categorySumDay1 += paymentMode === 'usd' ? usdTotalDay1 : displayTotalDay1BYN;
+        categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
 
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -402,7 +396,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const price = calculatePrice(item.price || 0, item);
-        const total = calculatePrice(item.total ?? (item.price || 0) * qty, item);
+        const total = price * qty;
         categoryTotal += total;
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
