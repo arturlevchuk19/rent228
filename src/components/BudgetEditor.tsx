@@ -1016,7 +1016,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const isDeliveryWork = (item: BudgetItem): boolean => {
     if (item.item_type !== 'work') return false;
     const workName = item.work_item?.name?.toLowerCase() || '';
-    return workName.includes('доставка оборудования') || workName.includes('доставка тех. персонала');
+    return workName.includes('доставка оборудования') || workName.includes('доставка персонала');
   };
 
   const calculateBYNCash = (amountUSD: number): number => {
@@ -1061,7 +1061,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return acc;
   }, {} as GroupedItemsByLocation);
 
-  const mainBudgetItems = budgetItems.filter((item) => !item.is_extra);
+  const mainBudgetItems = budgetItems;
   const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');
   const workItems2 = mainBudgetItems.filter(item => item.item_type === 'work');
   const mainTotalsUSD = calcGrandTotals(mainBudgetItems, budgetDays, budgetTotalsMode);
