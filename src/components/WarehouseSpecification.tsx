@@ -462,7 +462,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   .map(option => option.caseId)
                   .sort()
                   .join('|');
-                const groupKey = `${optionsKey}::${item.location_id || 'no-location'}::${item.category_id || 'no-category'}::${item.is_extra ? 'extra' : 'regular'}`;
+                const groupKey = `${optionsKey}::${item.location_id || 'no-location'}::${item.is_extra ? 'extra' : 'regular'}`;
                 const componentItem: ComponentDecisionItem = {
                   budgetItemId: item.id,
                   equipmentId: item.equipment_id,
@@ -820,11 +820,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     if (!currentGroup) return;
 
     const groupedItemIds = new Set(currentGroup.items.map(item => item.budgetItemId));
+    const modifiedBudgetItemIds = currentGroup.items.map(item => item.budgetItemId);
     const replacementItems = buildCaseExpandedItems(currentGroup, selectedCase);
 
     setExpandedItems(prev => {
       const filtered = prev.filter(item => !groupedItemIds.has(item.budgetItemId));
       return [...filtered, ...replacementItems];
+    });
+    setModifiedItems(prev => {
+      const updated = new Set(prev);
+      modifiedBudgetItemIds.forEach(id => updated.add(id));
+      return updated;
     });
 
     if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
