@@ -118,6 +118,11 @@ interface ComponentDecisionGroup {
   items: ComponentDecisionItem[];
 }
 
+interface PendingComponentCaseSelection {
+  replacedBudgetItemIds: string[];
+  replacementItem: ExpandedItem;
+}
+
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
 
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
@@ -175,6 +180,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingDeleteItem, setPendingDeleteItem] = useState<PendingDeleteItem | null>(null);
   const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
+  const [pendingComponentCaseSelections, setPendingComponentCaseSelections] = useState<PendingComponentCaseSelection[]>([]);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
 
@@ -462,7 +468,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   .map(option => option.caseId)
                   .sort()
                   .join('|');
-                const groupKey = `${optionsKey}::${item.location_id || 'no-location'}::${item.category_id || 'no-category'}::${item.is_extra ? 'extra' : 'regular'}`;
+                const groupKey = `${optionsKey}::${item.location_id || 'no-location'}::${item.is_extra ? 'extra' : 'regular'}`;
                 const componentItem: ComponentDecisionItem = {
                   budgetItemId: item.id,
                   equipmentId: item.equipment_id,
@@ -820,11 +826,34 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     if (!currentGroup) return;
 
     const groupedItemIds = new Set(currentGroup.items.map(item => item.budgetItemId));
+    const modifiedBudgetItemIds = currentGroup.items.map(item => item.budgetItemId);
     const replacementItems = buildCaseExpandedItems(currentGroup, selectedCase);
+    const replacementItem = replacementItems[0];
+
+    if (replacementItem) {
+      setPendingComponentCaseSelections(prev => {
+        const replacedIdSet = new Set(modifiedBudgetItemIds);
+        const withoutOverlaps = prev.filter(selection =>
+          selection.replacedBudgetItemIds.every(id => !replacedIdSet.has(id))
+        );
+        return [
+          ...withoutOverlaps,
+          {
+            replacedBudgetItemIds: modifiedBudgetItemIds,
+            replacementItem
+          }
+        ];
+      });
+    }
 
     setExpandedItems(prev => {
       const filtered = prev.filter(item => !groupedItemIds.has(item.budgetItemId));
       return [...filtered, ...replacementItems];
+    });
+    setModifiedItems(prev => {
+      const updated = new Set(prev);
+      modifiedBudgetItemIds.forEach(id => updated.add(id));
+      return updated;
     });
 
     if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
@@ -946,6 +975,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setPodiumItemsWithComposition(new Set());
       setComponentDecisionQueue([]);
       setActiveComponentDecisionIndex(0);
+      setPendingComponentCaseSelections([]);
       setShowResetDialog(false);
       await loadData();
       showNotification('Спецификация сброшена до состояния сметы', 'success');
@@ -1293,8 +1323,48 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     try {
       const errors: string[] = [];
       const createdItems: { oldId: string; newId: string }[] = [];
+      const modifiedBudgetItemIds = new Set(modifiedItems);
+
+      for (const selection of pendingComponentCaseSelections) {
+        const { replacedBudgetItemIds, replacementItem } = selection;
+
+        for (const replacedId of replacedBudgetItemIds) {
+          try {
+            await deleteSpecificationBudgetItem(replacedId);
+            modifiedBudgetItemIds.delete(replacedId);
+          } catch (err) {
+            console.error('Error deleting replaced component item:', replacedId, err);
+            errors.push(`Удаление: ${replacementItem.name}`);
+          }
+        }
+
+        try {
+          const createdReplacement = await createSpecificationBudgetItem({
+            event_id: eventId,
+            item_type: 'equipment',
+            equipment_id: null,
+            category_id: replacementItem.categoryId,
+            location_id: replacementItem.locationId,
+            name: replacementItem.name,
+            sku: replacementItem.sku,
+            quantity: replacementItem.quantity,
+            price: 0,
+            total: 0,
+            exchange_rate: 1,
+            notes: replacementItem.notes,
+            picked: replacementItem.picked,
+            return_picked: replacementItem.return_picked,
+            is_extra: replacementItem.isExtra || false,
+            sort_order: 0
+          });
+          createdItems.push({ oldId: replacementItem.budgetItemId, newId: createdReplacement.id });
+        } catch (err) {
+          console.error('Error creating replacement case item:', replacementItem.budgetItemId, err);
+          errors.push(replacementItem.name);
+        }
+      }
       
-      for (const budgetItemId of modifiedItems) {
+      for (const budgetItemId of modifiedBudgetItemIds) {
         // Check if this budget item has LED cases that need to be created
         const caseItems = expandedItems.filter(item => 
           item.budgetItemId.startsWith(`${budgetItemId}-case-`)
@@ -1485,6 +1555,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         showNotification('Ошибка при сохранении: ' + errors.join(', '));
       } else {
         setModifiedItems(new Set());
+        setPendingComponentCaseSelections([]);
         showNotification('Изменения сохранены', 'success');
         // Перезагружаем данные после успешного сохранения, чтобы получить реальные ID из базы
         await loadData();
