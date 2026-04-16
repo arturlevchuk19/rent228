@@ -46,7 +46,7 @@ export interface CableTemplate {
 
 export const CABLE_TEMPLATES: CableTemplate[] = [
   {
-    type: 'PowerCON 5м - 30м',
+    type: 'PowerCON 15м - 30м',
     lengths: ['15м', '20м', '25м', '30м']
   },
   {
@@ -59,7 +59,7 @@ export const CABLE_TEMPLATES: CableTemplate[] = [
   },
   {
     type: 'DMX 1м - 10м',
-    lengths: ['1м (10шт)', '2м (5шт)', '5м', '10м']
+    lengths: ['1м (10шт)', '2м (10шт)', '5м', '10м']
   },
   {
     type: 'XLR 0.5м - 10м',

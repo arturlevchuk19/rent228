@@ -125,6 +125,32 @@ interface PendingComponentCaseSelection {
 
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
 
+const CONNECTOR_SCOPE_DELIMITER = '::';
+
+const buildConnectorScopedType = (category: string, itemType: string) => `${category}${CONNECTOR_SCOPE_DELIMITER}${itemType}`;
+
+const parseConnectorScopedType = (connectorType: string) => {
+  const [category, ...itemParts] = connectorType.split(CONNECTOR_SCOPE_DELIMITER);
+  if (itemParts.length === 0) {
+    return { category: null, itemType: connectorType };
+  }
+
+  return {
+    category,
+    itemType: itemParts.join(CONNECTOR_SCOPE_DELIMITER)
+  };
+};
+
+const DUPLICATE_CONNECTOR_ITEMS = new Set(
+  CONNECTOR_TEMPLATES
+    .flatMap(template => template.items)
+    .filter((item, index, all) => all.indexOf(item) !== index)
+);
+
+const buildCableDraftKey = (cableType: string, cableLength: string) => `cable_${cableType}__${cableLength}`;
+const buildConnectorDraftKey = (connectorType: string) => `connector_${connectorType}`;
+const buildOtherDraftKey = (category: string, itemType: string) => `other_${category}__${itemType}`;
+
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
@@ -1076,7 +1102,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         if (!connectorsPendingByType.has(key)) {
           connectorsPendingByType.set(key, {
             id: `connector-${key}`,
-            name: fallbackName(normalizedType, `Коннектор #${item.id.slice(0, 8)}`),
+            name: fallbackName(parseConnectorScopedType(normalizedType).itemType, `Коннектор #${item.id.slice(0, 8)}`),
             group: 'connectors'
           });
         }
@@ -1568,29 +1594,30 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleAddCableFromTemplate = async (cableType: string, cableLength: string) => {
+  const handleSetCableQuantityFromTemplate = async (cableType: string, cableLength: string, newQuantity: number) => {
     try {
+      const normalizedQuantity = Math.max(0, newQuantity);
       const existingCable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
 
-      if (existingCable) {
-        const updated = await updateCable(existingCable.id, {
-          quantity: existingCable.quantity + 1
-        });
-        setCables(cables.map(c => c.id === updated.id ? updated : c));
-      } else {
+      if (!existingCable && normalizedQuantity === 0) return;
+
+      if (!existingCable) {
         const newCable = await createCable({
           event_id: eventId,
           cable_type: cableType,
           cable_length: cableLength,
-          quantity: 1,
+          quantity: normalizedQuantity,
           notes: '',
           picked: false
         });
-        setCables([...cables, newCable]);
+        setCables(prev => [...prev, newCable]);
+        return;
       }
+
+      await handleCableQuantityChange(existingCable.id, normalizedQuantity);
     } catch (error) {
-      console.error('Error adding cable:', error);
-      showNotification('Ошибка при добавлении кабеля');
+      console.error('Error setting cable quantity:', error);
+      showNotification('Ошибка при обновлении кабеля');
     }
   };
 
@@ -1609,28 +1636,29 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleAddConnectorFromTemplate = async (connectorType: string) => {
+  const handleSetConnectorQuantityFromTemplate = async (connectorType: string, newQuantity: number) => {
     try {
+      const normalizedQuantity = Math.max(0, newQuantity);
       const existingConnector = connectors.find(c => c.connector_type === connectorType);
 
-      if (existingConnector) {
-        const updated = await updateConnector(existingConnector.id, {
-          quantity: existingConnector.quantity + 1
-        });
-        setConnectors(connectors.map(c => c.id === updated.id ? updated : c));
-      } else {
+      if (!existingConnector && normalizedQuantity === 0) return;
+
+      if (!existingConnector) {
         const newConnector = await createConnector({
           event_id: eventId,
           connector_type: connectorType,
-          quantity: 1,
+          quantity: normalizedQuantity,
           notes: '',
           picked: false
         });
-        setConnectors([...connectors, newConnector]);
+        setConnectors(prev => [...prev, newConnector]);
+        return;
       }
+
+      await handleConnectorQuantityChange(existingConnector.id, normalizedQuantity);
     } catch (error) {
-      console.error('Error adding connector:', error);
-      showNotification('Ошибка при добавлении коннектора');
+      console.error('Error setting connector quantity:', error);
+      showNotification('Ошибка при обновлении коннектора');
     }
   };
 
@@ -1670,31 +1698,30 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }));
   };
 
-  const handleAddOtherFromTemplate = async (category: string, itemType: string) => {
+  const handleSetOtherQuantityFromTemplate = async (category: string, itemType: string, newQuantity: number) => {
     try {
-      const existingItem = otherItems.find(
-        i => i.category === category && i.item_type === itemType
-      );
+      const normalizedQuantity = Math.max(0, newQuantity);
+      const existingItem = otherItems.find(i => i.category === category && i.item_type === itemType);
 
-      if (existingItem) {
-        const updated = await updateOtherItem(existingItem.id, {
-          quantity: existingItem.quantity + 1
-        });
-        setOtherItems(otherItems.map(i => i.id === updated.id ? updated : i));
-      } else {
+      if (!existingItem && normalizedQuantity === 0) return;
+
+      if (!existingItem) {
         const newItem = await createOtherItem({
           event_id: eventId,
           category,
           item_type: itemType,
-          quantity: 1,
+          quantity: normalizedQuantity,
           notes: '',
           picked: false
         });
-        setOtherItems([...otherItems, newItem]);
+        setOtherItems(prev => [...prev, newItem]);
+        return;
       }
+
+      await handleOtherQuantityChange(existingItem.id, normalizedQuantity);
     } catch (error) {
-      console.error('Error adding other item:', error);
-      showNotification('Ошибка при добавлении предмета');
+      console.error('Error setting other item quantity:', error);
+      showNotification('Ошибка при обновлении предмета');
     }
   };
 
@@ -1791,14 +1818,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     const csvContent = [
       ['№', 'Категория', 'Тип коннектора', 'Количество', 'Взято', 'Примечания'].join(','),
       ...connectors.map((connector, index) =>
-        [
-          index + 1,
-          `"${connector.connector_type}"`,
-          `"${connector.connector_type}"`,
-          connector.quantity,
-          connector.picked ? 'Да' : 'Нет',
-          `"${connector.notes}"`
-        ].join(',')
+        (() => {
+          const parsed = parseConnectorScopedType(connector.connector_type);
+          return [
+            index + 1,
+            `"${parsed.category || connector.connector_type}"`,
+            `"${parsed.itemType}"`,
+            connector.quantity,
+            connector.picked ? 'Да' : 'Нет',
+            `"${connector.notes}"`
+          ].join(',');
+        })()
       )
     ].join('\n');
 
@@ -1995,7 +2025,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           <th className="px-3 py-1.5 text-left text-[10px] text-gray-500 uppercase tracking-wider">Наименование</th>
                           <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500 uppercase tracking-wider">Кол-во</th>
                           <th className="px-3 py-1.5 text-left w-20 text-[10px] text-gray-500 uppercase tracking-wider">Ед. изм.</th>
-                          {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                          {!eventDetails?.equipment_shipped && (
                             <th className="px-3 py-1.5 text-left text-[10px] text-gray-500 uppercase tracking-wider">Примечания</th>
                           )}
                         </tr>
@@ -2096,7 +2126,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               )}
                             </td>
                             <td className="px-3 py-1.5 text-xs text-gray-500">{item.unit}</td>
-                            {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                            {!eventDetails?.equipment_shipped && (
                               <td className="px-3 py-1.5">
                                 <input
                                   type="text"
@@ -2196,6 +2226,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               const cableId = cableObj?.id;
                               const picked = cableObj?.picked || false;
                               const returnPicked = cableObj?.return_picked || false;
+                              const cableDraftKey = buildCableDraftKey(template.type, length);
+                              const cableDraftValue = inputDraftValues[cableDraftKey];
+                              const cableDisplayValue = cableDraftValue !== undefined ? cableDraftValue : String(quantity);
 
                               return (
                                 <tr key={length} className="hover:bg-gray-800 transition-colors">
@@ -2219,39 +2252,41 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   </td>
                                   <td className="px-3 py-1.5 text-xs text-white">{length}</td>
                                   <td className="px-3 py-1.5 text-center">
-                                    {cableId ? (
-                                      (isWarehouseUser || eventDetails?.equipment_shipped) ? (
-                                        <div className="text-xs text-white font-bold">{quantity}</div>
-                                      ) : (
-                                        <input
-                                          type="number"
-                                          value={inputDraftValues[`cable_${cableId}`] !== undefined ? inputDraftValues[`cable_${cableId}`] : quantity}
-                                          onChange={(e) => setInputDraftValues(prev => ({ ...prev, [`cable_${cableId}`]: e.target.value }))}
-                                          onBlur={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            if (!isNaN(val)) handleCableQuantityChange(cableId, val);
-                                            setInputDraftValues(prev => { const n = { ...prev }; delete n[`cable_${cableId}`]; return n; });
-                                          }}
-                                          className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
-                                          min="0"
-                                        />
-                                      )
+                                    {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
+                                      <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <div className="text-center text-gray-600 text-xs">0</div>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        value={cableDisplayValue}
+                                        onChange={(e) => setInputDraftValues(prev => ({ ...prev, [cableDraftKey]: e.target.value }))}
+                                        onBlur={(e) => {
+                                          const val = parseInt(e.target.value, 10);
+                                          handleSetCableQuantityFromTemplate(template.type, length, Number.isNaN(val) ? 0 : val);
+                                          setInputDraftValues(prev => {
+                                            const n = { ...prev };
+                                            delete n[cableDraftKey];
+                                            return n;
+                                          });
+                                        }}
+                                        onWheel={(e) => e.currentTarget.blur()}
+                                        className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
+                                      />
                                     )}
                                   </td>
                                   {!isWarehouseUser && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => cableId && handleCableQuantityChange(cableId, Math.max(0, quantity - 1))}
-                                          disabled={!cableId || quantity === 0}
+                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, Math.max(0, quantity - 1))}
+                                          disabled={quantity === 0}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button
-                                          onClick={() => handleAddCableFromTemplate(template.type, length)}
+                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, quantity + 1)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
@@ -2308,27 +2343,35 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.items.map((itemType) => {
-                              const connectorEntries = connectors.filter(c => c.connector_type === itemType);
+                              const connectorTypeKey = buildConnectorScopedType(template.category, itemType);
+                              const connectorEntries = connectors.filter(c => {
+                                if (c.connector_type === connectorTypeKey) return true;
+                                if (DUPLICATE_CONNECTOR_ITEMS.has(itemType)) return false;
+                                return c.connector_type === itemType;
+                              });
                               const connector = connectorEntries[0];
                               const quantity = connectorEntries.reduce((sum, c) => sum + c.quantity, 0);
                               const picked = connectorEntries.length > 0 && connectorEntries.every(c => c.picked);
                               const returnPicked = connectorEntries.length > 0 && connectorEntries.every(c => c.return_picked);
+                              const connectorDraftKey = buildConnectorDraftKey(connectorTypeKey);
+                              const connectorDraftValue = inputDraftValues[connectorDraftKey];
+                              const connectorDisplayValue = connectorDraftValue !== undefined ? connectorDraftValue : String(quantity);
 
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input
-                                        type="checkbox"
-                                        checked={returnPicked}
-                                        onChange={(e) => handleConnectorGroupReturnPickedChange(itemType, e.target.checked)}
+                                        <input
+                                          type="checkbox"
+                                          checked={returnPicked}
+                                        onChange={(e) => handleConnectorGroupReturnPickedChange(connectorTypeKey, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
                                       />
                                     ) : connector ? (
                                       <input
                                         type="checkbox"
                                         checked={picked}
-                                        onChange={(e) => handleConnectorGroupPickedChange(itemType, e.target.checked)}
+                                        onChange={(e) => handleConnectorGroupPickedChange(connectorTypeKey, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
                                         disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                       />
@@ -2336,39 +2379,41 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   </td>
                                   <td className="px-3 py-1.5 text-xs text-white">{itemType}</td>
                                   <td className="px-3 py-1.5 text-center">
-                                    {connector ? (
-                                      (isWarehouseUser || eventDetails?.equipment_shipped) ? (
-                                        <div className="text-xs text-white font-bold">{quantity}</div>
-                                      ) : (
-                                        <input
-                                          type="number"
-                                          value={inputDraftValues[`connector_${connector.id}`] !== undefined ? inputDraftValues[`connector_${connector.id}`] : quantity}
-                                          onChange={(e) => setInputDraftValues(prev => ({ ...prev, [`connector_${connector.id}`]: e.target.value }))}
-                                          onBlur={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            if (!isNaN(val)) handleConnectorQuantityChange(connector.id, val);
-                                            setInputDraftValues(prev => { const n = { ...prev }; delete n[`connector_${connector.id}`]; return n; });
-                                          }}
-                                          className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
-                                          min="0"
-                                        />
-                                      )
+                                    {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
+                                      <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <div className="text-center text-gray-600 text-xs">0</div>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        value={connectorDisplayValue}
+                                        onChange={(e) => setInputDraftValues(prev => ({ ...prev, [connectorDraftKey]: e.target.value }))}
+                                        onBlur={(e) => {
+                                          const val = parseInt(e.target.value, 10);
+                                          handleSetConnectorQuantityFromTemplate(connectorTypeKey, Number.isNaN(val) ? 0 : val);
+                                          setInputDraftValues(prev => {
+                                            const n = { ...prev };
+                                            delete n[connectorDraftKey];
+                                            return n;
+                                          });
+                                        }}
+                                        onWheel={(e) => e.currentTarget.blur()}
+                                        className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
+                                      />
                                     )}
                                   </td>
                                   {!isWarehouseUser && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => connector && handleConnectorQuantityChange(connector.id, Math.max(0, quantity - 1))}
-                                          disabled={!connector || quantity === 0}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(connectorTypeKey, Math.max(0, quantity - 1))}
+                                          disabled={quantity === 0}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button
-                                          onClick={() => handleAddConnectorFromTemplate(itemType)}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(connectorTypeKey, quantity + 1)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
@@ -2430,6 +2475,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               const quantity = otherObj?.quantity || 0;
                               const picked = otherObj?.picked || false;
                               const returnPicked = otherObj?.return_picked || false;
+                              const otherDraftKey = buildOtherDraftKey(template.category, itemType);
+                              const otherDraftValue = inputDraftValues[otherDraftKey];
+                              const otherDisplayValue = otherDraftValue !== undefined ? otherDraftValue : String(quantity);
 
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
@@ -2453,39 +2501,41 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   </td>
                                   <td className="px-3 py-1.5 text-xs text-white">{itemType}</td>
                                   <td className="px-3 py-1.5 text-center">
-                                    {otherId ? (
-                                      (isWarehouseUser || eventDetails?.equipment_shipped) ? (
-                                        <div className="text-xs text-white font-bold">{quantity}</div>
-                                      ) : (
-                                        <input
-                                          type="number"
-                                          value={inputDraftValues[`other_${otherId}`] !== undefined ? inputDraftValues[`other_${otherId}`] : quantity}
-                                          onChange={(e) => setInputDraftValues(prev => ({ ...prev, [`other_${otherId}`]: e.target.value }))}
-                                          onBlur={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            if (!isNaN(val)) handleOtherQuantityChange(otherId, val);
-                                            setInputDraftValues(prev => { const n = { ...prev }; delete n[`other_${otherId}`]; return n; });
-                                          }}
-                                          className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
-                                          min="0"
-                                        />
-                                      )
+                                    {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
+                                      <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <div className="text-center text-gray-600 text-xs">0</div>
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        value={otherDisplayValue}
+                                        onChange={(e) => setInputDraftValues(prev => ({ ...prev, [otherDraftKey]: e.target.value }))}
+                                        onBlur={(e) => {
+                                          const val = parseInt(e.target.value, 10);
+                                          handleSetOtherQuantityFromTemplate(template.category, itemType, Number.isNaN(val) ? 0 : val);
+                                          setInputDraftValues(prev => {
+                                            const n = { ...prev };
+                                            delete n[otherDraftKey];
+                                            return n;
+                                          });
+                                        }}
+                                        onWheel={(e) => e.currentTarget.blur()}
+                                        className="w-16 px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-center text-xs text-white"
+                                      />
                                     )}
                                   </td>
                                   {!isWarehouseUser && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => otherId && handleOtherQuantityChange(otherId, Math.max(0, quantity - 1))}
-                                          disabled={!otherId || quantity === 0}
+                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
+                                          disabled={quantity === 0}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button
-                                          onClick={() => handleAddOtherFromTemplate(template.category, itemType)}
+                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, quantity + 1)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
