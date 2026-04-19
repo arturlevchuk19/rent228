@@ -1109,16 +1109,28 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       });
     const connectorsPending = Array.from(connectorsPendingByType.values());
 
-    const otherPending = otherItems
+    // "Прочее" в интерфейсе отображается по шаблонам (категория + тип),
+    // поэтому в модалке подтверждения нужно показывать только одну строку на каждую пару.
+    const otherPendingByKey = new Map<string, PendingConfirmationItem>();
+    otherItems
       .filter(item => !isPicked(item.picked, item.return_picked))
-      .map(item => ({
-        id: `other-${item.id}`,
-        name: fallbackName(
-          `${normalizeText(item.category)} ${normalizeText(item.item_type)}`.trim(),
-          `Прочее #${item.id.slice(0, 8)}`
-        ),
-        group: 'other' as const
-      }));
+      .forEach(item => {
+        const normalizedCategory = normalizeText(item.category);
+        const normalizedItemType = normalizeText(item.item_type);
+        const key = `${normalizedCategory}|${normalizedItemType}`;
+
+        if (!otherPendingByKey.has(key)) {
+          otherPendingByKey.set(key, {
+            id: `other-${key || item.id}`,
+            name: fallbackName(
+              `${normalizedCategory} ${normalizedItemType}`.trim(),
+              `Прочее #${item.id.slice(0, 8)}`
+            ),
+            group: 'other'
+          });
+        }
+      });
+    const otherPending = Array.from(otherPendingByKey.values());
 
     return [...equipmentPending, ...cablesPending, ...connectorsPending, ...otherPending];
   };
