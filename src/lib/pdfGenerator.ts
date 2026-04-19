@@ -172,15 +172,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // Уменьшены отступы для компактности [cite: 53]
   container.style.cssText = `
     position: absolute; left: -9999px; width: 800px; height: auto;
-    background-color: #0a0a0a; color: #ffffff;
+    background-color: #ffffff; color: #111827;
     font-family: 'Montserrat', sans-serif; padding: 25px 40px;
     box-sizing: border-box; line-height: 1.2;
   `;
 
   let categoriesHtml = '';
   let grandTotalDay1 = 0;
-  const grayAccent = '#4b5563';
-  const grayBg = 'rgba(255, 255, 255, 0.05)';
+  const grayAccent = '#6b7280';
+  const grayBg = 'rgba(17, 24, 39, 0.04)';
+  const textPrimary = '#111827';
+  const textMuted = '#6b7280';
+  const borderStrong = '#d1d5db';
+  const borderSoft = '#e5e7eb';
   const paymentMode = data.paymentMode || 'usd';
   const currencySuffix = paymentMode !== 'usd' ? ' BYN' : ' $';
 
@@ -280,11 +284,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
 
         return `
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 6px 8px; font-size: 13px; color: #ffffff; width: 60%;">${displayName}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
-            <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
+          <tr style="border-bottom: 1px solid ${borderSoft};">
+            <td style="padding: 6px 8px; font-size: 13px; color: ${textPrimary}; width: 60%;">${displayName}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: center; color: ${textPrimary}; width: 10%;">${qty} ${unit}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: ${textPrimary}; width: 15%;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+            <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: ${textPrimary}; width: 15%;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -310,7 +314,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         </div>
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
-            <tr style="text-transform: uppercase; font-size: 9px; color: #4b5563; border-bottom: 1px solid #1f2937;">
+            <tr style="text-transform: uppercase; font-size: 9px; color: ${textMuted}; border-bottom: 1px solid ${borderStrong};">
               <th style="text-align: left; padding: 6px 8px;">Наименование</th>
               <th style="text-align: center; padding: 6px 8px;">Кол-во</th>
               <th style="text-align: right; padding: 6px 8px;">Цена</th>
@@ -320,13 +324,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <tbody>
             ${rows}
             <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ:</td>
-              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: ${textMuted};">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td style="padding: 8px; text-align: right; font-weight: 700; color: ${textPrimary}; font-size: 13px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
             <tr style="background: ${grayBg};">
-              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: #9ca3af;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
-              <td style="padding: 8px; text-align: right; font-weight: 700; color: #ffffff; font-size: 13px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
+              <td colspan="3" style="padding: 8px; text-align: right; font-size: 10px; font-weight: 700; color: ${textMuted};">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td style="padding: 8px; text-align: right; font-weight: 700; color: ${textPrimary}; font-size: 13px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -339,14 +343,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const locationTotalsHtml = isNoLocation
       ? ''
       : `
-        <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed rgba(255,255,255,0.15);">
-          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
-          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${formatMoney(locationTotal)}${currencySuffix}</span>
+        <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px dashed ${borderStrong};">
+          <span style="font-size: 11px; font-weight: 700; color: ${textMuted}; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
+          <span style="font-size: 14px; font-weight: 800; color: ${textPrimary};">${formatMoney(locationTotal)}${currencySuffix}</span>
         </div>
         ${!isCombinedOnlyMode && budgetDays > 1 ? `
         <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
-          <span style="font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
-          <span style="font-size: 14px; font-weight: 800; color: #ffffff;">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
+          <span style="font-size: 11px; font-weight: 700; color: ${textMuted}; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
+          <span style="font-size: 14px; font-weight: 800; color: ${textPrimary};">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
         </div>
         ` : ''}
       `;
@@ -374,7 +378,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     </div>`;
 
     categoriesHtml += `
-      <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;">
+      <section style="margin-bottom: 24px; padding: 14px 14px 6px; background: #f9fafb; border: 1px solid ${borderSoft}; border-radius: 10px;">
         ${locationHeaderHtml}
         ${locationHtml}
         ${locationTotalsHtml}
@@ -405,24 +409,24 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const total = price * qty;
         categoryTotal += total;
         return `
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 5px 8px; font-size: 12px; color: #ffffff; width: 60%;">${displayName}</td>
-            <td style="padding: 5px 8px; font-size: 12px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
-            <td style="padding: 5px 8px; font-size: 12px; text-align: right; color: #ffffff; width: 15%;">${formatMoney(price)}${currencySuffix}</td>
-            <td style="padding: 5px 8px; font-size: 12px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${formatMoney(total)}${currencySuffix}</td>
+          <tr style="border-bottom: 1px solid ${borderSoft};">
+            <td style="padding: 5px 8px; font-size: 12px; color: ${textPrimary}; width: 60%;">${displayName}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: center; color: ${textPrimary}; width: 10%;">${qty} ${unit}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: right; color: ${textPrimary}; width: 15%;">${formatMoney(price)}${currencySuffix}</td>
+            <td style="padding: 5px 8px; font-size: 12px; text-align: right; font-weight: 600; color: ${textPrimary}; width: 15%;">${formatMoney(total)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
 
       return `
         <div style="margin-bottom: 14px;">
-          <div style="font-size: 12px; font-weight: 700; color: #c4b5fd; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
+          <div style="font-size: 12px; font-weight: 700; color: ${textPrimary}; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
           <table style="width: 100%; border-collapse: collapse;">
             <tbody>
               ${rows}
-              <tr style="background: rgba(255,255,255,0.06);">
-                <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #ddd6fe;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #ffffff;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+              <tr style="background: ${grayBg};">
+                <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 10px; font-weight: 700; color: ${textMuted};">ИТОГО ПО РАЗДЕЛУ:</td>
+                <td style="padding: 6px 8px; text-align: right; font-size: 12px; font-weight: 700; color: ${textPrimary};">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
             </tbody>
           </table>
@@ -440,14 +444,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
   const clientHtml = data.clientName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
-      <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
-      <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.clientName}</span>
+      <span style="font-size: 8px; color: ${textMuted}; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
+      <span style="font-size: 11px; font-weight: 600; color: ${textPrimary};">${data.clientName}</span>
     </div>` : '';
 
   const organizerHtml = data.organizerName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
-      <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
-      <span style="font-size: 11px; font-weight: 600; color: #ffffff;">${data.organizerName}</span>
+      <span style="font-size: 8px; color: ${textMuted}; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
+      <span style="font-size: 11px; font-weight: 600; color: ${textPrimary};">${data.organizerName}</span>
     </div>` : '';
   const participantsCellsHtml = `${clientHtml}${organizerHtml}`;
 
@@ -536,29 +540,29 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     `;
 
   container.innerHTML = `
-    <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #1f2937; padding-bottom: 15px;">
+    <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid ${borderStrong}; padding-bottom: 15px;">
       <div style="display: flex; align-items: center;">
         <img src="${logoDataURL}" style="width: 120px; height: auto;" alt="Logo" />
       </div>
       
       <div style="flex: 1; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-end;">
         <div style="text-align: right; margin-bottom: 8px;">
-          <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #ffffff;">Коммерческое предложение</div>
-          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Версия ${versionLabel}</div>
-          <div style="font-size: 10px; color: #4b5563; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
+          <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: ${textPrimary};">Коммерческое предложение</div>
+          <div style="font-size: 10px; color: ${textMuted}; margin-top: 2px;">Версия ${versionLabel}</div>
+          <div style="font-size: 10px; color: ${textMuted}; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 16px; width: 350px; box-sizing: border-box;">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 20px; background: #f9fafb; border: 1px solid ${borderSoft}; border-radius: 12px; padding: 10px 16px; width: 350px; box-sizing: border-box;">
           <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Событие</span>
+            <span style="font-size: 8px; color: ${textMuted}; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Событие</span>
             <span style="font-size: 11px; font-weight: 600; font-style: italic;">${data.eventName || '—'}</span>
           </div>
           <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
+            <span style="font-size: 8px; color: ${textMuted}; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
             <span style="font-size: 11px; font-weight: 600;">${formattedEventDate}</span>
           </div>
           <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 8px; color: #4b5563; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
+            <span style="font-size: 8px; color: ${textMuted}; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
             <span style="font-size: 11px; font-weight: 600;">${data.venueName || '—'}</span>
           </div>
           ${participantsCellsHtml}
@@ -568,13 +572,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     ${categoriesHtml}
 
-    <footer style="margin-top: 25px; border-top: 2px solid #1f2937; padding-top: 15px; padding-bottom: 16px; display: flex; justify-content: flex-end;">
+    <footer style="margin-top: 25px; border-top: 2px solid ${borderStrong}; padding-top: 15px; padding-bottom: 16px; display: flex; justify-content: flex-end;">
       <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-right: 12px; width: min(560px, 100%);">
         ${footerTotalsHtml}
       </div>
     </footer>
     ${extraServicesHtml}
-    <div style="height: 84px; background: #0a0a0a;"></div>
+    <div style="height: 84px; background: #ffffff;"></div>
   `;
 
   document.body.appendChild(container);
@@ -582,7 +586,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const canvas = await html2canvas(container, {
     scale: 2,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
     height: container.scrollHeight,
