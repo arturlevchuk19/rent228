@@ -209,7 +209,8 @@ export async function applyTemplateToEvent(
         quantity: item.quantity,
         price,
         total,
-        exchange_rate: 1,
+        multi_day_rate_override: item.equipment_items.multi_day_rate || 0,
+        exchange_rate: item.exchange_rate || 1,
         category_id: category.id,
         notes: '',
         sort_order: i
