@@ -283,7 +283,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
 
         return `
-          <tr style="border-bottom: 1px solid ${borderSoft};">
+          <tr>
             <td style="padding: 6px 8px; font-size: 13px; color: ${textPrimary}; width: 60%;">${displayName}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: center; color: ${textPrimary}; width: 10%;">${qty} ${unit}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: ${textPrimary}; width: 15%;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
@@ -408,7 +408,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const total = price * qty;
         categoryTotal += total;
         return `
-          <tr style="border-bottom: 1px solid ${borderSoft};">
+          <tr>
             <td style="padding: 5px 8px; font-size: 12px; color: ${textPrimary}; width: 60%;">${displayName}</td>
             <td style="padding: 5px 8px; font-size: 12px; text-align: center; color: ${textPrimary}; width: 10%;">${qty} ${unit}</td>
             <td style="padding: 5px 8px; font-size: 12px; text-align: right; color: ${textPrimary}; width: 15%;">${formatMoney(price)}${currencySuffix}</td>
