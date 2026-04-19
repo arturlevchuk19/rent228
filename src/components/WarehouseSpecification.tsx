@@ -1109,28 +1109,28 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       });
     const connectorsPending = Array.from(connectorsPendingByType.values());
 
-    // "Прочее" в интерфейсе отображается по шаблонам (категория + тип),
-    // поэтому в модалке подтверждения нужно показывать только одну строку на каждую пару.
-    const otherPendingByKey = new Map<string, PendingConfirmationItem>();
-    otherItems
-      .filter(item => !isPicked(item.picked, item.return_picked))
-      .forEach(item => {
-        const normalizedCategory = normalizeText(item.category);
-        const normalizedItemType = normalizeText(item.item_type);
-        const key = `${normalizedCategory}|${normalizedItemType}`;
+    // Keep only the first record per (category + item_type) pair to match template rendering in "Прочее".
+    // Historical duplicated rows may exist in DB, and hidden duplicates should not block confirmation modal.
+    const visibleOtherByKey = new Map<string, OtherItem>();
+    otherItems.forEach(item => {
+      const normalizedCategory = normalizeText(item.category);
+      const normalizedItemType = normalizeText(item.item_type);
+      const key = `${normalizedCategory}|${normalizedItemType}`;
+      if (!visibleOtherByKey.has(key)) {
+        visibleOtherByKey.set(key, item);
+      }
+    });
 
-        if (!otherPendingByKey.has(key)) {
-          otherPendingByKey.set(key, {
-            id: `other-${key || item.id}`,
-            name: fallbackName(
-              `${normalizedCategory} ${normalizedItemType}`.trim(),
-              `Прочее #${item.id.slice(0, 8)}`
-            ),
-            group: 'other'
-          });
-        }
-      });
-    const otherPending = Array.from(otherPendingByKey.values());
+    const otherPending = Array.from(visibleOtherByKey.values())
+      .filter(item => !isPicked(item.picked, item.return_picked))
+      .map(item => ({
+        id: `other-${item.id}`,
+        name: fallbackName(
+          `${normalizeText(item.category)} ${normalizeText(item.item_type)}`.trim(),
+          `Прочее #${item.id.slice(0, 8)}`
+        ),
+        group: 'other' as const
+      }));
 
     return [...equipmentPending, ...cablesPending, ...connectorsPending, ...otherPending];
   };
