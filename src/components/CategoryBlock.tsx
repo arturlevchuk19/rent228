@@ -132,19 +132,29 @@ export function CategoryBlock({
 
 
   const convertBYNCashtoUSDPrice = (priceBYN: number): number => {
-    const usdPrice = priceBYN / exchangeRate;
-    return Math.round(usdPrice * 100) / 100;
+    if (priceBYN <= 0 || exchangeRate <= 0) {
+      return 0;
+    }
+
+    // Используем небольшую дельту, чтобы после Math.ceil при обратной конвертации
+    // отображаемая BYN-сумма совпадала с введённой пользователем.
+    return (priceBYN - 1e-6) / exchangeRate;
   };
 
   const convertBYNNonCashtoUSDPrice = (priceBYN: number, item?: BudgetItem): number => {
+    if (priceBYN <= 0 || exchangeRate <= 0) {
+      return 0;
+    }
+
     let withoutBankRate: number;
     if (item && item.item_type === 'work' && !isDeliveryWork(item)) {
       withoutBankRate = priceBYN / 1.67;
     } else {
       withoutBankRate = priceBYN * 0.8;
     }
-    const usdPrice = withoutBankRate / exchangeRate;
-    return Math.round(usdPrice * 100) / 100;
+
+    // Аналогично cash-режиму: чтобы ceil в отображении не поднимал значение на +1 BYN.
+    return (withoutBankRate - 1e-6) / exchangeRate;
   };
 
   const getDisplayedAmount = (item: BudgetItem) => {
