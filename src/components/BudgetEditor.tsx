@@ -1546,12 +1546,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 <>
                   {locations.map((location) => {
                     const locationGroupId = `location:${location.id}`;
-                    const locationHasContent = categories.some((category) => {
-                      const categoryGroupId = buildCategoryGroupId(category.id, location.id);
-                      return (groupedItems[categoryGroupId]?.length || 0) > 0 || activeCategoryIds.has(categoryGroupId);
-                    }) || (groupedItems[buildLocationUncategorizedGroupId(location.id)]?.length || 0) > 0;
-
-                    if (!locationHasContent && !activeCategoryIds.has(locationGroupId)) return null;
 
                     return (
                       <div
