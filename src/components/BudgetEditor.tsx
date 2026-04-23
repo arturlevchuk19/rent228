@@ -1036,18 +1036,21 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const equipmentCategories = ['Все', ...Array.from(new Set(equipment.map(item => item.category)))];
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
   const filteredEquipment = equipment.filter(item => {
     const hasPrice = item.rental_price > 0;
-    const matchesSearch = !searchTerm ||
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !normalizedSearchTerm ||
+      item.name.toLowerCase().includes(normalizedSearchTerm) ||
+      item.category.toLowerCase().includes(normalizedSearchTerm);
     const matchesCategory = selectedEquipmentCategory === 'Все' || item.category === selectedEquipmentCategory;
     return hasPrice && matchesSearch && matchesCategory;
   });
 
   const filteredWorkItems = workItems.filter(item =>
-    !searchTerm || item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    !normalizedSearchTerm ||
+    item.name.toLowerCase().includes(normalizedSearchTerm) ||
+    item.unit.toLowerCase().includes(normalizedSearchTerm)
   );
 
   const groupedItems: GroupedItemsByLocation = budgetItems.reduce((acc, item) => {
