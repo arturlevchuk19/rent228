@@ -1109,7 +1109,19 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       });
     const connectorsPending = Array.from(connectorsPendingByType.values());
 
-    const otherPending = otherItems
+    // Keep only the first record per (category + item_type) pair to match template rendering in "Прочее".
+    // Historical duplicated rows may exist in DB, and hidden duplicates should not block confirmation modal.
+    const visibleOtherByKey = new Map<string, OtherItem>();
+    otherItems.forEach(item => {
+      const normalizedCategory = normalizeText(item.category);
+      const normalizedItemType = normalizeText(item.item_type);
+      const key = `${normalizedCategory}|${normalizedItemType}`;
+      if (!visibleOtherByKey.has(key)) {
+        visibleOtherByKey.set(key, item);
+      }
+    });
+
+    const otherPending = Array.from(visibleOtherByKey.values())
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `other-${item.id}`,
