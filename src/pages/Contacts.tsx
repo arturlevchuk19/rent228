@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Building2, CircleUser as UserCircle, Plus, Pencil, Trash2, Search, Briefcase, Calendar } from 'lucide-react';
-import { getClients, getVenues, getOrganizers, getEvents, deleteClient, deleteVenue, deleteOrganizer, Client, Venue, Organizer, Event, renameEventType, clearEventType } from '../lib/events';
+import { getClients, getVenues, getOrganizers, getEvents, getEventTypes, createEventType, updateEventType, deleteEventType, deleteClient, deleteVenue, deleteOrganizer, Client, Venue, Organizer, Event, EventTypeItem } from '../lib/events';
 import { getWorkItems, createWorkItem, updateWorkItem, deleteWorkItem, WorkItem } from '../lib/personnel';
 
 type Tab = 'clients' | 'venues' | 'organizers' | 'works' | 'events';
@@ -19,6 +19,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [eventTypes, setEventTypes] = useState<EventTypeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -33,18 +34,20 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   const loadData = async () => {
     try {
       setLoading(true);
-      const [clientsData, venuesData, organizersData, workItemsData, eventsData] = await Promise.all([
+      const [clientsData, venuesData, organizersData, workItemsData, eventsData, eventTypesData] = await Promise.all([
         getClients(),
         getVenues(),
         getOrganizers(),
         getWorkItems(),
-        getEvents()
+        getEvents(),
+        getEventTypes()
       ]);
       setClients(clientsData);
       setVenues(venuesData);
       setOrganizers(organizersData);
       setWorkItems(workItemsData);
       setEvents(eventsData);
+      setEventTypes(eventTypesData.length > 0 ? eventTypesData : await Promise.all(['Концерт','Свадьба','Семинар','Выставка','Встреча','Фестиваль','Дожинки'].map(name => createEventType(name).catch(() => null))).then(() => getEventTypes()));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -107,8 +110,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
     w.unit.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const eventTypes = [...new Set(events.map((e) => (e.event_type || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
-  const filteredEventTypes = eventTypes.filter((type) => type.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredEventTypes = eventTypes.filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleDeleteWorkItem = async (id: string) => {
     if (!confirm('Удалить эту работу?')) return;
@@ -121,12 +123,12 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
     }
   };
 
-  const handleRenameEventType = async (oldType: string) => {
-    const nextType = prompt('Новое название типа мероприятия', oldType);
+  const handleRenameEventType = async (eventType: EventTypeItem) => {
+    const nextType = prompt('Новое название типа мероприятия', eventType.name);
     if (nextType === null) return;
     if (!nextType.trim()) return alert('Название не может быть пустым');
     try {
-      await renameEventType(oldType, nextType.trim());
+      await updateEventType(eventType.id, nextType.trim());
       await loadData();
     } catch (error) {
       console.error('Error renaming event type:', error);
@@ -134,10 +136,10 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
     }
   };
 
-  const handleDeleteEventType = async (type: string) => {
-    if (!confirm(`Удалить тип мероприятия "${type}"?`)) return;
+  const handleDeleteEventType = async (eventType: EventTypeItem) => {
+    if (!confirm(`Удалить тип мероприятия "${eventType.name}"?`)) return;
     try {
-      await clearEventType(type);
+      await deleteEventType(eventType.id);
       await loadData();
     } catch (error) {
       console.error('Error deleting event type:', error);
@@ -257,7 +259,12 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
                 if (activeTab === 'venues') onVenueFormOpen?.();
                 if (activeTab === 'organizers') onOrganizerFormOpen?.();
                 if (activeTab === 'works') handleUpsertWorkItem();
-                if (activeTab === 'events') alert('Добавление нового типа: создайте событие с новым типом в форме мероприятия.');
+                if (activeTab === 'events') {
+                  const name = prompt('Название типа мероприятия', '');
+                  if (name && name.trim()) {
+                    createEventType(name.trim()).then(loadData).catch(() => alert('Ошибка при создании типа'));
+                  }
+                }
               }}
               className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
             >
@@ -475,9 +482,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
           {activeTab === 'events' && (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Тип мероприятия</th><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Используется в событиях</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
-                <tbody className="divide-y divide-gray-800">{filteredEventTypes.length === 0 ? <tr><td colSpan={3} className="px-3 py-8 text-center text-gray-500 text-sm">Типы мероприятий не найдены</td></tr> : filteredEventTypes.map((type) => (
-                  <tr key={type} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{type}</td><td className="px-3 py-2 text-gray-400 text-sm">{events.filter((event) => event.event_type === type).length}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => handleRenameEventType(type)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => handleDeleteEventType(type)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
+                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Тип мероприятия</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
+                <tbody className="divide-y divide-gray-800">{filteredEventTypes.length === 0 ? <tr><td colSpan={2} className="px-3 py-8 text-center text-gray-500 text-sm">Типы мероприятий не найдены</td></tr> : filteredEventTypes.map((type) => (
+                  <tr key={type.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{type.name}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => handleRenameEventType(type)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => handleDeleteEventType(type)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>
