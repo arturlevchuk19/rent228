@@ -9,6 +9,7 @@ import {
   getClients,
   getVenues,
   getOrganizers,
+  getEventTypes,
   getBudgetItems,
   Client,
   Venue,
@@ -101,6 +102,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
+  const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showBudgetEditor, setShowBudgetEditor] = useState(false);
@@ -136,14 +138,17 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [clientsData, venuesData, organizersData] = await Promise.all([
+      const [clientsData, venuesData, organizersData, eventTypesData] = await Promise.all([
         getClients(),
         getVenues(),
-        getOrganizers()
+        getOrganizers(),
+        getEventTypes()
       ]);
       setClients(clientsData);
       setVenues(venuesData);
       setOrganizers(organizersData);
+      const typesFromDb = eventTypesData.map((item) => item.name).filter(Boolean);
+      setEventTypes(typesFromDb.length > 0 ? typesFromDb : [...EVENT_TYPES]);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -339,7 +344,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                   onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                 >
-                  {EVENT_TYPES.map(type => (
+                  {eventTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>

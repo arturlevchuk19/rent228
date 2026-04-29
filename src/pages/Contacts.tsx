@@ -22,6 +22,14 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   const [eventTypes, setEventTypes] = useState<EventTypeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [workDialogOpen, setWorkDialogOpen] = useState(false);
+  const [eventTypeDialogOpen, setEventTypeDialogOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ kind: 'work' | 'eventType'; id: string; title: string } | null>(null);
+  const [editingWork, setEditingWork] = useState<WorkItem | null>(null);
+  const [editingEventType, setEditingEventType] = useState<EventTypeItem | null>(null);
+  const [workName, setWorkName] = useState('');
+  const [workUnit, setWorkUnit] = useState('шт');
+  const [eventTypeName, setEventTypeName] = useState('');
 
   useEffect(() => {
     loadData();
@@ -114,7 +122,6 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   const filteredEventTypes = eventTypes.filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleDeleteWorkItem = async (id: string) => {
-    if (!confirm('Удалить эту работу?')) return;
     try {
       await deleteWorkItem(id);
       await loadData();
@@ -125,11 +132,8 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   };
 
   const handleRenameEventType = async (eventType: EventTypeItem) => {
-    const nextType = prompt('Новое название типа мероприятия', eventType.name);
-    if (nextType === null) return;
-    if (!nextType.trim()) return alert('Название не может быть пустым');
     try {
-      await updateEventType(eventType.id, nextType.trim());
+      await updateEventType(eventType.id, eventTypeName.trim());
       await loadData();
     } catch (error) {
       console.error('Error renaming event type:', error);
@@ -138,7 +142,6 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   };
 
   const handleDeleteEventType = async (eventType: EventTypeItem) => {
-    if (!confirm(`Удалить тип мероприятия "${eventType.name}"?`)) return;
     try {
       await deleteEventType(eventType.id);
       await loadData();
@@ -149,14 +152,10 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   };
 
   const handleUpsertWorkItem = async (workItem?: WorkItem) => {
-    const name = prompt('Название работы', workItem?.name ?? '');
-    if (name === null) return;
-    if (!name.trim()) return alert('Название не может быть пустым');
-    const unit = prompt('Единица измерения', workItem?.unit ?? 'шт');
-    if (unit === null) return;
     try {
-      if (workItem) await updateWorkItem(workItem.id, { name: name.trim(), unit: unit.trim() || 'шт' });
-      else await createWorkItem({ name: name.trim(), unit: unit.trim() || 'шт' });
+      if (!workName.trim()) return alert('Название не может быть пустым');
+      if (workItem) await updateWorkItem(workItem.id, { name: workName.trim(), unit: workUnit.trim() || 'шт' });
+      else await createWorkItem({ name: workName.trim(), unit: workUnit.trim() || 'шт' });
       await loadData();
     } catch (error) {
       console.error('Error saving work item:', error);
@@ -259,12 +258,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
                 if (activeTab === 'clients') onClientFormOpen?.();
                 if (activeTab === 'venues') onVenueFormOpen?.();
                 if (activeTab === 'organizers') onOrganizerFormOpen?.();
-                if (activeTab === 'works') handleUpsertWorkItem();
+                if (activeTab === 'works') { setEditingWork(null); setWorkName(''); setWorkUnit('шт'); setWorkDialogOpen(true); }
                 if (activeTab === 'events') {
-                  const name = prompt('Название типа мероприятия', '');
-                  if (name && name.trim()) {
-                    createEventType(name.trim()).then(loadData).catch(() => alert('Ошибка при создании типа'));
-                  }
+                  setEditingEventType(null); setEventTypeName(''); setEventTypeDialogOpen(true);
                 }
               }}
               className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
@@ -474,7 +470,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
               <table className="w-full">
                 <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Название</th><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Единица</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
                 <tbody className="divide-y divide-gray-800">{filteredWorkItems.length === 0 ? <tr><td colSpan={3} className="px-3 py-8 text-center text-gray-500 text-sm">Работы не найдены</td></tr> : filteredWorkItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{item.name}</td><td className="px-3 py-2 text-gray-400 text-sm">{item.unit}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => handleUpsertWorkItem(item)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => handleDeleteWorkItem(item.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
+                  <tr key={item.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{item.name}</td><td className="px-3 py-2 text-gray-400 text-sm">{item.unit}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => { setEditingWork(item); setWorkName(item.name); setWorkUnit(item.unit); setWorkDialogOpen(true); }} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => setDeleteDialog({ kind: 'work', id: item.id, title: item.name })} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>
@@ -485,13 +481,16 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
               <table className="w-full">
                 <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Тип мероприятия</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
                 <tbody className="divide-y divide-gray-800">{filteredEventTypes.length === 0 ? <tr><td colSpan={2} className="px-3 py-8 text-center text-gray-500 text-sm">Типы мероприятий не найдены</td></tr> : filteredEventTypes.map((type) => (
-                  <tr key={type.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{type.name}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => handleRenameEventType(type)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => handleDeleteEventType(type)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
+                  <tr key={type.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{type.name}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => { setEditingEventType(type); setEventTypeName(type.name); setEventTypeDialogOpen(true); }} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => setDeleteDialog({ kind: 'eventType', id: type.id, title: type.name })} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>
           )}
         </div>
       </div>
+      {workDialogOpen && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">{editingWork ? 'Редактировать работу' : 'Новая работа'}</h3><input value={workName} onChange={(e)=>setWorkName(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Название" /><input value={workUnit} onChange={(e)=>setWorkUnit(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Ед. изм." /><div className="flex justify-end gap-2"><button onClick={()=>setWorkDialogOpen(false)} className="px-3 py-1.5 text-gray-300">Отмена</button><button onClick={async()=>{await handleUpsertWorkItem(editingWork||undefined); setWorkDialogOpen(false);}} className="px-3 py-1.5 bg-cyan-600 rounded text-white">Сохранить</button></div></div></div>}
+      {eventTypeDialogOpen && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">{editingEventType ? 'Редактировать тип мероприятия' : 'Новый тип мероприятия'}</h3><input value={eventTypeName} onChange={(e)=>setEventTypeName(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Название типа" /><div className="flex justify-end gap-2"><button onClick={()=>setEventTypeDialogOpen(false)} className="px-3 py-1.5 text-gray-300">Отмена</button><button onClick={async()=>{if(!eventTypeName.trim()) return; if(editingEventType) await updateEventType(editingEventType.id,eventTypeName.trim()); else await createEventType(eventTypeName.trim()); await loadData(); setEventTypeDialogOpen(false);}} className="px-3 py-1.5 bg-cyan-600 rounded text-white">Сохранить</button></div></div></div>}
+      {deleteDialog && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">Удаление</h3><p className="text-gray-300 text-sm">Удалить «{deleteDialog.title}»?</p><div className="flex justify-end gap-2"><button onClick={()=>setDeleteDialog(null)} className="px-3 py-1.5 text-gray-300">Отмена</button><button onClick={async()=>{if(deleteDialog.kind==='work') await handleDeleteWorkItem(deleteDialog.id); else {const t=eventTypes.find(x=>x.id===deleteDialog.id); if(t) await handleDeleteEventType(t);} setDeleteDialog(null);}} className="px-3 py-1.5 bg-red-600 rounded text-white">Удалить</button></div></div></div>}
     </div>
   );
 }
