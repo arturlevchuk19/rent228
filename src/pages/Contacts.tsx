@@ -34,7 +34,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   const loadData = async () => {
     try {
       setLoading(true);
-      const [clientsData, venuesData, organizersData, workItemsData, eventsData, eventTypesData] = await Promise.all([
+      const [clientsResult, venuesResult, organizersResult, workItemsResult, eventsResult, eventTypesResult] = await Promise.allSettled([
         getClients(),
         getVenues(),
         getOrganizers(),
@@ -42,12 +42,13 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
         getEvents(),
         getEventTypes()
       ]);
-      setClients(clientsData);
-      setVenues(venuesData);
-      setOrganizers(organizersData);
-      setWorkItems(workItemsData);
-      setEvents(eventsData);
-      setEventTypes(eventTypesData.length > 0 ? eventTypesData : await Promise.all(['Концерт','Свадьба','Семинар','Выставка','Встреча','Фестиваль','Дожинки'].map(name => createEventType(name).catch(() => null))).then(() => getEventTypes()));
+
+      setClients(clientsResult.status === 'fulfilled' ? clientsResult.value : []);
+      setVenues(venuesResult.status === 'fulfilled' ? venuesResult.value : []);
+      setOrganizers(organizersResult.status === 'fulfilled' ? organizersResult.value : []);
+      setWorkItems(workItemsResult.status === 'fulfilled' ? workItemsResult.value : []);
+      setEvents(eventsResult.status === 'fulfilled' ? eventsResult.value : []);
+      setEventTypes(eventTypesResult.status === 'fulfilled' ? eventTypesResult.value : []);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

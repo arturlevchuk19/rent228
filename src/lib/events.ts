@@ -153,7 +153,11 @@ export const EVENT_TYPES = [
 
 export async function getEventTypes(): Promise<EventTypeItem[]> {
   const { data, error } = await supabase.from('event_types').select('*').order('name');
-  if (error) throw error;
+  if (error) {
+    // Fallback for environments where migration has not been applied yet.
+    if ((error as any).code === '42P01') return [];
+    throw error;
+  }
   return data || [];
 }
 
