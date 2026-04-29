@@ -108,6 +108,10 @@ function AppContent() {
               setEditingOrganizer(organizer);
               setOrganizerFormOpen(true);
             }}
+            onEventFormOpen={(event) => {
+              setEditingEvent(event);
+              setEventFormOpen(true);
+            }}
           />
         );
       case 'logistics':
