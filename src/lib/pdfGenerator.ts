@@ -255,7 +255,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const itemPrefix = `${itemIdx + 1}. `;
         const name = item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
-        const displayName = `${itemPrefix}${notes ? `${name} ${notes}` : name}`;
+        const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
         const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
         const usdPriceDay1 = item.price || 0;
@@ -281,7 +281,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         return `
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <td style="padding: 6px 8px; font-size: 13px; color: #ffffff; width: 60%;">${displayName}</td>
+            <td style="padding: 6px 8px; font-size: 13px; color: #ffffff; width: 60%;">
+              <div style="display: flex; align-items: flex-start;">
+                <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
+                <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
+              </div>
+            </td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: center; color: #ffffff; width: 10%;">${qty} ${unit}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: right; color: #ffffff; width: 15%;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
             <td style="padding: 6px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #ffffff; width: 15%;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
