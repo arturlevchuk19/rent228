@@ -1202,7 +1202,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getCategoriesSumForPaymentMode = (mode: 'day1' | 'combined') => {
-    const groupedMainItems = budgetItems.reduce((acc, item) => {
+    const mainBudgetItemsOnly = budgetItems.filter((item) => !isExtraServiceCategory(item.category_id));
+
+    const groupedMainItems = mainBudgetItemsOnly.reduce((acc, item) => {
       const groupId = item.category_id
         ? buildCategoryGroupId(item.category_id, item.location_id)
         : item.location_id
