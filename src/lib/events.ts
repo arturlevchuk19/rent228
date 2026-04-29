@@ -139,7 +139,8 @@ export const EVENT_TYPES = [
   'Семинар',
   'Выставка',
   'Встреча',
-  'Фестиваль'
+  'Фестиваль',
+  'Дожинки'
 ] as const;
 
 export const EVENT_STATUSES = [
