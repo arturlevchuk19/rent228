@@ -90,6 +90,27 @@ export async function createWorkItem(workItem: Partial<WorkItem>): Promise<WorkI
   return data;
 }
 
+export async function updateWorkItem(id: string, workItem: Partial<WorkItem>): Promise<WorkItem> {
+  const { data, error } = await supabase
+    .from('work_items')
+    .update(workItem)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteWorkItem(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('work_items')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
 export async function assignPersonnelToBudgetItem(budgetItemId: string, personnelIds: string[]): Promise<void> {
   const { error: deleteError } = await supabase
     .from('budget_item_personnel')

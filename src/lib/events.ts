@@ -68,6 +68,14 @@ export interface Event {
   organizers?: Organizer;
 }
 
+export interface EventTypeItem {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Equipment {
   id: string;
   name: string;
@@ -142,6 +150,35 @@ export const EVENT_TYPES = [
   'Фестиваль',
   'Дожинки'
 ] as const;
+
+export async function getEventTypes(): Promise<EventTypeItem[]> {
+  const { data, error } = await supabase.from('event_types').select('*').order('name');
+  if (error) {
+    // Fallback for environments where migration has not been applied yet.
+    if ((error as any).code === '42P01') return [];
+    throw error;
+  }
+  return data || [];
+}
+
+export async function createEventType(name: string): Promise<EventTypeItem> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { data, error } = await supabase.from('event_types').insert({ user_id: user.id, name }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateEventType(id: string, name: string): Promise<EventTypeItem> {
+  const { data, error } = await supabase.from('event_types').update({ name }).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteEventType(id: string): Promise<void> {
+  const { error } = await supabase.from('event_types').delete().eq('id', id);
+  if (error) throw error;
+}
 
 export const EVENT_STATUSES = [
   'Запрос',
@@ -266,6 +303,24 @@ export async function deleteEvent(id: string): Promise<void> {
     .from('events')
     .delete()
     .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function renameEventType(oldType: string, newType: string): Promise<void> {
+  const { error } = await supabase
+    .from('events')
+    .update({ event_type: newType })
+    .eq('event_type', oldType);
+
+  if (error) throw error;
+}
+
+export async function clearEventType(type: string): Promise<void> {
+  const { error } = await supabase
+    .from('events')
+    .update({ event_type: '' })
+    .eq('event_type', type);
 
   if (error) throw error;
 }

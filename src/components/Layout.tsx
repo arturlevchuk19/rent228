@@ -48,7 +48,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     { id: 'templates', label: 'Шаблоны для сметы', icon: Package, minRole: 'admin' },
     { id: 'equipment', label: 'Оборудование', icon: Package, minRole: 'warehouse' },
     { id: 'events', label: 'Мероприятия', icon: Calendar, minRole: 'warehouse' },
-    { id: 'contacts', label: 'Контакты', icon: Users, minRole: 'admin' },
+    { id: 'contacts', label: 'Справочники', icon: Users, minRole: 'admin' },
     { id: 'logistics', label: 'Логистика', icon: Truck, minRole: 'clerk' },
     { id: 'payments', label: 'Выплаты', icon: DollarSign, minRole: 'admin' },
     { id: 'personnel-report', label: 'Отчет по выплатам', icon: FileText, minRole: 'admin' },
