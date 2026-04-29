@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Building2, CircleUser as UserCircle, Plus, Pencil, Trash2, Search, Briefcase, Calendar } from 'lucide-react';
-import { getClients, getVenues, getOrganizers, getEvents, deleteClient, deleteVenue, deleteOrganizer, deleteEvent, Client, Venue, Organizer, Event } from '../lib/events';
+import { getClients, getVenues, getOrganizers, getEvents, deleteClient, deleteVenue, deleteOrganizer, Client, Venue, Organizer, Event, renameEventType, clearEventType } from '../lib/events';
 import { getWorkItems, createWorkItem, updateWorkItem, deleteWorkItem, WorkItem } from '../lib/personnel';
 
 type Tab = 'clients' | 'venues' | 'organizers' | 'works' | 'events';
@@ -9,11 +9,10 @@ interface ContactsProps {
   onClientFormOpen?: (client?: Client) => void;
   onVenueFormOpen?: (venue?: Venue) => void;
   onOrganizerFormOpen?: (organizer?: Organizer) => void;
-  onEventFormOpen?: (event?: Event) => void;
   refreshSignal?: number;
 }
 
-export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpen, onEventFormOpen, refreshSignal }: ContactsProps) {
+export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpen, refreshSignal }: ContactsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('clients');
   const [clients, setClients] = useState<Client[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -108,11 +107,8 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
     w.unit.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredEvents = events.filter(e =>
-    (e.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (e.event_type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (e.status || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const eventTypes = [...new Set(events.map((e) => (e.event_type || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+  const filteredEventTypes = eventTypes.filter((type) => type.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleDeleteWorkItem = async (id: string) => {
     if (!confirm('Удалить эту работу?')) return;
@@ -125,13 +121,26 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
     }
   };
 
-  const handleDeleteEvent = async (id: string) => {
-    if (!confirm('Удалить это событие?')) return;
+  const handleRenameEventType = async (oldType: string) => {
+    const nextType = prompt('Новое название типа мероприятия', oldType);
+    if (nextType === null) return;
+    if (!nextType.trim()) return alert('Название не может быть пустым');
     try {
-      await deleteEvent(id);
+      await renameEventType(oldType, nextType.trim());
       await loadData();
     } catch (error) {
-      console.error('Error deleting event:', error);
+      console.error('Error renaming event type:', error);
+      alert('Ошибка при редактировании');
+    }
+  };
+
+  const handleDeleteEventType = async (type: string) => {
+    if (!confirm(`Удалить тип мероприятия "${type}"?`)) return;
+    try {
+      await clearEventType(type);
+      await loadData();
+    } catch (error) {
+      console.error('Error deleting event type:', error);
       alert('Ошибка при удалении');
     }
   };
@@ -225,7 +234,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
               }`}
             >
               <Calendar className="w-4 h-4" />
-              События ({events.length})
+              События ({eventTypes.length})
             </button>
           </nav>
         </div>
@@ -248,7 +257,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
                 if (activeTab === 'venues') onVenueFormOpen?.();
                 if (activeTab === 'organizers') onOrganizerFormOpen?.();
                 if (activeTab === 'works') handleUpsertWorkItem();
-                if (activeTab === 'events') onEventFormOpen?.();
+                if (activeTab === 'events') alert('Добавление нового типа: создайте событие с новым типом в форме мероприятия.');
               }}
               className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
             >
@@ -466,9 +475,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
           {activeTab === 'events' && (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Дата</th><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Название</th><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Тип</th><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Статус</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
-                <tbody className="divide-y divide-gray-800">{filteredEvents.length === 0 ? <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-500 text-sm">События не найдены</td></tr> : filteredEvents.map((event) => (
-                  <tr key={event.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-gray-400 text-sm">{event.event_date || '-'}</td><td className="px-3 py-2 text-white text-sm">{event.name || 'Без названия'}</td><td className="px-3 py-2 text-gray-400 text-sm">{event.event_type || '-'}</td><td className="px-3 py-2 text-gray-400 text-sm">{event.status || '-'}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => onEventFormOpen?.(event)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => handleDeleteEvent(event.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
+                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Тип мероприятия</th><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Используется в событиях</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
+                <tbody className="divide-y divide-gray-800">{filteredEventTypes.length === 0 ? <tr><td colSpan={3} className="px-3 py-8 text-center text-gray-500 text-sm">Типы мероприятий не найдены</td></tr> : filteredEventTypes.map((type) => (
+                  <tr key={type} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{type}</td><td className="px-3 py-2 text-gray-400 text-sm">{events.filter((event) => event.event_type === type).length}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button onClick={() => handleRenameEventType(type)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button onClick={() => handleDeleteEventType(type)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>

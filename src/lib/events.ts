@@ -270,6 +270,24 @@ export async function deleteEvent(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function renameEventType(oldType: string, newType: string): Promise<void> {
+  const { error } = await supabase
+    .from('events')
+    .update({ event_type: newType })
+    .eq('event_type', oldType);
+
+  if (error) throw error;
+}
+
+export async function clearEventType(type: string): Promise<void> {
+  const { error } = await supabase
+    .from('events')
+    .update({ event_type: '' })
+    .eq('event_type', type);
+
+  if (error) throw error;
+}
+
 export async function getVenues(): Promise<Venue[]> {
   const { data, error } = await supabase
     .from('venues')
