@@ -283,7 +283,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
             <td style="padding: 6px 8px; font-size: 13px; color: #ffffff; width: 60%;">
               <div style="display: flex; align-items: flex-start;">
-                <span style="display: inline-block; min-width: 2.8em; flex-shrink: 0;">${itemPrefix}</span>
+                <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
                 <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
               </div>
             </td>
