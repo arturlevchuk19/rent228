@@ -1143,11 +1143,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getDiscountTotalsBaseForPaymentMode = () => {
     switch (paymentMode) {
       case 'byn_cash':
-        return { nonWork: discountEligibleTotalBYNCashCombined, work: workTotalBYNCashCombined };
+        return {
+          discountable: discountEligibleTotalBYNCashCombined,
+          fixed: (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined
+        };
       case 'byn_noncash':
-        return { nonWork: discountEligibleTotalBYNNonCashCombined, work: workTotalBYNNonCashCombined };
+        return {
+          discountable: discountEligibleTotalBYNNonCashCombined,
+          fixed: (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined
+        };
       default:
-        return { nonWork: discountEligibleTotalsUSD.combinedTotal, work: workTotalsUSD.combinedTotal };
+        return {
+          discountable: discountEligibleTotalsUSD.combinedTotal,
+          fixed: (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal
+        };
     }
   };
 
@@ -1168,8 +1177,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return;
     }
 
-    const { nonWork, work } = getDiscountTotalsBaseForPaymentMode();
-    if (nonWork <= 0) {
+    const { discountable, fixed } = getDiscountTotalsBaseForPaymentMode();
+    if (discountable <= 0) {
       setDiscountPercent(0);
       setDiscountPercentInput('0');
       const recalculatedTotal = getDiscountedTotal();
@@ -1177,7 +1186,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return;
     }
 
-    const nextPercent = (1 - (parsedValue - work) / nonWork) * 100;
+    const nextPercent = (1 - (parsedValue - fixed) / discountable) * 100;
     const clampedPercent = Math.min(100, Math.max(0, nextPercent));
     setDiscountPercent(clampedPercent);
     setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
