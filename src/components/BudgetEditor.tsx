@@ -1067,6 +1067,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const mainBudgetItems = budgetItems;
   const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');
   const workItems2 = mainBudgetItems.filter(item => item.item_type === 'work');
+  const isConsumablesEquipmentItem = (item: BudgetItem) =>
+    item.item_type === 'equipment' && item.equipment?.category?.trim().toLowerCase() === 'расходные материалы';
+  const discountEligibleNonWorkItems = nonWorkItems.filter(item => !isConsumablesEquipmentItem(item));
   const mainTotalsUSD = calcGrandTotals(mainBudgetItems, budgetDays, budgetTotalsMode);
   const nonWorkTotalsUSD = calcGrandTotals(nonWorkItems, budgetDays, budgetTotalsMode);
   const workTotalsUSD = calcGrandTotals(workItems2, budgetDays, budgetTotalsMode);
@@ -1115,14 +1118,24 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
 
+  const discountEligibleTotalsUSD = calcGrandTotals(discountEligibleNonWorkItems, budgetDays, budgetTotalsMode);
+  const discountEligibleTotalBYNCashCombined = discountEligibleNonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+  }, 0);
+  const discountEligibleTotalBYNNonCashCombined = discountEligibleNonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+  }, 0);
+
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
     const multiplier = 1 - discountPercent / 100;
     let raw: number;
     switch (paymentMode) {
-      case 'byn_cash': raw = nonWorkTotalBYNCashCombined * multiplier + workTotalBYNCashCombined; break;
-      case 'byn_noncash': raw = nonWorkTotalBYNNonCashCombined * multiplier + workTotalBYNNonCashCombined; break;
-      default: raw = nonWorkTotalsUSD.combinedTotal * multiplier + workTotalsUSD.combinedTotal; break;
+      case 'byn_cash': raw = discountEligibleTotalBYNCashCombined * multiplier + (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined; break;
+      case 'byn_noncash': raw = discountEligibleTotalBYNNonCashCombined * multiplier + (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined; break;
+      default: raw = discountEligibleTotalsUSD.combinedTotal * multiplier + (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal; break;
     }
     return normalizeGrandTotalForPaymentMode(raw);
   };
@@ -1130,11 +1143,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getDiscountTotalsBaseForPaymentMode = () => {
     switch (paymentMode) {
       case 'byn_cash':
-        return { nonWork: nonWorkTotalBYNCashCombined, work: workTotalBYNCashCombined };
+        return { nonWork: discountEligibleTotalBYNCashCombined, work: workTotalBYNCashCombined };
       case 'byn_noncash':
-        return { nonWork: nonWorkTotalBYNNonCashCombined, work: workTotalBYNNonCashCombined };
+        return { nonWork: discountEligibleTotalBYNNonCashCombined, work: workTotalBYNNonCashCombined };
       default:
-        return { nonWork: nonWorkTotalsUSD.combinedTotal, work: workTotalsUSD.combinedTotal };
+        return { nonWork: discountEligibleTotalsUSD.combinedTotal, work: workTotalsUSD.combinedTotal };
     }
   };
 
