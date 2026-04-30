@@ -757,6 +757,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setGeneratingPDF(true);
       const event = await getEvent(eventId);
 
+      const parsedDiscountedTotalInput = parseFloat(discountedTotalInput.replace(',', '.'));
+      const hasManualDiscountedTotal = discountEnabled && discountedTotalInput.trim() !== '' && !isNaN(parsedDiscountedTotalInput);
+      const exportDiscountPercent = hasManualDiscountedTotal
+        ? calculateDiscountPercentFromTotal(parsedDiscountedTotalInput)
+        : discountPercent;
+      const exportDiscountedTotal = hasManualDiscountedTotal
+        ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
+        : getDiscountedTotal();
+
       await generateBudgetPDF({
         eventName: event.name || event.event_type,
         eventDate: event.event_date,
@@ -771,11 +780,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         exchangeRate: exchangeRate,
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
-        discountPercent: discountPercent,
+        discountPercent: exportDiscountPercent,
         budgetDays,
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
-        totalCombinedFromEditor: getCombinedTotalForPaymentMode()
+        totalCombinedFromEditor: getCombinedTotalForPaymentMode(),
+        discountedTotalFromEditor: exportDiscountedTotal ?? undefined
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1067,6 +1077,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const mainBudgetItems = budgetItems;
   const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');
   const workItems2 = mainBudgetItems.filter(item => item.item_type === 'work');
+  const isConsumablesEquipmentItem = (item: BudgetItem) =>
+    item.item_type === 'equipment' && item.equipment?.category?.trim().toLowerCase() === 'расходные материалы';
+  const discountEligibleNonWorkItems = nonWorkItems.filter(item => !isConsumablesEquipmentItem(item));
   const mainTotalsUSD = calcGrandTotals(mainBudgetItems, budgetDays, budgetTotalsMode);
   const nonWorkTotalsUSD = calcGrandTotals(nonWorkItems, budgetDays, budgetTotalsMode);
   const workTotalsUSD = calcGrandTotals(workItems2, budgetDays, budgetTotalsMode);
@@ -1115,14 +1128,24 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
 
+  const discountEligibleTotalsUSD = calcGrandTotals(discountEligibleNonWorkItems, budgetDays, budgetTotalsMode);
+  const discountEligibleTotalBYNCashCombined = discountEligibleNonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+  }, 0);
+  const discountEligibleTotalBYNNonCashCombined = discountEligibleNonWorkItems.reduce((sum, item) => {
+    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+  }, 0);
+
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
     const multiplier = 1 - discountPercent / 100;
     let raw: number;
     switch (paymentMode) {
-      case 'byn_cash': raw = nonWorkTotalBYNCashCombined * multiplier + workTotalBYNCashCombined; break;
-      case 'byn_noncash': raw = nonWorkTotalBYNNonCashCombined * multiplier + workTotalBYNNonCashCombined; break;
-      default: raw = nonWorkTotalsUSD.combinedTotal * multiplier + workTotalsUSD.combinedTotal; break;
+      case 'byn_cash': raw = discountEligibleTotalBYNCashCombined * multiplier + (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined; break;
+      case 'byn_noncash': raw = discountEligibleTotalBYNNonCashCombined * multiplier + (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined; break;
+      default: raw = discountEligibleTotalsUSD.combinedTotal * multiplier + (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal; break;
     }
     return normalizeGrandTotalForPaymentMode(raw);
   };
@@ -1130,12 +1153,31 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getDiscountTotalsBaseForPaymentMode = () => {
     switch (paymentMode) {
       case 'byn_cash':
-        return { nonWork: nonWorkTotalBYNCashCombined, work: workTotalBYNCashCombined };
+        return {
+          discountable: discountEligibleTotalBYNCashCombined,
+          fixed: (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined
+        };
       case 'byn_noncash':
-        return { nonWork: nonWorkTotalBYNNonCashCombined, work: workTotalBYNNonCashCombined };
+        return {
+          discountable: discountEligibleTotalBYNNonCashCombined,
+          fixed: (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined
+        };
       default:
-        return { nonWork: nonWorkTotalsUSD.combinedTotal, work: workTotalsUSD.combinedTotal };
+        return {
+          discountable: discountEligibleTotalsUSD.combinedTotal,
+          fixed: (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal
+        };
     }
+  };
+
+
+  const calculateDiscountPercentFromTotal = (targetTotal: number) => {
+    const { discountable, fixed } = getDiscountTotalsBaseForPaymentMode();
+    if (discountable <= 0) {
+      return 0;
+    }
+    const nextPercent = (1 - (targetTotal - fixed) / discountable) * 100;
+    return Math.min(100, Math.max(0, nextPercent));
   };
 
   useEffect(() => {
@@ -1155,17 +1197,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return;
     }
 
-    const { nonWork, work } = getDiscountTotalsBaseForPaymentMode();
-    if (nonWork <= 0) {
-      setDiscountPercent(0);
-      setDiscountPercentInput('0');
-      const recalculatedTotal = getDiscountedTotal();
-      setDiscountedTotalInput(recalculatedTotal !== null ? String(recalculatedTotal) : '');
-      return;
-    }
-
-    const nextPercent = (1 - (parsedValue - work) / nonWork) * 100;
-    const clampedPercent = Math.min(100, Math.max(0, nextPercent));
+    const clampedPercent = calculateDiscountPercentFromTotal(parsedValue);
     setDiscountPercent(clampedPercent);
     setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
   };
