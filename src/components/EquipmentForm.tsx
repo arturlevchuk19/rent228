@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import {
+  addEquipmentCategory,
   addEquipmentSubtype,
   addEquipmentType,
   createEquipmentItem,
@@ -9,6 +10,47 @@ import {
   EQUIPMENT_UNITS
 } from '../lib/equipment';
 import { AddEquipmentDirectoryItemDialog } from './dialogs/AddEquipmentDirectoryItemDialog';
+
+function DirectorySelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  required = false
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder: string;
+  required?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="w-full text-left px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+      >
+        {value || <span className="text-gray-400">{placeholder}</span>}
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-56 overflow-y-auto">
+          {!required && (
+            <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-gray-300 hover:bg-gray-700">
+              Не выбрано
+            </button>
+          )}
+          {options.map((option) => (
+            <button key={option} type="button" onClick={() => { onChange(option); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-white hover:bg-gray-700">
+              {option}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface EquipmentFormProps {
   item: EquipmentItem | null;
@@ -23,6 +65,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
   const [loading, setLoading] = useState(false);
   const [showTypeDialog, setShowTypeDialog] = useState(false);
   const [showSubtypeDialog, setShowSubtypeDialog] = useState(false);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     category: item?.category || '',
@@ -46,6 +89,10 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!formData.category.trim() || !formData.type.trim()) {
+      setError('Заполните обязательные поля: Категория и Тип');
+      return;
+    }
     setLoading(true);
 
     const submitData = {
@@ -146,18 +193,20 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Категория *
                 </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                  required
-                >
-                  <option value="">Выберите категорию</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <DirectorySelect
+                      value={formData.category}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+                      options={categories}
+                      placeholder="Выберите категорию"
+                      required
+                    />
+                  </div>
+                  <button type="button" onClick={() => setShowCategoryDialog(true)} className="text-cyan-400 hover:text-cyan-300">
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -165,19 +214,16 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
                   Тип *
                 </label>
                 <div className="flex gap-2">
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                    required
-                  >
-                    <option value="">Выберите тип</option>
-                    {types.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={() => setShowTypeDialog(true)} className="px-3 bg-gray-800 border border-gray-700 rounded-lg text-cyan-400 hover:text-cyan-300">
+                  <div className="flex-1">
+                    <DirectorySelect
+                      value={formData.type}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
+                      options={types}
+                      placeholder="Выберите тип"
+                      required
+                    />
+                  </div>
+                  <button type="button" onClick={() => setShowTypeDialog(true)} className="text-cyan-400 hover:text-cyan-300">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
@@ -188,18 +234,15 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
                   Подтип
                 </label>
                 <div className="flex gap-2">
-                  <select
-                    name="subtype"
-                    value={formData.subtype}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                  >
-                    <option value="">Не выбрано</option>
-                    {subtypes.map((subtype) => (
-                      <option key={subtype} value={subtype}>{subtype}</option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={() => setShowSubtypeDialog(true)} className="px-3 bg-gray-800 border border-gray-700 rounded-lg text-cyan-400 hover:text-cyan-300">
+                  <div className="flex-1">
+                    <DirectorySelect
+                      value={formData.subtype}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, subtype: value }))}
+                      options={subtypes}
+                      placeholder="Не выбрано"
+                    />
+                  </div>
+                  <button type="button" onClick={() => setShowSubtypeDialog(true)} className="text-cyan-400 hover:text-cyan-300">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
@@ -574,6 +617,18 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
           </div>
         </form>
       </div>
+      <AddEquipmentDirectoryItemDialog
+        isOpen={showCategoryDialog}
+        title="Добавить категорию оборудования"
+        inputLabel="Категория *"
+        existingItems={categories}
+        onClose={() => setShowCategoryDialog(false)}
+        onConfirm={async (name) => {
+          await addEquipmentCategory(name);
+          await onDirectoriesChanged();
+          setFormData((prev) => ({ ...prev, category: name }));
+        }}
+      />
       <AddEquipmentDirectoryItemDialog
         isOpen={showTypeDialog}
         title="Добавить тип оборудования"

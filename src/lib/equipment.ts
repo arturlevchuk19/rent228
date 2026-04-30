@@ -27,13 +27,14 @@ export interface EquipmentItem {
 
 export async function getEquipmentCategories(): Promise<string[]> {
   const { data, error } = await supabase
-    .from('equipment_items')
-    .select('category')
-    .order('category');
+    .from('categories')
+    .select('name')
+    .is('event_id', null)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
 
   if (error) throw error;
-  const categories = [...new Set(data?.map(item => item.category).filter(Boolean))];
-  return categories as string[];
+  return (data ?? []).map((item) => item.name).filter(Boolean);
 }
 
 async function getEquipmentDirectoryValues(table: 'equipment_types' | 'equipment_subtypes'): Promise<string[]> {
@@ -76,6 +77,39 @@ export async function addEquipmentType(name: string): Promise<void> {
 
 export async function addEquipmentSubtype(name: string): Promise<void> {
   await addEquipmentDirectoryValue('equipment_subtypes', name);
+}
+
+export async function addEquipmentCategory(name: string): Promise<void> {
+  const normalized = name.trim();
+  if (!normalized) {
+    throw new Error('Название не может быть пустым');
+  }
+
+  const { data: existing } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('name', normalized)
+    .is('event_id', null)
+    .limit(1);
+
+  if (existing && existing.length > 0) return;
+
+  const { data: lastCategory } = await supabase
+    .from('categories')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from('categories')
+    .insert({
+      name: normalized,
+      description: '',
+      sort_order: (lastCategory?.sort_order || 0) + 1
+    });
+
+  if (error) throw error;
 }
 
 export async function getEquipmentItems(): Promise<EquipmentItem[]> {
