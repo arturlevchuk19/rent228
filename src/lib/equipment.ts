@@ -36,6 +36,48 @@ export async function getEquipmentCategories(): Promise<string[]> {
   return categories as string[];
 }
 
+async function getEquipmentDirectoryValues(table: 'equipment_types' | 'equipment_subtypes'): Promise<string[]> {
+  const { data, error } = await supabase
+    .from(table)
+    .select('name')
+    .order('name');
+
+  if (error) throw error;
+  return (data ?? []).map((item) => item.name).filter(Boolean);
+}
+
+export async function getEquipmentTypes(): Promise<string[]> {
+  return getEquipmentDirectoryValues('equipment_types');
+}
+
+export async function getEquipmentSubtypes(): Promise<string[]> {
+  return getEquipmentDirectoryValues('equipment_subtypes');
+}
+
+async function addEquipmentDirectoryValue(
+  table: 'equipment_types' | 'equipment_subtypes',
+  name: string
+): Promise<void> {
+  const normalized = name.trim();
+  if (!normalized) {
+    throw new Error('Название не может быть пустым');
+  }
+
+  const { error } = await supabase
+    .from(table)
+    .insert({ name: normalized });
+
+  if (error) throw error;
+}
+
+export async function addEquipmentType(name: string): Promise<void> {
+  await addEquipmentDirectoryValue('equipment_types', name);
+}
+
+export async function addEquipmentSubtype(name: string): Promise<void> {
+  await addEquipmentDirectoryValue('equipment_subtypes', name);
+}
+
 export async function getEquipmentItems(): Promise<EquipmentItem[]> {
   const { data, error} = await supabase
     .from('equipment_items')

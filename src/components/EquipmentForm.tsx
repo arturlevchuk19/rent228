@@ -1,15 +1,28 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
-import { createEquipmentItem, updateEquipmentItem, EquipmentItem, EQUIPMENT_UNITS } from '../lib/equipment';
+import { Plus, X } from 'lucide-react';
+import {
+  addEquipmentSubtype,
+  addEquipmentType,
+  createEquipmentItem,
+  updateEquipmentItem,
+  EquipmentItem,
+  EQUIPMENT_UNITS
+} from '../lib/equipment';
+import { AddEquipmentDirectoryItemDialog } from './dialogs/AddEquipmentDirectoryItemDialog';
 
 interface EquipmentFormProps {
   item: EquipmentItem | null;
   categories: string[];
+  types: string[];
+  subtypes: string[];
+  onDirectoriesChanged: () => Promise<void>;
   onClose: () => void;
 }
 
-export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps) {
+export function EquipmentForm({ item, categories, types, subtypes, onDirectoriesChanged, onClose }: EquipmentFormProps) {
   const [loading, setLoading] = useState(false);
+  const [showTypeDialog, setShowTypeDialog] = useState(false);
+  const [showSubtypeDialog, setShowSubtypeDialog] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     category: item?.category || '',
@@ -151,29 +164,45 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Тип *
                 </label>
-                <input
-                  type="text"
-                  name="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  placeholder="Оборудование, Крепление, Стойка..."
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                  required
-                />
+                <div className="flex gap-2">
+                  <select
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                    required
+                  >
+                    <option value="">Выберите тип</option>
+                    {types.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setShowTypeDialog(true)} className="px-3 bg-gray-800 border border-gray-700 rounded-lg text-cyan-400 hover:text-cyan-300">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   Подтип
                 </label>
-                <input
-                  type="text"
-                  name="subtype"
-                  value={formData.subtype}
-                  onChange={handleChange}
-                  placeholder="Микрофон, Колонка, Рама..."
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                />
+                <div className="flex gap-2">
+                  <select
+                    name="subtype"
+                    value={formData.subtype}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="">Не выбрано</option>
+                    {subtypes.map((subtype) => (
+                      <option key={subtype} value={subtype}>{subtype}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setShowSubtypeDialog(true)} className="px-3 bg-gray-800 border border-gray-700 rounded-lg text-cyan-400 hover:text-cyan-300">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -545,6 +574,30 @@ export function EquipmentForm({ item, categories, onClose }: EquipmentFormProps)
           </div>
         </form>
       </div>
+      <AddEquipmentDirectoryItemDialog
+        isOpen={showTypeDialog}
+        title="Добавить тип оборудования"
+        inputLabel="Тип *"
+        existingItems={types}
+        onClose={() => setShowTypeDialog(false)}
+        onConfirm={async (name) => {
+          await addEquipmentType(name);
+          await onDirectoriesChanged();
+          setFormData((prev) => ({ ...prev, type: name }));
+        }}
+      />
+      <AddEquipmentDirectoryItemDialog
+        isOpen={showSubtypeDialog}
+        title="Добавить подтип оборудования"
+        inputLabel="Подтип *"
+        existingItems={subtypes}
+        onClose={() => setShowSubtypeDialog(false)}
+        onConfirm={async (name) => {
+          await addEquipmentSubtype(name);
+          await onDirectoriesChanged();
+          setFormData((prev) => ({ ...prev, subtype: name }));
+        }}
+      />
     </div>
   );
 }

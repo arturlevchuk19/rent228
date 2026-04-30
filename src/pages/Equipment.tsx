@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Package, Plus, Pencil, Trash2, Search, Filter, Upload, Eye } from 'lucide-react';
-import { getEquipmentItems, getEquipmentCategories, deleteEquipmentItem, importEquipmentFromCSV, importWorkItemsFromCSV, EquipmentItem } from '../lib/equipment';
+import {
+  getEquipmentItems,
+  getEquipmentCategories,
+  getEquipmentSubtypes,
+  getEquipmentTypes,
+  deleteEquipmentItem,
+  importEquipmentFromCSV,
+  importWorkItemsFromCSV,
+  EquipmentItem
+} from '../lib/equipment';
 import { EquipmentForm } from '../components/EquipmentForm';
 import { EquipmentDetails } from '../components/EquipmentDetails';
 
@@ -8,6 +17,8 @@ export function Equipment() {
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [typesDirectory, setTypesDirectory] = useState<string[]>([]);
+  const [subtypesDirectory, setSubtypesDirectory] = useState<string[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<EquipmentItem | null>(null);
   const [viewingItem, setViewingItem] = useState<EquipmentItem | null>(null);
@@ -23,12 +34,16 @@ export function Equipment() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [itemsData, categoriesData] = await Promise.all([
+      const [itemsData, categoriesData, typesData, subtypesData] = await Promise.all([
         getEquipmentItems(),
-        getEquipmentCategories()
+        getEquipmentCategories(),
+        getEquipmentTypes(),
+        getEquipmentSubtypes()
       ]);
       setItems(itemsData);
       setCategories(categoriesData);
+      setTypesDirectory(typesData);
+      setSubtypesDirectory(subtypesData);
     } catch (error) {
       console.error('Error loading equipment:', error);
     } finally {
@@ -332,11 +347,14 @@ export function Equipment() {
       </div>
 
       {showForm && (
-        <EquipmentForm
-          item={editingItem}
-          categories={categories}
-          onClose={handleFormClose}
-        />
+            <EquipmentForm
+              item={editingItem}
+              categories={categories}
+              types={typesDirectory}
+              subtypes={subtypesDirectory}
+              onDirectoriesChanged={loadData}
+              onClose={handleFormClose}
+            />
       )}
 
       {viewingItem && (
