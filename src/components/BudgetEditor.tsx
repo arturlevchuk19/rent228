@@ -757,6 +757,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setGeneratingPDF(true);
       const event = await getEvent(eventId);
 
+      const parsedDiscountedTotalInput = parseFloat(discountedTotalInput.replace(',', '.'));
+      const hasManualDiscountedTotal = discountEnabled && discountedTotalInput.trim() !== '' && !isNaN(parsedDiscountedTotalInput);
+      const exportDiscountPercent = hasManualDiscountedTotal
+        ? calculateDiscountPercentFromTotal(parsedDiscountedTotalInput)
+        : discountPercent;
+      const exportDiscountedTotal = hasManualDiscountedTotal
+        ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
+        : getDiscountedTotal();
+
       await generateBudgetPDF({
         eventName: event.name || event.event_type,
         eventDate: event.event_date,
@@ -771,11 +780,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         exchangeRate: exchangeRate,
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
-        discountPercent: discountPercent,
+        discountPercent: exportDiscountPercent,
         budgetDays,
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
-        totalCombinedFromEditor: getCombinedTotalForPaymentMode()
+        totalCombinedFromEditor: getCombinedTotalForPaymentMode(),
+        discountedTotalFromEditor: exportDiscountedTotal ?? undefined
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1160,6 +1170,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
+
+  const calculateDiscountPercentFromTotal = (targetTotal: number) => {
+    const { discountable, fixed } = getDiscountTotalsBaseForPaymentMode();
+    if (discountable <= 0) {
+      return 0;
+    }
+    const nextPercent = (1 - (targetTotal - fixed) / discountable) * 100;
+    return Math.min(100, Math.max(0, nextPercent));
+  };
+
   useEffect(() => {
     const discountedTotal = getDiscountedTotal();
     if (discountedTotal === null) {
@@ -1177,17 +1197,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return;
     }
 
-    const { discountable, fixed } = getDiscountTotalsBaseForPaymentMode();
-    if (discountable <= 0) {
-      setDiscountPercent(0);
-      setDiscountPercentInput('0');
-      const recalculatedTotal = getDiscountedTotal();
-      setDiscountedTotalInput(recalculatedTotal !== null ? String(recalculatedTotal) : '');
-      return;
-    }
-
-    const nextPercent = (1 - (parsedValue - fixed) / discountable) * 100;
-    const clampedPercent = Math.min(100, Math.max(0, nextPercent));
+    const clampedPercent = calculateDiscountPercentFromTotal(parsedValue);
     setDiscountPercent(clampedPercent);
     setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
   };
