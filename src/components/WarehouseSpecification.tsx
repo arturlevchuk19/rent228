@@ -141,6 +141,20 @@ const parseConnectorScopedType = (connectorType: string) => {
   };
 };
 
+const getConnectorCategory = (connector: ConnectorItem) => (
+  parseConnectorScopedType(connector.connector_type).category ?? connector.connector_type
+);
+
+const getConnectorItem = (connector: ConnectorItem) => (
+  connector.connector_item || parseConnectorScopedType(connector.connector_type).itemType
+);
+
+const isConnectorMatch = (connector: ConnectorItem, category: string, itemType: string) => {
+  const connectorCategory = getConnectorCategory(connector);
+  const connectorItem = getConnectorItem(connector);
+  return connectorCategory === category && connectorItem === itemType;
+};
+
 const DUPLICATE_CONNECTOR_ITEMS = new Set(
   CONNECTOR_TEMPLATES
     .flatMap(template => template.items)
@@ -919,13 +933,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleConnectorGroupPickedChange = async (connectorType: string, picked: boolean) => {
-    const sameTypeConnectors = connectors.filter(c => c.connector_type === connectorType);
+  const handleConnectorGroupPickedChange = async (category: string, itemType: string, picked: boolean) => {
+    const sameTypeConnectors = connectors.filter(c => isConnectorMatch(c, category, itemType));
     if (sameTypeConnectors.length === 0) return;
 
     try {
       await Promise.all(sameTypeConnectors.map(connector => updateConnector(connector.id, { picked })));
-      setConnectors(prev => prev.map(c => c.connector_type === connectorType ? { ...c, picked } : c));
+      setConnectors(prev => prev.map(c => isConnectorMatch(c, category, itemType) ? { ...c, picked } : c));
     } catch (error) {
       console.error('Error updating grouped connector picked status:', error);
       showNotification('Ошибка при обновлении статуса');
@@ -1035,13 +1049,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleConnectorGroupReturnPickedChange = async (connectorType: string, return_picked: boolean) => {
-    const sameTypeConnectors = connectors.filter(c => c.connector_type === connectorType);
+  const handleConnectorGroupReturnPickedChange = async (category: string, itemType: string, return_picked: boolean) => {
+    const sameTypeConnectors = connectors.filter(c => isConnectorMatch(c, category, itemType));
     if (sameTypeConnectors.length === 0) return;
 
     try {
       await Promise.all(sameTypeConnectors.map(connector => updateConnectorReturnPicked(connector.id, return_picked)));
-      setConnectors(prev => prev.map(c => c.connector_type === connectorType ? { ...c, return_picked } : c));
+      setConnectors(prev => prev.map(c => isConnectorMatch(c, category, itemType) ? { ...c, return_picked } : c));
     } catch (error) {
       console.error('Error updating grouped connector return picked:', error);
       showNotification('Ошибка при обновлении статуса');
@@ -1648,17 +1662,19 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleSetConnectorQuantityFromTemplate = async (connectorType: string, newQuantity: number) => {
+  const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, newQuantity: number) => {
     try {
       const normalizedQuantity = Math.max(0, newQuantity);
-      const existingConnector = connectors.find(c => c.connector_type === connectorType);
+      const connectorType = buildConnectorScopedType(category, itemType);
+      const existingConnector = connectors.find(c => isConnectorMatch(c, category, itemType));
 
       if (!existingConnector && normalizedQuantity === 0) return;
 
       if (!existingConnector) {
         const newConnector = await createConnector({
           event_id: eventId,
-          connector_type: connectorType,
+          connector_type: category,
+          connector_item: itemType,
           quantity: normalizedQuantity,
           notes: '',
           picked: false
@@ -2357,6 +2373,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                             {template.items.map((itemType) => {
                               const connectorTypeKey = buildConnectorScopedType(template.category, itemType);
                               const connectorEntries = connectors.filter(c => {
+                                if (isConnectorMatch(c, template.category, itemType)) return true;
                                 if (c.connector_type === connectorTypeKey) return true;
                                 if (DUPLICATE_CONNECTOR_ITEMS.has(itemType)) return false;
                                 return c.connector_type === itemType;
@@ -2376,14 +2393,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         <input
                                           type="checkbox"
                                           checked={returnPicked}
-                                        onChange={(e) => handleConnectorGroupReturnPickedChange(connectorTypeKey, e.target.checked)}
+                                        onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
                                       />
                                     ) : connector ? (
                                       <input
                                         type="checkbox"
                                         checked={picked}
-                                        onChange={(e) => handleConnectorGroupPickedChange(connectorTypeKey, e.target.checked)}
+                                        onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
                                         disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                       />
@@ -2402,7 +2419,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         onChange={(e) => setInputDraftValues(prev => ({ ...prev, [connectorDraftKey]: e.target.value }))}
                                         onBlur={(e) => {
                                           const val = parseInt(e.target.value, 10);
-                                          handleSetConnectorQuantityFromTemplate(connectorTypeKey, Number.isNaN(val) ? 0 : val);
+                                          handleSetConnectorQuantityFromTemplate(template.category, itemType, Number.isNaN(val) ? 0 : val);
                                           setInputDraftValues(prev => {
                                             const n = { ...prev };
                                             delete n[connectorDraftKey];
@@ -2418,14 +2435,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSetConnectorQuantityFromTemplate(connectorTypeKey, Math.max(0, quantity - 1))}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
                                           disabled={quantity === 0}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button
-                                          onClick={() => handleSetConnectorQuantityFromTemplate(connectorTypeKey, quantity + 1)}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, quantity + 1)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />

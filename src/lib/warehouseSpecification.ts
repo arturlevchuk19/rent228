@@ -18,6 +18,7 @@ export interface ConnectorItem {
   id: string;
   event_id: string;
   connector_type: string;
+  connector_item: string;
   quantity: number;
   notes: string;
   picked: boolean;
@@ -207,7 +208,14 @@ export async function getConnectors(eventId: string): Promise<ConnectorItem[]> {
 }
 
 export async function createConnector(connector: Omit<ConnectorItem, 'id' | 'created_at' | 'updated_at'>): Promise<ConnectorItem> {
-  const { picked, ...insertConnector } = connector;
+  const { picked, connector_type, connector_item, ...restConnector } = connector;
+  const resolvedConnectorType = connector_type || '';
+  const resolvedConnectorItem = connector_item || connector_type;
+  const insertConnector = {
+    ...restConnector,
+    connector_type: resolvedConnectorType,
+    connector_item: resolvedConnectorItem
+  };
   const { data, error } = await supabase
     .from('warehouse_specification_connectors')
     .insert(insertConnector)
