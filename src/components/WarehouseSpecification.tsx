@@ -155,6 +155,12 @@ const isConnectorMatch = (connector: ConnectorItem, category: string, itemType: 
   return connectorCategory === category && connectorItem === itemType;
 };
 
+const isLegacyConnectorMatch = (connector: ConnectorItem, scopedType: string, itemType: string) => {
+  const hasStructuredItem = Boolean(connector.connector_item && connector.connector_item.trim().length > 0);
+  if (hasStructuredItem) return false;
+  return connector.connector_type === scopedType || connector.connector_type === itemType;
+};
+
 const DUPLICATE_CONNECTOR_ITEMS = new Set(
   CONNECTOR_TEMPLATES
     .flatMap(template => template.items)
@@ -1665,8 +1671,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, newQuantity: number) => {
     try {
       const normalizedQuantity = Math.max(0, newQuantity);
-      const connectorType = buildConnectorScopedType(category, itemType);
-      const existingConnector = connectors.find(c => isConnectorMatch(c, category, itemType));
+      const scopedType = buildConnectorScopedType(category, itemType);
+      const existingConnector = connectors.find(c =>
+        isConnectorMatch(c, category, itemType) || isLegacyConnectorMatch(c, scopedType, itemType)
+      );
 
       if (!existingConnector && normalizedQuantity === 0) return;
 
@@ -2374,9 +2382,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               const connectorTypeKey = buildConnectorScopedType(template.category, itemType);
                               const connectorEntries = connectors.filter(c => {
                                 if (isConnectorMatch(c, template.category, itemType)) return true;
-                                if (c.connector_type === connectorTypeKey) return true;
                                 if (DUPLICATE_CONNECTOR_ITEMS.has(itemType)) return false;
-                                return c.connector_type === itemType;
+                                return isLegacyConnectorMatch(c, connectorTypeKey, itemType);
                               });
                               const connector = connectorEntries[0];
                               const quantity = connectorEntries.reduce((sum, c) => sum + c.quantity, 0);
