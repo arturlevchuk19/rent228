@@ -83,7 +83,7 @@ interface CustomNotification {
 interface PendingConfirmationItem {
   id: string;
   name: string;
-  group: 'equipment' | 'cables' | 'connectors' | 'other';
+  group: 'equipment' | 'extra' | 'cables' | 'connectors' | 'other';
 }
 
 interface AddEquipmentTarget {
@@ -346,14 +346,18 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const mainItems = expandedItems.filter(item => !item.isExtra);
   const extraItems = expandedItems.filter(item => item.isExtra);
 
+  const extraBudgetItems = budgetItems.filter(item => item.is_extra);
+
   const allPickedForShipment =
     expandedItems.every(item => item.picked) &&
+    extraBudgetItems.every(item => item.picked) &&
     cables.every(c => c.picked) &&
     connectors.every(c => c.picked) &&
     otherItems.every(i => i.picked);
 
   const allPickedForReturn =
     expandedItems.every(item => item.return_picked) &&
+    extraBudgetItems.every(item => item.return_picked) &&
     cables.every(c => c.return_picked) &&
     connectors.every(c => c.return_picked) &&
     otherItems.every(i => i.return_picked);
@@ -1083,11 +1087,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     const fallbackName = (value: string, fallback: string) => value.length > 0 ? value : fallback;
 
     const equipmentPending = expandedItems
+      .filter(item => !item.isExtra)
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `eq-${item.budgetItemId}`,
         name: item.name,
         group: 'equipment' as const
+      }));
+
+    const extraPending = expandedItems
+      .filter(item => item.isExtra)
+      .filter(item => !isPicked(item.picked, item.return_picked))
+      .map(item => ({
+        id: `extra-${item.budgetItemId}`,
+        name: item.name,
+        group: 'extra' as const
       }));
 
     // Keep only the first record per cable type/length pair to match how cables are rendered in the table.
@@ -1152,7 +1166,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         group: 'other' as const
       }));
 
-    return [...equipmentPending, ...cablesPending, ...connectorsPending, ...otherPending];
+    return [...equipmentPending, ...extraPending, ...cablesPending, ...connectorsPending, ...otherPending];
   };
 
   const handleAddExtraEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
@@ -2905,7 +2919,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     <span className="text-red-400">•</span>
                     <span>
                       {item.name}
-                      <span className="text-gray-500"> ({item.group === 'equipment' ? 'Оборудование' : item.group === 'cables' ? 'Кабели' : item.group === 'connectors' ? 'Коннекторы' : 'Прочее'})</span>
+                      <span className="text-gray-500"> ({item.group === 'equipment' ? 'Оборудование' : item.group === 'extra' ? 'Добор' : item.group === 'cables' ? 'Кабели' : item.group === 'connectors' ? 'Коннекторы' : 'Прочее'})</span>
                     </span>
                   </li>
                 ))}
