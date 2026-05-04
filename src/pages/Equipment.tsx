@@ -270,7 +270,7 @@ export function Equipment() {
                       <div className="text-xs text-gray-400 leading-tight">{item.type} {item.subtype && `/ ${item.subtype}`}</div>
                     </td>
                     <td className="px-4 py-2">
-                      <div className="text-white font-medium text-sm">{item.quantity}</div>
+                      <div className="text-white font-medium text-sm">{item.quantity} {item.unit}</div>
                     </td>
                     <td className="px-4 py-2 text-white text-sm">
                       {item.rental_price > 0 ? `${item.rental_price}` : '-'}
@@ -335,7 +335,7 @@ export function Equipment() {
                   <span className="text-gray-500">{item.type}{item.subtype && ` / ${item.subtype}`}</span>
                 </div>
                 <div className="flex items-center gap-4 text-xs">
-                  <span className="text-gray-400">Кол-во: <span className="text-white font-medium">{item.quantity}</span></span>
+                  <span className="text-gray-400">Кол-во: <span className="text-white font-medium">{item.quantity} {item.unit}</span></span>
                   {item.rental_price > 0 && (
                     <span className="text-gray-400">Цена: <span className="text-cyan-400 font-medium">${item.rental_price}</span></span>
                   )}

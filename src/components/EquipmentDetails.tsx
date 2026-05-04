@@ -285,7 +285,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Количество
                   </label>
-                  <div className="text-white font-semibold">{item.quantity}</div>
+                  <div className="text-white font-semibold">{item.quantity} {item.unit}</div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
