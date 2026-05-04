@@ -353,7 +353,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                                   }}
                                   className="w-12 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-cyan-500"
                                 />
-                                <span className="text-gray-400">шт.</span>
+                                <span className="text-gray-400">{item.unit || 'шт.'}</span>
                               </div>
                             </div>
 
