@@ -553,35 +553,35 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
+        <span style="font-size: 22px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 22px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>` : ''}
     `
     : `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
+        <span style="font-size: 22px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
+        <span style="font-size: 22px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; text-align: right; white-space: nowrap;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ` : ''}
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 22px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>
       ` : `
       <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%;">
-        <span style="font-size: 10px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование:</span>
+        <span style="font-size: 22px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Со скидкой ${discountPercentDisplay}% на оборудование:</span>
         <span style="font-size: 28px; font-weight: 800; line-height: 1.1; color: #4ade80; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>
       `}` : ''}
