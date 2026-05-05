@@ -21,4 +21,4 @@ ALTER TABLE events ADD CONSTRAINT events_status_check
 
 -- Add new constraint with Russian event type values
 ALTER TABLE events ADD CONSTRAINT events_event_type_check 
-  CHECK (event_type IN ('Концерт', 'Свадьба', 'Семинар', 'Выставка', 'Встреча', 'Фестиваль'));
+  CHECK (event_type IN ('Концерт', 'Свадьба', 'Семинар', 'Выставка', 'Встреча', 'Фестиваль', 'Дожинки'));
