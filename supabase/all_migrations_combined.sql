@@ -1050,9 +1050,6 @@ ALTER TABLE events DROP CONSTRAINT IF EXISTS events_event_type_check;
 ALTER TABLE events ADD CONSTRAINT events_status_check 
   CHECK (status IN ('Запрос', 'На рассмотрении', 'Подтверждено'));
 
--- Add new constraint with Russian event type values
-ALTER TABLE events ADD CONSTRAINT events_event_type_check 
-  CHECK (event_type IN ('Концерт', 'Свадьба', 'Семинар', 'Выставка', 'Встреча', 'Фестиваль'));
 /*
   # Create budget items schema
 
