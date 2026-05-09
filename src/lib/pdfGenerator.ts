@@ -323,8 +323,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <tr style="text-transform: uppercase; font-size: 11px; color: #000000; border-bottom: 1px solid #000000;">
               <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 60%;">Наименование</th>
               <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 10%;">Кол-во</th>
-              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Цена</th>
-              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Сумма</th>
+              <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Цена</th>
+              <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Сумма</th>
             </tr>
           </thead>
           <tbody>
