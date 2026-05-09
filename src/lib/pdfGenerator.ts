@@ -330,12 +330,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <tbody>
             ${rows}
             <tr style="border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
               <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 18px; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
             <tr style="border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
               <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 18px; vertical-align: middle; line-height: 1.2;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
             ` : ''}
@@ -429,7 +429,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <tbody>
               ${rows}
               <tr style="border-bottom: 1px solid #000000;">
-                <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
+                <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
                 <td style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
             </tbody>
