@@ -286,15 +286,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         return `
           <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 8px 8px; font-size: 13px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
+            <td style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
               <div style="display: flex; align-items: flex-start;">
                 <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
                 <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
               </div>
             </td>
-            <td style="padding: 8px 8px; font-size: 13px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
-            <td style="padding: 8px 8px; font-size: 13px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
-            <td style="padding: 8px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
+            <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -314,13 +314,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
        <div style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
           <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
-          <div style="font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center; position: relative; top: -1px;">
+          <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center; position: relative; top: -1px;">
             ${categoryPrefix}${categoryName}
           </div>
           </div>
           <table style="width: 100%; border-collapse: collapse;">
           <thead>
-            <tr style="text-transform: uppercase; font-size: 11px; color: #000000; border-bottom: 1px solid #000000;">
+            <tr style="text-transform: uppercase; font-size: 13px; color: #000000; border-bottom: 1px solid #000000;">
               <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 60%;">Наименование</th>
               <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 10%;">Кол-во</th>
               <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Цена</th>
@@ -350,13 +350,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ? ''
       : `
         <div style="margin-top: 8px; padding: 10px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; border-top: 1px solid #000000;">
-          <span style="font-size: 13px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
-          <span style="font-size: 16px; font-weight: 800; color: #000000;">${formatMoney(locationTotal)}${currencySuffix}</span>
+          <span style="font-size: 15px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
+          <span style="font-size: 18px; font-weight: 800; color: #000000;">${formatMoney(locationTotal)}${currencySuffix}</span>
         </div>
         ${!isCombinedOnlyMode && budgetDays > 1 ? `
         <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 14px;">
-          <span style="font-size: 13px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
-          <span style="font-size: 16px; font-weight: 800; color: #000000;">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
+          <span style="font-size: 15px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
+          <span style="font-size: 18px; font-weight: 800; color: #000000;">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
         </div>
         ` : ''}
       `;
@@ -368,7 +368,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <div style="
         padding: 0px 12px 0px; 
         height: 22px; 
-        font-size: 16px; 
+        font-size: 18px; 
         font-weight: 800; 
         letter-spacing: 1.5px; 
         text-transform: uppercase; 
@@ -414,17 +414,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         categoryTotal += total;
         return `
           <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 8px 8px; font-size: 12px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">${displayName}</td>
-            <td style="padding: 8px 8px; font-size: 12px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
-            <td style="padding: 8px 8px; font-size: 12px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(price)}${currencySuffix}</td>
-            <td style="padding: 8px 8px; font-size: 12px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(total)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 14px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">${displayName}</td>
+            <td style="padding: 8px 8px; font-size: 14px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
+            <td style="padding: 8px 8px; font-size: 14px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(price)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(total)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
 
       return `
         <div style="margin-bottom: 14px;">
-          <div style="font-size: 12px; font-weight: 700; color: #6d28d9; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
+          <div style="font-size: 14px; font-weight: 700; color: #6d28d9; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
           <table style="width: 100%; border-collapse: collapse;">
             <tbody>
               ${rows}
@@ -448,14 +448,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
   const clientHtml = data.clientName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
-      <span style="font-size: 10px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
-      <span style="font-size: 14px; font-weight: 600; color: #1a1a1a;">${data.clientName}</span>
+      <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
+      <span style="font-size: 16px; font-weight: 600; color: #1a1a1a;">${data.clientName}</span>
     </div>` : '';
 
   const organizerHtml = data.organizerName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
-      <span style="font-size: 10px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
-      <span style="font-size: 14px; font-weight: 600; color: #1a1a1a;">${data.organizerName}</span>
+      <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
+      <span style="font-size: 16px; font-weight: 600; color: #1a1a1a;">${data.organizerName}</span>
     </div>` : '';
   const participantsCellsHtml = `${clientHtml}${organizerHtml}`;
 
@@ -593,19 +593,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       
       <div style="flex: 1; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-end;">
         <div style="text-align: right; margin-bottom: 8px;">
-          <div style="font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a1a;">Коммерческое предложение</div>
-          <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">Версия ${versionLabel}</div>
-          <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
+          <div style="font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a1a;">Коммерческое предложение</div>
+          <div style="font-size: 14px; color: #6b7280; margin-top: 2px;">Версия ${versionLabel}</div>
+          <div style="font-size: 14px; color: #6b7280; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; background: #ffffff; border: 1px solid #000000; border-radius: 12px; padding: 10px 16px; width: 350px; box-sizing: border-box;">
           <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 10px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
-            <span style="font-size: 14px; font-weight: 600;">${formattedEventDate}</span>
+            <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
+            <span style="font-size: 16px; font-weight: 600;">${formattedEventDate}</span>
           </div>
           <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 10px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
-            <span style="font-size: 14px; font-weight: 600;">${data.venueName || '—'}</span>
+            <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
+            <span style="font-size: 16px; font-weight: 600;">${data.venueName || '—'}</span>
           </div>
           ${participantsCellsHtml}
         </div>
