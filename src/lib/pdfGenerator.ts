@@ -314,7 +314,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
        <div style="margin-bottom: 12px;">
         <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
           <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
-          <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; height: 20px; line-height: 20px; display: flex; align-items: center; position: relative; top: -1px;">
+          <div style="font-size: 22px; font-weight: 400; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: -1px;">
             ${categoryPrefix}${categoryName}
           </div>
           </div>
@@ -368,8 +368,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <div style="
         padding: 0px 12px 0px; 
         height: 22px; 
-        font-size: 18px; 
-        font-weight: 800; 
+        font-size: 22px; 
+        font-weight: 400; 
         letter-spacing: 1.5px; 
         text-transform: uppercase; 
         color: #4b5563; 
@@ -424,7 +424,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
       return `
         <div style="margin-bottom: 14px;">
-          <div style="font-size: 14px; font-weight: 700; color: #6d28d9; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
+          <div style="font-size: 18px; font-weight: 400; color: #6d28d9; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
           <table style="width: 100%; border-collapse: collapse;">
             <tbody>
               ${rows}
