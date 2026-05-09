@@ -66,7 +66,6 @@ interface ExpandedItem {
   isFromComposition: boolean;
   isExtra?: boolean;
   parentName?: string;
-  case_decision?: string | null;
 }
 
 interface QuantityChangeRequest {
@@ -499,7 +498,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             return_picked: item.return_picked || false,
             isFromComposition: true,
             isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
             parentName: parentItem?.equipment?.name || parentItem?.name
           });
           continue;
@@ -508,7 +506,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         const isVirtual = item.equipment?.object_type === 'virtual';
 
         if (!isVirtual) {
-          if (item.equipment?.is_component && item.equipment_id && !item.case_decision) {
+          if (item.equipment?.is_component && item.equipment_id) {
             try {
               const caseOptions = await findCasesContainingComponent(item.equipment_id);
               if (caseOptions.length > 0) {
@@ -534,7 +532,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   picked: item.picked || false,
                   return_picked: item.return_picked || false,
                   isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
                   caseCapacityByCaseId
                 };
 
@@ -574,7 +571,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             return_picked: item.return_picked || false,
             isFromComposition: !!isSavedVirtualItem,
             isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
           });
         } else {
           // Virtual item - check if it's an LED screen
@@ -595,7 +591,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               return_picked: item.return_picked || false,
               isFromComposition: false,
               isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
             });
 
             // Кейсы для LED экранов добавляются только после нажатия "Сохранить" в LedSpecificationPanel
@@ -615,7 +610,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               return_picked: item.return_picked || false,
               isFromComposition: false,
               isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
             });
 
             // Для подиумов не подгружаем дефолтную composition автоматически.
@@ -637,7 +631,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               return_picked: item.return_picked || false,
               isFromComposition: false,
               isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
             });
           } else {
             // Non-LED virtual item - expand it into its components
@@ -666,7 +659,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     return_picked: item.return_picked || false,
                     isFromComposition: true,
                     isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
                     parentName: item.equipment?.name
                   });
                 }
@@ -698,7 +690,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     return_picked: item.return_picked || false,
                     isFromComposition: true,
                     isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
                     parentName: item.equipment?.name
                   });
                 }
@@ -724,7 +715,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 return_picked: item.return_picked || false,
                 isFromComposition: false,
                 isExtra: item.is_extra || false,
-            case_decision: item.case_decision,
               });
             }
             }
@@ -872,20 +862,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleComponentDecisionSeparate = () => {
-    const currentGroup = componentDecisionQueue[activeComponentDecisionIndex];
-    if (currentGroup) {
-      const groupedItemIds = new Set(currentGroup.items.map(item => item.budgetItemId));
-      setExpandedItems(prev => prev.map(item =>
-        groupedItemIds.has(item.budgetItemId)
-          ? { ...item, case_decision: "separate" }
-          : item
-      ));
-      setModifiedItems(prev => {
-        const next = new Set(prev);
-        groupedItemIds.forEach(id => next.add(id));
-        return next;
-      });
-    }
     if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
       setComponentDecisionQueue([]);
       setActiveComponentDecisionIndex(0);
@@ -1582,8 +1558,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             try {
               await updateSpecificationBudgetItem(budgetItemId, {
                 quantity: expandedItem.quantity,
-                notes: expandedItem.notes,
-                case_decision: expandedItem.case_decision
+                notes: expandedItem.notes
               });
             } catch (err) {
               console.error('Error saving budget item:', budgetItemId, err);
@@ -1603,7 +1578,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               sku: expandedItem.sku,
               quantity: expandedItem.quantity,
               notes: expandedItem.notes,
-                case_decision: expandedItem.case_decision,
               picked: expandedItem.picked
             });
             createdItems.push({ oldId: budgetItemId, newId: newItem.id });
@@ -1619,8 +1593,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           try {
             await updateSpecificationBudgetItem(budgetItemId, {
               quantity: expandedItem.quantity,
-              notes: expandedItem.notes,
-                case_decision: expandedItem.case_decision
+              notes: expandedItem.notes
             });
           } catch (err) {
             console.error('Error saving budget item:', budgetItemId, err);
