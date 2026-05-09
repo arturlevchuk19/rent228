@@ -321,22 +321,22 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="text-transform: uppercase; font-size: 11px; color: #000000; border-bottom: 1px solid #000000;">
-              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2;">Наименование</th>
-              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2;">Кол-во</th>
-              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2;">Цена</th>
-              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2;">Сумма</th>
+              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 60%;">Наименование</th>
+              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 10%;">Кол-во</th>
+              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Цена</th>
+              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Сумма</th>
             </tr>
           </thead>
           <tbody>
             ${rows}
-            <tr style="background: ${grayBg}; border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
-              <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 15px; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+            <tr style="border-bottom: 1px solid #000000;">
+              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 18px; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
-            <tr style="background: ${grayBg}; border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
-              <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 15px; vertical-align: middle; line-height: 1.2;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
+            <tr style="border-bottom: 1px solid #000000;">
+              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 18px; vertical-align: middle; line-height: 1.2;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -428,9 +428,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <table style="width: 100%; border-collapse: collapse;">
             <tbody>
               ${rows}
-              <tr style="background: rgba(0,0,0,0.04); border-bottom: 1px solid #000000;">
-                <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 8px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+              <tr style="border-bottom: 1px solid #000000;">
+                <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 14px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
+                <td style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
             </tbody>
           </table>
