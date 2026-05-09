@@ -124,6 +124,7 @@ export interface BudgetItem {
   picked: boolean;
   is_extra?: boolean;
   return_picked?: boolean;
+  case_decision?: string | null;
   created_at: string;
   updated_at: string;
   name?: string;
