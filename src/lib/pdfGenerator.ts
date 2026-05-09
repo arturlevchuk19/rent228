@@ -286,15 +286,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         return `
           <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 12px 8px; font-size: 13px; color: #1a1a1a; width: 60%; vertical-align: middle;">
+            <td style="padding: 16px 8px; font-size: 13px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
               <div style="display: flex; align-items: flex-start;">
                 <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
                 <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
               </div>
             </td>
-            <td style="padding: 12px 8px; font-size: 13px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle;">${qty} ${unit}</td>
-            <td style="padding: 12px 8px; font-size: 13px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
-            <td style="padding: 12px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
+            <td style="padding: 16px 8px; font-size: 13px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
+            <td style="padding: 16px 8px; font-size: 13px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+            <td style="padding: 16px 8px; font-size: 13px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -321,22 +321,22 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="text-transform: uppercase; font-size: 11px; color: #000000; border-bottom: 1px solid #000000;">
-              <th style="text-align: center; padding: 12px 8px; vertical-align: middle;">Наименование</th>
-              <th style="text-align: center; padding: 12px 8px; vertical-align: middle;">Кол-во</th>
-              <th style="text-align: center; padding: 12px 8px; vertical-align: middle;">Цена</th>
-              <th style="text-align: center; padding: 12px 8px; vertical-align: middle;">Сумма</th>
+              <th style="text-align: center; padding: 16px 8px; vertical-align: middle; line-height: 1.2;">Наименование</th>
+              <th style="text-align: center; padding: 16px 8px; vertical-align: middle; line-height: 1.2;">Кол-во</th>
+              <th style="text-align: center; padding: 16px 8px; vertical-align: middle; line-height: 1.2;">Цена</th>
+              <th style="text-align: center; padding: 16px 8px; vertical-align: middle; line-height: 1.2;">Сумма</th>
             </tr>
           </thead>
           <tbody>
             ${rows}
             <tr style="background: ${grayBg}; border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 12px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle;">ИТОГО ПО РАЗДЕЛУ:</td>
-              <td style="padding: 12px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 15px; vertical-align: middle;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+              <td colspan="3" style="padding: 16px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td style="padding: 16px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 15px; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
             <tr style="background: ${grayBg}; border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 12px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
-              <td style="padding: 12px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 15px; vertical-align: middle;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
+              <td colspan="3" style="padding: 16px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td style="padding: 16px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 15px; vertical-align: middle; line-height: 1.2;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -414,10 +414,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         categoryTotal += total;
         return `
           <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 10px 8px; font-size: 12px; color: #1a1a1a; width: 60%; vertical-align: middle;">${displayName}</td>
-            <td style="padding: 10px 8px; font-size: 12px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle;">${qty} ${unit}</td>
-            <td style="padding: 10px 8px; font-size: 12px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle;">${formatMoney(price)}${currencySuffix}</td>
-            <td style="padding: 10px 8px; font-size: 12px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle;">${formatMoney(total)}${currencySuffix}</td>
+            <td style="padding: 16px 8px; font-size: 12px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">${displayName}</td>
+            <td style="padding: 16px 8px; font-size: 12px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
+            <td style="padding: 16px 8px; font-size: 12px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(price)}${currencySuffix}</td>
+            <td style="padding: 16px 8px; font-size: 12px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(total)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -429,8 +429,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <tbody>
               ${rows}
               <tr style="background: rgba(0,0,0,0.04); border-bottom: 1px solid #000000;">
-                <td colspan="3" style="padding: 10px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #000000; vertical-align: middle;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 10px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+                <td colspan="3" style="padding: 16px 8px; text-align: right; font-size: 10px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
+                <td style="padding: 16px 8px; text-align: right; font-size: 12px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
             </tbody>
           </table>
@@ -676,7 +676,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   
   fileNameParts.push(`Версия ${versionLabel}`);
   
-  // Убираем недопустимые символы для имени файла
+  // Убира��м недопустимые символы для имени файла
   const fileName = fileNameParts.join('_').replace(/[<>:"/\\|?*]/g, '_');
   pdf.save(`${fileName}.pdf`);
 }
