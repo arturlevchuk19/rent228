@@ -286,15 +286,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         return `
           <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
+            <td style="padding: 0px 8px 8px 10px; font-size: 15px; color: #1a1a1a; width: 60%;">
               <div style="display: flex; align-items: flex-start;">
                 <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
                 <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
               </div>
             </td>
-            <td style="padding: 8px 8px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
-            <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
-            <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
+            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; ;">${qty} ${unit}</td>
+            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; ">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -330,13 +330,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <tbody>
             ${rows}
             <tr style="border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
-              <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 18px; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+              <td colspan="3" style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000; ;">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td style="padding: 0px 8px 8px 10px; text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
             <tr style="border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
-              <td style="padding: 8px 8px; text-align: right; font-weight: 700; color: #000000; font-size: 18px; vertical-align: middle; line-height: 1.2;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
+              <td colspan="3" style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td style="padding: 0px 8px 8px 10px; text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -429,8 +429,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <tbody>
               ${rows}
               <tr style="border-bottom: 1px solid #000000;">
-                <td colspan="3" style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 8px 8px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; vertical-align: middle; line-height: 1.2;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+                <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000;">ИТОГО ПО РАЗДЕЛУ:</td>
+                <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; ">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
             </tbody>
           </table>
@@ -588,7 +588,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   container.innerHTML = `
     <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 15px;">
       <div style="display: flex; align-items: center;">
-        <img src="${logoDataURL}" style="width: 120px; height: auto;" alt="Logo" />
+        <img src="${logoDataURL}" style="width: 150px; height: auto; margin-top: 15px;" alt="Logo" />
       </div>
       
       <div style="flex: 1; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-end;">
