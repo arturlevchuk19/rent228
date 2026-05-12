@@ -551,36 +551,36 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
       <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; width: 100%;">
-        <span style="font-size: 26px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
-        <span style="font-size: 32px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
+        <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; width: 100%;">
-        <span style="font-size: 26px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Со скидкой ${discountPercentDisplay}% на оборудование${budgetDays === 1 ? '' : ` за ${budgetDays} дн.`}:</span>
-        <span style="font-size: 32px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Со скидкой ${discountPercentDisplay}% на оборудование${budgetDays === 1 ? '' : ` за ${budgetDays} дн.`}:</span>
+        <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>` : ''}
     `
     : `
       <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; width: 100%;">
-        <span style="font-size: 26px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
-        <span style="font-size: 32px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
+        <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; width: 100%;">
-        <span style="font-size: 26px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Итого за ${budgetDays} дн.:</span>
-        <span style="font-size: 32px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Итого за ${budgetDays} дн.:</span>
+        <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ` : ''}
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; width: 100%;">
-        <span style="font-size: 26px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
-        <span style="font-size: 32px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>
       ` : `
       <div style="display: flex; justify-content: flex-end; align-items: flex-end; gap: 8px; width: 100%;">
-        <span style="font-size: 26px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Со скидкой ${discountPercentDisplay}% на оборудование:</span>
-        <span style="font-size: 32px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; white-space: nowrap;">Со скидкой ${discountPercentDisplay}% на оборудование:</span>
+        <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>
       `}` : ''}
     `;
