@@ -292,9 +292,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
                 <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
               </div>
             </td>
-            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; ;">${qty} ${unit}</td>
-            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
-            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; ">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
+            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; white-space: nowrap;">${qty} ${unit}</td>
+            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; white-space: nowrap;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+            <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; white-space: nowrap;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -322,15 +322,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <thead>
             <tr style="text-transform: uppercase; font-size: 13px; color: #000000; border-bottom: 1px solid #000000;">
               <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 60%;">Наименование</th>
-              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 10%;">Кол-во</th>
-              <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Цена</th>
-              <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%;">Сумма</th>
+              <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 10%; white-space: nowrap;">Кол-во</th>
+              <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%; white-space: nowrap;">Цена</th>
+              <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%; white-space: nowrap;">Сумма</th>
             </tr>
           </thead>
           <tbody>
             ${rows}
             <tr style="border-bottom: 1px solid #000000;">
-              <td colspan="3" style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000; ;">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td colspan="3" style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ:</td>
               <td style="padding: 0px 8px 8px 10px; text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
@@ -415,9 +415,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         return `
           <tr style="border-bottom: 1px solid #000000;">
             <td style="padding: 8px 8px; font-size: 14px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">${displayName}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2;">${qty} ${unit}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(price)}${currencySuffix}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2;">${formatMoney(total)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 14px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
+            <td style="padding: 8px 8px; font-size: 14px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
@@ -429,8 +429,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <tbody>
               ${rows}
               <tr style="border-bottom: 1px solid #000000;">
-                <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; ">${formatMoney(categoryTotal)}${currencySuffix}</td>
+                <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
+                <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
             </tbody>
           </table>
@@ -676,7 +676,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   
   fileNameParts.push(`Версия ${versionLabel}`);
   
-  // Убира��м недопустимые символы для имени файла
+  // Убира��м недопустим��е символы для имени файла
   const fileName = fileNameParts.join('_').replace(/[<>:"/\\|?*]/g, '_');
   pdf.save(`${fileName}.pdf`);
 }
