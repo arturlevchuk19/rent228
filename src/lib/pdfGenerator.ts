@@ -19,6 +19,7 @@ interface BudgetItem {
   multi_day_rate_override?: number | null;
   notes?: string;
   is_extra?: boolean;
+  unit?: string | null;
 }
 
 interface Category {
@@ -262,7 +263,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const notes = item.notes?.trim();
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
-        const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
+        const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
         const usdPriceDay1 = item.price || 0;
         const usdTotalDay1 = calcDay1Total(item);
 
@@ -408,7 +409,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const notes = item.notes?.trim();
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
-        const unit = item.work_item?.unit || item.equipment?.unit || 'шт.';
+        const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
         const price = calculatePrice(item.price || 0, item);
         const total = price * qty;
         categoryTotal += total;
