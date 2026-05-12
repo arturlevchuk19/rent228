@@ -1876,20 +1876,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
         {/* Footer */}
         <div className="px-4 py-3 border-t border-gray-800 bg-gray-900 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col">
+          <div className="flex items-end gap-6">
+            <div className="flex flex-col justify-end">
               <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итоговая сумма</span>
-              <span className="text-xl font-black text-white">
+              <span className="text-xl font-black text-white text-right">
                 <span className="text-cyan-400">{getPrimaryTotalForMode().toLocaleString()}</span>
                 <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
               </span>
               {budgetTotalsMode === 'day1_plus_combined' && (
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[11px] text-gray-400 text-right">
                   {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               {budgetDays > 1 && (
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[11px] text-gray-400 text-right">
                   Итого за {budgetDays} дней: <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
@@ -1937,7 +1937,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   )}
                 </label>
                 {discountEnabled && getDiscountedTotal() !== null && (
-                  <div className="flex flex-col">
+                  <div className="flex flex-col items-end">
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
                     <div className="flex items-center gap-1">
                       <input
@@ -1953,7 +1953,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                         }}
                         className="w-28 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-sm font-black text-green-400 focus:ring-1 focus:ring-cyan-500 outline-none text-right"
                       />
-                      <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
+                      <span className="text-xs font-normal text-gray-400">{getCurrencyLabel()}</span>
                     </div>
                   </div>
                 )}
