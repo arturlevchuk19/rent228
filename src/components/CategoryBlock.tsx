@@ -390,7 +390,7 @@ export function CategoryBlock({
       {isExpanded && items.length > 0 && (
         <div>
           {/* Table header */}
-          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
+          <div className="flex items-center gap-2 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
             <div className="w-3"></div>
             <div
               className="flex-1 grid items-center gap-2"
@@ -399,11 +399,11 @@ export function CategoryBlock({
               <div className="text-left">Наименование</div>
               <div className="text-center">Ед. изм.</div>
               <div className="text-center">Кол-во</div>
-              <div className="text-center">Цена</div>
+              <div className="text-right pr-2">Цена</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
               <div className="text-right pr-2">Сумма</div>
             </div>
-            <div className="w-5"></div>
+            <div className="w-12"></div>
           </div>
 
           {/* Items */}
@@ -427,14 +427,14 @@ export function CategoryBlock({
                     onDropOnItem?.(e, item.id);
                   }}
                 >
-                  <div className={`flex items-center gap-0.5 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}>
+                  <div className={`flex items-center gap-2 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}>
                   <div
                     draggable
                     onDragStart={(e) => {
                       e.stopPropagation();
                       onDragStart?.(e, 'item', item.id);
                     }}
-                    className="text-gray-600 hover:text-gray-400 cursor-move opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    className="w-3 text-gray-600 hover:text-gray-400 cursor-move opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 flex justify-center"
                   >
                     <GripVertical className="w-3 h-3" />
                   </div>
