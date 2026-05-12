@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export const EQUIPMENT_UNITS = ['шт.', 'м.', 'комп.', 'ед.', 'чел.', 'л.'] as const;
+export const EQUIPMENT_UNITS = ['шт.', 'м.', 'комп.', 'ед.', 'чел.', 'л.', 'услуга', 'час', 'смена'] as const;
 export type EquipmentUnit = typeof EQUIPMENT_UNITS[number];
 
 export interface EquipmentItem {

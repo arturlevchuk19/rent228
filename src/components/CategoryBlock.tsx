@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
+import { EQUIPMENT_UNITS } from '../lib/equipment';
 import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
 
 export interface BudgetDragTarget {
@@ -74,10 +75,11 @@ export function CategoryBlock({
   const [editedName, setEditedName] = useState(categoryName);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
+  const [openUnitDropdownId, setOpenUnitDropdownId] = useState<string | null>(null);
   const showCoefficient = budgetDays > 1;
   const tableTemplateColumns = showCoefficient
-    ? 'minmax(0,1fr) 92px 92px 72px 110px'
-    : 'minmax(0,1fr) 92px 92px 110px';
+    ? 'minmax(0,1fr) 60px 92px 92px 72px 110px'
+    : 'minmax(0,1fr) 60px 92px 92px 110px';
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -395,6 +397,7 @@ export function CategoryBlock({
               style={{ gridTemplateColumns: tableTemplateColumns }}
             >
               <div className="text-left">Наименование</div>
+              <div className="text-center">Ед. изм.</div>
               <div className="text-center">Кол-во</div>
               <div className="text-center">Цена</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
@@ -442,6 +445,41 @@ export function CategoryBlock({
                   >
                     <div className="text-gray-300 truncate pr-2">
                       {item.equipment?.name || item.work_item?.name || 'Без названия'}
+                    </div>
+
+                    <div className="relative flex justify-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenUnitDropdownId(openUnitDropdownId === item.id ? null : item.id);
+                        }}
+                        className="text-[10px] text-gray-400 hover:text-gray-200 hover:bg-gray-700 px-1 rounded transition-colors"
+                      >
+                        {item.unit || item.equipment?.unit || item.work_item?.unit || 'шт.'}
+                      </button>
+                      {openUnitDropdownId === item.id && (
+                        <>
+                          <div 
+                            className="fixed inset-0 z-40" 
+                            onClick={() => setOpenUnitDropdownId(null)}
+                          />
+                          <div className="absolute top-full mt-1 z-50 bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[60px]">
+                            {EQUIPMENT_UNITS.map((u) => (
+                              <button
+                                key={u}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onUpdateItem(item.id, { unit: u });
+                                  setOpenUnitDropdownId(null);
+                                }}
+                                className="w-full text-left px-2 py-1 text-[10px] text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                              >
+                                {u}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="flex justify-center">
