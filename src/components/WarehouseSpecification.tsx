@@ -1866,7 +1866,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleExportConnectors = () => {
     const csvContent = [
-      ['№', 'Категория', 'Тип коннектора', 'Количество', 'Взято', 'Примечания'].join(','),
+      ['№', 'Категория', 'Тип аксессуара', 'Количество', 'Взято', 'Примечания'].join(','),
       ...connectors.map((connector, index) =>
         (() => {
           const parsed = parseConnectorScopedType(connector.connector_type);
@@ -1882,7 +1882,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       )
     ].join('\n');
 
-    downloadCSV(csvContent, `Спецификация_Коннекторы_${eventName}_${new Date().toISOString().split('T')[0]}.csv`);
+    downloadCSV(csvContent, `Спецификация_Аксессуары_${eventName}_${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   const handleExportOther = () => {
@@ -1990,7 +1990,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     : 'border-transparent text-gray-500 hover:text-gray-300'
                 }`}
               >
-                {tab === 'budget' ? 'Основное' : tab === 'cables' ? 'Кабеля' : tab === 'connectors' ? 'Коннекторы' : 'Прочее'}
+                {tab === 'budget' ? 'Основное' : tab === 'cables' ? 'Кабеля' : tab === 'connectors' ? 'Аксессуары' : 'Прочее'}
               </button>
             ))}
             {eventDetails?.equipment_shipped && (
@@ -2919,7 +2919,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     <span className="text-red-400">•</span>
                     <span>
                       {item.name}
-                      <span className="text-gray-500"> ({item.group === 'equipment' ? 'Оборудование' : item.group === 'extra' ? 'Добор' : item.group === 'cables' ? 'Кабели' : item.group === 'connectors' ? 'Коннекторы' : 'Прочее'})</span>
+                      <span className="text-gray-500"> ({item.group === 'equipment' ? 'Оборудование' : item.group === 'extra' ? 'Добор' : item.group === 'cables' ? 'Кабели' : item.group === 'connectors' ? 'Аксессуары' : 'Прочее'})</span>
                     </span>
                   </li>
                 ))}
