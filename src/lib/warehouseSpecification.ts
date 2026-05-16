@@ -101,6 +101,10 @@ export const CABLE_TEMPLATES: CableTemplate[] = [
   {
     type: 'Кабель 32А 4P',
     lengths: ['5м','10м', '15м', '20м', '25м','30м', '40м']
+  },
+  {
+    type: 'HARTING',
+    lengths: ['25м', '20м', '15м', '10м', '5м']
   }
 ];
 
@@ -111,12 +115,12 @@ export interface ConnectorTemplate {
 
 export const CONNECTOR_TEMPLATES: ConnectorTemplate[] = [
   {
-    category: 'Коннекторы',
+    category: 'Аксессуары',
     items: ['Сплиттер X6', 'Карабулька X2', 'Состыковка','Брейк PowerCon-Shuko']
   },
   {
     category: 'Силовые Брейки',
-    items: ['16А - PowerCON', '32А - Shuko', '32А тройник', 'HARTING - PowerCON']
+    items: ['16A-Schuko', '16А - PowerCON', '32A-Schuko', '32А тройник', 'HARTING - PowerCON']
   }
 ];
 
