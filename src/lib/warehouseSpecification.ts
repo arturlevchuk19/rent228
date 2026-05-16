@@ -85,6 +85,18 @@ export const CABLE_TEMPLATES: CableTemplate[] = [
   {
     type: 'Оптика',
     lengths: ['100м', '70м', 'HDMI OPTICAL EXTENDER','ETHERNET OPTICAL EXTENDER']
+  },
+  {
+    type: 'Кабель 16А',
+    lengths: ['Хвост','Переход 32А-16А','4м', '5м', '10м','15м','20м','25м']
+  },
+  {
+    type: 'Кабель 32А',
+    lengths: ['Хвост','Переход 16А-32А', '5м', '10м', '20м','30м', '50м']
+  },
+  {
+    type: 'Лебёдочные',
+    lengths: ['5м','10м', '15м', '20м', '25м','30м', '40м']
   }
 ];
 
@@ -101,18 +113,6 @@ export const CONNECTOR_TEMPLATES: ConnectorTemplate[] = [
   {
     category: 'Силовые Брейки',
     items: ['16А - PowerCON', '32А - Shuko', '32А тройник', 'HARTING - PowerCON']
-  },
-   {
-    category: 'Кабель 16А',
-    items: ['Хвост','Переход 32А-16А','4м', '5м', '10м','15м','20м','25м']
-  },
-  {
-    category: 'Кабель 32А',
-    items: ['Хвост','Переход 16А-32А', '5м', '10м', '20м','30м', '50м']
-  },
-   {
-    category: 'Лебёдочные',
-    items: ['5м','10м', '15м', '20м', '25м','30м', '40м']
   }
 ];
 
