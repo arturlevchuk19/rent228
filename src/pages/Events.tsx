@@ -229,6 +229,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
             {events.filter(e => e.status === 'Подтверждено').length}
           </span>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Отменено:</span>
+          <span className="font-bold text-red-400">
+            {events.filter(e => e.status === 'Отменено').length}
+          </span>
+        </div>
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
