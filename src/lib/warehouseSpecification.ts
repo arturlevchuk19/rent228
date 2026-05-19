@@ -145,6 +145,10 @@ export const OTHER_TEMPLATES: OtherTemplate[] = [
   {
      category: 'Доски',
     items: ['Большие', 'Маленькие', 'Глянцевые']
+  },
+  {
+    category: 'Труба чёрная',
+    items: ['0.25м', '0.5м', '0.75м', '1м', '1.5м', '2м', '2.5м', '3м']
   }
 ];
 
