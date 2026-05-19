@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES, EVENT_STATUSES } from '../lib/events';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,10 +20,30 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const monthRefs = useRef<Record<string, HTMLElement | null>>({});
+  const hasScrolled = useRef(false);
 
   useEffect(() => {
     loadEvents();
   }, []);
+
+  useEffect(() => {
+    if (!loading && events.length > 0 && !hasScrolled.current) {
+      const now = new Date();
+      const currentTitle = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+      
+      // Try to find the current month or the first available month after it if current is not present
+      // For now, just try current month
+      const element = monthRefs.current[currentTitle] || monthRefs.current[currentTitle + '-mobile'];
+      
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+        hasScrolled.current = true;
+      }
+    }
+  }, [loading, events]);
 
   const loadEvents = async () => {
     try {
@@ -248,7 +268,10 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
               ) : (
                 groupedEvents.map((group) => (
                   <React.Fragment key={group.title}>
-                    <tr className="bg-gray-800/50">
+                    <tr 
+                      ref={el => monthRefs.current[group.title] = el}
+                      className="bg-gray-800/50"
+                    >
                       <td colSpan={7} className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-800/50">
                         {group.title}
                       </td>
@@ -354,7 +377,10 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
           ) : (
             groupedEvents.map((group) => (
               <React.Fragment key={group.title}>
-                <div className="bg-gray-800/50 px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <div 
+                  ref={el => monthRefs.current[group.title + '-mobile'] = el}
+                  className="bg-gray-800/50 px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest"
+                >
                   {group.title}
                 </div>
                 {group.events.map((event) => (
