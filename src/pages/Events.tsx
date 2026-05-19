@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES, EVENT_STATUSES } from '../lib/events';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +8,11 @@ interface EventsProps {
   onSpecificationOpen?: (eventId: string) => void;
 }
 
+const monthNames = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+];
+
 export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
@@ -15,10 +20,30 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const monthRefs = useRef<Record<string, HTMLElement | null>>({});
+  const hasScrolled = useRef(false);
 
   useEffect(() => {
     loadEvents();
   }, []);
+
+  useEffect(() => {
+    if (!loading && events.length > 0 && !hasScrolled.current) {
+      const now = new Date();
+      const currentTitle = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+      
+      // Try to find the current month or the first available month after it if current is not present
+      // For now, just try current month
+      const element = monthRefs.current[currentTitle] || monthRefs.current[currentTitle + '-mobile'];
+      
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+        hasScrolled.current = true;
+      }
+    }
+  }, [loading, events]);
 
   const loadEvents = async () => {
     try {
@@ -55,6 +80,42 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
     const matchesStatus = filterStatus === 'all' || event.status === filterStatus;
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  const groupsMap = new Map<string, Event[]>();
+  const titlesOrder: string[] = [];
+
+  filteredEvents.forEach(event => {
+    let title = 'Дата не установлена';
+    if (event.event_date) {
+      const parts = event.event_date.split('-');
+      if (parts.length === 3) {
+        const m = parseInt(parts[1], 10);
+        if (m >= 1 && m <= 12) {
+          title = `${monthNames[m - 1]} ${parts[0]}`;
+        }
+      }
+    }
+    
+    if (!groupsMap.has(title)) {
+      groupsMap.set(title, []);
+      if (title !== 'Дата не установлена') {
+        titlesOrder.push(title);
+      }
+    }
+    groupsMap.get(title)!.push(event);
+  });
+
+  const groupedEvents = titlesOrder.map(title => ({
+    title,
+    events: groupsMap.get(title)!
+  }));
+  
+  if (groupsMap.has('Дата не установлена')) {
+    groupedEvents.push({
+      title: 'Дата не установлена',
+      events: groupsMap.get('Дата не установлена')!
+    });
+  }
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -178,13 +239,13 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                   Дата
                 </th>
                 <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
-                  Название / Тип
+                  Площадка
                 </th>
                 <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
                   Заказчик
                 </th>
                 <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
-                  Площадка
+                  Название / Тип
                 </th>
                 <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
                   Статус
@@ -198,76 +259,159 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {filteredEvents.length === 0 ? (
+              {groupedEvents.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">
                     Мероприятия не найдены
                   </td>
                 </tr>
               ) : (
-                filteredEvents.map((event) => (
-                  <tr key={event.id} className="hover:bg-gray-800/50 transition-colors group">
-                    <td className="px-4 py-2">
-                      <div className="text-cyan-400 font-medium text-sm">{formatDate(event.event_date)}</div>
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="text-white font-medium text-sm leading-tight">{event.name || '-'}</div>
-                      <div className="text-xs text-gray-400 leading-tight">{event.event_type}</div>
-                    </td>
-                    <td className="px-4 py-2 text-white text-sm">
-                      {event.clients?.organization || '-'}
-                    </td>
-                    <td className="px-4 py-2 text-white text-sm">
-                      {event.venues?.name || '-'}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
-                        {event.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-1.5">
-                        <ReceiptText
-                          className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
-                          title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
-                        />
-                        <CheckCircle
-                          className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
-                          title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
-                        />
-                        <ClipboardCheck
-                          className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
-                          title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
-                        />
-                        <CreditCard
-                          className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
-                          title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
-                        />
+                groupedEvents.map((group) => (
+                  <React.Fragment key={group.title}>
+                    <tr 
+                      ref={el => monthRefs.current[group.title] = el}
+                      className="bg-gray-800/50"
+                    >
+                      <td colSpan={7} className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-800/50">
+                        {group.title}
+                      </td>
+                    </tr>
+                    {group.events.map((event) => (
+                      <tr key={event.id} className="hover:bg-gray-800/50 transition-colors group">
+                        <td className="px-4 py-2">
+                          <div className="text-cyan-400 font-medium text-sm">{formatDate(event.event_date)}</div>
+                        </td>
+                        <td className="px-4 py-2 text-white text-sm">
+                          {event.venues?.name || '-'}
+                        </td>
+                        <td className="px-4 py-2 text-white text-sm">
+                          {event.clients?.organization || '-'}
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="text-white font-medium text-sm leading-tight">{event.name || '-'}</div>
+                          <div className="text-xs text-gray-400 leading-tight">{event.event_type}</div>
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
+                            {event.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <ReceiptText
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                              title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
+                            />
+                            <CheckCircle
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
+                              title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
+                            />
+                            <ClipboardCheck
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
+                              title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
+                            />
+                            <CreditCard
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
+                              title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span
+                              title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
+                              className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                            </span>
+                            <span
+                              title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
+                              className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                              style={{ transform: 'scaleX(-1)' }}
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
+                            <button
+                              onClick={() => onSpecificationOpen?.(event.id)}
+                              disabled={!event.specification_confirmed}
+                              className={`p-1 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
+                              title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                            </button>
+                            {canEditDelete && (
+                              <>
+                                <button
+                                  onClick={() => onEventFormOpen?.(event)}
+                                  className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                                  title="Редактировать"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(event.id)}
+                                  className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                                  title="Удалить"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-gray-800">
+          {groupedEvents.length === 0 ? (
+            <div className="px-4 py-8 text-center text-gray-500 text-sm">
+              Мероприятия не найдены
+            </div>
+          ) : (
+            groupedEvents.map((group) => (
+              <React.Fragment key={group.title}>
+                <div 
+                  ref={el => monthRefs.current[group.title + '-mobile'] = el}
+                  className="bg-gray-800/50 px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest"
+                >
+                  {group.title}
+                </div>
+                {group.events.map((event) => (
+                  <div key={event.id} className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-medium text-sm leading-tight truncate">{event.venues?.name || '-'}</div>
+                        <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.name || '-'} ({event.event_type})</div>
                       </div>
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span
                           title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
                           className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
                         >
-                          <Truck className="w-3.5 h-3.5" />
+                          <Truck className="w-4 h-4" />
                         </span>
                         <span
                           title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
                           className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
                           style={{ transform: 'scaleX(-1)' }}
                         >
-                          <Truck className="w-3.5 h-3.5" />
+                          <Truck className="w-4 h-4" />
                         </span>
-                        <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
+                        <span className="w-px h-4 bg-gray-700 mx-0.5" />
                         <button
                           onClick={() => onSpecificationOpen?.(event.id)}
                           disabled={!event.specification_confirmed}
                           className={`p-1 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
                           title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
                         >
-                          <FileText className="w-3.5 h-3.5" />
+                          <FileText className="w-4 h-4" />
                         </button>
                         {canEditDelete && (
                           <>
@@ -276,117 +420,56 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                               className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
                               title="Редактировать"
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(event.id)}
                               className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                               title="Удалить"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="md:hidden divide-y divide-gray-800">
-          {filteredEvents.length === 0 ? (
-            <div className="px-4 py-8 text-center text-gray-500 text-sm">
-              Мероприятия не найдены
-            </div>
-          ) : (
-            filteredEvents.map((event) => (
-              <div key={event.id} className="p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white font-medium text-sm leading-tight truncate">{event.name || '-'}</div>
-                    <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.event_type}</div>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span
-                      title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
-                      className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
-                    >
-                      <Truck className="w-4 h-4" />
-                    </span>
-                    <span
-                      title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
-                      className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
-                      style={{ transform: 'scaleX(-1)' }}
-                    >
-                      <Truck className="w-4 h-4" />
-                    </span>
-                    <span className="w-px h-4 bg-gray-700 mx-0.5" />
-                    <button
-                      onClick={() => onSpecificationOpen?.(event.id)}
-                      disabled={!event.specification_confirmed}
-                      className={`p-1 rounded transition-colors ${event.specification_confirmed ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
-                      title={event.specification_confirmed ? 'Спецификация подтверждена' : 'Спецификация не составлена'}
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
-                    {canEditDelete && (
-                      <>
-                        <button
-                          onClick={() => onEventFormOpen?.(event)}
-                          className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
-                          title="Редактировать"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(event.id)}
-                          className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                          title="Удалить"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-cyan-400 font-medium text-xs">{formatDate(event.event_date)}</span>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
+                        {event.status}
+                      </span>
+                    </div>
+                    {(event.clients?.organization || event.venues?.name) && (
+                      <div className="text-xs text-gray-400 space-y-0.5">
+                        {event.venues?.name && (
+                          <div className="truncate">{event.venues.name}</div>
+                        )}
+                        {event.clients?.organization && (
+                          <div className="truncate">{event.clients.organization}</div>
+                        )}
+                      </div>
                     )}
+                    <div className="flex items-center gap-1.5">
+                      <ReceiptText
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                        title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
+                      />
+                      <CheckCircle
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
+                        title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
+                      />
+                      <ClipboardCheck
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
+                        title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
+                      />
+                      <CreditCard
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
+                        title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-cyan-400 font-medium text-xs">{formatDate(event.event_date)}</span>
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
-                    {event.status}
-                  </span>
-                </div>
-                {(event.clients?.organization || event.venues?.name) && (
-                  <div className="text-xs text-gray-400 space-y-0.5">
-                    {event.clients?.organization && (
-                      <div className="truncate">{event.clients.organization}</div>
-                    )}
-                    {event.venues?.name && (
-                      <div className="truncate">{event.venues.name}</div>
-                    )}
-                  </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                  <ReceiptText
-                    className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
-                    title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
-                  />
-                  <CheckCircle
-                    className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
-                    title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
-                  />
-                  <ClipboardCheck
-                    className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
-                    title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
-                  />
-                  <CreditCard
-                    className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
-                    title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
-                  />
-                </div>
-              </div>
+                ))}
+              </React.Fragment>
             ))
           )}
         </div>
