@@ -632,39 +632,70 @@ export async function copyBudgetFromEvent(
   // Копируем позиции бюджета
   const { data: sourceItems, error: fetchError } = await supabase
     .from('budget_items')
-    .select(`
-      *,
-      equipment:equipment_items (*)
-    `)
+    .select('*')
     .eq('event_id', sourceEventId);
 
   if (fetchError) throw fetchError;
   if (!sourceItems || sourceItems.length === 0) return;
 
-  const itemsToInsert = sourceItems.map(item => ({
-    event_id: targetEventId,
-    equipment_id: item.equipment_id,
-    work_item_id: item.work_item_id,
-    modification_id: item.modification_id,
-    parent_budget_item_id: null,
-    item_type: item.item_type,
-    quantity: item.quantity,
-    price: item.price,
-    total: item.total,
-    notes: item.notes,
-    exchange_rate: item.exchange_rate,
-    multi_day_rate_override: item.multi_day_rate_override,
-    category_id: item.category_id ? categoryIdMap[item.category_id] || null : null,
-    location_id: item.location_id ? locationIdMap[item.location_id] || null : null,
-    sort_order: item.sort_order,
-    picked: false,
-    is_extra: item.is_extra || false,
-    return_picked: false
-  }));
+  // Hierarchical copy to preserve parent-child relationships (e.g. for LED cases)
+  let itemsToProcess = [...sourceItems];
+  const oldToNewIdMap: Record<string, string> = {};
 
-  const { error: insertError } = await supabase
-    .from('budget_items')
-    .insert(itemsToInsert);
+  while (itemsToProcess.length > 0) {
+    // Get items whose parents have already been inserted (or have no parent)
+    const batch = itemsToProcess.filter(item => 
+      !item.parent_budget_item_id || oldToNewIdMap[item.parent_budget_item_id]
+    );
 
-  if (insertError) throw insertError;
+    if (batch.length === 0) {
+      // Should not happen with valid data, but prevent infinite loop
+      break;
+    }
+
+    const itemsToInsert = batch.map(item => ({
+      event_id: targetEventId,
+      equipment_id: item.equipment_id,
+      work_item_id: item.work_item_id,
+      modification_id: item.modification_id,
+      parent_budget_item_id: item.parent_budget_item_id ? oldToNewIdMap[item.parent_budget_item_id] : null,
+      item_type: item.item_type,
+      quantity: item.quantity,
+      price: item.price,
+      total: item.total,
+      notes: item.notes,
+      exchange_rate: item.exchange_rate,
+      multi_day_rate_override: item.multi_day_rate_override,
+      category_id: item.category_id ? categoryIdMap[item.category_id] || null : null,
+      location_id: item.location_id ? locationIdMap[item.location_id] || null : null,
+      sort_order: item.sort_order,
+      picked: false,
+      is_extra: item.is_extra || false,
+      return_picked: false,
+      name: item.name,
+      sku: item.sku,
+      unit: item.unit
+    }));
+
+    const { data: insertedItems, error: insertError } = await supabase
+      .from('budget_items')
+      .insert(itemsToInsert)
+      .select();
+
+    if (insertError) throw insertError;
+    if (!insertedItems) break;
+
+    // Map old IDs to new IDs
+    batch.forEach((oldItem, index) => {
+      // Find the corresponding inserted item by its properties, since order might not be guaranteed by Supabase client
+      // Although Postgres guarantees it, let's be extra safe or just trust the order.
+      // Actually, Supabase/PostgREST might not guarantee order of RETURNING if it's not simple.
+      // But for a single INSERT it should be fine.
+      oldToNewIdMap[oldItem.id] = insertedItems[index].id;
+    });
+
+    // Remove processed items
+    const processedIds = new Set(batch.map(i => i.id));
+    itemsToProcess = itemsToProcess.filter(i => !processedIds.has(i.id));
+  }
 }
