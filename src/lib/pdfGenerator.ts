@@ -48,6 +48,7 @@ interface PDFData {
   paymentMode?: 'usd' | 'byn_cash' | 'byn_noncash';
   discountEnabled?: boolean;
   discountPercent?: number;
+  budgetNote?: string;
   budgetDays: number;
   budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
   totalDay1FromEditor?: number;
@@ -103,6 +104,13 @@ const calculateBYNNonCashPrice = (priceUSD: number, exchangeRate: number, item?:
 
 const formatMoney = (value: number): string => value.toFixed(2);
 
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 const isConsumablesEquipmentItem = (item: BudgetItem): boolean =>
   !item.work_item && item.equipment?.category?.trim().toLowerCase() === 'расходные материалы';
@@ -446,6 +454,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     `;
   }
 
+  const trimmedBudgetNote = (data.budgetNote || '').trim();
+  const budgetNoteHtml = trimmedBudgetNote
+    ? `
+      <section style="margin-top: 18px; padding: 14px; border: 1px solid #000000; border-radius: 10px; background: #ffffff;">
+        <div style="font-size: 14px; color: #6b7280; text-transform: uppercase; margin-bottom: 6px; font-weight: 700;">Примечание</div>
+        <div style="font-size: 15px; color: #1a1a1a; line-height: 1.4; white-space: normal;">${escapeHtml(trimmedBudgetNote).replace(/\n/g, '<br/>')}</div>
+      </section>
+    `
+    : '';
+
   // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
   const clientHtml = data.clientName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
@@ -621,6 +639,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>
     </footer>
     ${extraServicesHtml}
+    ${budgetNoteHtml}
     <div style="height: 84px; background: #ffffff;"></div>
   `;
 

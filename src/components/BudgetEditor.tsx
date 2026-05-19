@@ -106,6 +106,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [discountedTotalInput, setDiscountedTotalInput] = useState('');
+  const [showBudgetNoteDialog, setShowBudgetNoteDialog] = useState(false);
+  const [budgetNote, setBudgetNote] = useState('');
   const [budgetVersion, setBudgetVersion] = useState('1.0');
   const [budgetDays, setBudgetDays] = useState(1);
   const [budgetDaysInput, setBudgetDaysInput] = useState('1');
@@ -210,6 +212,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       }
       if (eventData.budget_totals_mode) {
         setBudgetTotalsMode(eventData.budget_totals_mode);
+      }
+      if (eventData.budget_note !== undefined && eventData.budget_note !== null) {
+        setBudgetNote(eventData.budget_note);
+      } else {
+        setBudgetNote('');
       }
       setIsBudgetConfirmed(Boolean(eventData.progress_equipment_reserved));
 
@@ -735,7 +742,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         discount_enabled: discountEnabled,
         discount_percent: discountPercent,
         budget_days: budgetDays,
-        budget_totals_mode: budgetTotalsMode
+        budget_totals_mode: budgetTotalsMode,
+        budget_note: budgetNote
       });
 
       for (const item of budgetItems) {
@@ -781,6 +789,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
         discountPercent: exportDiscountPercent,
+        budgetNote,
         budgetDays,
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
@@ -1897,45 +1906,54 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
             <div className="flex items-start gap-6">
               <div className="flex flex-col gap-1.5">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={discountEnabled}
-                    onChange={(e) => setDiscountEnabled(e.target.checked)}
-                    className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
-                  />
-                  <span className="text-xs text-gray-300 font-medium">Скидка</span>
-                  {discountEnabled && (
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={discountPercentInput}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          setDiscountPercentInput(raw);
-                          const parsed = parseFloat(raw);
-                          if (!isNaN(parsed)) {
-                            setDiscountPercent(Math.min(100, Math.max(0, parsed)));
-                          }
-                        }}
-                        onBlur={() => {
-                          const parsed = parseFloat(discountPercentInput);
-                          if (isNaN(parsed) || discountPercentInput.trim() === '') {
-                            setDiscountPercent(0);
-                            setDiscountPercentInput('0');
-                          } else {
-                            const clamped = Math.min(100, Math.max(0, parsed));
-                            setDiscountPercent(clamped);
-                            setDiscountPercentInput(String(clamped));
-                          }
-                        }}
-                        className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
-                      />
-                      <span className="text-xs text-gray-400">%</span>
-                    </div>
-                  )}
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={discountEnabled}
+                      onChange={(e) => setDiscountEnabled(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                    />
+                    <span className="text-xs text-gray-300 font-medium">Скидка</span>
+                    {discountEnabled && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={discountPercentInput}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setDiscountPercentInput(raw);
+                            const parsed = parseFloat(raw);
+                            if (!isNaN(parsed)) {
+                              setDiscountPercent(Math.min(100, Math.max(0, parsed)));
+                            }
+                          }}
+                          onBlur={() => {
+                            const parsed = parseFloat(discountPercentInput);
+                            if (isNaN(parsed) || discountPercentInput.trim() === '') {
+                              setDiscountPercent(0);
+                              setDiscountPercentInput('0');
+                            } else {
+                              const clamped = Math.min(100, Math.max(0, parsed));
+                              setDiscountPercent(clamped);
+                              setDiscountPercentInput(String(clamped));
+                            }
+                          }}
+                          className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    )}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowBudgetNoteDialog(true)}
+                    className="px-2 py-1 text-[11px] font-medium text-cyan-300 border border-cyan-700/60 rounded-md hover:bg-cyan-500/10 transition-colors"
+                  >
+                    +Примечание
+                  </button>
+                </div>
                 {discountEnabled && getDiscountedTotal() !== null && (
                   <div className="flex flex-col">
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
@@ -2059,6 +2077,43 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       </div>
 
       {/* Modals */}
+      {showBudgetNoteDialog && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4"
+          onClick={(e) => e.target === e.currentTarget && setShowBudgetNoteDialog(false)}
+        >
+          <div className="bg-gray-900 border border-gray-800 rounded-t-xl sm:rounded-xl shadow-2xl w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-sm font-bold text-white">Примечание к смете</h3>
+              <button
+                onClick={() => setShowBudgetNoteDialog(false)}
+                className="text-gray-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <textarea
+                value={budgetNote}
+                onChange={(e) => setBudgetNote(e.target.value)}
+                placeholder="Введите примечание, которое будет выведено внизу сметы"
+                className="w-full min-h-[260px] px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-cyan-500 outline-none resize-y"
+              />
+            </div>
+
+            <div className="px-4 py-3 border-t border-gray-800 flex justify-end gap-2">
+              <button
+                onClick={() => setShowBudgetNoteDialog(false)}
+                className="px-4 py-2 text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {workPersonnelManagerOpen && selectedCategoryForPersonnel && (
         <WorkPersonnelManager
           workItems={budgetItems.filter((item) => {
