@@ -121,7 +121,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
     const colors = {
       'Запрос': 'bg-yellow-900/30 text-yellow-400 border-yellow-600',
       'На рассмотрении': 'bg-blue-900/30 text-blue-400 border-blue-600',
-      'Подтверждено': 'bg-green-900/30 text-green-400 border-green-600'
+      'Подтверждено': 'bg-green-900/30 text-green-400 border-green-600',
+      'Отменено': 'bg-red-900/30 text-red-400 border-red-600'
     };
     return colors[status as keyof typeof colors] || colors['Запрос'];
   };
