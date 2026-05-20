@@ -1,0 +1,101 @@
+
+> rentmaster2@2.0.0 typecheck
+> tsc --noEmit -p tsconfig.app.json
+
+src/components/BudgetEditor.tsx(1125,9): error TS6133: 'nonWorkTotalBYNCashForMode' is declared but its value is never read.
+src/components/BudgetEditor.tsx(1129,9): error TS6133: 'nonWorkTotalBYNNonCashForMode' is declared but its value is never read.
+src/components/BudgetEditor.tsx(1133,9): error TS6133: 'workTotalBYNCashForMode' is declared but its value is never read.
+src/components/BudgetEditor.tsx(1137,9): error TS6133: 'workTotalBYNNonCashForMode' is declared but its value is never read.
+src/components/BudgetEditor.tsx(1324,9): error TS6133: 'calculateSectionTotalsForPaymentMode' is declared but its value is never read.
+src/components/CategoryBlock.tsx(96,9): error TS6133: 'calculateBYNCash' is declared but its value is never read.
+src/components/CategoryBlock.tsx(107,9): error TS6133: 'calculateBYNNonCash' is declared but its value is never read.
+src/components/CategoryBlock.tsx(413,21): error TS6133: 'displayedPrice' is declared but its value is never read.
+src/components/EquipmentDetails.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/EquipmentSelector.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/EventForm.tsx(229,9): error TS6133: 'formatDateDisplay' is declared but its value is never read.
+src/components/LedSpecificationPanel.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/LedSpecificationPanel.tsx(2,51): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/components/LedSpecificationPanel.tsx(26,68): error TS6133: 'allBudgetItems' is declared but its value is never read.
+src/components/LedSpecificationPanel.tsx(145,13): error TS6133: 'newCompositionId' is declared but its value is never read.
+src/components/ModificationSelector.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/PodiumSpecificationPanel.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/PodiumSpecificationPanel.tsx(16,71): error TS6133: 'eventId' is declared but its value is never read.
+src/components/Register.tsx(10,28): error TS6133: 'onSuccess' is declared but its value is never read.
+src/components/TemplatesInBudget.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/TemplatesInBudget.tsx(14,10): error TS6133: 'searching' is declared but its value is never read.
+src/components/TemplatesInBudget.tsx(14,21): error TS6133: 'setSearching' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(2,35): error TS6133: 'Download' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(190,10): error TS6133: 'allEquipment' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(214,10): error TS6133: 'podiumItemsWithComposition' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(215,10): error TS6133: 'ledSpecifications' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(215,29): error TS6133: 'setLedSpecifications' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(329,9): error TS6133: 'checkAndLoadModifications' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(342,9): error TS2464: A computed property name must be of type 'string', 'number', 'symbol', or 'any'.
+src/components/WarehouseSpecification.tsx(753,64): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/WarehouseSpecification.tsx(754,27): error TS2538: Type 'null' cannot be used as an index type.
+src/components/WarehouseSpecification.tsx(754,27): error TS2538: Type 'undefined' cannot be used as an index type.
+src/components/WarehouseSpecification.tsx(1223,11): error TS2464: A computed property name must be of type 'string', 'number', 'symbol', or 'any'.
+src/components/WarehouseSpecification.tsx(1668,44): error TS2345: Argument of type '{ event_id: string; cable_type: string; cable_length: string; quantity: number; notes: string; picked: false; }' is not assignable to parameter of type 'Omit<CableItem, "id" | "created_at" | "updated_at">'.
+  Property 'return_picked' is missing in type '{ event_id: string; cable_type: string; cable_length: string; quantity: number; notes: string; picked: false; }' but required in type 'Omit<CableItem, "id" | "created_at" | "updated_at">'.
+src/components/WarehouseSpecification.tsx(1713,52): error TS2345: Argument of type '{ event_id: string; connector_type: string; connector_item: string; quantity: number; notes: string; picked: false; }' is not assignable to parameter of type 'Omit<ConnectorItem, "id" | "created_at" | "updated_at">'.
+  Property 'return_picked' is missing in type '{ event_id: string; connector_type: string; connector_item: string; quantity: number; notes: string; picked: false; }' but required in type 'Omit<ConnectorItem, "id" | "created_at" | "updated_at">'.
+src/components/WarehouseSpecification.tsx(1776,47): error TS2345: Argument of type '{ event_id: string; category: string; item_type: string; quantity: number; notes: string; picked: false; }' is not assignable to parameter of type 'Omit<OtherItem, "id" | "created_at" | "updated_at">'.
+  Property 'return_picked' is missing in type '{ event_id: string; category: string; item_type: string; quantity: number; notes: string; picked: false; }' but required in type 'Omit<OtherItem, "id" | "created_at" | "updated_at">'.
+src/components/WarehouseSpecification.tsx(1820,9): error TS6133: 'getOtherQuantity' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1825,9): error TS6133: 'getOtherId' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1830,9): error TS6133: 'getOtherNotes' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1835,9): error TS6133: 'getOtherPicked' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1840,9): error TS6133: 'handleExportBudget' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1866,9): error TS6133: 'handleExportCables' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1884,9): error TS6133: 'handleExportConnectors' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1905,9): error TS6133: 'handleExportOther' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1934,9): error TS6133: 'getCableQuantity' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1939,9): error TS6133: 'getCableId' is declared but its value is never read.
+src/components/WarehouseSpecification.tsx(1944,9): error TS6133: 'getCablePicked' is declared but its value is never read.
+src/components/WorkPersonnelManager.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/WorkPersonnelManager.tsx(14,11): error TS6196: 'WorkPersonnelAssignment' is declared but never used.
+src/components/dialogs/AddEquipmentDirectoryItemDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/AddLocationDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/CopyBudgetDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/CopyBudgetDialog.tsx(2,46): error TS6133: 'Check' is declared but its value is never read.
+src/components/dialogs/CopyBudgetDialog.tsx(2,53): error TS6133: 'FileText' is declared but its value is never read.
+src/components/dialogs/LedSizeDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/PodiumDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/TotemDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/UShapeDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/UShapeLedDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/dialogs/UShapeUnifiedDialog.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/lib/ledCases.ts(71,24): error TS2339: Property 'picked_in_warehouse' does not exist on type 'BudgetItem'.
+src/lib/pdfGenerator.ts(83,7): error TS6133: 'calculateBYNCashPrice' is declared but its value is never read.
+src/lib/pdfGenerator.ts(94,7): error TS6133: 'calculateBYNNonCashPrice' is declared but its value is never read.
+src/lib/pdfGenerator.ts(197,9): error TS6133: 'grayBg' is declared but its value is never read.
+src/lib/pdfGenerator.ts(251,11): error TS6133: 'locationAccent' is declared but its value is never read.
+src/lib/pdfGenerator.ts(512,9): error TS6133: 'grandTotalNonWorkCombined' is declared but its value is never read.
+src/lib/personnel.ts(145,10): error TS2352: Conversion of type 'any[][]' to type 'Personnel[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'any[]' is missing the following properties from type 'Personnel': id, user_id, full_name, salary, and 6 more.
+src/pages/Contacts.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/Contacts.tsx(21,10): error TS6133: 'events' is declared but its value is never read.
+src/pages/Contacts.tsx(134,9): error TS6133: 'handleRenameEventType' is declared but its value is never read.
+src/pages/Dashboard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/pages/Events.tsx(310,31): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Events.tsx(314,31): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Events.tsx(318,31): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Events.tsx(322,31): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Events.tsx(462,25): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Events.tsx(466,25): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Events.tsx(470,25): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Events.tsx(474,25): error TS2322: Type '{ className: string; title: string; }' is not assignable to type 'IntrinsicAttributes & LucideProps'.
+  Property 'title' does not exist on type 'IntrinsicAttributes & LucideProps'.
+src/pages/Payments.tsx(5,3): error TS6133: 'getMonthsWithPayments' is declared but its value is never read.
+src/pages/Payments.tsx(92,12): error TS6133: 'getStatusIcon' is declared but its value is never read.
+src/pages/PersonnelPaymentsReport.tsx(2,32): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/Templates.tsx(1,8): error TS6133: 'React' is declared but its value is never read.

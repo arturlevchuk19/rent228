@@ -129,6 +129,55 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
     }
   }, [isTouchDragging, handleTouchMove, handleTouchEnd]);
 
+  // === Resize Logic ===
+
+  const applyResize = useCallback((dx: number, dy: number, handle: ResizeHandle) => {
+    let newWidth = resizeStartSize.width;
+    let newHeight = resizeStartSize.height;
+    let newX = resizeStartPos.x;
+    let newY = resizeStartPos.y;
+
+    switch (handle) {
+      case 'e': // right edge
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
+        break;
+      case 'w': // left edge
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
+        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
+        break;
+      case 's': // bottom edge
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
+        break;
+      case 'n': // top edge
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
+        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
+        break;
+      case 'se': // bottom-right corner
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
+        break;
+      case 'sw': // bottom-left corner
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
+        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
+        break;
+      case 'ne': // top-right corner
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
+        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
+        break;
+      case 'nw': // top-left corner
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
+        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
+        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
+        break;
+    }
+
+    setSize({ width: newWidth, height: newHeight });
+    setPosition({ x: newX, y: newY });
+  }, [resizeStartSize, resizeStartPos]);
+
   // === Mouse Resize ===
 
   const handleResizeMouseDown = useCallback((e: React.MouseEvent, handle: ResizeHandle) => {
@@ -205,55 +254,6 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
       };
     }
   }, [isTouchResizing, handleResizeTouchMove, handleResizeTouchEnd]);
-
-  // === Resize Logic ===
-
-  const applyResize = useCallback((dx: number, dy: number, handle: ResizeHandle) => {
-    let newWidth = resizeStartSize.width;
-    let newHeight = resizeStartSize.height;
-    let newX = resizeStartPos.x;
-    let newY = resizeStartPos.y;
-
-    switch (handle) {
-      case 'e': // right edge
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
-        break;
-      case 'w': // left edge
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
-        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
-        break;
-      case 's': // bottom edge
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
-        break;
-      case 'n': // top edge
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
-        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
-        break;
-      case 'se': // bottom-right corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
-        break;
-      case 'sw': // bottom-left corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
-        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
-        break;
-      case 'ne': // top-right corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
-        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
-        break;
-      case 'nw': // top-left corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
-        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
-        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
-        break;
-    }
-
-    setSize({ width: newWidth, height: newHeight });
-    setPosition({ x: newX, y: newY });
-  }, [resizeStartSize, resizeStartPos]);
 
   // === Helper: cursor for resize handles ===
 

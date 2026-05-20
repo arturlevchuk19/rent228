@@ -339,7 +339,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       const mods = await getEquipmentModifications(budgetItem.equipment_id);
       setEquipmentModifications(prev => ({
         ...prev,
-        [budgetItem.equipment_id]: mods
+        [budgetItem.equipment_id as string]: mods
       }));
       return mods.length > 0;
     } catch (error) {
@@ -750,8 +750,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               try {
                 const modsMap: Record<string, EquipmentModification[]> = {};
                 for (const equipmentId of equipmentIds) {
-                  const mods = await getEquipmentModifications(equipmentId);
-                  modsMap[equipmentId] = mods;
+                  const mods = await getEquipmentModifications(equipmentId as string);
+                  modsMap[equipmentId as string] = mods;
                 }
                 setEquipmentModifications(modsMap);
               } catch (error) {
@@ -1220,7 +1220,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         const mods = await getEquipmentModifications(budgetItem.equipment_id);
         setEquipmentModifications(prev => ({
           ...prev,
-          [budgetItem.equipment_id]: mods
+          [budgetItem.equipment_id as string]: mods
         }));
       } catch (error) {
         console.error('Error loading modifications for equipment', budgetItem.equipment_id, ':', error);
