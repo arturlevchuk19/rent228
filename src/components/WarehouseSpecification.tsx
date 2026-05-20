@@ -234,6 +234,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingComponentCaseSelections, setPendingComponentCaseSelections] = useState<PendingComponentCaseSelection[]>([]);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
+  const [collapsedParentItems, setCollapsedParentItems] = useState<Set<string>>(new Set());
 
   const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
     setNotification({ message, type });
@@ -350,6 +351,28 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const mainItems = expandedItems.filter(item => !item.isExtra);
   const extraItems = expandedItems.filter(item => item.isExtra);
+
+  const hasChildItems = (items: ExpandedItem[], parentItem: ExpandedItem) =>
+    items.some((candidate) => candidate.parentName === parentItem.name);
+
+  const isChildRowHidden = (items: ExpandedItem[], rowItem: ExpandedItem) => {
+    if (!rowItem.parentName) return false;
+    const parent = items.find((candidate) => candidate.name === rowItem.parentName);
+    if (!parent) return false;
+    return collapsedParentItems.has(parent.budgetItemId);
+  };
+
+  const toggleParentRow = (parentBudgetItemId: string) => {
+    setCollapsedParentItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentBudgetItemId)) {
+        next.delete(parentBudgetItemId);
+      } else {
+        next.add(parentBudgetItemId);
+      }
+      return next;
+    });
+  };
 
   const extraBudgetItems = budgetItems.filter(item => item.is_extra);
 
@@ -2142,31 +2165,57 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {group.items.map((item, index) => (
+                        {group.items.map((item, index) => {
+                          const rowHasChildren = hasChildItems(group.items, item);
+                          const rowIsCollapsed = collapsedParentItems.has(item.budgetItemId);
+                          const hideCheckbox = rowHasChildren;
+
+                          if (isChildRowHidden(group.items, item)) {
+                            return null;
+                          }
+
+                          return (
                           <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                <input
-                                  type="checkbox"
-                                  checked={item.return_picked}
-                                  onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
-                                  className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
-                                />
+                              {hideCheckbox ? (
+                                <span className="text-[10px] text-gray-600">—</span>
                               ) : (
-                                <input
-                                  type="checkbox"
-                                  checked={item.picked}
-                                  onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
-                                  className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
-                                  disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
-                                />
+                                <>
+                                  {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={item.return_picked}
+                                      onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
+                                      className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
+                                    />
+                                  ) : (
+                                    <input
+                                      type="checkbox"
+                                      checked={item.picked}
+                                      onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
+                                      className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
+                                      disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                    />
+                                  )}
+                                </>
                               )}
                             </td>
                             <td className="px-3 py-1.5 text-center text-xs text-gray-500">{index + 1}</td>
                             <td className="px-3 py-1.5">
                               <div className="flex items-center gap-2">
                                 <div>
-                                  <div className="text-xs text-white font-medium">{item.name}</div>
+                                  <div className="text-xs text-white font-medium flex items-center gap-1.5">
+                                    {rowHasChildren && (
+                                      <button
+                                        onClick={() => toggleParentRow(item.budgetItemId)}
+                                        className="text-gray-400 hover:text-gray-200 transition-colors"
+                                        title={rowIsCollapsed ? 'Развернуть дочерние элементы' : 'Свернуть дочерние элементы'}
+                                      >
+                                        {rowIsCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                      </button>
+                                    )}
+                                    <span>{item.name}</span>
+                                  </div>
                                   {item.parentName && (
                                     <div className="text-[10px] text-cyan-500 mt-0.5">
                                       ↳ {item.parentName}
@@ -2250,7 +2299,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               </td>
                             )}
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                         </table>
                       </div>
