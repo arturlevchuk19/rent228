@@ -1050,6 +1050,21 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     setDraggedItem(null);
   };
 
+  const handleTouchItemDrop = async (targetItemId: string | null, targetGroup: BudgetDragTarget | null) => {
+    if (!draggedItem || draggedItem.type !== 'item') return;
+    if (targetItemId && targetItemId !== draggedItem.id) {
+      await handleDropOnItem({ preventDefault: () => {}, stopPropagation: () => {} } as React.DragEvent, targetItemId);
+      return;
+    }
+    if (targetGroup) {
+      await handleDrop({ preventDefault: () => {}, stopPropagation: () => {} } as React.DragEvent, targetGroup);
+      return;
+    }
+    setDraggedItem(null);
+    setDragOverItemId(null);
+    setDragOverTarget(null);
+  };
+
   const isDeliveryWork = (item: BudgetItem): boolean => {
     if (item.item_type !== 'work') return false;
     const workName = item.work_item?.name?.toLowerCase() || '';
@@ -1721,6 +1736,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                     onDrop={handleDrop}
                                     onDragOverItem={handleDragOverItem}
                                     onDropOnItem={handleDropOnItem}
+                                    onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
+                                    onTouchItemDrop={handleTouchItemDrop}
                                     dragOverItemId={dragOverItemId}
                                   />
                                 </div>
@@ -1749,6 +1766,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                 onDrop={handleDrop}
                                 onDragOverItem={handleDragOverItem}
                                 onDropOnItem={handleDropOnItem}
+                                onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
+                                onTouchItemDrop={handleTouchItemDrop}
                                 dragOverItemId={dragOverItemId}
                               />
                             )}
@@ -1791,6 +1810,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                           onDrop={handleDrop}
                           onDragOverItem={handleDragOverItem}
                           onDropOnItem={handleDropOnItem}
+                          onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
+                          onTouchItemDrop={handleTouchItemDrop}
                           dragOverItemId={dragOverItemId}
                           categoryRef={(el) => { categoryRefs.current[category.id] = el; }}
                         />
@@ -1823,6 +1844,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                         onDrop={(e) => handleDrop(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
                         onDragOverItem={handleDragOverItem}
                         onDropOnItem={handleDropOnItem}
+                        onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
+                        onTouchItemDrop={handleTouchItemDrop}
                         dragOverItemId={dragOverItemId}
                       />
                     </div>
