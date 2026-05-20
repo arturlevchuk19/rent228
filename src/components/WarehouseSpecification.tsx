@@ -1364,6 +1364,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
+  const handleBatchAddEquipment = async (items: Array<{ equipment: EquipmentItem; quantity: number; modificationId?: string }>) => {
+    const addHandler = activeTab === 'extra' ? handleAddExtraEquipment : handleAddEquipment;
+
+    for (const item of items) {
+      await addHandler(item.equipment, item.quantity, item.modificationId);
+    }
+
+    setShowEquipmentSelector(false);
+    setAddEquipmentTarget({ categoryId: null, locationId: null });
+  };
+
   const openEquipmentSelectorForCategory = (categoryId: string | null, locationId: string | null) => {
     setAddEquipmentTarget({ categoryId, locationId });
     setShowEquipmentSelector(true);
@@ -3088,6 +3099,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             </div>
             <EquipmentSelector
               onSelect={activeTab === 'extra' ? handleAddExtraEquipment : handleAddEquipment}
+              onBatchSelect={handleBatchAddEquipment}
               onClose={() => {
                 setShowEquipmentSelector(false);
                 setAddEquipmentTarget({ categoryId: null, locationId: null });
