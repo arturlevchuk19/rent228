@@ -36,6 +36,8 @@ interface CategoryBlockProps {
   onDragOverItem?: (e: React.DragEvent, itemId: string) => void;
   onDropOnItem?: (e: React.DragEvent, targetItemId: string) => void;
   dragOverItemId?: string | null;
+  onTouchItemDragStart?: (itemId: string) => void;
+  onTouchItemDrop?: (targetItemId: string | null, targetGroup: BudgetDragTarget | null) => void;
   categoryRef?: (el: HTMLDivElement | null) => void;
   headerStyle?: React.CSSProperties;
   headerClassName?: string;
@@ -67,6 +69,8 @@ export function CategoryBlock({
   onDragOverItem,
   onDropOnItem,
   dragOverItemId,
+  onTouchItemDragStart,
+  onTouchItemDrop,
   categoryRef,
   headerStyle,
   headerClassName
@@ -252,6 +256,7 @@ export function CategoryBlock({
       style={locationColor ? { borderLeftColor: locationColor } : undefined}
       onDragOver={(e) => onDragOver?.(e, dragTarget)}
       onDrop={(e) => onDrop?.(e, dragTarget)}
+      data-budget-drop-group={JSON.stringify(dragTarget)}
     >
       {/* Category header - compact, sticky */}
       <div
@@ -416,6 +421,7 @@ export function CategoryBlock({
                 <div
                   key={item.id}
                   className="group"
+                  data-budget-item-id={item.id}
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -435,6 +441,27 @@ export function CategoryBlock({
                       onDragStart?.(e, 'item', item.id);
                     }}
                     className="w-3 text-gray-600 hover:text-gray-400 cursor-move opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 flex justify-center"
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                      onTouchItemDragStart?.(item.id);
+                    }}
+                    onTouchEnd={(e) => {
+                      const touch = e.changedTouches[0];
+                      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
+                      const targetItemEl = targetEl?.closest('[data-budget-item-id]') as HTMLElement | null;
+                      const targetGroupEl = targetEl?.closest('[data-budget-drop-group]') as HTMLElement | null;
+                      const targetItemId = targetItemEl?.dataset.budgetItemId || null;
+                      const targetGroupRaw = targetGroupEl?.dataset.budgetDropGroup || null;
+                      let targetGroup: BudgetDragTarget | null = null;
+                      if (targetGroupRaw) {
+                        try {
+                          targetGroup = JSON.parse(targetGroupRaw) as BudgetDragTarget;
+                        } catch {
+                          targetGroup = null;
+                        }
+                      }
+                      onTouchItemDrop?.(targetItemId, targetGroup);
+                    }}
                   >
                     <GripVertical className="w-3 h-3" />
                   </div>
