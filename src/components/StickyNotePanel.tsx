@@ -21,7 +21,7 @@ const HANDLE_SIZE = 20;
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se';
 
 export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storageKey }: StickyNotePanelProps) {
-  const [activeNoteId, setActiveNoteId] = useState<string>(notes[0]?.id || '');
+  const [activeNoteId, setActiveNoteId] = useState<string>('');
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const [size, setSize] = useState({ width: 400, height: 350 });
   const [isDragging, setIsDragging] = useState(false);
@@ -36,16 +36,23 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen && notes.length > 0 && !activeNoteId) {
+    if (!isOpen) return;
+    
+    // Initialize activeNoteId when panel opens and notes are available
+    if (!activeNoteId && notes.length > 0) {
       setActiveNoteId(notes[0].id);
     }
-    if (isOpen && notes.length > 0 && !notes.find(n => n.id === activeNoteId)) {
+    
+    // Reset activeNoteId if current one doesn't exist in notes anymore
+    if (activeNoteId && notes.length > 0 && !notes.find(n => n.id === activeNoteId)) {
       setActiveNoteId(notes[0].id);
     }
-  }, [isOpen, notes, activeNoteId]);
+  }, [isOpen, notes.length, activeNoteId]);
 
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(notes));
+    if (notes.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(notes));
+    }
   }, [notes, storageKey]);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
