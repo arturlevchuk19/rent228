@@ -212,6 +212,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [ledItemsWithCases, setLedItemsWithCases] = useState<Set<string>>(new Set());
   const [showPodiumSpecification, setShowPodiumSpecification] = useState<string | null>(null);
   const [podiumItemsWithComposition, setPodiumItemsWithComposition] = useState<Set<string>>(new Set());
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [ledSpecifications, setLedSpecifications] = useState<Record<string, {
     moduleType: string;
     moduleSize: { width: number; height: number };
@@ -432,6 +433,41 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const locationGroups = buildLocationGroups(mainItems);
   const extraLocationGroups = buildLocationGroups(extraItems);
+
+  // Helper to identify if item is a parent (LED screen or podium) that should be collapsible
+  const isCollapsibleParent = (item: ExpandedItem): boolean => {
+    if (item.isFromComposition) return false;
+    // Check if this item has children in the expanded items
+    return isLedScreenItem(item) || isPodiumItem(item);
+  };
+
+  // Get children for a parent item
+  const getChildrenForParent = (parentBudgetItemId: string): ExpandedItem[] => {
+    return expandedItems.filter(item => 
+      item.parentName && 
+      (item.budgetItemId.startsWith(`${parentBudgetItemId}-case-`) ||
+       item.budgetItemId.startsWith(`${parentBudgetItemId}-podium-`) ||
+       item.budgetItemId.startsWith(`${parentBudgetItemId}-comp-`))
+    );
+  };
+
+  // Check if parent has children
+  const hasChildren = (parentBudgetItemId: string): boolean => {
+    return getChildrenForParent(parentBudgetItemId).length > 0;
+  };
+
+  // Toggle parent expansion
+  const toggleParentExpansion = (parentBudgetItemId: string) => {
+    setExpandedParents(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(parentBudgetItemId)) {
+        newSet.delete(parentBudgetItemId);
+      } else {
+        newSet.add(parentBudgetItemId);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     loadData();
@@ -830,6 +866,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     });
     setLedItemsWithCases(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
+    // Auto-expand the parent when children are added
+    setExpandedParents(prev => new Set(prev).add(budgetItemId));
   };
 
   const handlePodiumCompositionCalculated = (budgetItemId: string, selectedModules: Array<{ id: string; child_name: string; child_sku: string; child_category: string; quantity: number }>) => {
@@ -876,6 +914,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     });
     setPodiumItemsWithComposition(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
+    // Auto-expand the parent when children are added
+    setExpandedParents(prev => new Set(prev).add(budgetItemId));
   };
 
   const handleComponentDecisionSeparate = () => {
@@ -2107,17 +2147,32 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {group.items.map((item, index) => (
-                          <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
-                            <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                        {group.items.flatMap((item, index) => {
+                          const children = hasChildren(item.budgetItemId) ? getChildrenForParent(item.budgetItemId) : [];
+                          const isExpanded = expandedParents.has(item.budgetItemId);
+                          return [
+                            <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
+                              <td className="px-3 py-1.5 text-center">
+                                {hasChildren(item.budgetItemId) ? (
+                                  <button
+                                    onClick={() => toggleParentExpansion(item.budgetItemId)}
+                                    className="p-1 text-gray-500 hover:text-cyan-400 transition-colors"
+                                    title={isExpanded ? 'Свернуть' : 'Развернуть'}
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronDown className="w-4 h-4" />
+                                    ) : (
+                                      <ChevronRight className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                ) : eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                 <input
                                   type="checkbox"
                                   checked={item.return_picked}
                                   onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
                                   className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
                                 />
-                              ) : (
+                              ) : !isCollapsibleParent(item) ? (
                                 <input
                                   type="checkbox"
                                   checked={item.picked}
@@ -2125,7 +2180,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
                                   disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
                                 />
-                              )}
+                              ) : null}
                             </td>
                             <td className="px-3 py-1.5 text-center text-xs text-gray-500">{index + 1}</td>
                             <td className="px-3 py-1.5">
@@ -2138,7 +2193,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     </div>
                                   )}
                                 </div>
-                                {!eventDetails?.equipment_shipped && !item.isFromComposition && hasModifications(item.budgetItemId) && (
+                                {!eventDetails?.equipment_shipped && !item.isFromComposition && !hasChildren(item.budgetItemId) && hasModifications(item.budgetItemId) && (
                                   <button
                                     onClick={() => {
                                       const budgetItem = budgetItems.find(b => b.id === item.budgetItemId);
@@ -2214,8 +2269,48 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 />
                               </td>
                             )}
-                          </tr>
-                        ))}
+                            </tr>,
+                            // Render children when parent is expanded
+                            ...(isExpanded && children.length > 0 ? children.map((child, childIndex) => (
+                              <tr key={`${child.budgetItemId}-child-${childIndex}`} className="bg-cyan-900/10 hover:bg-cyan-900/20 transition-colors">
+                                <td className="px-3 py-1.5 text-center">
+                                  {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={child.return_picked}
+                                      onChange={(e) => handleReturnPickedChange(child.budgetItemId, e.target.checked)}
+                                      className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
+                                    />
+                                  ) : (
+                                    <input
+                                      type="checkbox"
+                                      checked={child.picked}
+                                      onChange={(e) => handlePickedChange(child.budgetItemId, e.target.checked)}
+                                      className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
+                                      disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                    />
+                                  )}
+                                </td>
+                                <td className="px-3 py-1.5 text-center text-xs text-gray-500"></td>
+                                <td className="px-3 py-1.5">
+                                  <div className="flex items-center gap-2 pl-4">
+                                    <div className="w-4 h-4 flex items-center justify-center text-cyan-500/50">
+                                      <span>↳</span>
+                                    </div>
+                                    <div className="text-xs text-white">{child.name}</div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-1.5 text-center">
+                                  <span className="text-xs text-white font-bold">{child.quantity}</span>
+                                </td>
+                                <td className="px-3 py-1.5 text-xs text-gray-500">{child.unit}</td>
+                                {!eventDetails?.equipment_shipped && (
+                                  <td className="px-3 py-1.5 text-xs text-gray-500"></td>
+                                )}
+                              </tr>
+                            )) : [])
+                          ];
+                        })}
                       </tbody>
                         </table>
                       </div>
