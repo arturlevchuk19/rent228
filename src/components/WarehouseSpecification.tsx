@@ -53,6 +53,7 @@ interface WarehouseSpecificationProps {
 
 interface ExpandedItem {
   budgetItemId: string;
+  parentBudgetItemId?: string;
   categoryId: string | null;
   locationId: string | null;
   locationName: string;
@@ -353,11 +354,19 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const extraItems = expandedItems.filter(item => item.isExtra);
 
   const hasChildItems = (items: ExpandedItem[], parentItem: ExpandedItem) =>
-    items.some((candidate) => candidate.parentName === parentItem.name);
+    items.some((candidate) => (
+      candidate.parentBudgetItemId
+        ? candidate.parentBudgetItemId === parentItem.budgetItemId
+        : candidate.parentName === parentItem.name
+    ));
 
   const isChildRowHidden = (items: ExpandedItem[], rowItem: ExpandedItem) => {
     if (!rowItem.parentName) return false;
-    const parent = items.find((candidate) => candidate.name === rowItem.parentName);
+    const parent = items.find((candidate) => (
+      rowItem.parentBudgetItemId
+        ? candidate.budgetItemId === rowItem.parentBudgetItemId
+        : candidate.name === rowItem.parentName
+    ));
     if (!parent) return false;
     return collapsedParentItems.has(parent.budgetItemId);
   };
@@ -525,6 +534,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
           items.push({
             budgetItemId: item.id,
+            parentBudgetItemId: item.parent_budget_item_id,
             categoryId: item.category_id || null,
             locationId,
             locationName: location?.name || item.location?.name || parentItem?.location?.name || 'Без локации',
@@ -686,6 +696,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 for (const comp of compositions) {
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
+                    parentBudgetItemId: item.id,
                     categoryId: item.category_id || null,
                     locationId: itemLocationId,
                     locationName: itemLocationName,
@@ -717,6 +728,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 for (const component of components) {
                   items.push({
                     budgetItemId: `${item.id}-mod-${component.id}`,
+                    parentBudgetItemId: item.id,
                     categoryId: item.category_id || null,
                     locationId: itemLocationId,
                     locationName: itemLocationName,
@@ -822,6 +834,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const newCaseItems: ExpandedItem[] = cases.map(calculatedCase => ({
       budgetItemId: `${budgetItemId}-case-${calculatedCase.caseId}`,
+      parentBudgetItemId: budgetItemId,
       categoryId: budgetItem.category_id || null,
       locationId: budgetItem.location_id || null,
       locationName: budgetItem.location?.name || 'Без локации',
@@ -867,6 +880,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const newChildItems: ExpandedItem[] = selectedModules.map(module => ({
       budgetItemId: `${budgetItemId}-podium-${module.id}`,
+      parentBudgetItemId: budgetItemId,
       categoryId: budgetItem.category_id || null,
       locationId: budgetItem.location_id || null,
       locationName: budgetItem.location?.name || 'Без локации',
@@ -1317,6 +1331,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       .filter(comp => componentQuantities[comp.id] > 0)
       .map(comp => ({
         budgetItemId: `${selectedBudgetItemForMod.id}-mod-${comp.id}-${Date.now()}`,
+        parentBudgetItemId: selectedBudgetItemForMod.id,
         categoryId: selectedBudgetItemForMod.category_id || null,
         locationId: selectedBudgetItemForMod.location_id || null,
         locationName: selectedBudgetItemForMod.location?.name || 'Без локации',
@@ -2168,7 +2183,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         {group.items.map((item, index) => {
                           const rowHasChildren = hasChildItems(group.items, item);
                           const rowIsCollapsed = collapsedParentItems.has(item.budgetItemId);
-                          const hideCheckbox = rowHasChildren;
+                          const hideCheckbox = rowHasChildren && item.isFromComposition;
 
                           if (isChildRowHidden(group.items, item)) {
                             return null;
