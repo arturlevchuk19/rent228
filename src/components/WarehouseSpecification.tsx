@@ -1186,9 +1186,33 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     return [...equipmentPending, ...extraPending, ...cablesPending, ...connectorsPending, ...otherPending];
   };
 
+  const addItemToLocalState = (newItem: BudgetItem, equipment?: EquipmentItem) => {
+    setBudgetItems(prev => [...prev, newItem]);
+    const locationName = newItem.location_id
+      ? locations.find(l => l.id === newItem.location_id)?.name || ''
+      : '';
+    const newExpandedItem: ExpandedItem = {
+      budgetItemId: newItem.id,
+      categoryId: newItem.category_id || null,
+      locationId: newItem.location_id || null,
+      locationName: locationName || 'Без локации',
+      name: newItem.equipment?.name || equipment?.name || newItem.name || 'Unknown',
+      sku: newItem.equipment?.sku || equipment?.sku || newItem.sku || '',
+      quantity: newItem.quantity,
+      unit: 'шт.',
+      category: newItem.equipment?.category || equipment?.category || 'Other',
+      notes: newItem.notes || '',
+      picked: newItem.picked || false,
+      return_picked: newItem.return_picked || false,
+      isFromComposition: false,
+      isExtra: newItem.is_extra || false,
+    };
+    setExpandedItems(prev => [...prev, newExpandedItem]);
+  };
+
   const handleAddExtraEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
-      await createSpecificationBudgetItem({
+      const newItem = await createSpecificationBudgetItem({
         event_id: eventId,
         equipment_id: equipment.id,
         modification_id: modificationId,
@@ -1202,7 +1226,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       });
       setShowEquipmentSelector(false);
       setAddEquipmentTarget({ categoryId: null, locationId: null });
-      await loadData();
+      // Optimized: add new item to local state instead of full reload
+      addItemToLocalState(newItem, equipment);
+      showNotification('Оборудование добавлено', 'success');
     } catch (error) {
       console.error('Error adding extra equipment:', error);
       showNotification('Ошибка при добавлении оборудования');
@@ -1329,10 +1355,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       console.log('Created budget item:', newItem);
       setShowEquipmentSelector(false);
       setAddEquipmentTarget({ categoryId: null, locationId: null });
-      const pending = expandedItems
-        .filter(i => modifiedItems.has(i.budgetItemId))
-        .map(i => ({ id: i.budgetItemId, quantity: i.quantity, notes: i.notes }));
-      await loadData(pending);
+      // Optimized: add new item to local state instead of full reload
+      addItemToLocalState(newItem, equipment);
+      showNotification('Оборудование добавлено', 'success');
     } catch (error) {
       console.error('Error adding equipment:', error);
       showNotification('Ошибка при добавлении оборудования');
@@ -1393,7 +1418,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
     try {
       await deleteSpecificationBudgetItem(realId);
-      await loadData();
+      // Optimized: remove from local state instead of full reload
+      setBudgetItems(prev => prev.filter(item => item.id !== realId));
+      setExpandedItems(prev => prev.filter(item => {
+        const itemRealId = item.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
+        return itemRealId !== realId;
+      }));
+      setModifiedItems(prev => {
+        const updated = new Set(prev);
+        updated.delete(realId);
+        return updated;
+      });
       showNotification('Элемент удалён', 'success');
     } catch (error) {
       console.error('Error deleting specification item:', error);
