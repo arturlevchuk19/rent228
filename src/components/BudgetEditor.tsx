@@ -89,11 +89,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [showLedSizeDialog, setShowLedSizeDialog] = useState(false);
   const [selectedLedEquipment, setSelectedLedEquipment] = useState<EquipmentItem | null>(null);
-  
+
 
   const [showPodiumDialog, setShowPodiumDialog] = useState(false);
   const [selectedPodiumEquipment, setSelectedPodiumEquipment] = useState<EquipmentItem | null>(null);
-  
+
 
   const [showTotemDialog, setShowTotemDialog] = useState(false);
   const [selectedTotemEquipment, setSelectedTotemEquipment] = useState<EquipmentItem | null>(null);
@@ -556,12 +556,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const targetLocationId = locationId || selectedPlacement.locationId || undefined;
       const isExtra = isExtraServiceCategory(targetCategoryId);
 
-      const targetGroupItems = budgetItems.filter(item => 
-        (item.category_id || undefined) === targetCategoryId && 
+      const targetGroupItems = budgetItems.filter(item =>
+        (item.category_id || undefined) === targetCategoryId &&
         (item.location_id || undefined) === targetLocationId
       );
-      const maxSortOrder = targetGroupItems.length > 0 
-        ? Math.max(...targetGroupItems.map(i => i.sort_order || 0)) 
+      const maxSortOrder = targetGroupItems.length > 0
+        ? Math.max(...targetGroupItems.map(i => i.sort_order || 0))
         : -1;
 
       const newItem = await createBudgetItem({
@@ -611,15 +611,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  
 
-  
 
-  
 
-  
 
-  
+
+
+
+
+
 
   const handleAddWorkItem = async (workItem: WorkItem, categoryId?: string) => {
     try {
@@ -628,12 +628,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const targetLocationId = selectedPlacement.locationId || undefined;
       const isExtra = isExtraServiceCategory(targetCategoryId);
 
-      const targetGroupItems = budgetItems.filter(item => 
-        (item.category_id || undefined) === targetCategoryId && 
+      const targetGroupItems = budgetItems.filter(item =>
+        (item.category_id || undefined) === targetCategoryId &&
         (item.location_id || undefined) === targetLocationId
       );
-      const maxSortOrder = targetGroupItems.length > 0 
-        ? Math.max(...targetGroupItems.map(i => i.sort_order || 0)) 
+      const maxSortOrder = targetGroupItems.length > 0
+        ? Math.max(...targetGroupItems.map(i => i.sort_order || 0))
         : -1;
 
       const newItem = await createBudgetItem({
@@ -1405,9 +1405,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  
 
-  
+
+
 
   if (loading) {
     return (
@@ -1458,6 +1458,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBudgetNoteDialog(true)}
+              className="px-2 py-1 text-[11px] font-medium text-cyan-300 border border-cyan-700/60 rounded-md hover:bg-cyan-500/10 transition-colors"
+            >
+              +Примечание
+            </button>
             <button
               onClick={() => setShowStickyNotes(!showStickyNotes)}
               className="text-gray-400 hover:text-yellow-400 p-1 hover:bg-gray-800 rounded-full transition-all"
@@ -1821,7 +1828,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     </div>
                   )}
 
-                  
+
                 </>
               )}
             </div>
@@ -1973,13 +1980,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                       </div>
                     )}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowBudgetNoteDialog(true)}
-                    className="px-2 py-1 text-[11px] font-medium text-cyan-300 border border-cyan-700/60 rounded-md hover:bg-cyan-500/10 transition-colors"
-                  >
-                    +Примечание
-                  </button>
                 </div>
                 {discountEnabled && getDiscountedTotal() !== null && (
                   <div className="flex flex-col">
