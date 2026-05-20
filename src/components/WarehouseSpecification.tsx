@@ -53,6 +53,7 @@ interface WarehouseSpecificationProps {
 
 interface ExpandedItem {
   budgetItemId: string;
+  parentBudgetItemId?: string;
   categoryId: string | null;
   locationId: string | null;
   locationName: string;
@@ -234,6 +235,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingComponentCaseSelections, setPendingComponentCaseSelections] = useState<PendingComponentCaseSelection[]>([]);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
+  const [collapsedParentItems, setCollapsedParentItems] = useState<Set<string>>(new Set());
 
   const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
     setNotification({ message, type });
@@ -350,6 +352,81 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const mainItems = expandedItems.filter(item => !item.isExtra);
   const extraItems = expandedItems.filter(item => item.isExtra);
+
+  const hasChildItems = (items: ExpandedItem[], parentItem: ExpandedItem) =>
+    items.some((candidate) => (
+      candidate.parentBudgetItemId
+        ? candidate.parentBudgetItemId === parentItem.budgetItemId
+        : candidate.parentName === parentItem.name
+    ));
+
+  const isChildRowHidden = (items: ExpandedItem[], rowItem: ExpandedItem) => {
+    if (!rowItem.parentName) return false;
+    const parent = items.find((candidate) => (
+      rowItem.parentBudgetItemId
+        ? candidate.budgetItemId === rowItem.parentBudgetItemId
+        : candidate.name === rowItem.parentName
+    ));
+    if (!parent) return false;
+    return collapsedParentItems.has(parent.budgetItemId);
+  };
+
+  const toggleParentRow = (parentBudgetItemId: string) => {
+    setCollapsedParentItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentBudgetItemId)) {
+        next.delete(parentBudgetItemId);
+      } else {
+        next.add(parentBudgetItemId);
+      }
+      return next;
+    });
+  };
+
+  const orderItemsWithChildren = (items: ExpandedItem[]) => {
+    const childrenByParentId = new Map<string, ExpandedItem[]>();
+    const orphanChildren: ExpandedItem[] = [];
+    const parentIds = new Set(items.map(item => item.budgetItemId));
+
+    items.forEach((item) => {
+      if (!item.parentBudgetItemId) return;
+      if (!parentIds.has(item.parentBudgetItemId)) {
+        orphanChildren.push(item);
+        return;
+      }
+
+      const siblings = childrenByParentId.get(item.parentBudgetItemId) || [];
+      siblings.push(item);
+      childrenByParentId.set(item.parentBudgetItemId, siblings);
+    });
+
+    const ordered: ExpandedItem[] = [];
+    const insertedChildIds = new Set<string>();
+
+    items.forEach((item) => {
+      if (item.parentBudgetItemId) return;
+      ordered.push(item);
+      const children = childrenByParentId.get(item.budgetItemId) || [];
+      children.forEach((child) => {
+        ordered.push(child);
+        insertedChildIds.add(child.budgetItemId);
+      });
+    });
+
+    // legacy or orphan children
+    items.forEach((item) => {
+      if (!item.parentBudgetItemId) return;
+      if (insertedChildIds.has(item.budgetItemId)) return;
+      ordered.push(item);
+    });
+    orphanChildren.forEach((item) => {
+      if (!ordered.some(orderedItem => orderedItem.budgetItemId === item.budgetItemId)) {
+        ordered.push(item);
+      }
+    });
+
+    return ordered;
+  };
 
   const extraBudgetItems = budgetItems.filter(item => item.is_extra);
 
@@ -502,6 +579,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
           items.push({
             budgetItemId: item.id,
+            parentBudgetItemId: item.parent_budget_item_id,
             categoryId: item.category_id || null,
             locationId,
             locationName: location?.name || item.location?.name || parentItem?.location?.name || 'Без локации',
@@ -663,6 +741,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 for (const comp of compositions) {
                   items.push({
                     budgetItemId: `${item.id}-comp-${comp.id}`,
+                    parentBudgetItemId: item.id,
                     categoryId: item.category_id || null,
                     locationId: itemLocationId,
                     locationName: itemLocationName,
@@ -694,6 +773,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 for (const component of components) {
                   items.push({
                     budgetItemId: `${item.id}-mod-${component.id}`,
+                    parentBudgetItemId: item.id,
                     categoryId: item.category_id || null,
                     locationId: itemLocationId,
                     locationName: itemLocationName,
@@ -799,6 +879,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const newCaseItems: ExpandedItem[] = cases.map(calculatedCase => ({
       budgetItemId: `${budgetItemId}-case-${calculatedCase.caseId}`,
+      parentBudgetItemId: budgetItemId,
       categoryId: budgetItem.category_id || null,
       locationId: budgetItem.location_id || null,
       locationName: budgetItem.location?.name || 'Без локации',
@@ -844,6 +925,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const newChildItems: ExpandedItem[] = selectedModules.map(module => ({
       budgetItemId: `${budgetItemId}-podium-${module.id}`,
+      parentBudgetItemId: budgetItemId,
       categoryId: budgetItem.category_id || null,
       locationId: budgetItem.location_id || null,
       locationName: budgetItem.location?.name || 'Без локации',
@@ -1294,6 +1376,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       .filter(comp => componentQuantities[comp.id] > 0)
       .map(comp => ({
         budgetItemId: `${selectedBudgetItemForMod.id}-mod-${comp.id}-${Date.now()}`,
+        parentBudgetItemId: selectedBudgetItemForMod.id,
         categoryId: selectedBudgetItemForMod.category_id || null,
         locationId: selectedBudgetItemForMod.location_id || null,
         locationName: selectedBudgetItemForMod.location?.name || 'Без локации',
@@ -2142,31 +2225,57 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {group.items.map((item, index) => (
+                        {orderItemsWithChildren(group.items).map((item, index) => {
+                          const rowHasChildren = hasChildItems(group.items, item);
+                          const rowIsCollapsed = collapsedParentItems.has(item.budgetItemId);
+                          const hideCheckbox = rowHasChildren;
+
+                          if (isChildRowHidden(group.items, item)) {
+                            return null;
+                          }
+
+                          return (
                           <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                <input
-                                  type="checkbox"
-                                  checked={item.return_picked}
-                                  onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
-                                  className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
-                                />
+                              {hideCheckbox ? (
+                                <span className="text-[10px] text-gray-600">—</span>
                               ) : (
-                                <input
-                                  type="checkbox"
-                                  checked={item.picked}
-                                  onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
-                                  className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
-                                  disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
-                                />
+                                <>
+                                  {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={item.return_picked}
+                                      onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
+                                      className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
+                                    />
+                                  ) : (
+                                    <input
+                                      type="checkbox"
+                                      checked={item.picked}
+                                      onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
+                                      className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
+                                      disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                    />
+                                  )}
+                                </>
                               )}
                             </td>
                             <td className="px-3 py-1.5 text-center text-xs text-gray-500">{index + 1}</td>
                             <td className="px-3 py-1.5">
                               <div className="flex items-center gap-2">
                                 <div>
-                                  <div className="text-xs text-white font-medium">{item.name}</div>
+                                  <div className="text-xs text-white font-medium flex items-center gap-1.5">
+                                    {rowHasChildren && (
+                                      <button
+                                        onClick={() => toggleParentRow(item.budgetItemId)}
+                                        className="text-gray-400 hover:text-gray-200 transition-colors"
+                                        title={rowIsCollapsed ? 'Развернуть дочерние элементы' : 'Свернуть дочерние элементы'}
+                                      >
+                                        {rowIsCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                      </button>
+                                    )}
+                                    <span>{item.name}</span>
+                                  </div>
                                   {item.parentName && (
                                     <div className="text-[10px] text-cyan-500 mt-0.5">
                                       ↳ {item.parentName}
@@ -2250,7 +2359,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                               </td>
                             )}
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                         </table>
                       </div>
