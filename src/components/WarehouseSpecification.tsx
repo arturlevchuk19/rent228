@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2 } from 'lucide-react';
+import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { BudgetItem, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
@@ -43,6 +43,7 @@ import {
   resetWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
+import { StickyNotePanel } from './StickyNotePanel';
 
 interface WarehouseSpecificationProps {
   eventId: string;
@@ -198,6 +199,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [showModificationSelector, setShowModificationSelector] = useState(false);
   const [selectedBudgetItemForMod, setSelectedBudgetItemForMod] = useState<BudgetItem | null>(null);
   const [showComponentsDialog, setShowComponentsDialog] = useState(false);
+  const [showStickyNotes, setShowStickyNotes] = useState(false);
+  const [stickyNotes, setStickyNotes] = useState<{ id: string; content: string }[]>([
+    { id: `spec_note_1`, content: '' }
+  ]);
   const [selectedModification, setSelectedModification] = useState<EquipmentModification | null>(null);
   const [modificationComponents, setModificationComponents] = useState<ModificationComponent[]>([]);
   const [componentQuantities, setComponentQuantities] = useState<Record<string, number>>({});
@@ -459,6 +464,18 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setCables(cablesData);
       setConnectors(connectorsData);
       setOtherItems(otherData);
+
+      const savedStickyNotes = localStorage.getItem(`spec_sticky_notes_${eventId}`);
+      if (savedStickyNotes) {
+        try {
+          const parsed = JSON.parse(savedStickyNotes);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStickyNotes(parsed);
+          }
+        } catch (e) {
+          // use default
+        }
+      }
       
       // Initialize empty modifications map - will load on demand
       setEquipmentModifications({});
@@ -1970,12 +1987,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               )}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-white rounded transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowStickyNotes(!showStickyNotes)}
+              className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-yellow-400 rounded transition-colors"
+              title="Заметки"
+            >
+              <StickyNote className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-white rounded transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="border-b border-gray-800 bg-gray-900/50">
@@ -3169,6 +3195,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           </div>
         </div>
       )}
+
+      <StickyNotePanel
+        notes={stickyNotes}
+        onNotesChange={setStickyNotes}
+        onClose={() => setShowStickyNotes(false)}
+        isOpen={showStickyNotes}
+        storageKey={`spec_sticky_notes_${eventId}`}
+      />
     </div>
   );
 }
