@@ -78,8 +78,8 @@ export function CategoryBlock({
   const [openUnitDropdownId, setOpenUnitDropdownId] = useState<string | null>(null);
   const showCoefficient = budgetDays > 1;
   const tableTemplateColumns = showCoefficient
-    ? 'minmax(0,1fr) 60px 92px 92px 72px 110px'
-    : 'minmax(0,1fr) 60px 92px 92px 110px';
+    ? 'minmax(0,1fr) 60px 65px 75px 56px 90px'
+    : 'minmax(0,1fr) 60px 65px 75px 90px';
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -390,7 +390,7 @@ export function CategoryBlock({
       {isExpanded && items.length > 0 && (
         <div>
           {/* Table header */}
-          <div className="flex items-center gap-2 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
+          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
             <div className="w-3"></div>
             <div
               className="flex-1 grid items-center gap-1"
@@ -427,7 +427,7 @@ export function CategoryBlock({
                     onDropOnItem?.(e, item.id);
                   }}
                 >
-                  <div className={`flex items-center gap-2 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}>
+                  <div className={`flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}>
                   <div
                     draggable
                     onDragStart={(e) => {
