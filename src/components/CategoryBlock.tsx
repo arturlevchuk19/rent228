@@ -393,7 +393,7 @@ export function CategoryBlock({
           <div className="flex items-center gap-2 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
             <div className="w-3"></div>
             <div
-              className="flex-1 grid items-center gap-2"
+              className="flex-1 grid items-center gap-1"
               style={{ gridTemplateColumns: tableTemplateColumns }}
             >
               <div className="text-left">Наименование</div>
@@ -440,10 +440,10 @@ export function CategoryBlock({
                   </div>
 
                   <div
-                    className="flex-1 grid items-center gap-2 text-xs"
+                    className="flex-1 grid items-center gap-1 text-xs"
                     style={{ gridTemplateColumns: tableTemplateColumns }}
                   >
-                    <div className="text-gray-300 truncate pr-2">
+                    <div className="text-gray-300 whitespace-normal break-words pr-2">
                       {item.equipment?.name || item.work_item?.name || 'Без названия'}
                     </div>
 
