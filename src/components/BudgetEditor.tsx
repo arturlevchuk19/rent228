@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
@@ -18,6 +18,7 @@ import {
   TotemDialog,
   AddLocationDialog
 } from './dialogs';
+import { StickyNotePanel } from './StickyNotePanel';
 
 interface BudgetEditorProps {
   eventId: string;
@@ -115,6 +116,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
   const [isBudgetConfirmed, setIsBudgetConfirmed] = useState(false);
+  const [showStickyNotes, setShowStickyNotes] = useState(false);
+  const [stickyNotes, setStickyNotes] = useState<{ id: string; content: string }[]>([
+    { id: `budget_note_1`, content: '' }
+  ]);
+
 
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -165,6 +171,18 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const savedPaymentMode = localStorage.getItem(`budget_payment_mode_${eventId}`);
     if (savedPaymentMode === 'usd' || savedPaymentMode === 'byn_cash' || savedPaymentMode === 'byn_noncash') {
       setPaymentMode(savedPaymentMode as any);
+    }
+
+    const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+    if (savedStickyNotes) {
+      try {
+        const parsed = JSON.parse(savedStickyNotes);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setStickyNotes(parsed);
+        }
+      } catch (e) {
+        // use default
+      }
     }
   }, [eventId]);
 
@@ -1439,12 +1457,21 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               Смета: {eventName}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-full transition-all"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowStickyNotes(!showStickyNotes)}
+              className="text-gray-400 hover:text-yellow-400 p-1 hover:bg-gray-800 rounded-full transition-all"
+              title="Заметки"
+            >
+              <StickyNote className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-full transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Main content */}
@@ -2200,6 +2227,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           initialMode={uShapeMode}
         />
       )}
+
+      <StickyNotePanel
+        notes={stickyNotes}
+        onNotesChange={setStickyNotes}
+        onClose={() => setShowStickyNotes(false)}
+        isOpen={showStickyNotes}
+        storageKey={`budget_sticky_notes_${eventId}`}
+      />
     </div>
   );
 }
