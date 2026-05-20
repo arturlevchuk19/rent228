@@ -4,6 +4,7 @@ import { getEquipmentItems, getEquipmentCategories, EquipmentItem, getEquipmentM
 
 interface EquipmentSelectorProps {
   onSelect: (equipment: EquipmentItem, quantity: number, modificationId?: string) => void;
+  onBatchSelect?: (items: Array<{ equipment: EquipmentItem; quantity: number; modificationId?: string }>) => void | Promise<void>;
   onClose: () => void;
   selectedIds?: string[];
   showModifications?: boolean;
@@ -11,6 +12,7 @@ interface EquipmentSelectorProps {
 
 export function EquipmentSelector({
   onSelect,
+  onBatchSelect,
   onClose,
   selectedIds = [],
   showModifications = true
@@ -26,6 +28,7 @@ export function EquipmentSelector({
   const [selectedModification, setSelectedModification] = useState<string | null>(null);
   const [loadingModifications, setLoadingModifications] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Array<{ equipment: EquipmentItem; quantity: number; modificationId?: string }>>([]);
 
   useEffect(() => {
     loadData();
@@ -78,18 +81,29 @@ export function EquipmentSelector({
   const handleConfirmSelection = () => {
     if (selectedEquipment) {
       const quantity = Math.max(1, parseInt(quantityStr) || 1);
-      console.log('Confirming selection:', {
-        equipment: selectedEquipment.name,
+      const itemToAdd = {
+        equipment: selectedEquipment,
         quantity,
-        selectedModification,
         modificationId: selectedModification || undefined
-      });
-      onSelect(selectedEquipment, quantity, selectedModification || undefined);
+      };
+
+      if (onBatchSelect) {
+        setSelectedItems(prev => [...prev, itemToAdd]);
+      } else {
+        onSelect(selectedEquipment, quantity, selectedModification || undefined);
+      }
+
       setSelectedEquipment(null);
       setQuantityStr('1');
       setModifications([]);
       setSelectedModification(null);
     }
+  };
+
+  const handleAddAllSelected = async () => {
+    if (!onBatchSelect || selectedItems.length === 0) return;
+    await onBatchSelect(selectedItems);
+    setSelectedItems([]);
   };
 
   if (loading) {
@@ -199,15 +213,17 @@ export function EquipmentSelector({
               <div>
                 <label className="block text-sm text-gray-300 mb-1.5">Количество</label>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={quantityStr}
                   onChange={(e) => setQuantityStr(e.target.value)}
+                  onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                   onBlur={() => {
                     const n = Math.max(1, parseInt(quantityStr) || 1);
                     setQuantityStr(String(n));
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 [appearance:textfield]"
                 />
               </div>
               <div className="flex gap-2">
@@ -222,7 +238,7 @@ export function EquipmentSelector({
                   className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2 text-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  Добавить
+                  {onBatchSelect ? 'Выбрать' : 'Добавить'}
                 </button>
               </div>
             </div>
@@ -233,6 +249,18 @@ export function EquipmentSelector({
             >
               Закрыть
             </button>
+          )}
+
+          {onBatchSelect && selectedItems.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-700">
+              <button
+                onClick={handleAddAllSelected}
+                className="w-full px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Добавить ({selectedItems.length})
+              </button>
+            </div>
           )}
         </div>
       </div>
