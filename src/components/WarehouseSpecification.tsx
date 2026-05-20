@@ -383,6 +383,51 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     });
   };
 
+  const orderItemsWithChildren = (items: ExpandedItem[]) => {
+    const childrenByParentId = new Map<string, ExpandedItem[]>();
+    const orphanChildren: ExpandedItem[] = [];
+    const parentIds = new Set(items.map(item => item.budgetItemId));
+
+    items.forEach((item) => {
+      if (!item.parentBudgetItemId) return;
+      if (!parentIds.has(item.parentBudgetItemId)) {
+        orphanChildren.push(item);
+        return;
+      }
+
+      const siblings = childrenByParentId.get(item.parentBudgetItemId) || [];
+      siblings.push(item);
+      childrenByParentId.set(item.parentBudgetItemId, siblings);
+    });
+
+    const ordered: ExpandedItem[] = [];
+    const insertedChildIds = new Set<string>();
+
+    items.forEach((item) => {
+      if (item.parentBudgetItemId) return;
+      ordered.push(item);
+      const children = childrenByParentId.get(item.budgetItemId) || [];
+      children.forEach((child) => {
+        ordered.push(child);
+        insertedChildIds.add(child.budgetItemId);
+      });
+    });
+
+    // legacy or orphan children
+    items.forEach((item) => {
+      if (!item.parentBudgetItemId) return;
+      if (insertedChildIds.has(item.budgetItemId)) return;
+      ordered.push(item);
+    });
+    orphanChildren.forEach((item) => {
+      if (!ordered.some(orderedItem => orderedItem.budgetItemId === item.budgetItemId)) {
+        ordered.push(item);
+      }
+    });
+
+    return ordered;
+  };
+
   const extraBudgetItems = budgetItems.filter(item => item.is_extra);
 
   const allPickedForShipment =
@@ -2180,10 +2225,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {group.items.map((item, index) => {
+                        {orderItemsWithChildren(group.items).map((item, index) => {
                           const rowHasChildren = hasChildItems(group.items, item);
                           const rowIsCollapsed = collapsedParentItems.has(item.budgetItemId);
-                          const hideCheckbox = rowHasChildren && item.isFromComposition;
+                          const hideCheckbox = rowHasChildren;
 
                           if (isChildRowHidden(group.items, item)) {
                             return null;
