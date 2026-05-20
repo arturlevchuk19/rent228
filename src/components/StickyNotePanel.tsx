@@ -20,6 +20,51 @@ const HANDLE_SIZE = 20;
 
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se';
 
+const getHandleCursor = (handle: ResizeHandle): string => {
+  switch (handle) {
+    case 'nw': return 'nwse-resize';
+    case 'n': return 'ns-resize';
+    case 'ne': return 'nesw-resize';
+    case 'w': return 'ew-resize';
+    case 'e': return 'ew-resize';
+    case 'sw': return 'nesw-resize';
+    case 's': return 'ns-resize';
+    case 'se': return 'nwse-resize';
+  }
+};
+
+const getHandlePosition = (handle: ResizeHandle): React.CSSProperties => {
+  const half = HANDLE_SIZE / 2;
+  const style: React.CSSProperties = {
+    position: 'absolute',
+    width: HANDLE_SIZE,
+    height: HANDLE_SIZE,
+    zIndex: 10,
+  };
+
+  if (handle.includes('n')) style.top = -half;
+  if (handle.includes('s')) style.bottom = -half;
+  if (handle.includes('w')) style.left = -half;
+  if (handle.includes('e')) style.right = -half;
+
+  if (handle === 'n' || handle === 's') {
+    style.left = '50%';
+    style.transform = 'translateX(-50%)';
+  }
+  if (handle === 'w' || handle === 'e') {
+    style.top = '50%';
+    style.transform = 'translateY(-50%)';
+  }
+  if (handle === 'nw') style.transform = 'none';
+  if (handle === 'ne') style.transform = 'none';
+  if (handle === 'sw') style.transform = 'none';
+  if (handle === 'se') style.transform = 'none';
+
+  return style;
+};
+
+const RESIZE_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
+
 export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storageKey }: StickyNotePanelProps) {
   const [activeNoteId, setActiveNoteId] = useState<string>('');
   const [position, setPosition] = useState({ x: 100, y: 100 });
@@ -136,6 +181,55 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
     }
   }, [isTouchDragging, handleTouchMove, handleTouchEnd]);
 
+  // === Resize Logic ===
+
+  const applyResize = useCallback((dx: number, dy: number, handle: ResizeHandle) => {
+    let newWidth = resizeStartSize.width;
+    let newHeight = resizeStartSize.height;
+    let newX = resizeStartPos.x;
+    let newY = resizeStartPos.y;
+
+    switch (handle) {
+      case 'e':
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
+        break;
+      case 'w':
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
+        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
+        break;
+      case 's':
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
+        break;
+      case 'n':
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
+        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
+        break;
+      case 'se':
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
+        break;
+      case 'sw':
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
+        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
+        break;
+      case 'ne':
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
+        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
+        break;
+      case 'nw':
+        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
+        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
+        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
+        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
+        break;
+    }
+
+    setSize({ width: newWidth, height: newHeight });
+    setPosition({ x: newX, y: newY });
+  }, [resizeStartSize, resizeStartPos]);
+
   // === Mouse Resize ===
 
   const handleResizeMouseDown = useCallback((e: React.MouseEvent, handle: ResizeHandle) => {
@@ -213,103 +307,6 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
     }
   }, [isTouchResizing, handleResizeTouchMove, handleResizeTouchEnd]);
 
-  // === Resize Logic ===
-
-  const applyResize = useCallback((dx: number, dy: number, handle: ResizeHandle) => {
-    let newWidth = resizeStartSize.width;
-    let newHeight = resizeStartSize.height;
-    let newX = resizeStartPos.x;
-    let newY = resizeStartPos.y;
-
-    switch (handle) {
-      case 'e': // right edge
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
-        break;
-      case 'w': // left edge
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
-        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
-        break;
-      case 's': // bottom edge
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
-        break;
-      case 'n': // top edge
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
-        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
-        break;
-      case 'se': // bottom-right corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
-        break;
-      case 'sw': // bottom-left corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
-        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height + dy);
-        break;
-      case 'ne': // top-right corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width + dx);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
-        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
-        break;
-      case 'nw': // top-left corner
-        newWidth = Math.max(MIN_WIDTH, resizeStartSize.width - dx);
-        newX = resizeStartPos.x + (resizeStartSize.width - newWidth);
-        newHeight = Math.max(MIN_HEIGHT, resizeStartSize.height - dy);
-        newY = resizeStartPos.y + (resizeStartSize.height - newHeight);
-        break;
-    }
-
-    setSize({ width: newWidth, height: newHeight });
-    setPosition({ x: newX, y: newY });
-  }, [resizeStartSize, resizeStartPos]);
-
-  // === Helper: cursor for resize handles ===
-
-  const getHandleCursor = (handle: ResizeHandle): string => {
-    switch (handle) {
-      case 'nw': return 'nwse-resize';
-      case 'n': return 'ns-resize';
-      case 'ne': return 'nesw-resize';
-      case 'w': return 'ew-resize';
-      case 'e': return 'ew-resize';
-      case 'sw': return 'nesw-resize';
-      case 's': return 'ns-resize';
-      case 'se': return 'nwse-resize';
-    }
-  };
-
-  const getHandlePosition = (handle: ResizeHandle): React.CSSProperties => {
-    const half = HANDLE_SIZE / 2;
-    const style: React.CSSProperties = {
-      position: 'absolute',
-      width: HANDLE_SIZE,
-      height: HANDLE_SIZE,
-      zIndex: 10,
-    };
-
-    if (handle.includes('n')) style.top = -half;
-    if (handle.includes('s')) style.bottom = -half;
-    if (handle.includes('w')) style.left = -half;
-    if (handle.includes('e')) style.right = -half;
-
-    // Edge handles get slightly smaller visual hit area on the panel side
-    if (handle === 'n' || handle === 's') {
-      style.left = '50%';
-      style.transform = 'translateX(-50%)';
-    }
-    if (handle === 'w' || handle === 'e') {
-      style.top = '50%';
-      style.transform = 'translateY(-50%)';
-    }
-    if (handle === 'nw') style.transform = 'none';
-    if (handle === 'ne') style.transform = 'none';
-    if (handle === 'sw') style.transform = 'none';
-    if (handle === 'se') style.transform = 'none';
-
-    return style;
-  };
-
-  const resizeHandles: ResizeHandle[] = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
-
   const handleAddNote = () => {
     const newNote: Note = {
       id: `note_${Date.now()}`,
@@ -357,7 +354,7 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
       onTouchStart={handleTouchStart}
     >
       {/* Resize Handles */}
-      {resizeHandles.map((handle) => (
+      {RESIZE_HANDLES.map((handle) => (
         <div
           key={handle}
           className="resize-handle"
