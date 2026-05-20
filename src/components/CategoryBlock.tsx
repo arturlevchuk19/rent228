@@ -82,8 +82,8 @@ export function CategoryBlock({
   const [openUnitDropdownId, setOpenUnitDropdownId] = useState<string | null>(null);
   const showCoefficient = budgetDays > 1;
   const tableTemplateColumns = showCoefficient
-    ? 'minmax(0,1fr) 60px 65px 75px 56px 90px'
-    : 'minmax(0,1fr) 60px 65px 75px 90px';
+    ? 'minmax(0,1fr) 60px 65px 58px 56px 90px'
+    : 'minmax(0,1fr) 60px 65px 58px 90px';
 
   const handleSaveName = () => {
     if (editedName.trim() && editedName !== categoryName) {
@@ -404,7 +404,7 @@ export function CategoryBlock({
               <div className="text-left">Наименование</div>
               <div className="text-center">Ед. изм.</div>
               <div className="text-center">Кол-во</div>
-              <div className="text-right pr-2">Цена</div>
+              <div className="text-right">Цена</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
               <div className="text-right pr-2">Сумма</div>
             </div>
@@ -539,7 +539,7 @@ export function CategoryBlock({
                       </div>
                     </div>
 
-                    <div className="flex justify-end pr-2">
+                    <div className="flex justify-end">
                       <input
                         type="text"
                         inputMode="decimal"
@@ -574,7 +574,7 @@ export function CategoryBlock({
                           }
                         }}
                         onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                        className="w-14 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs rounded focus:outline-none focus:bg-gray-800"
+                        className="w-12 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs rounded focus:outline-none focus:bg-gray-800"
                       />
                     </div>
 
