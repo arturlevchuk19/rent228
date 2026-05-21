@@ -81,7 +81,7 @@ export function CategoryBlock({
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
   const [openUnitDropdownId, setOpenUnitDropdownId] = useState<string | null>(null);
   const [openMarkerDropdownId, setOpenMarkerDropdownId] = useState<string | null>(null);
-  const MARKER_COLORS = ['#fef08a', '#fdba74', '#fca5a5', '#86efac', '#7dd3fc', '#c4b5fd', '#f9a8d4'] as const;
+  const MARKER_COLORS = ['#fef08a', '#fdba74', '#ef4444', '#86efac', '#7dd3fc', '#c4b5fd'] as const;
   const showCoefficient = budgetDays > 1;
   const tableTemplateColumns = showCoefficient
     ? 'minmax(0,1fr) 60px 65px 58px 56px 90px'
@@ -623,22 +623,23 @@ export function CategoryBlock({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenMarkerDropdownId(openMarkerDropdownId === item.id ? null : item.id);
-                    }}
-                    className={`transition-opacity w-5 flex justify-center flex-shrink-0 ${item.marker_color ? 'text-yellow-300 opacity-100' : 'text-gray-500 hover:text-yellow-300 opacity-0 group-hover:opacity-100'}`}
-                    title="Маркер строки"
-                  >
-                    <Highlighter className="w-3 h-3" />
-                  </button>
-                  {openMarkerDropdownId === item.id && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setOpenMarkerDropdownId(null)} />
-                      <div className="absolute right-12 mt-16 z-50 bg-gray-800 border border-gray-700 rounded shadow-lg p-1.5">
-                        <div className="flex items-center gap-1">
+                  <div className="relative w-5 flex justify-center flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMarkerDropdownId(openMarkerDropdownId === item.id ? null : item.id);
+                      }}
+                      className={`transition-opacity w-5 flex justify-center ${item.marker_color ? 'text-yellow-300 opacity-100' : 'text-gray-500 hover:text-yellow-300 opacity-0 group-hover:opacity-100'}`}
+                      title="Маркер строки"
+                    >
+                      <Highlighter className="w-3 h-3" />
+                    </button>
+                    {openMarkerDropdownId === item.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenMarkerDropdownId(null)} />
+                        <div className="absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 bg-gray-800 border border-gray-700 rounded shadow-lg p-1.5">
+                          <div className="flex items-center gap-1">
                           <button
                             onClick={() => {
                               onUpdateItem(item.id, { marker_color: null });
@@ -648,22 +649,23 @@ export function CategoryBlock({
                           >
                             Нет
                           </button>
-                          {MARKER_COLORS.map((markerColor) => (
-                            <button
-                              key={markerColor}
-                              onClick={() => {
-                                onUpdateItem(item.id, { marker_color: markerColor });
-                                setOpenMarkerDropdownId(null);
-                              }}
-                              className="w-4 h-4 rounded border border-gray-600"
-                              style={{ backgroundColor: markerColor }}
-                              title={markerColor}
-                            />
-                          ))}
+                            {MARKER_COLORS.map((markerColor) => (
+                              <button
+                                key={markerColor}
+                                onClick={() => {
+                                  onUpdateItem(item.id, { marker_color: markerColor });
+                                  setOpenMarkerDropdownId(null);
+                                }}
+                                className="w-4 h-4 rounded border border-gray-600"
+                                style={{ backgroundColor: markerColor }}
+                                title={markerColor}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
 
                   <button
                     type="button"
