@@ -3681,3 +3681,8 @@ WHERE position('::' in connector_type) > 0;
 
 ALTER TABLE warehouse_specification_connectors
   DROP COLUMN IF EXISTS connector_category;
+
+
+-- Add marker color to budget items
+ALTER TABLE public.budget_items
+ADD COLUMN IF NOT EXISTS marker_color text;

@@ -20,6 +20,7 @@ interface BudgetItem {
   notes?: string;
   is_extra?: boolean;
   unit?: string | null;
+  marker_color?: string | null;
 }
 
 interface Category {
@@ -114,6 +115,18 @@ const escapeHtml = (value: string): string =>
 
 const isConsumablesEquipmentItem = (item: BudgetItem): boolean =>
   !item.work_item && item.equipment?.category?.trim().toLowerCase() === 'расходные материалы';
+
+const hexToRgba = (hexColor?: string | null, alpha = 0.26): string | null => {
+  if (!hexColor) return null;
+  const normalized = hexColor.trim();
+  const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
+  if (!match) return null;
+  const parsed = match[1];
+  const r = parseInt(parsed.slice(0, 2), 16);
+  const g = parseInt(parsed.slice(2, 4), 16);
+  const b = parseInt(parsed.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
@@ -293,8 +306,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         categorySumDay1 += paymentMode === 'usd' ? usdTotalDay1 : displayTotalDay1BYN;
         categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
 
+        const rowBg = hexToRgba(item.marker_color, 0.26);
         return `
-          <tr style="border-bottom: 1px solid #000000;">
+          <tr style="border-bottom: 1px solid #000000;${rowBg ? ` background-color: ${rowBg};` : ''}">
             <td style="padding: 0px 8px 8px 10px; font-size: 15px; color: #1a1a1a; width: 60%;">
               <div style="display: flex; align-items: flex-start;">
                 <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
