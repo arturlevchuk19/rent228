@@ -580,6 +580,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const editorCombinedTotal = data.totalCombinedFromEditor ?? roundGrandTotalForPaymentMode(grandTotalCombined);
   const pdfDay1Total = roundDownToNearestFive(editorDay1Total);
   const pdfCombinedTotal = roundDownToNearestFive(editorCombinedTotal);
+  const dayPeriodNoWrapHtml = `<span style="white-space: nowrap;">за ${budgetDays} дн.</span>`;
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
@@ -589,7 +590,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Со скидкой ${discountPercentDisplay}% на оборудование${budgetDays === 1 ? '' : ` за ${budgetDays} дн.`}:</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Со скидкой ${discountPercentDisplay}% на оборудование${budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>` : ''}
     `
@@ -607,7 +608,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Со скидкой ${discountPercentDisplay}% на оборудование за ${budgetDays} дн.:</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Со скидкой ${discountPercentDisplay}% на оборудование ${dayPeriodNoWrapHtml}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(editorDiscountedTotal)}${currencySuffix}</span>
       </div>
       ` : `
