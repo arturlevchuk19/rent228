@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, MessageSquarePlus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, MessageSquarePlus, Highlighter } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { EQUIPMENT_UNITS } from '../lib/equipment';
 import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
@@ -80,6 +80,8 @@ export function CategoryBlock({
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
   const [openUnitDropdownId, setOpenUnitDropdownId] = useState<string | null>(null);
+  const [openMarkerDropdownId, setOpenMarkerDropdownId] = useState<string | null>(null);
+  const MARKER_COLORS = ['#fef08a', '#fdba74', '#ef4444', '#86efac', '#7dd3fc', '#c4b5fd'] as const;
   const showCoefficient = budgetDays > 1;
   const tableTemplateColumns = showCoefficient
     ? 'minmax(0,1fr) 60px 65px 58px 56px 90px'
@@ -433,7 +435,10 @@ export function CategoryBlock({
                     onDropOnItem?.(e, item.id);
                   }}
                 >
-                  <div className={`flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}>
+                  <div
+                    className={`flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}
+                    style={item.marker_color ? { backgroundColor: `${item.marker_color}40` } : undefined}
+                  >
                   <div
                     draggable
                     onDragStart={(e) => {
@@ -616,6 +621,50 @@ export function CategoryBlock({
                         }
                       })()}
                     </div>
+                  </div>
+
+                  <div className="relative w-5 flex justify-center flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMarkerDropdownId(openMarkerDropdownId === item.id ? null : item.id);
+                      }}
+                      className={`transition-opacity w-5 flex justify-center ${item.marker_color ? 'text-yellow-300 opacity-100' : 'text-gray-500 hover:text-yellow-300 opacity-0 group-hover:opacity-100'}`}
+                      title="Маркер строки"
+                    >
+                      <Highlighter className="w-3 h-3" />
+                    </button>
+                    {openMarkerDropdownId === item.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenMarkerDropdownId(null)} />
+                        <div className="absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 bg-gray-800 border border-gray-700 rounded shadow-lg p-1.5">
+                          <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              onUpdateItem(item.id, { marker_color: null });
+                              setOpenMarkerDropdownId(null);
+                            }}
+                            className="text-[10px] text-gray-300 hover:text-white px-1"
+                          >
+                            Нет
+                          </button>
+                            {MARKER_COLORS.map((markerColor) => (
+                              <button
+                                key={markerColor}
+                                onClick={() => {
+                                  onUpdateItem(item.id, { marker_color: markerColor });
+                                  setOpenMarkerDropdownId(null);
+                                }}
+                                className="w-4 h-4 rounded border border-gray-600"
+                                style={{ backgroundColor: markerColor }}
+                                title={markerColor}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <button

@@ -126,6 +126,7 @@ export interface BudgetItem {
   is_extra?: boolean;
   return_picked?: boolean;
   unit?: string | null;
+  marker_color?: string | null;
   created_at: string;
   updated_at: string;
   name?: string;
