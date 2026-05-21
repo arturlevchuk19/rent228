@@ -18,6 +18,11 @@ export interface Client {
   organization: string;
   full_name: string;
   position: string;
+  basis_for_action: string;
+  unp: string;
+  legal_address: string;
+  postal_address: string;
+  bank_details: string;
   phone: string;
   email: string;
   notes: string;

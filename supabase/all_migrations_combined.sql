@@ -3686,3 +3686,13 @@ ALTER TABLE warehouse_specification_connectors
 -- Add marker color to budget items
 ALTER TABLE public.budget_items
 ADD COLUMN IF NOT EXISTS marker_color text;
+
+
+
+-- Migration: add client signer and requisites fields
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS basis_for_action text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS unp text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS legal_address text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS postal_address text DEFAULT '',
+  ADD COLUMN IF NOT EXISTS bank_details text DEFAULT '';

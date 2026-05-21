@@ -13,6 +13,11 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
     organization: client?.organization || '',
     full_name: client?.full_name || '',
     position: client?.position || '',
+    basis_for_action: client?.basis_for_action || '',
+    unp: client?.unp || '',
+    legal_address: client?.legal_address || '',
+    postal_address: client?.postal_address || '',
+    bank_details: client?.bank_details || '',
     phone: client?.phone || '',
     email: client?.email || '',
     notes: client?.notes || ''
@@ -77,7 +82,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                ФИО контактного лица
+                ФИО подписанта (в Р.П.)
               </label>
               <input
                 type="text"
@@ -90,7 +95,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Должность
+                Должность подписанта (в Р.П.)
               </label>
               <input
                 type="text"
@@ -98,6 +103,73 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                 placeholder="Директор"
+              />
+            </div>
+
+
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Действующего на основании
+              </label>
+              <input
+                type="text"
+                value={formData.basis_for_action}
+                onChange={(e) => setFormData({ ...formData, basis_for_action: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                placeholder="Устава"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                УНП
+              </label>
+              <input
+                type="text"
+                value={formData.unp}
+                onChange={(e) => setFormData({ ...formData, unp: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                placeholder="123456789"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Юр. адрес
+              </label>
+              <input
+                type="text"
+                value={formData.legal_address}
+                onChange={(e) => setFormData({ ...formData, legal_address: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                placeholder="г. Минск, ул. Примерная, 1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Почтовый адрес
+              </label>
+              <input
+                type="text"
+                value={formData.postal_address}
+                onChange={(e) => setFormData({ ...formData, postal_address: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                placeholder="220000, г. Минск, а/я 1"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Банковские реквизиты
+              </label>
+              <textarea
+                value={formData.bank_details}
+                onChange={(e) => setFormData({ ...formData, bank_details: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                placeholder="р/с, БИК, банк..."
               />
             </div>
 
