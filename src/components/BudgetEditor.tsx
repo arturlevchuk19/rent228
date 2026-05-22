@@ -172,6 +172,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (savedPaymentMode === 'usd' || savedPaymentMode === 'byn_cash' || savedPaymentMode === 'byn_noncash') {
       setPaymentMode(savedPaymentMode as any);
     }
+    const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${eventId}`);
+    if (savedTotalsMode === 'combined_only' || savedTotalsMode === 'day1_plus_combined') {
+      setBudgetTotalsMode(savedTotalsMode);
+    }
 
     const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
     if (savedStickyNotes) {
@@ -193,6 +197,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   useEffect(() => {
     localStorage.setItem(`budget_payment_mode_${eventId}`, paymentMode);
   }, [eventId, paymentMode]);
+
+  useEffect(() => {
+    localStorage.setItem(`budget_totals_mode_${eventId}`, budgetTotalsMode);
+  }, [eventId, budgetTotalsMode]);
 
   const loadData = async () => {
     try {
@@ -229,7 +237,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         setBudgetDays(Math.max(1, eventData.budget_days));
       }
       if (eventData.budget_totals_mode) {
-        setBudgetTotalsMode(eventData.budget_totals_mode);
+        const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${eventId}`);
+        if (savedTotalsMode !== 'combined_only' && savedTotalsMode !== 'day1_plus_combined') {
+          setBudgetTotalsMode(eventData.budget_totals_mode);
+        }
       }
       if (eventData.budget_note !== undefined && eventData.budget_note !== null) {
         setBudgetNote(eventData.budget_note);
@@ -1241,7 +1252,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
     const clampedPercent = calculateDiscountPercentFromTotal(parsedValue);
     setDiscountPercent(clampedPercent);
-    setDiscountPercentInput(String(Math.round(clampedPercent * 100) / 100));
+    setDiscountPercentInput(String(clampedPercent));
   };
 
   const normalizeGrandTotalForPaymentMode = (value: number) => {
