@@ -37,7 +37,7 @@ export function PodiumDialog({ equipment, isOpen, onClose, onConfirm }: PodiumDi
     const heightNum = parseFloat(height);
     const area = widthNum * depthNum;
 
-    const customName = `${widthNum}x${depthNum}x${heightNum}`;
+    const customName = `(${widthNum}м x ${depthNum}м x ${heightNum}м)`;
     const totalPrice = equipment.rental_price * area;
 
     onConfirm({
