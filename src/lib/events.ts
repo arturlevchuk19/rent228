@@ -17,6 +17,7 @@ export interface Client {
   id: string;
   organization: string;
   full_name: string;
+  signatory_initials: string;
   position: string;
   basis_for_action: string;
   unp: string;
@@ -675,3 +676,9 @@ export async function copyBudgetFromEvent(
 
   if (insertError) throw insertError;
 }
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'

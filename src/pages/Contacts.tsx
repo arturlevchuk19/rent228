@@ -100,6 +100,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   const filteredClients = clients.filter(c =>
     c.organization.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.signatory_initials && c.signatory_initials.toLowerCase().includes(searchTerm.toLowerCase())) ||
     c.phone.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -494,3 +495,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
     </div>
   );
 }
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
