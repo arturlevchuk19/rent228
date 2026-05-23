@@ -793,7 +793,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (options?: { createdDate?: string; contractEquipmentTypeRP?: string }) => {
     try {
       setGeneratingPDF(true);
       const event = await getEvent(eventId);
@@ -807,10 +807,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
         : getDiscountedTotal();
 
+      const exportBudgetNote = options?.contractEquipmentTypeRP
+        ? `${budgetNote ? `${budgetNote}\n` : ''}Вид оборудования (в Р.П): ${options.contractEquipmentTypeRP}`
+        : budgetNote;
+
       await generateBudgetPDF({
         eventName: event.name || event.event_type,
         eventDate: event.event_date,
-        createdDate: new Date().toISOString(),
+        createdDate: options?.createdDate || new Date().toISOString(),
         venueName: event.venues?.name,
         clientName: event.clients?.organization,
         organizerName: event.organizers?.full_name,
@@ -822,7 +826,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
         discountPercent: exportDiscountPercent,
-        budgetNote,
+        budgetNote: exportBudgetNote,
         budgetDays,
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
@@ -835,6 +839,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } finally {
       setGeneratingPDF(false);
     }
+  };
+
+  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string }) => {
+    setContractDate(payload.date);
+    setContractEquipmentTypeRP(payload.equipmentTypeRP);
+    setShowContractDialog(false);
+    await handleExportPDF({
+      createdDate: payload.date,
+      contractEquipmentTypeRP: payload.equipmentTypeRP
+    });
   };
 
   const handleDragStart = (e: React.DragEvent, type: 'category' | 'item', id: string) => {
