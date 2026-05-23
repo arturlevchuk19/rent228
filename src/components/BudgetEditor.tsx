@@ -793,7 +793,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleExportPDF = async (options?: { createdDate?: string; contractEquipmentTypeRP?: string }) => {
+  const handleExportPDF = async (options?: { createdDate?: string; contractEquipmentTypeRP?: string; contractClientOrganization?: string }) => {
     try {
       setGeneratingPDF(true);
       const event = await getEvent(eventId);
@@ -816,7 +816,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         eventDate: event.event_date,
         createdDate: options?.createdDate || new Date().toISOString(),
         venueName: event.venues?.name,
-        clientName: event.clients?.organization,
+        clientName: options?.contractClientOrganization || event.clients?.organization,
         organizerName: event.organizers?.full_name,
         version: budgetVersion,
         budgetItems: budgetItems as any,
@@ -841,13 +841,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string }) => {
+  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string; clientId: string; clientOrganization: string }) => {
     setContractDate(payload.date);
     setContractEquipmentTypeRP(payload.equipmentTypeRP);
     setShowContractDialog(false);
     await handleExportPDF({
       createdDate: payload.date,
-      contractEquipmentTypeRP: payload.equipmentTypeRP
+      contractEquipmentTypeRP: payload.equipmentTypeRP,
+      contractClientOrganization: payload.clientOrganization
     });
   };
 

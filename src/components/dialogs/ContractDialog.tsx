@@ -1,16 +1,34 @@
-import React, { useState } from 'react';
-import { FileSignature, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileSignature, X, Building2 } from 'lucide-react';
+import { getClients, Client } from '../../lib/events';
 
 interface ContractDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (payload: { date: string; equipmentTypeRP: string }) => Promise<void> | void;
+  onConfirm: (payload: { date: string; equipmentTypeRP: string; clientId: string; clientOrganization: string }) => Promise<void> | void;
 }
 
 export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogProps) {
   const [contractDate, setContractDate] = useState(new Date().toISOString().slice(0, 10));
   const [equipmentTypeRP, setEquipmentTypeRP] = useState('');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadClients();
+    }
+  }, [isOpen]);
+
+  const loadClients = async () => {
+    try {
+      const clientsData = await getClients();
+      setClients(clientsData);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    }
+  };
 
   const dateError = !contractDate ? 'Дата обязательна' : '';
   const equipmentError = !equipmentTypeRP.trim() ? 'Вид оборудования обязателен' : '';
@@ -20,6 +38,7 @@ export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogPro
   const handleClose = () => {
     setContractDate(new Date().toISOString().slice(0, 10));
     setEquipmentTypeRP('');
+    setSelectedClientId('');
     setIsSubmitting(false);
     onClose();
   };
@@ -29,7 +48,13 @@ export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogPro
 
     setIsSubmitting(true);
     try {
-      await onConfirm({ date: contractDate, equipmentTypeRP: equipmentTypeRP.trim() });
+      const selectedClient = clients.find(c => c.id === selectedClientId);
+      await onConfirm({
+        date: contractDate,
+        equipmentTypeRP: equipmentTypeRP.trim(),
+        clientId: selectedClientId,
+        clientOrganization: selectedClient?.organization || ''
+      });
       handleClose();
     } finally {
       setIsSubmitting(false);
@@ -62,6 +87,25 @@ export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogPro
           </div>
 
           <div>
+            <label className="text-xs text-gray-400 block mb-2">Организация</label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none appearance-none"
+              >
+                <option value="">Выберите организацию</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.organization}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
             <label className="text-xs text-gray-400 block mb-2">Вид оборудования (в Р.П) *</label>
             <input
               type="text"
@@ -91,3 +135,9 @@ export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogPro
     </div>
   );
 }
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
