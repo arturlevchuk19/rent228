@@ -431,14 +431,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const extraBudgetItems = budgetItems.filter(item => item.is_extra);
 
   const allPickedForShipment =
-    expandedItems.every(item => item.picked) &&
+    expandedItems.every(item => item.picked || hasChildItems(expandedItems, item)) &&
     extraBudgetItems.every(item => item.picked) &&
     cables.every(c => c.picked) &&
     connectors.every(c => c.picked) &&
     otherItems.every(i => i.picked);
 
   const allPickedForReturn =
-    expandedItems.every(item => item.return_picked) &&
+    expandedItems.every(item => item.return_picked || hasChildItems(expandedItems, item)) &&
     extraBudgetItems.every(item => item.return_picked) &&
     cables.every(c => c.return_picked) &&
     connectors.every(c => c.return_picked) &&
@@ -848,7 +848,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 }
               }
             }
-            setExpandedItems(items);
+            const itemsWithParentsMarked = items.map(item => {
+        if (hasChildItems(items, item)) {
+          return { ...item, picked: true, return_picked: true };
+        }
+        return item;
+      });
+      setExpandedItems(itemsWithParentsMarked);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -907,7 +913,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       } else {
         updated.push(...newCaseItems);
       }
-      return updated;
+      return updated.map(item => item.budgetItemId === budgetItemId ? { ...item, picked: true, return_picked: true } : item);
     });
     setLedItemsWithCases(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
@@ -954,7 +960,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       } else {
         updated.push(...newChildItems);
       }
-      return updated;
+      return updated.map(item => item.budgetItemId === budgetItemId ? { ...item, picked: true, return_picked: true } : item);
     });
     setPodiumItemsWithComposition(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
@@ -1082,6 +1088,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     try {
       setConfirmingShipment(true);
+      // Ensure all parent items are marked as picked in the database
+      const parentItems = expandedItems.filter(item => hasChildItems(expandedItems, item));
+      for (const parent of parentItems) {
+        const realId = parent.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
+        await updateSpecificationBudgetItemPicked(realId, true);
+      }
       await confirmShipment(eventId);
       setEventDetails({ ...eventDetails, equipment_shipped: true });
     } catch (error) {
@@ -1104,6 +1116,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     try {
       setConfirmingReturn(true);
+      // Ensure all parent items are marked as return_picked in the database
+      const parentItems = expandedItems.filter(item => hasChildItems(expandedItems, item));
+      for (const parent of parentItems) {
+        const realId = parent.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
+        await updateSpecificationBudgetItemReturnPicked(realId, true);
+      }
       await confirmReturn(eventId);
       setEventDetails({ ...eventDetails, equipment_returned: true });
     } catch (error) {
@@ -1187,6 +1205,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const equipmentPending = expandedItems
       .filter(item => !item.isExtra)
+      .filter(item => !hasChildItems(expandedItems, item))
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `eq-${item.budgetItemId}`,
@@ -1196,6 +1215,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const extraPending = expandedItems
       .filter(item => item.isExtra)
+      .filter(item => !hasChildItems(expandedItems, item))
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `extra-${item.budgetItemId}`,
@@ -1704,7 +1724,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             try {
               await updateSpecificationBudgetItem(budgetItemId, {
                 quantity: expandedItem.quantity,
-                notes: expandedItem.notes
+                notes: expandedItem.notes,
+                picked: hasChildItems(expandedItems, expandedItem) ? true : expandedItem.picked,
+                return_picked: hasChildItems(expandedItems, expandedItem) ? true : expandedItem.return_picked
               });
             } catch (err) {
               console.error('Error saving budget item:', budgetItemId, err);
@@ -1739,7 +1761,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           try {
             await updateSpecificationBudgetItem(budgetItemId, {
               quantity: expandedItem.quantity,
-              notes: expandedItem.notes
+              notes: expandedItem.notes,
+              picked: hasChildItems(expandedItems, expandedItem) ? true : expandedItem.picked,
+              return_picked: hasChildItems(expandedItems, expandedItem) ? true : expandedItem.return_picked
             });
           } catch (err) {
             console.error('Error saving budget item:', budgetItemId, err);
