@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote, FileSignature } from 'lucide-react';
-import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
+import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -120,6 +120,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [showContractDialog, setShowContractDialog] = useState(false);
   const [contractDate, setContractDate] = useState(new Date().toISOString().slice(0, 10));
   const [contractEquipmentTypeRP, setContractEquipmentTypeRP] = useState('');
+  const [contractOrganization, setContractOrganization] = useState('');
+  const [clientsList, setClientsList] = useState<string[]>([]);
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [stickyNotes, setStickyNotes] = useState<{ id: string; content: string }[]>([
     { id: `budget_note_1`, content: '' }
@@ -133,6 +135,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   useEffect(() => {
     loadData();
   }, [eventId]);
+
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const clients = await getClients();
+        setClientsList(clients.map((client) => client.organization).filter(Boolean));
+      } catch (error) {
+        console.error('Error loading clients for contract dialog:', error);
+        setClientsList([]);
+      }
+    };
+
+    loadClients();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -816,7 +832,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         eventDate: event.event_date,
         createdDate: options?.createdDate || new Date().toISOString(),
         venueName: event.venues?.name,
-        clientName: event.clients?.organization,
+        clientName: contractOrganization || event.clients?.organization,
         organizerName: event.organizers?.full_name,
         version: budgetVersion,
         budgetItems: budgetItems as any,
@@ -841,9 +857,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string }) => {
+  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string; organization: string }) => {
     setContractDate(payload.date);
     setContractEquipmentTypeRP(payload.equipmentTypeRP);
+    setContractOrganization(payload.organization);
     setShowContractDialog(false);
     await handleExportPDF({
       createdDate: payload.date,
@@ -2296,6 +2313,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       />
       <ContractDialog
         isOpen={showContractDialog}
+        clients={clientsList}
+        initialOrganization={contractOrganization}
         onClose={() => setShowContractDialog(false)}
         onConfirm={handleContractConfirm}
       />
