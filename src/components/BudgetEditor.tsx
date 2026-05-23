@@ -793,7 +793,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (options?: { createdDate?: string; contractEquipmentTypeRP?: string }) => {
     try {
       setGeneratingPDF(true);
       const event = await getEvent(eventId);
@@ -807,10 +807,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
         : getDiscountedTotal();
 
+      const exportBudgetNote = options?.contractEquipmentTypeRP
+        ? `${budgetNote ? `${budgetNote}\n` : ''}Вид оборудования (в Р.П): ${options.contractEquipmentTypeRP}`
+        : budgetNote;
+
       await generateBudgetPDF({
         eventName: event.name || event.event_type,
         eventDate: event.event_date,
-        createdDate: new Date().toISOString(),
+        createdDate: options?.createdDate || new Date().toISOString(),
         venueName: event.venues?.name,
         clientName: event.clients?.organization,
         organizerName: event.organizers?.full_name,
@@ -822,7 +826,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
         discountPercent: exportDiscountPercent,
-        budgetNote,
+        budgetNote: exportBudgetNote,
         budgetDays,
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
@@ -835,6 +839,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } finally {
       setGeneratingPDF(false);
     }
+  };
+
+  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string }) => {
+    setContractDate(payload.date);
+    setContractEquipmentTypeRP(payload.equipmentTypeRP);
+    setShowContractDialog(false);
+    await handleExportPDF({
+      createdDate: payload.date,
+      contractEquipmentTypeRP: payload.equipmentTypeRP
+    });
   };
 
   const handleDragStart = (e: React.DragEvent, type: 'category' | 'item', id: string) => {
@@ -1956,8 +1970,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-gray-800 bg-gray-900 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-6">
+        <div className="px-4 py-3 border-t border-gray-800 bg-gray-900 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between flex-shrink-0">
+          <div className="flex items-center gap-6 min-w-0">
             <div className="flex flex-col">
               <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итоговая сумма</span>
               <span className="text-xl font-black text-white">
@@ -2100,7 +2114,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
             <button
               onClick={() => setShowContractDialog(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all border border-gray-700"
