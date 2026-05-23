@@ -12,6 +12,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
   const [formData, setFormData] = useState({
     organization: client?.organization || '',
     full_name: client?.full_name || '',
+    signatory_initials: client?.signatory_initials || '',
     position: client?.position || '',
     basis_for_action: client?.basis_for_action || '',
     unp: client?.unp || '',
@@ -90,6 +91,19 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                 placeholder="Иванов Иван Иванович"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Инициалы подписанта (в И.П.)
+              </label>
+              <input
+                type="text"
+                value={formData.signatory_initials}
+                onChange={(e) => setFormData({ ...formData, signatory_initials: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                placeholder="И.И. Иванов"
               />
             </div>
 
@@ -236,3 +250,15 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
     </div>
   );
 }
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
+/home/engine/.bashrc: line 1: syntax error near unexpected token `('
+/home/engine/.bashrc: line 1: `. /etc/profile.d/workload-containment.shn# ~/.bashrc: executed by bash(1) for non-login shells.'
