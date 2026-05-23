@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
+import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote, FileSignature } from 'lucide-react';
 import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
@@ -16,7 +16,8 @@ import {
   LedSizeDialog,
   PodiumDialog,
   TotemDialog,
-  AddLocationDialog
+  AddLocationDialog,
+  ContractDialog
 } from './dialogs';
 import { StickyNotePanel } from './StickyNotePanel';
 
@@ -116,6 +117,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
   const [isBudgetConfirmed, setIsBudgetConfirmed] = useState(false);
+  const [showContractDialog, setShowContractDialog] = useState(false);
+  const [contractDate, setContractDate] = useState(new Date().toISOString().slice(0, 10));
+  const [contractEquipmentTypeRP, setContractEquipmentTypeRP] = useState('');
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [stickyNotes, setStickyNotes] = useState<{ id: string; content: string }[]>([
     { id: `budget_note_1`, content: '' }
@@ -2098,6 +2102,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowContractDialog(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all border border-gray-700"
+            >
+              <FileSignature className="w-3.5 h-3.5" />
+              <span className="text-xs font-medium">Договор</span>
+            </button>
+            <button
               onClick={handleExportPDF}
               disabled={generatingPDF || budgetItems.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all disabled:opacity-30 border border-gray-700"
@@ -2268,6 +2279,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         onClose={() => setShowStickyNotes(false)}
         isOpen={showStickyNotes}
         storageKey={`budget_sticky_notes_${eventId}`}
+      />
+      <ContractDialog
+        isOpen={showContractDialog}
+        onClose={() => setShowContractDialog(false)}
+        onConfirm={handleContractConfirm}
       />
     </div>
   );
