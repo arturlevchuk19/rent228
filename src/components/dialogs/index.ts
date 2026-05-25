@@ -19,3 +19,6 @@ export type { DialogResult as UShapeUnifiedDialogResult } from './UShapeUnifiedD
 export { AddLocationDialog } from './AddLocationDialog';
 export { CopyBudgetDialog } from './CopyBudgetDialog';
 export { ContractDialog } from './ContractDialog';
+
+export { PodiumStairDialog } from './PodiumStairDialog';
+export type { DialogResult as PodiumStairDialogResult } from './PodiumStairDialog';

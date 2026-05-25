@@ -15,6 +15,7 @@ import {
   UShapeUnifiedDialog,
   LedSizeDialog,
   PodiumDialog,
+  PodiumStairDialog,
   TotemDialog,
   AddLocationDialog,
   ContractDialog
@@ -94,6 +95,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const [showPodiumDialog, setShowPodiumDialog] = useState(false);
   const [selectedPodiumEquipment, setSelectedPodiumEquipment] = useState<EquipmentItem | null>(null);
+  const [showPodiumStairDialog, setShowPodiumStairDialog] = useState(false);
+  const [selectedPodiumStairEquipment, setSelectedPodiumStairEquipment] = useState<EquipmentItem | null>(null);
 
 
   const [showTotemDialog, setShowTotemDialog] = useState(false);
@@ -463,6 +466,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
            category === 'Видео';
   };
 
+  const isPodiumStair = (equipmentItem: EquipmentItem) => {
+    const name = (equipmentItem.name || '').toLowerCase();
+    return name.includes('лестница') && name.includes('подиум');
+  };
+
   const isStagePodium = (equipmentItem: EquipmentItem) => {
     const name = equipmentItem.name || '';
     return name.includes('Сценический подиум') || name.toLowerCase().includes('ступенька');
@@ -492,6 +500,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (isLedScreen(equipmentItem)) {
       setSelectedLedEquipment(equipmentItem);
       setShowLedSizeDialog(true);
+      return;
+    }
+    if (isPodiumStair(equipmentItem)) {
+      setSelectedPodiumStairEquipment(equipmentItem);
+      setShowPodiumStairDialog(true);
       return;
     }
     if (isStagePodium(equipmentItem)) {
@@ -548,6 +561,21 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     );
     setShowPodiumDialog(false);
     setSelectedPodiumEquipment(null);
+  };
+
+  const handlePodiumStairConfirm = (result: { quantity: number; customName: string; customPrice: number }) => {
+    if (!selectedPodiumStairEquipment) return;
+    handleAddItem(
+      selectedPodiumStairEquipment,
+      result.quantity,
+      undefined,
+      (selectedCategoryId ? parseGroupId(selectedCategoryId).categoryId : null) || undefined,
+      result.customName,
+      result.customPrice,
+      (selectedCategoryId ? parseGroupId(selectedCategoryId).locationId : null) || undefined
+    );
+    setShowPodiumStairDialog(false);
+    setSelectedPodiumStairEquipment(null);
   };
 
   const handleTotemConfirm = (result: { quantity: number; customName: string; customPrice?: number }) => {
@@ -2276,6 +2304,18 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             setSelectedPodiumEquipment(null);
           }}
           onConfirm={handlePodiumConfirm}
+        />
+      )}
+
+      {showPodiumStairDialog && selectedPodiumStairEquipment && (
+        <PodiumStairDialog
+          equipment={selectedPodiumStairEquipment}
+          isOpen={showPodiumStairDialog}
+          onClose={() => {
+            setShowPodiumStairDialog(false);
+            setSelectedPodiumStairEquipment(null);
+          }}
+          onConfirm={handlePodiumStairConfirm}
         />
       )}
       {showTotemDialog && selectedTotemEquipment && (
