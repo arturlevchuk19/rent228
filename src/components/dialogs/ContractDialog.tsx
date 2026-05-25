@@ -1,35 +1,46 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FileSignature, X } from 'lucide-react';
 
 interface ContractDialogProps {
   isOpen: boolean;
+  clients: string[];
+  initialOrganization?: string;
   onClose: () => void;
-  onConfirm: (payload: { date: string; equipmentTypeRP: string }) => Promise<void> | void;
+  onConfirm: (payload: { date: string; equipmentTypeRP: string; organization: string }) => Promise<void> | void;
 }
 
-export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogProps) {
+export function ContractDialog({ isOpen, clients, initialOrganization = '', onClose, onConfirm }: ContractDialogProps) {
   const [contractDate, setContractDate] = useState(new Date().toISOString().slice(0, 10));
   const [equipmentTypeRP, setEquipmentTypeRP] = useState('');
+  const [organization, setOrganization] = useState(initialOrganization);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dateError = !contractDate ? 'Дата обязательна' : '';
   const equipmentError = !equipmentTypeRP.trim() ? 'Вид оборудования обязателен' : '';
+  const organizationError = !organization ? 'Организация обязательна' : '';
+
+  useEffect(() => {
+    if (isOpen) {
+      setOrganization(initialOrganization);
+    }
+  }, [isOpen, initialOrganization]);
 
   if (!isOpen) return null;
 
   const handleClose = () => {
     setContractDate(new Date().toISOString().slice(0, 10));
     setEquipmentTypeRP('');
+    setOrganization(initialOrganization);
     setIsSubmitting(false);
     onClose();
   };
 
   const handleSubmit = async () => {
-    if (dateError || equipmentError) return;
+    if (dateError || equipmentError || organizationError) return;
 
     setIsSubmitting(true);
     try {
-      await onConfirm({ date: contractDate, equipmentTypeRP: equipmentTypeRP.trim() });
+      await onConfirm({ date: contractDate, equipmentTypeRP: equipmentTypeRP.trim(), organization });
       handleClose();
     } finally {
       setIsSubmitting(false);
@@ -62,6 +73,23 @@ export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogPro
           </div>
 
           <div>
+            <label className="text-xs text-gray-400 block mb-2">Организация *</label>
+            <select
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+            >
+              <option value="">Выберите организацию</option>
+              {clients.map((clientName) => (
+                <option key={clientName} value={clientName}>
+                  {clientName}
+                </option>
+              ))}
+            </select>
+            {organizationError && <p className="text-xs text-red-400 mt-1">{organizationError}</p>}
+          </div>
+
+          <div>
             <label className="text-xs text-gray-400 block mb-2">Вид оборудования (в Р.П) *</label>
             <input
               type="text"
@@ -81,7 +109,7 @@ export function ContractDialog({ isOpen, onClose, onConfirm }: ContractDialogPro
           </button>
           <button
             onClick={handleSubmit}
-            disabled={Boolean(dateError || equipmentError) || isSubmitting}
+            disabled={Boolean(dateError || equipmentError || organizationError) || isSubmitting}
             className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Создание...' : 'Создать'}
