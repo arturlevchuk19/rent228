@@ -72,12 +72,12 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Организация <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
+              <textarea
                 required
+                rows={3}
                 value={formData.organization}
                 onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 resize-y"
                 placeholder="ООО Компания"
               />
             </div>

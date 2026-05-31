@@ -140,6 +140,14 @@ const removeEmptyOptionalParagraphs = (documentXml: string, optionalValues: Reco
     return hasEmptyOptionalPlaceholder ? '' : paragraphXml;
   });
 
+const makeTextWithLineBreaks = (text: string, attrs: string): string => {
+  const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
+  const textAttrs = `${normalizedAttrs} xml:space="preserve"`;
+  const lines = text.split(/\r?\n/);
+
+  return lines.map((line) => `<w:t${textAttrs}>${escapeXml(line)}</w:t>`).join('<w:br/>');
+};
+
 const replaceTextPlaceholders = (documentXml: string, values: Record<string, string>): string => {
   const placeholderPattern = new RegExp(`[${Object.keys(values).join('')}]`, 'g');
 
@@ -157,8 +165,7 @@ const replaceTextPlaceholders = (documentXml: string, values: Record<string, str
         return `<w:t${attrs}>${text}</w:t>`;
       }
 
-      const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
-      return `<w:t${normalizedAttrs} xml:space="preserve">${escapeXml(replacedText)}</w:t>`;
+      return makeTextWithLineBreaks(replacedText, attrs);
     });
   });
 };

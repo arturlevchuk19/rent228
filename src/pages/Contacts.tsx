@@ -291,7 +291,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
                     ) : (
                       filteredClients.map((client) => (
                         <tr key={client.id} className="hover:bg-gray-800/50 transition-colors">
-                          <td className="px-3 py-2 text-white font-medium text-sm">{client.organization}</td>
+                          <td className="px-3 py-2 text-white font-medium text-sm whitespace-pre-line">{client.organization}</td>
                           <td className="px-3 py-2 text-white text-sm">{client.full_name || '-'}</td>
                           <td className="px-3 py-2 text-gray-400 text-sm">{client.position || '-'}</td>
                           <td className="px-3 py-2 text-cyan-400 text-sm">{client.phone || '-'}</td>
@@ -316,7 +316,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
                     <div key={client.id} className="p-3 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="text-white font-medium text-sm">{client.organization}</div>
+                          <div className="text-white font-medium text-sm whitespace-pre-line">{client.organization}</div>
                           {client.full_name && <div className="text-xs text-gray-400">{client.full_name}{client.position && ` · ${client.position}`}</div>}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
