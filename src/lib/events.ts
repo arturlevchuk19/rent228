@@ -19,6 +19,7 @@ export interface Client {
   full_name: string;
   signatory_initials: string; // signatory initials in (I.P.) format
   position: string;
+  signatory_position_ip: string;
   basis_for_action: string;
   unp: string;
   legal_address: string;

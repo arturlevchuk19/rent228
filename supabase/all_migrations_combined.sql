@@ -3701,3 +3701,8 @@ ALTER TABLE clients
 -- Migration: ensure client signatory initials field exists
 ALTER TABLE clients
   ADD COLUMN IF NOT EXISTS signatory_initials text DEFAULT '';
+
+
+-- Migration: add client signatory position in nominative case
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS signatory_position_ip text DEFAULT '';

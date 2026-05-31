@@ -46,7 +46,8 @@ const getBudgetItemQuantity = (item: BudgetItem): string => {
     minimumFractionDigits: Number.isInteger(quantity) ? 0 : 2,
     maximumFractionDigits: 2
   }).format(quantity);
-  return item.unit ? `${formattedQuantity} ${item.unit}` : formattedQuantity;
+  const unit = item.unit?.trim() || item.work_item?.unit?.trim() || item.equipment?.unit?.trim();
+  return unit ? `${formattedQuantity} ${unit}` : formattedQuantity;
 };
 
 const makeCell = (text: string, width: number, align: 'left' | 'center' = 'left', bold = false): string => `
@@ -109,6 +110,35 @@ const decodeXmlText = (value: string): string =>
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&amp;/g, '&');
+
+const getXmlParagraphText = (paragraphXml: string): string =>
+  paragraphXml.replace(/<w:tab\s*\/?>/g, '\t').replace(/<w:br\s*\/?>/g, '\n').replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g, (_match, text) => decodeXmlText(text)).replace(/<[^>]+>/g, '');
+
+const replacePlaceholderInParagraph = (paragraphXml: string, from: string, to: string): string => {
+  let replaced = false;
+  return paragraphXml.replace(/<w:t([^>]*)>([\s\S]*?)<\/w:t>/g, (match, attrs, text) => {
+    if (replaced || decodeXmlText(text) !== from) return match;
+    replaced = true;
+    return `<w:t${attrs}>${escapeXml(to)}</w:t>`;
+  });
+};
+
+const markSignaturePositionPlaceholders = (documentXml: string): string =>
+  documentXml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (paragraphXml) => {
+    if (getXmlParagraphText(paragraphXml).trim() !== 'B:') return paragraphXml;
+    return replacePlaceholderInParagraph(paragraphXml, 'B', 'R');
+  });
+
+const removeEmptyOptionalParagraphs = (documentXml: string, optionalValues: Record<string, string>): string =>
+  documentXml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (paragraphXml) => {
+    const paragraphText = getXmlParagraphText(paragraphXml);
+    const hasEmptyOptionalPlaceholder = Object.entries(optionalValues).some(([placeholder, value]) => {
+      if (value.trim()) return false;
+      return new RegExp(`(^|[^A-ZА-ЯЁ])${placeholder}([^A-ZА-ЯЁ]|$)`).test(paragraphText);
+    });
+
+    return hasEmptyOptionalPlaceholder ? '' : paragraphXml;
+  });
 
 const replaceTextPlaceholders = (documentXml: string, values: Record<string, string>): string => {
   const placeholderPattern = new RegExp(`[${Object.keys(values).join('')}]`, 'g');
@@ -178,12 +208,21 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
     M: client.bank_details || '',
     N: client.signatory_initials || '',
     O: formatAmount(amount),
+    R: client.signatory_position_ip || client.position || '',
     Q: eventDate,
     Z: formatDate(contractDate)
   };
 
   let documentXml = strFromU8(documentFile);
   documentXml = replaceSpecificationPlaceholderTable(documentXml, budgetItems);
+  documentXml = markSignaturePositionPlaceholders(documentXml);
+  documentXml = removeEmptyOptionalParagraphs(documentXml, {
+    I: values.I,
+    J: values.J,
+    K: values.K,
+    L: values.L,
+    M: values.M
+  });
   documentXml = replaceTextPlaceholders(documentXml, values);
   zip[documentPath] = strToU8(documentXml);
 
