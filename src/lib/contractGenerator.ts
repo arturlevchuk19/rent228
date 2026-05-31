@@ -102,23 +102,36 @@ const replaceSpecificationPlaceholderTable = (documentXml: string, items: Budget
   return `${documentXml.slice(0, tableStart)}${makeSpecificationTable(items)}${documentXml.slice(tableEnd + '</w:tbl>'.length)}`;
 };
 
-const replaceTextPlaceholders = (documentXml: string, values: Record<string, string>): string =>
-  documentXml.replace(/<w:t([^>]*)>([\s\S]*?)<\/w:t>/g, (match, attrs, text) => {
-    const decodedText = text
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&amp;/g, '&');
-    const trimmed = decodedText.trim();
+const decodeXmlText = (value: string): string =>
+  value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
 
-    if (!(trimmed in values)) return match;
+const replaceTextPlaceholders = (documentXml: string, values: Record<string, string>): string => {
+  const placeholderPattern = new RegExp(`[${Object.keys(values).join('')}]`, 'g');
 
-    const leading = decodedText.match(/^\s*/)?.[0] ?? '';
-    const trailing = decodedText.match(/\s*$/)?.[0] ?? '';
-    const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
-    return `<w:t${normalizedAttrs} xml:space="preserve">${escapeXml(`${leading}${values[trimmed]}${trailing}`)}</w:t>`;
+  return documentXml.replace(/<w:r(?:\s[^>]*)?>[\s\S]*?<\/w:r>/g, (runXml) => {
+    const runPropertiesMatch = runXml.match(/<w:rPr>[\s\S]*?<\/w:rPr>/);
+    const isUnderlinedRun = Boolean(runPropertiesMatch?.[0].includes('<w:u'));
+
+    if (!isUnderlinedRun) return runXml;
+
+    return runXml.replace(/<w:t([^>]*)>([\s\S]*?)<\/w:t>/g, (_textMatch, attrs, text) => {
+      const decodedText = decodeXmlText(text);
+      const replacedText = decodedText.replace(placeholderPattern, (placeholder) => values[placeholder] ?? placeholder);
+
+      if (replacedText === decodedText) {
+        return `<w:t${attrs}>${text}</w:t>`;
+      }
+
+      const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
+      return `<w:t${normalizedAttrs} xml:space="preserve">${escapeXml(replacedText)}</w:t>`;
+    });
   });
+};
 
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
