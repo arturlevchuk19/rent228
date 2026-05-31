@@ -11,8 +11,11 @@ interface ContractGenerationPayload {
   budgetItems: BudgetItem[];
 }
 
+const sanitizeXmlString = (value: string | number | null | undefined): string =>
+  String(value ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+
 const escapeXml = (value: string | number | null | undefined): string =>
-  String(value ?? '')
+  sanitizeXmlString(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -50,6 +53,14 @@ const getBudgetItemQuantity = (item: BudgetItem): string => {
   return unit ? `${formattedQuantity} ${unit}` : formattedQuantity;
 };
 
+const makeTextWithLineBreaks = (text: string, attrs = ''): string => {
+  const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
+  const textAttrs = `${normalizedAttrs} xml:space="preserve"`;
+  const lines = sanitizeXmlString(text).split(/\r?\n/);
+
+  return lines.map((line) => `<w:t${textAttrs}>${escapeXml(line)}</w:t>`).join('<w:br/>');
+};
+
 const makeCell = (text: string, width: number, align: 'left' | 'center' = 'left', bold = false): string => `
   <w:tc>
     <w:tcPr><w:tcW w:w="${width}" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>
@@ -59,7 +70,7 @@ const makeCell = (text: string, width: number, align: 'left' | 'center' = 'left'
       </w:pPr>
       <w:r>
         <w:rPr><w:rFonts w:ascii="Times New Roman" w:eastAsia="Times New Roman" w:hAnsi="Times New Roman"/>${bold ? '<w:b/>' : ''}</w:rPr>
-        <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+        ${makeTextWithLineBreaks(text)}
       </w:r>
     </w:p>
   </w:tc>`;
@@ -124,14 +135,6 @@ const removeEmptyOptionalParagraphs = (documentXml: string, optionalValues: Reco
 
     return hasEmptyOptionalPlaceholder ? '' : paragraphXml;
   });
-
-const makeTextWithLineBreaks = (text: string, attrs: string): string => {
-  const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
-  const textAttrs = `${normalizedAttrs} xml:space="preserve"`;
-  const lines = text.split(/\r?\n/);
-
-  return lines.map((line) => `<w:t${textAttrs}>${escapeXml(line)}</w:t>`).join('<w:br/>');
-};
 
 const replaceTextPlaceholders = (documentXml: string, values: Record<string, string>): string => {
   const placeholderPattern = new RegExp(`[${Object.keys(values).join('')}]`, 'g');
