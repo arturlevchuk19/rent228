@@ -908,7 +908,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       equipmentTypeRP: payload.equipmentTypeRP,
       contractDate: payload.date,
       amount: contractAmount,
-      budgetItems: getBudgetItemsInDisplayOrder()
+      budgetItems: getBudgetItemsInDisplayOrder(),
+      version: budgetVersion
     });
   };
 
