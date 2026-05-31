@@ -3696,3 +3696,8 @@ ALTER TABLE clients
   ADD COLUMN IF NOT EXISTS legal_address text DEFAULT '',
   ADD COLUMN IF NOT EXISTS postal_address text DEFAULT '',
   ADD COLUMN IF NOT EXISTS bank_details text DEFAULT '';
+
+
+-- Migration: ensure client signatory initials field exists
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS signatory_initials text DEFAULT '';
