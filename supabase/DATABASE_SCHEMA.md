@@ -135,8 +135,15 @@ templates ──┬──> template_items
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `id` | uuid | PK |
-| `name` | text | Название компании/имя |
-| `contact_person` | text | Контактное лицо |
+| `organization` | text | Название организации |
+| `full_name` | text | ФИО подписанта (в Р.П.) |
+| `signatory_initials` | text | Инициалы подписанта (в И.П.) |
+| `position` | text | Должность подписанта (в Р.П.) |
+| `basis_for_action` | text | Основание действия подписанта |
+| `unp` | text | УНП |
+| `legal_address` | text | Юридический адрес |
+| `postal_address` | text | Почтовый адрес |
+| `bank_details` | text | Банковские реквизиты |
 | `email` | text | Email |
 | `phone` | text | Телефон |
 | `notes` | text | Заметки |

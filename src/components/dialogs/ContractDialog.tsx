@@ -1,36 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FileSignature, X } from 'lucide-react';
+
+interface ContractOrganizationOption {
+  id: string;
+  organization: string;
+}
 
 interface ContractDialogProps {
   isOpen: boolean;
-  clients: string[];
-  initialOrganization?: string;
+  clients: ContractOrganizationOption[];
+  initialOrganizationId?: string;
   onClose: () => void;
-  onConfirm: (payload: { date: string; equipmentTypeRP: string; organization: string }) => Promise<void> | void;
+  onConfirm: (payload: { date: string; equipmentTypeRP: string; organizationId: string }) => Promise<void> | void;
 }
 
-export function ContractDialog({ isOpen, clients, initialOrganization = '', onClose, onConfirm }: ContractDialogProps) {
+export function ContractDialog({ isOpen, clients, initialOrganizationId = '', onClose, onConfirm }: ContractDialogProps) {
   const [contractDate, setContractDate] = useState(new Date().toISOString().slice(0, 10));
   const [equipmentTypeRP, setEquipmentTypeRP] = useState('');
-  const [organization, setOrganization] = useState(initialOrganization);
+  const [organizationId, setOrganizationId] = useState(initialOrganizationId);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dateError = !contractDate ? 'Дата обязательна' : '';
   const equipmentError = !equipmentTypeRP.trim() ? 'Вид оборудования обязателен' : '';
-  const organizationError = !organization ? 'Организация обязательна' : '';
+  const organizationError = !organizationId ? 'Организация обязательна' : '';
+  const selectedOrganization = clients.find((client) => client.id === organizationId);
 
   useEffect(() => {
     if (isOpen) {
-      setOrganization(initialOrganization);
+      setOrganizationId(initialOrganizationId);
     }
-  }, [isOpen, initialOrganization]);
+  }, [isOpen, initialOrganizationId]);
 
   if (!isOpen) return null;
 
   const handleClose = () => {
     setContractDate(new Date().toISOString().slice(0, 10));
     setEquipmentTypeRP('');
-    setOrganization(initialOrganization);
+    setOrganizationId(initialOrganizationId);
     setIsSubmitting(false);
     onClose();
   };
@@ -40,8 +46,11 @@ export function ContractDialog({ isOpen, clients, initialOrganization = '', onCl
 
     setIsSubmitting(true);
     try {
-      await onConfirm({ date: contractDate, equipmentTypeRP: equipmentTypeRP.trim(), organization });
+      await onConfirm({ date: contractDate, equipmentTypeRP: equipmentTypeRP.trim(), organizationId });
       handleClose();
+    } catch (error: any) {
+      console.error('Error creating contract:', error);
+      alert(`Ошибка при создании договора: ${error.message || 'неизвестная ошибка'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -75,18 +84,21 @@ export function ContractDialog({ isOpen, clients, initialOrganization = '', onCl
           <div>
             <label className="text-xs text-gray-400 block mb-2">Организация *</label>
             <select
-              value={organization}
-              onChange={(e) => setOrganization(e.target.value)}
+              value={organizationId}
+              onChange={(e) => setOrganizationId(e.target.value)}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
             >
               <option value="">Выберите организацию</option>
-              {clients.map((clientName) => (
-                <option key={clientName} value={clientName}>
-                  {clientName}
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.organization}
                 </option>
               ))}
             </select>
             {organizationError && <p className="text-xs text-red-400 mt-1">{organizationError}</p>}
+            {selectedOrganization && (
+              <p className="text-xs text-gray-500 mt-1">Данные будут взяты из карточки организации</p>
+            )}
           </div>
 
           <div>

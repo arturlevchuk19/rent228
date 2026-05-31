@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote, FileSignature } from 'lucide-react';
-import { BudgetItem, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
+import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -10,6 +10,7 @@ import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
+import { generateContractDocx } from '../lib/contractGenerator';
 import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
 import {
   UShapeUnifiedDialog,
@@ -121,10 +122,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
   const [isBudgetConfirmed, setIsBudgetConfirmed] = useState(false);
   const [showContractDialog, setShowContractDialog] = useState(false);
-  const [contractDate, setContractDate] = useState(new Date().toISOString().slice(0, 10));
-  const [contractEquipmentTypeRP, setContractEquipmentTypeRP] = useState('');
-  const [contractOrganization, setContractOrganization] = useState('');
-  const [clientsList, setClientsList] = useState<string[]>([]);
+  const [contractOrganizationId, setContractOrganizationId] = useState('');
+  const [clientsList, setClientsList] = useState<Client[]>([]);
   const [showStickyNotes, setShowStickyNotes] = useState(false);
   const [stickyNotes, setStickyNotes] = useState<{ id: string; content: string }[]>([
     { id: `budget_note_1`, content: '' }
@@ -143,7 +142,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const loadClients = async () => {
       try {
         const clients = await getClients();
-        setClientsList(clients.map((client) => client.organization).filter(Boolean));
+        setClientsList(clients.filter((client) => Boolean(client.organization)));
       } catch (error) {
         console.error('Error loading clients for contract dialog:', error);
         setClientsList([]);
@@ -271,6 +270,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         setBudgetNote('');
       }
       setIsBudgetConfirmed(Boolean(eventData.progress_equipment_reserved));
+      setContractOrganizationId((current) => current || eventData.client_id || '');
 
       const initialExpanded: Record<string, boolean> = {};
       const initialActive = new Set<string>();
@@ -860,7 +860,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         eventDate: event.event_date,
         createdDate: options?.createdDate || new Date().toISOString(),
         venueName: event.venues?.name,
-        clientName: contractOrganization || event.clients?.organization,
+        clientName: clientsList.find((client) => client.id === contractOrganizationId)?.organization || event.clients?.organization,
         organizerName: event.organizers?.full_name,
         version: budgetVersion,
         budgetItems: budgetItems as any,
@@ -885,14 +885,30 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
-  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string; organization: string }) => {
-    setContractDate(payload.date);
-    setContractEquipmentTypeRP(payload.equipmentTypeRP);
-    setContractOrganization(payload.organization);
+  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string; organizationId: string }) => {
+    setContractOrganizationId(payload.organizationId);
     setShowContractDialog(false);
-    await handleExportPDF({
-      createdDate: payload.date,
-      contractEquipmentTypeRP: payload.equipmentTypeRP
+
+    const event = await getEvent(eventId);
+    const client = clientsList.find((item) => item.id === payload.organizationId);
+    if (!client) {
+      alert('Выбранная организация не найдена');
+      return;
+    }
+
+    const parsedDiscountedTotalInput = parseFloat(discountedTotalInput.replace(',', '.'));
+    const hasManualDiscountedTotal = discountEnabled && discountedTotalInput.trim() !== '' && !isNaN(parsedDiscountedTotalInput);
+    const contractAmount = hasManualDiscountedTotal
+      ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
+      : getDiscountedTotal() ?? getPrimaryTotalForMode();
+
+    await generateContractDocx({
+      event,
+      client,
+      equipmentTypeRP: payload.equipmentTypeRP,
+      contractDate: payload.date,
+      amount: contractAmount,
+      budgetItems
     });
   };
 
@@ -2168,7 +2184,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               <span className="text-xs font-medium">Договор</span>
             </button>
             <button
-              onClick={handleExportPDF}
+              onClick={() => handleExportPDF()}
               disabled={generatingPDF || budgetItems.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all disabled:opacity-30 border border-gray-700"
             >
@@ -2354,7 +2370,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       <ContractDialog
         isOpen={showContractDialog}
         clients={clientsList}
-        initialOrganization={contractOrganization}
+        initialOrganizationId={contractOrganizationId}
         onClose={() => setShowContractDialog(false)}
         onConfirm={handleContractConfirm}
       />
