@@ -114,21 +114,6 @@ const decodeXmlText = (value: string): string =>
 const getXmlParagraphText = (paragraphXml: string): string =>
   paragraphXml.replace(/<w:tab\s*\/?>/g, '\t').replace(/<w:br\s*\/?>/g, '\n').replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g, (_match, text) => decodeXmlText(text)).replace(/<[^>]+>/g, '');
 
-const replacePlaceholderInParagraph = (paragraphXml: string, from: string, to: string): string => {
-  let replaced = false;
-  return paragraphXml.replace(/<w:t([^>]*)>([\s\S]*?)<\/w:t>/g, (match, attrs, text) => {
-    if (replaced || decodeXmlText(text) !== from) return match;
-    replaced = true;
-    return `<w:t${attrs}>${escapeXml(to)}</w:t>`;
-  });
-};
-
-const markSignaturePositionPlaceholders = (documentXml: string): string =>
-  documentXml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (paragraphXml) => {
-    if (getXmlParagraphText(paragraphXml).trim() !== 'B:') return paragraphXml;
-    return replacePlaceholderInParagraph(paragraphXml, 'B', 'R');
-  });
-
 const removeEmptyOptionalParagraphs = (documentXml: string, optionalValues: Record<string, string>): string =>
   documentXml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (paragraphXml) => {
     const paragraphText = getXmlParagraphText(paragraphXml);
@@ -201,7 +186,7 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
 
   const values: Record<string, string> = {
     A: client.organization || '',
-    B: client.position || '',
+    B: client.signatory_position_ip || client.position || '',
     C: client.full_name || '',
     D: client.basis_for_action || '',
     E: eventTitle,
@@ -215,14 +200,12 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
     M: client.bank_details || '',
     N: client.signatory_initials || '',
     O: formatAmount(amount),
-    R: client.signatory_position_ip || client.position || '',
     Q: eventDate,
     Z: formatDate(contractDate)
   };
 
   let documentXml = strFromU8(documentFile);
   documentXml = replaceSpecificationPlaceholderTable(documentXml, budgetItems);
-  documentXml = markSignaturePositionPlaceholders(documentXml);
   documentXml = removeEmptyOptionalParagraphs(documentXml, {
     I: values.I,
     J: values.J,
