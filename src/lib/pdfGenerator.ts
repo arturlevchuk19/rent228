@@ -698,8 +698,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
   pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
 
-  // Формируем имя файла: Дата_Площадка_Версия
-  const fileNameParts: string[] = [];
+  // Формируем имя файла: Договор_Дата_Площадка_Версия
+  const fileNameParts: string[] = ['Договор'];
   
   if (formattedEventDate && formattedEventDate !== '—') {
     fileNameParts.push(formattedEventDate);
