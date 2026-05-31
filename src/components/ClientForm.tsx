@@ -14,6 +14,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
     full_name: client?.full_name || '',
     signatory_initials: client?.signatory_initials || '',
     position: client?.position || '',
+    signatory_position_ip: client?.signatory_position_ip || '',
     basis_for_action: client?.basis_for_action || '',
     unp: client?.unp || '',
     legal_address: client?.legal_address || '',
@@ -71,12 +72,12 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Организация <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
+              <textarea
                 required
+                rows={3}
                 value={formData.organization}
                 onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 resize-y"
                 placeholder="ООО Компания"
               />
             </div>
@@ -116,11 +117,22 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 value={formData.position}
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
-                placeholder="Директор"
+                placeholder="директора"
               />
             </div>
 
-
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Должность подписанта (в И.П.)
+              </label>
+              <input
+                type="text"
+                value={formData.signatory_position_ip}
+                onChange={(e) => setFormData({ ...formData, signatory_position_ip: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                placeholder="Директор"
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">

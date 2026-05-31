@@ -908,7 +908,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       equipmentTypeRP: payload.equipmentTypeRP,
       contractDate: payload.date,
       amount: contractAmount,
-      budgetItems
+      budgetItems: getBudgetItemsInDisplayOrder()
     });
   };
 
@@ -1205,6 +1205,32 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     acc[groupId].push(item);
     return acc;
   }, {} as GroupedItemsByLocation);
+
+  const sortBudgetGroupItems = (items: BudgetItem[]) => [...items].sort((a, b) =>
+    (a.sort_order || 0) - (b.sort_order || 0) ||
+    new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+  );
+
+  const getBudgetItemsInDisplayOrder = () => {
+    const orderedItems: BudgetItem[] = [];
+    const addGroupItems = (groupId: string) => {
+      orderedItems.push(...sortBudgetGroupItems(groupedItems[groupId] || []));
+    };
+    const visibleCategories = categories.filter(category => category.is_template !== true);
+
+    locations.forEach((location) => {
+      visibleCategories.forEach((category) => addGroupItems(buildCategoryGroupId(category.id, location.id)));
+      addGroupItems(buildLocationUncategorizedGroupId(location.id));
+    });
+
+    visibleCategories.forEach((category) => addGroupItems(buildCategoryGroupId(category.id, null)));
+    addGroupItems(NO_LOCATION_GROUP_ID);
+
+    const orderedIds = new Set(orderedItems.map((item) => item.id));
+    const missingItems = budgetItems.filter((item) => !orderedIds.has(item.id));
+
+    return [...orderedItems, ...sortBudgetGroupItems(missingItems)];
+  };
 
   const mainBudgetItems = budgetItems;
   const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');

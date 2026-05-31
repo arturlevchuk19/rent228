@@ -11,8 +11,11 @@ interface ContractGenerationPayload {
   budgetItems: BudgetItem[];
 }
 
+const sanitizeXmlString = (value: string | number | null | undefined): string =>
+  String(value ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+
 const escapeXml = (value: string | number | null | undefined): string =>
-  String(value ?? '')
+  sanitizeXmlString(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -46,7 +49,16 @@ const getBudgetItemQuantity = (item: BudgetItem): string => {
     minimumFractionDigits: Number.isInteger(quantity) ? 0 : 2,
     maximumFractionDigits: 2
   }).format(quantity);
-  return item.unit ? `${formattedQuantity} ${item.unit}` : formattedQuantity;
+  const unit = item.unit?.trim() || item.work_item?.unit?.trim() || item.equipment?.unit?.trim();
+  return unit ? `${formattedQuantity} ${unit}` : formattedQuantity;
+};
+
+const makeTextWithLineBreaks = (text: string, attrs = ''): string => {
+  const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
+  const textAttrs = `${normalizedAttrs} xml:space="preserve"`;
+  const lines = sanitizeXmlString(text).split(/\r?\n/);
+
+  return lines.map((line) => `<w:t${textAttrs}>${escapeXml(line)}</w:t>`).join('<w:br/>');
 };
 
 const makeCell = (text: string, width: number, align: 'left' | 'center' = 'left', bold = false): string => `
@@ -58,7 +70,7 @@ const makeCell = (text: string, width: number, align: 'left' | 'center' = 'left'
       </w:pPr>
       <w:r>
         <w:rPr><w:rFonts w:ascii="Times New Roman" w:eastAsia="Times New Roman" w:hAnsi="Times New Roman"/>${bold ? '<w:b/>' : ''}</w:rPr>
-        <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+        ${makeTextWithLineBreaks(text)}
       </w:r>
     </w:p>
   </w:tc>`;
@@ -110,6 +122,20 @@ const decodeXmlText = (value: string): string =>
     .replace(/&apos;/g, "'")
     .replace(/&amp;/g, '&');
 
+const getXmlParagraphText = (paragraphXml: string): string =>
+  paragraphXml.replace(/<w:tab\s*\/?>/g, '\t').replace(/<w:br\s*\/?>/g, '\n').replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g, (_match, text) => decodeXmlText(text)).replace(/<[^>]+>/g, '');
+
+const removeEmptyOptionalParagraphs = (documentXml: string, optionalValues: Record<string, string>): string =>
+  documentXml.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, (paragraphXml) => {
+    const paragraphText = getXmlParagraphText(paragraphXml);
+    const hasEmptyOptionalPlaceholder = Object.entries(optionalValues).some(([placeholder, value]) => {
+      if (value.trim()) return false;
+      return new RegExp(`(^|[^A-ZА-ЯЁ])${placeholder}([^A-ZА-ЯЁ]|$)`).test(paragraphText);
+    });
+
+    return hasEmptyOptionalPlaceholder ? '' : paragraphXml;
+  });
+
 const replaceTextPlaceholders = (documentXml: string, values: Record<string, string>): string => {
   const placeholderPattern = new RegExp(`[${Object.keys(values).join('')}]`, 'g');
 
@@ -127,8 +153,7 @@ const replaceTextPlaceholders = (documentXml: string, values: Record<string, str
         return `<w:t${attrs}>${text}</w:t>`;
       }
 
-      const normalizedAttrs = attrs.replace(/\s+xml:space="[^"]*"/g, '');
-      return `<w:t${normalizedAttrs} xml:space="preserve">${escapeXml(replacedText)}</w:t>`;
+      return makeTextWithLineBreaks(replacedText, attrs);
     });
   });
 };
@@ -164,7 +189,7 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
 
   const values: Record<string, string> = {
     A: client.organization || '',
-    B: client.position || '',
+    B: client.signatory_position_ip || client.position || '',
     C: client.full_name || '',
     D: client.basis_for_action || '',
     E: eventTitle,
@@ -184,6 +209,13 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
 
   let documentXml = strFromU8(documentFile);
   documentXml = replaceSpecificationPlaceholderTable(documentXml, budgetItems);
+  documentXml = removeEmptyOptionalParagraphs(documentXml, {
+    I: values.I,
+    J: values.J,
+    K: values.K,
+    L: values.L,
+    M: values.M
+  });
   documentXml = replaceTextPlaceholders(documentXml, values);
   zip[documentPath] = strToU8(documentXml);
 
