@@ -415,55 +415,71 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   let extraServicesHtml = '';
   if (extraBudgetItems.length > 0) {
-    const extraGrouped = extraBudgetItems.reduce<Record<string, BudgetItem[]>>((acc, item) => {
-      const categoryId = item.category_id || 'uncategorized-extra';
-      if (!acc[categoryId]) acc[categoryId] = [];
-      acc[categoryId].push(item);
-      return acc;
-    }, {});
+    const rows = extraBudgetItems.map((item, itemIdx) => {
+      const itemPrefix = `${itemIdx + 1}. `;
+      const name = item.equipment?.name || item.work_item?.name || '—';
+      const notes = item.notes?.trim();
+      const displayName = notes ? `${name} ${notes}` : name;
+      const qty = item.quantity || 0;
+      const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
+      
+      const usdPriceDay1 = item.price || 0;
+      const usdTotalDay1 = calcDay1Total(item);
 
-    const extraCategoriesHtml = Object.entries(extraGrouped).map(([categoryId, items]) => {
-      const category = data.categories.find((c) => c.id === categoryId);
-      const categoryName = category?.name || 'Дополнительные услуги';
-      let categoryTotal = 0;
-      const rows = items.map((item) => {
-        const name = item.equipment?.name || item.work_item?.name || '—';
-        const notes = item.notes?.trim();
-        const displayName = notes ? `${name} ${notes}` : name;
-        const qty = item.quantity || 0;
-        const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
-        const price = calculatePrice(item.price || 0, item);
-        const total = price * qty;
-        categoryTotal += total;
-        return `
-          <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 8px 8px; font-size: 14px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">${displayName}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
-          </tr>
-        `;
-      }).join('');
+      const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
+      const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
+
+      const usdUnitPriceCombined = calcCombinedTotal(
+        { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
+        budgetDays,
+        item.multi_day_rate_override
+      );
+      const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
+      const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+
+      const rowTotalDisplay = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
+      const rowPriceDisplay = isCombinedOnlyMode ? displayUnitPriceBYNCombined : displayUnitPriceBYNDay1;
+
+      const rowBg = hexToRgba(item.marker_color, 0.26);
 
       return `
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 14px; font-weight: 700; color: #6d28d9; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tbody>
-              ${rows}
-              <tr style="border-bottom: 1px solid #000000;">
-                <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <tr style="border-bottom: 1px solid #000000;${rowBg ? ` background-color: ${rowBg};` : ''}">
+          <td style="padding: 0px 8px 8px 10px; font-size: 15px; color: #1a1a1a; width: 60%;">
+            <div style="display: flex; align-items: flex-start;">
+              <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
+              <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
+            </div>
+          </td>
+          <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; white-space: nowrap;">${qty} ${unit}</td>
+          <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; white-space: nowrap;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+          <td style="padding: 0px 8px 8px 10px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; white-space: nowrap;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
+        </tr>
       `;
     }).join('');
 
     extraServicesHtml = `
-      <section style="margin-top: 20px; padding: 12px 14px; border: 1px solid #000000; border-radius: 10px; background: rgba(139, 92, 246, 0.04);">
-        ${extraCategoriesHtml}
+      <section style="margin-top: 20px; padding: 14px 14px 6px; background: #ffffff; border: 1px solid #000000; border-radius: 10px;">
+        <div style="margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
+            <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
+            <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
+              Дополнительные услуги
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="text-transform: uppercase; font-size: 13px; color: #000000; border-bottom: 1px solid #000000;">
+                <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 60%;">Наименование</th>
+                <th style="text-align: center; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 10%; white-space: nowrap;">Кол-во</th>
+                <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%; white-space: nowrap;">Цена</th>
+                <th style="text-align: right; padding: 8px 8px; vertical-align: middle; line-height: 1.2; width: 15%; white-space: nowrap;">Сумма</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
       </section>
     `;
   }
