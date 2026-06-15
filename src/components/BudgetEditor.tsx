@@ -974,7 +974,43 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         setDraggedItem(null);
         return;
       }
+      // Handle location change if source and destination locations differ
+      const sourceLocId = sourceGroup.locationId || null;
+      const destLocId = destinationGroup.locationId || null;
 
+      if (sourceLocId !== destLocId) {
+        const itemsToMove = budgetItems.filter((item) =>
+          item.category_id === sourceGroup.categoryId &&
+          (item.location_id || null) === sourceLocId
+        );
+
+        for (const item of itemsToMove) {
+          await updateBudgetItem(item.id, {
+            location_id: destLocId,
+            category_id: sourceGroup.categoryId,
+            is_extra: isExtraServiceCategory(sourceGroup.categoryId)
+          });
+        }
+
+        setBudgetItems((prev) => prev.map((item) => {
+          if (
+            item.category_id === sourceGroup.categoryId &&
+            (item.location_id || null) === sourceLocId
+          ) {
+            return { ...item, location_id: destLocId };
+          }
+          return item;
+        }));
+
+        setActiveCategoryIds((prev) => {
+          const next = new Set(prev);
+          next.delete(buildCategoryGroupId(sourceGroup.categoryId, sourceLocId));
+          next.add(buildCategoryGroupId(sourceGroup.categoryId, destLocId));
+          return next;
+        });
+      }
+
+      // Handle category reordering if dropping on another category
       if (target.type === 'category' && destinationGroup.categoryId) {
         if (sourceGroup.categoryId === destinationGroup.categoryId) {
           setDraggedItem(null);
@@ -1006,38 +1042,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             sort_order: index
           }))
         );
-        setDraggedItem(null);
-        return;
       }
-
-      const itemsToMove = budgetItems.filter((item) =>
-        item.category_id === sourceGroup.categoryId &&
-        (item.location_id || null) === (sourceGroup.locationId || null)
-      );
-
-      for (const item of itemsToMove) {
-        await updateBudgetItem(item.id, {
-          location_id: destinationGroup.locationId,
-          category_id: sourceGroup.categoryId
-        });
-      }
-
-      setBudgetItems((prev) => prev.map((item) => {
-        if (
-          item.category_id === sourceGroup.categoryId &&
-          (item.location_id || null) === (sourceGroup.locationId || null)
-        ) {
-          return { ...item, location_id: destinationGroup.locationId };
-        }
-        return item;
-      }));
-
-      setActiveCategoryIds((prev) => {
-        const next = new Set(prev);
-        next.delete(buildCategoryGroupId(sourceGroup.categoryId!, sourceGroup.locationId));
-        next.add(buildCategoryGroupId(sourceGroup.categoryId!, destinationGroup.locationId));
-        return next;
-      });
     }
 
     setDraggedItem(null);
@@ -1894,6 +1899,19 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     );
                   })}
 
+                  <div
+                    className={'border-2 border-dashed rounded-xl p-2 transition-all duration-200' + (draggedItem ? ' border-cyan-500/50 bg-cyan-500/5' : ' border-gray-700/30 hover:border-gray-600')}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverTarget(NO_LOCATION_GROUP_ID);
+                      setDragOverItemId(null);
+                    }}
+                    onDrop={(e) => handleDrop(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
+                  >
+                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wider px-2 py-1 mb-1">
+                      Основная область
+                    </div>
                   {categories.filter(cat => cat.is_template !== true).map(category => {
                     const categoryGroupId = buildCategoryGroupId(category.id, null);
                     const categoryItems = groupedItems[categoryGroupId] || [];
@@ -1966,6 +1984,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                       />
                     </div>
                   )}
+                  </div>
 
 
                 </>
