@@ -172,6 +172,11 @@ const DUPLICATE_CONNECTOR_ITEMS = new Set(
 const buildCableDraftKey = (cableType: string, cableLength: string) => `cable_${cableType}__${cableLength}`;
 const buildConnectorDraftKey = (connectorType: string) => `connector_${connectorType}`;
 const buildOtherDraftKey = (category: string, itemType: string) => `other_${category}__${itemType}`;
+const COMPOSED_ITEM_ID_SUFFIX_REGEX = /(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/;
+
+const getPersistedBudgetItemId = (budgetItemId: string) => budgetItemId.replace(COMPOSED_ITEM_ID_SUFFIX_REGEX, '');
+
+const isGeneratedCompositionItemId = (budgetItemId: string) => COMPOSED_ITEM_ID_SUFFIX_REGEX.test(budgetItemId);
 
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
   const { user } = useAuth();
@@ -428,18 +433,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     return ordered;
   };
 
-  const extraBudgetItems = budgetItems.filter(item => item.is_extra);
+  const pickableExpandedItems = expandedItems.filter(item => !hasChildItems(expandedItems, item));
 
   const allPickedForShipment =
-    expandedItems.every(item => item.picked) &&
-    extraBudgetItems.every(item => item.picked) &&
+    pickableExpandedItems.every(item => item.picked) &&
     cables.every(c => c.picked) &&
     connectors.every(c => c.picked) &&
     otherItems.every(i => i.picked);
 
   const allPickedForReturn =
-    expandedItems.every(item => item.return_picked) &&
-    extraBudgetItems.every(item => item.return_picked) &&
+    pickableExpandedItems.every(item => item.return_picked) &&
     cables.every(c => c.return_picked) &&
     connectors.every(c => c.return_picked) &&
     otherItems.every(i => i.return_picked);
@@ -1016,15 +1019,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handlePickedChange = async (budgetItemId: string, picked: boolean) => {
     try {
-      // Find the real budget item ID (ignoring composition suffixes like -comp-, -mod-, or -case-)
-      // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-      // We need to extract the full UUID before any suffix
-      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
-      await updateSpecificationBudgetItemPicked(realId, picked);
-      
-      // Update all items sharing this budget item ID
-      setExpandedItems(expandedItems.map(item =>
-        item.budgetItemId.startsWith(realId) ? { ...item, picked } : item
+      if (isGeneratedCompositionItemId(budgetItemId)) {
+        setExpandedItems(prev => prev.map(item =>
+          item.budgetItemId === budgetItemId ? { ...item, picked } : item
+        ));
+        setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
+        return;
+      }
+
+      await updateSpecificationBudgetItemPicked(budgetItemId, picked);
+      setExpandedItems(prev => prev.map(item =>
+        item.budgetItemId === budgetItemId ? { ...item, picked } : item
       ));
     } catch (error) {
       console.error('Error updating picked status:', error);
@@ -1138,10 +1143,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
     try {
-      const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
-      await updateSpecificationBudgetItemReturnPicked(realId, return_picked);
+      if (isGeneratedCompositionItemId(budgetItemId)) {
+        setExpandedItems(prev => prev.map(item =>
+          item.budgetItemId === budgetItemId ? { ...item, return_picked } : item
+        ));
+        setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
+        return;
+      }
+
+      await updateSpecificationBudgetItemReturnPicked(budgetItemId, return_picked);
       setExpandedItems(prev => prev.map(item =>
-        item.budgetItemId.startsWith(realId) ? { ...item, return_picked } : item
+        item.budgetItemId === budgetItemId ? { ...item, return_picked } : item
       ));
     } catch (error) {
       console.error('Error updating return picked status:', error);
@@ -1187,6 +1199,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const equipmentPending = expandedItems
       .filter(item => !item.isExtra)
+      .filter(item => !hasChildItems(expandedItems, item))
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `eq-${item.budgetItemId}`,
@@ -1196,6 +1209,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     const extraPending = expandedItems
       .filter(item => item.isExtra)
+      .filter(item => !hasChildItems(expandedItems, item))
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `extra-${item.budgetItemId}`,
@@ -1490,7 +1504,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     ));
 
     // Track modified item (extract real budget item ID for composed items)
-    const realId = pendingQuantityChange.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
+    const realId = getPersistedBudgetItemId(pendingQuantityChange.budgetItemId);
     setModifiedItems(prev => new Set(prev).add(realId));
     setPendingQuantityChange(null);
   };
@@ -1504,18 +1518,18 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       item.budgetItemId === budgetItemId ? { ...item, notes: newNotes } : item
     ));
     // Track modified item (extract real budget item ID for composed items)
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
+    const realId = getPersistedBudgetItemId(budgetItemId);
     setModifiedItems(prev => new Set(prev).add(realId));
   };
 
   const handleDeleteSpecificationItem = async (budgetItemId: string) => {
-    const realId = budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
+    const realId = getPersistedBudgetItemId(budgetItemId);
     try {
       await deleteSpecificationBudgetItem(realId);
       // Optimized: remove from local state instead of full reload
       setBudgetItems(prev => prev.filter(item => item.id !== realId));
       setExpandedItems(prev => prev.filter(item => {
-        const itemRealId = item.budgetItemId.replace(/(-comp-.*|-mod-.*|-case-.*|-kitcase-.*|-podium-.*)$/, '');
+        const itemRealId = getPersistedBudgetItemId(item.budgetItemId);
         return itemRealId !== realId;
       }));
       setModifiedItems(prev => {
@@ -1622,6 +1636,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               exchange_rate: 1,
               notes: caseItem.notes,
               picked: caseItem.picked,
+              return_picked: caseItem.return_picked,
               sort_order: 0
             });
             const newItem = await createSpecificationBudgetItem({
@@ -1638,6 +1653,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               exchange_rate: 1,
               notes: caseItem.notes,
               picked: caseItem.picked,
+              return_picked: caseItem.return_picked,
               sort_order: 0
             });
             createdItems.push({ oldId: caseItem.budgetItemId, newId: newItem.id });
@@ -1679,6 +1695,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 exchange_rate: 1,
                 notes: childItem.notes,
                 picked: childItem.picked,
+                return_picked: childItem.return_picked,
                 sort_order: 0
               });
               createdItems.push({ oldId: childItem.budgetItemId, newId: newItem.id });
@@ -1724,7 +1741,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               sku: expandedItem.sku,
               quantity: expandedItem.quantity,
               notes: expandedItem.notes,
-              picked: expandedItem.picked
+              picked: expandedItem.picked,
+              return_picked: expandedItem.return_picked
             });
             createdItems.push({ oldId: budgetItemId, newId: newItem.id });
           } catch (err) {
