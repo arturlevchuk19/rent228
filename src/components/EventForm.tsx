@@ -24,7 +24,7 @@ import {
 
 interface EventFormProps {
   event?: Event;
-  onClose: () => void;
+  onClose: (eventId?: string) => void;
   onSave: (eventId?: string) => void;
   onSpecificationOpen?: (eventId: string) => void;
 }
@@ -68,7 +68,7 @@ function isValidDate(day: string, month: string, year: string): boolean {
   return true;
 }
 
-export function EventForm({ event, onClose, onSave }: EventFormProps) {
+export function EventForm({ event, onClose, onSave, onSpecificationOpen }: EventFormProps) {
   const initialDate = parseEventDate(event?.event_date || '');
 
   const [formData, setFormData] = useState<{
@@ -116,16 +116,20 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
   const [copySuccess, setCopySuccess] = useState(false);
   const [showContractDialog, setShowContractDialog] = useState(false);
   const [contractOrganizationId, setContractOrganizationId] = useState('');
+  const [savedEventId, setSavedEventId] = useState<string | undefined>(undefined);
+
+  // Effective event ID: use savedEventId for newly created events, otherwise use prop
+  const effectiveEventId = event?.id || savedEventId;
 
   useEffect(() => {
     loadData();
   }, []);
 
   useEffect(() => {
-    if (event?.id) {
+    if (effectiveEventId) {
       checkBudgetItems();
     }
-  }, [event?.id]);
+  }, [effectiveEventId]);
 
   useEffect(() => {
     const formatted = formatEventDate(dateParts.day, dateParts.month, dateParts.year);
@@ -199,9 +203,15 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
         savedEvent = await updateEvent(event.id, payload);
       } else {
         savedEvent = await createEvent(payload);
+        // Store the new event ID so the form stays in edit mode
+        setSavedEventId(savedEvent.id);
+        // Also copy the client_id for contract dialog
+        if (savedEvent.client_id) {
+          setContractOrganizationId(savedEvent.client_id);
+        }
       }
+      // Refresh the events list without closing the form
       onSave(savedEvent.id);
-      onClose();
     } catch (error) {
       console.error('Error saving event:', error);
       const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
@@ -212,19 +222,19 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
   };
 
   const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string; organizationId: string }) => {
-    if (!event) return;
+    if (!effectiveEventId) return;
     setContractOrganizationId(payload.organizationId);
     setShowContractDialog(false);
 
     try {
-      const fullEvent = await getEvent(event.id);
+      const fullEvent = await getEvent(effectiveEventId);
       const client = clients.find((item) => item.id === payload.organizationId);
       if (!client) {
         alert('Выбранная организация не найдена');
         return;
       }
 
-      const budgetItems = await getBudgetItems(event.id);
+      const budgetItems = await getBudgetItems(effectiveEventId);
       const totals = calcGrandTotals(budgetItems, fullEvent.budget_days || 1, fullEvent.budget_totals_mode || 'combined_only');
       
       let amount = fullEvent.budget_totals_mode === 'combined_only' ? totals.combinedTotal : totals.day1Total;
@@ -297,10 +307,10 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
       <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-3xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
           <h2 className="text-lg font-semibold text-white">
-            {event ? 'Редактировать мероприятие' : 'Новое мероприятие'}
+            {effectiveEventId ? 'Редактировать мероприятие' : 'Новое мероприятие'}
           </h2>
           <button
-            onClick={onClose}
+            onClick={() => onClose(effectiveEventId)}
             className="p-1 hover:bg-gray-800 rounded transition-colors"
           >
             <X className="w-4 h-4 text-gray-400" />
@@ -515,7 +525,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
           <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1.5">
-                {event && (
+                {effectiveEventId && (
                   <button
                     type="button"
                     onClick={() => setShowBudgetEditor(true)}
@@ -535,7 +545,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                     </span>
                   </button>
                 )}
-                {event && (
+                {effectiveEventId && (
                   <button
                     type="button"
                     onClick={() => setShowCopyDialog(true)}
@@ -556,7 +566,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                 )}
               </div>
 
-              {event && (
+              {effectiveEventId && (
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -569,7 +579,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => onSpecificationOpen?.(event.id)}
+                    onClick={() => onSpecificationOpen?.(effectiveEventId)}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
                     title="Открыть спецификацию"
                   >
@@ -583,7 +593,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
             <div className="flex items-center justify-end gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-gray-800">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => onClose(effectiveEventId)}
                 className="px-4 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
               >
                 Отмена
@@ -600,10 +610,10 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
         </form>
       </div>
 
-      {showBudgetEditor && event && (
+      {showBudgetEditor && effectiveEventId && (
         <BudgetEditor
-          eventId={event.id}
-          eventName={event.name || 'Мероприятие'}
+          eventId={effectiveEventId}
+          eventName={formData.name || 'Мероприятие'}
           onClose={() => {
             setShowBudgetEditor(false);
             checkBudgetItems();
@@ -611,15 +621,15 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
         />
       )}
 
-      {showCopyDialog && event && (
+      {showCopyDialog && effectiveEventId && (
         <CopyBudgetDialog
-          currentEventId={event.id}
+          currentEventId={effectiveEventId}
           onClose={() => setShowCopyDialog(false)}
           onSuccess={handleCopySuccess}
         />
       )}
 
-      {showContractDialog && event && (
+      {showContractDialog && effectiveEventId && (
         <ContractDialog
           isOpen={showContractDialog}
           clients={clients.filter((c) => Boolean(c.organization))}

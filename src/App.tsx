@@ -61,7 +61,7 @@ function AppContent() {
   const handleRefresh = (eventId?: string) => {
     setRefreshKey(prev => prev + 1);
     if (eventId && typeof eventId === 'string') {
-      setLastCreatedEventId(eventId);
+      // Don't set lastCreatedEventId here - scrolling happens on form close
     } else {
       setLastCreatedEventId(null);
     }
@@ -191,9 +191,12 @@ function AppContent() {
       {eventFormOpen && (
         <EventForm
           event={editingEvent}
-          onClose={() => {
+          onClose={(eventId) => {
             setEventFormOpen(false);
             setEditingEvent(undefined);
+            if (eventId) {
+              setLastCreatedEventId(eventId);
+            }
           }}
           onSave={handleRefresh}
           onSpecificationOpen={handleSpecificationOpen}
