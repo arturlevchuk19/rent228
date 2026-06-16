@@ -309,13 +309,13 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
                   Дата <span className="text-red-400/80">*</span>
                   <span className="text-gray-500 font-normal ml-1">(ДД.ММ.ГГГГ, можно 00)</span>
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <input
                     type="text"
                     inputMode="numeric"
@@ -383,7 +383,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
                   Тип <span className="text-red-400/80">*</span>
@@ -417,7 +417,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
                   Площадка
@@ -512,14 +512,46 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
             </div>
           </div>
 
-          <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
+            <div className="flex flex-col sm:flex-row md:items-center gap-3 md:gap-2">
+              <div className="flex items-center gap-2">
+                {event && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBudgetEditor(true)}
+                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-white rounded transition-colors ${
+                      hasBudgetItems
+                        ? 'bg-cyan-600 hover:bg-cyan-700'
+                        : 'bg-green-600 hover:bg-green-700'
+                    }`}
+                  >
+                    <Calculator className="w-3.5 h-3.5" />
+                    {hasBudgetItems ? 'Редактировать смету' : 'Составить смету'}
+                  </button>
+                )}
+                {event && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCopyDialog(true)}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors"
+                    title="Скопировать смету из другого мероприятия"
+                  >
+                    {copySuccess ? (
+                      <Check className="w-3.5 h-3.5" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    {copySuccess ? 'Скопировано!' : 'Скопировать смету'}
+                  </button>
+                )}
+              </div>
+
               {event && (
-                <div className="flex items-center gap-1.5 border-r border-gray-800 pr-2 mr-0.5">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setShowContractDialog(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
                     title="Сформировать договор"
                   >
                     <FileSignature className="w-3.5 h-3.5" />
@@ -529,7 +561,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                     type="button"
                     onClick={() => onSpecificationOpen?.(event.id)}
                     disabled={!event.specification_confirmed && !formData.progress_equipment_reserved}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700 disabled:opacity-30"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700 disabled:opacity-30"
                     title={(!event.specification_confirmed && !formData.progress_equipment_reserved) ? "Сначала подтвердите смету" : "Открыть спецификацию"}
                   >
                     <FileText className="w-3.5 h-3.5" />
@@ -537,48 +569,20 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                   </button>
                 </div>
               )}
-              {event && (
-                <button
-                  type="button"
-                  onClick={() => setShowBudgetEditor(true)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm text-white rounded transition-colors ${
-                    hasBudgetItems
-                      ? 'bg-cyan-600 hover:bg-cyan-700'
-                      : 'bg-green-600 hover:bg-green-700'
-                  }`}
-                >
-                  <Calculator className="w-3.5 h-3.5" />
-                  {hasBudgetItems ? 'Редактировать смету' : 'Составить смету'}
-                </button>
-              )}
-              {event && (
-                <button
-                  type="button"
-                  onClick={() => setShowCopyDialog(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors"
-                  title="Скопировать смету из другого мероприятия"
-                >
-                  {copySuccess ? (
-                    <Check className="w-3.5 h-3.5" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                  {copySuccess ? 'Скопировано!' : 'Скопировать смету'}
-                </button>
-              )}
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center justify-end gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-gray-800">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors disabled:opacity-50"
+                className="px-6 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors disabled:opacity-50"
               >
                 {saving ? 'Сохранение...' : 'Сохранить'}
               </button>
