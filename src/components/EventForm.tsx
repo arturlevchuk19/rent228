@@ -514,12 +514,12 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
 
           <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
             <div className="flex flex-col sm:flex-row md:items-center gap-3 md:gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-1">
                 {event && (
                   <button
                     type="button"
                     onClick={() => setShowBudgetEditor(true)}
-                    className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-white rounded transition-colors ${
+                    className={`flex items-center gap-1.5 px-3 py-1 text-sm text-white rounded transition-colors ${
                       hasBudgetItems
                         ? 'bg-cyan-600 hover:bg-cyan-700'
                         : 'bg-green-600 hover:bg-green-700'
@@ -533,7 +533,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                   <button
                     type="button"
                     onClick={() => setShowCopyDialog(true)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors"
                     title="Скопировать смету из другого мероприятия"
                   >
                     {copySuccess ? (
