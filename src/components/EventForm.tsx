@@ -513,45 +513,55 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
           </div>
 
           <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
-            <div className="flex flex-col sm:flex-row md:items-center gap-3 md:gap-2">
-              <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
                 {event && (
                   <button
                     type="button"
                     onClick={() => setShowBudgetEditor(true)}
-                    className={`flex items-center gap-1.5 px-3 py-1 text-sm text-white rounded transition-colors ${
+                    className={`flex items-center gap-1.5 px-2 py-1 text-white rounded transition-colors text-left leading-tight ${
                       hasBudgetItems
                         ? 'bg-cyan-600 hover:bg-cyan-700'
                         : 'bg-green-600 hover:bg-green-700'
                     }`}
                   >
-                    <Calculator className="w-3.5 h-3.5" />
-                    {hasBudgetItems ? 'Редактировать смету' : 'Составить смету'}
+                    <Calculator className="w-3.5 h-3.5 shrink-0" />
+                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                      {hasBudgetItems ? (
+                        <>Редактировать<br />смету</>
+                      ) : (
+                        <>Составить<br />смету</>
+                      )}
+                    </span>
                   </button>
                 )}
                 {event && (
                   <button
                     type="button"
                     onClick={() => setShowCopyDialog(true)}
-                    className="flex items-center gap-1.5 px-3 py-1 text-sm text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors"
+                    className="flex items-center gap-1.5 px-2 py-1 text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors text-left leading-tight"
                     title="Скопировать смету из другого мероприятия"
                   >
                     {copySuccess ? (
-                      <Check className="w-3.5 h-3.5" />
+                      <Check className="w-3.5 h-3.5 shrink-0" />
                     ) : (
-                      <Copy className="w-3.5 h-3.5" />
+                      <Copy className="w-3.5 h-3.5 shrink-0" />
                     )}
-                    {copySuccess ? 'Скопировано!' : 'Скопировать смету'}
+                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                      {copySuccess ? 'Скопировано!' : (
+                        <>Скопировать<br />смету</>
+                      )}
+                    </span>
                   </button>
                 )}
               </div>
 
               {event && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setShowContractDialog(true)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
                     title="Сформировать договор"
                   >
                     <FileSignature className="w-3.5 h-3.5" />
@@ -561,7 +571,7 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                     type="button"
                     onClick={() => onSpecificationOpen?.(event.id)}
                     disabled={!event.specification_confirmed && !formData.progress_equipment_reserved}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700 disabled:opacity-30"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700 disabled:opacity-30"
                     title={(!event.specification_confirmed && !formData.progress_equipment_reserved) ? "Сначала подтвердите смету" : "Открыть спецификацию"}
                   >
                     <FileText className="w-3.5 h-3.5" />
