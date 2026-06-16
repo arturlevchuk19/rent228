@@ -570,9 +570,8 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
                   <button
                     type="button"
                     onClick={() => onSpecificationOpen?.(event.id)}
-                    disabled={!event.specification_confirmed && !formData.progress_equipment_reserved}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700 disabled:opacity-30"
-                    title={(!event.specification_confirmed && !formData.progress_equipment_reserved) ? "Сначала подтвердите смету" : "Открыть спецификацию"}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
+                    title="Открыть спецификацию"
                   >
                     <FileText className="w-3.5 h-3.5" />
                     Спецификация
