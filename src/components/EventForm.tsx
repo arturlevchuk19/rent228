@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calculator, Copy, Check } from 'lucide-react';
+import { X, Calculator, Copy, Check, FileText, FileSignature } from 'lucide-react';
 import { BudgetEditor } from './BudgetEditor';
 import { CopyBudgetDialog } from './dialogs/CopyBudgetDialog';
+import { ContractDialog } from './dialogs/ContractDialog';
+import { generateContractDocx } from '../lib/contractGenerator';
+import { calcGrandTotals } from '../lib/budgetPricing';
 import {
   createEvent,
   updateEvent,
   Event,
+  getEvent,
   getClients,
   getVenues,
   getOrganizers,
@@ -21,7 +25,8 @@ import {
 interface EventFormProps {
   event?: Event;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (eventId?: string) => void;
+  onSpecificationOpen?: (eventId: string) => void;
 }
 
 interface DateParts {
@@ -109,6 +114,8 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [hasBudgetItems, setHasBudgetItems] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showContractDialog, setShowContractDialog] = useState(false);
+  const [contractOrganizationId, setContractOrganizationId] = useState('');
 
   useEffect(() => {
     loadData();
@@ -149,6 +156,10 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
       setOrganizers(organizersData);
       const typesFromDb = eventTypesData.map((item) => item.name).filter(Boolean);
       setEventTypes(typesFromDb.length > 0 ? typesFromDb : [...EVENT_TYPES]);
+      
+      if (event?.client_id) {
+        setContractOrganizationId(event.client_id);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -183,12 +194,13 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
         notes: formData.notes
       };
 
+      let savedEvent: Event;
       if (event) {
-        await updateEvent(event.id, payload);
+        savedEvent = await updateEvent(event.id, payload);
       } else {
-        await createEvent(payload);
+        savedEvent = await createEvent(payload);
       }
-      onSave();
+      onSave(savedEvent.id);
       onClose();
     } catch (error) {
       console.error('Error saving event:', error);
@@ -196,6 +208,44 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
       alert(`Ошибка при сохранении: ${message}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleContractConfirm = async (payload: { date: string; equipmentTypeRP: string; organizationId: string }) => {
+    if (!event) return;
+    setContractOrganizationId(payload.organizationId);
+    setShowContractDialog(false);
+
+    try {
+      const fullEvent = await getEvent(event.id);
+      const client = clients.find((item) => item.id === payload.organizationId);
+      if (!client) {
+        alert('Выбранная организация не найдена');
+        return;
+      }
+
+      const budgetItems = await getBudgetItems(event.id);
+      const totals = calcGrandTotals(budgetItems, fullEvent.budget_days || 1, fullEvent.budget_totals_mode || 'combined_only');
+      
+      let amount = fullEvent.budget_totals_mode === 'combined_only' ? totals.combinedTotal : totals.day1Total;
+      if (fullEvent.discount_enabled && fullEvent.discount_percent) {
+        // Simplified discount calculation for contract from EventForm
+        // In BudgetEditor it's more complex because of different payment modes
+        // Here we just apply the percent to the total
+        amount = amount * (1 - fullEvent.discount_percent / 100);
+      }
+
+      await generateContractDocx({
+        event: fullEvent,
+        client,
+        equipmentTypeRP: payload.equipmentTypeRP,
+        contractDate: payload.date,
+        amount: amount,
+        budgetItems: budgetItems
+      });
+    } catch (error) {
+      console.error('Error generating contract:', error);
+      alert('Ошибка при создании договора');
     }
   };
 
@@ -465,6 +515,29 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
           <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {event && (
+                <div className="flex items-center gap-1.5 border-r border-gray-800 pr-2 mr-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowContractDialog(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
+                    title="Сформировать договор"
+                  >
+                    <FileSignature className="w-3.5 h-3.5" />
+                    Договор
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSpecificationOpen?.(event.id)}
+                    disabled={!event.specification_confirmed && !formData.progress_equipment_reserved}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700 disabled:opacity-30"
+                    title={(!event.specification_confirmed && !formData.progress_equipment_reserved) ? "Сначала подтвердите смету" : "Открыть спецификацию"}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Спецификация
+                  </button>
+                </div>
+              )}
+              {event && (
                 <button
                   type="button"
                   onClick={() => setShowBudgetEditor(true)}
@@ -530,6 +603,16 @@ export function EventForm({ event, onClose, onSave }: EventFormProps) {
           currentEventId={event.id}
           onClose={() => setShowCopyDialog(false)}
           onSuccess={handleCopySuccess}
+        />
+      )}
+
+      {showContractDialog && event && (
+        <ContractDialog
+          isOpen={showContractDialog}
+          clients={clients.filter((c) => Boolean(c.organization))}
+          initialOrganizationId={contractOrganizationId}
+          onClose={() => setShowContractDialog(false)}
+          onConfirm={handleContractConfirm}
         />
       )}
     </div>

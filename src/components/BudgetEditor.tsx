@@ -2222,32 +2222,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
           <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
             <button
-              onClick={() => setShowContractDialog(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all border border-gray-700"
-            >
-              <FileSignature className="w-3.5 h-3.5" />
-              <span className="text-xs font-medium">Договор</span>
-            </button>
-            <button
               onClick={() => handleExportPDF()}
               disabled={generatingPDF || budgetItems.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all disabled:opacity-30 border border-gray-700"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="text-xs font-medium">PDF</span>
-            </button>
-            <button
-              onClick={() => setShowWarehouseSpec(true)}
-              disabled={budgetItems.length === 0 || !isBudgetConfirmed}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all disabled:opacity-30 border border-gray-700"
-              title={
-                !isBudgetConfirmed
-                  ? 'Чтобы открыть спецификацию, измените статус сметы на «подтверждена»'
-                  : undefined
-              }
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span className="text-xs font-medium">Спецификация</span>
             </button>
             <div className="w-px h-6 bg-gray-800 mx-1"></div>
             <button
