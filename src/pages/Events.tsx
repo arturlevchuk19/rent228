@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface EventsProps {
   onEventFormOpen?: (event?: Event) => void;
   onSpecificationOpen?: (eventId: string) => void;
+  lastCreatedEventId?: string | null;
 }
 
 const monthNames = [
@@ -13,14 +14,15 @@ const monthNames = [
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
 ];
 
-export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
+export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventId }: EventsProps) {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterMonth, setFilterMonth] = useState<string>('all');
   const monthRefs = useRef<Record<string, HTMLElement | null>>({});
+  const eventRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasScrolled = useRef(false);
 
   useEffect(() => {
@@ -29,12 +31,24 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
 
   useEffect(() => {
     if (!loading && events.length > 0 && !hasScrolled.current) {
+      if (lastCreatedEventId) {
+        const element = eventRefs.current[lastCreatedEventId] || eventRefs.current[lastCreatedEventId + '-mobile'];
+        if (element) {
+          setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+          hasScrolled.current = true;
+          return;
+        }
+      }
+
       const now = new Date();
       const currentTitle = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
       
-      // Try to find the current month or the first available month after it if current is not present
-      // For now, just try current month
-      const element = monthRefs.current[currentTitle] || monthRefs.current[currentTitle + '-mobile'];
+      const isMobile = window.innerWidth < 768;
+      const element = isMobile 
+        ? (monthRefs.current[currentTitle + '-mobile'] || monthRefs.current[currentTitle])
+        : (monthRefs.current[currentTitle] || monthRefs.current[currentTitle + '-mobile']);
       
       if (element) {
         setTimeout(() => {
@@ -43,7 +57,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
         hasScrolled.current = true;
       }
     }
-  }, [loading, events]);
+  }, [loading, events, lastCreatedEventId]);
 
   const loadEvents = async () => {
     try {
@@ -71,14 +85,35 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
     }
   };
 
+  const getEventMonthTitle = (event: Event) => {
+    if (!event.event_date) return 'Дата не установлена';
+    const parts = event.event_date.split('-');
+    if (parts.length === 3) {
+      const m = parseInt(parts[1], 10);
+      if (m >= 1 && m <= 12) {
+        return `${monthNames[m - 1]} ${parts[0]}`;
+      }
+    }
+    return 'Дата не установлена';
+  };
+
+  const availableMonths = Array.from(new Set(events.map(getEventMonthTitle)))
+    .filter(title => title !== 'Дата не установлена')
+    .sort((a, b) => {
+      const partsA = a.split(' ');
+      const partsB = b.split(' ');
+      if (partsA[1] !== partsB[1]) return parseInt(partsB[1]) - parseInt(partsA[1]);
+      return monthNames.indexOf(partsB[0]) - monthNames.indexOf(partsA[0]);
+    });
+
   const filteredEvents = events.filter(event => {
     const matchesSearch =
       event.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.clients?.organization?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.venues?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || event.event_type === filterType;
-    const matchesStatus = filterStatus === 'all' || event.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
+    const matchesMonth = filterMonth === 'all' || getEventMonthTitle(event) === filterMonth;
+    return matchesSearch && matchesType && matchesMonth;
   });
 
   const groupsMap = new Map<string, Event[]>();
@@ -193,13 +228,13 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
               className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
             >
-              <option value="all">Все статусы</option>
-              {EVENT_STATUSES.map(status => (
-                <option key={status} value={status}>{status}</option>
+              <option value="all">Все месяцы</option>
+              {availableMonths.map(month => (
+                <option key={month} value={month}>{month}</option>
               ))}
             </select>
           </div>
@@ -284,7 +319,11 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                       </td>
                     </tr>
                     {group.events.map((event) => (
-                      <tr key={event.id} className="hover:bg-gray-800/50 transition-colors group">
+                      <tr 
+                        key={event.id} 
+                        ref={el => eventRefs.current[event.id] = el}
+                        className="hover:bg-gray-800/50 transition-colors group"
+                      >
                         <td className="px-4 py-2">
                           <div className="text-cyan-400 font-medium text-sm">{formatDate(event.event_date)}</div>
                         </td>
@@ -391,7 +430,11 @@ export function Events({ onEventFormOpen, onSpecificationOpen }: EventsProps) {
                   {group.title}
                 </div>
                 {group.events.map((event) => (
-                  <div key={event.id} className="p-3 space-y-2">
+                  <div 
+                    key={event.id} 
+                    ref={el => eventRefs.current[event.id + '-mobile'] = el}
+                    className="p-3 space-y-2"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="text-white font-medium text-sm leading-tight truncate">{event.venues?.name || '-'}</div>

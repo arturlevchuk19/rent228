@@ -34,6 +34,7 @@ function AppContent() {
   const [specificationEventId, setSpecificationEventId] = useState<string | null>(null);
   const [specificationEvent, setSpecificationEvent] = useState<Event | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [lastCreatedEventId, setLastCreatedEventId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -57,8 +58,13 @@ function AppContent() {
     );
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = (eventId?: string) => {
     setRefreshKey(prev => prev + 1);
+    if (eventId && typeof eventId === 'string') {
+      setLastCreatedEventId(eventId);
+    } else {
+      setLastCreatedEventId(null);
+    }
   };
 
   const handleSpecificationOpen = async (eventId: string) => {
@@ -90,6 +96,7 @@ function AppContent() {
               setEventFormOpen(true);
             }}
             onSpecificationOpen={handleSpecificationOpen}
+            lastCreatedEventId={lastCreatedEventId}
           />
         );
       case 'contacts':
@@ -189,6 +196,7 @@ function AppContent() {
             setEditingEvent(undefined);
           }}
           onSave={handleRefresh}
+          onSpecificationOpen={handleSpecificationOpen}
         />
       )}
 
