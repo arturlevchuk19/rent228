@@ -68,7 +68,7 @@ function isValidDate(day: string, month: string, year: string): boolean {
   return true;
 }
 
-export function EventForm({ event, onClose, onSave }: EventFormProps) {
+export function EventForm({ event, onClose, onSave, onSpecificationOpen }: EventFormProps) {
   const initialDate = parseEventDate(event?.event_date || '');
 
   const [formData, setFormData] = useState<{
