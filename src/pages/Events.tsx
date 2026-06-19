@@ -21,7 +21,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
-  const [showCancelled, setShowCancelled] = useState(true);
+  const [showCancelled, setShowCancelled] = useState(false);
   const monthRefs = useRef<Record<string, HTMLElement | null>>({});
   const eventRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasScrolled = useRef(false);
