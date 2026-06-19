@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
-import { getEvents, deleteEvent, Event, EVENT_TYPES, EVENT_STATUSES } from '../lib/events';
+import { getEvents, deleteEvent, Event, EVENT_TYPES } from '../lib/events';
 import { useAuth } from '../contexts/AuthContext';
 
 interface EventsProps {
@@ -21,6 +21,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [showCancelled, setShowCancelled] = useState(true);
   const monthRefs = useRef<Record<string, HTMLElement | null>>({});
   const eventRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasScrolled = useRef(false);
@@ -113,7 +114,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
       event.venues?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || event.event_type === filterType;
     const matchesMonth = filterMonth === 'all' || getEventMonthTitle(event) === filterMonth;
-    return matchesSearch && matchesType && matchesMonth;
+    const matchesCancelled = showCancelled || event.status !== 'Отменено';
+    return matchesSearch && matchesType && matchesMonth && matchesCancelled;
   });
 
   const groupsMap = new Map<string, Event[]>();
@@ -270,6 +272,15 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             {events.filter(e => e.status === 'Отменено').length}
           </span>
         </div>
+        <label className="flex items-center gap-2 cursor-pointer ml-auto border-l border-gray-800 pl-6">
+          <input
+            type="checkbox"
+            checked={showCancelled}
+            onChange={(e) => setShowCancelled(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
+          />
+          <span className="text-gray-400 select-none">Показывать отмененные</span>
+        </label>
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
