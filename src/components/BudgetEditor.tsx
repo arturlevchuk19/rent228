@@ -19,7 +19,8 @@ import {
   PodiumStairDialog,
   TotemDialog,
   AddLocationDialog,
-  ContractDialog
+  ContractDialog,
+  ExtraServiceDialog
 } from './dialogs';
 import { StickyNotePanel } from './StickyNotePanel';
 
@@ -90,6 +91,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [showWarehouseSpec, setShowWarehouseSpec] = useState(false);
   const [showExchangeRatePopover, setShowExchangeRatePopover] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
+  const [showExtraServiceDialog, setShowExtraServiceDialog] = useState(false);
   const [showLedSizeDialog, setShowLedSizeDialog] = useState(false);
   const [selectedLedEquipment, setSelectedLedEquipment] = useState<EquipmentItem | null>(null);
 
@@ -327,21 +329,37 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const isExtraServiceCategory = (categoryId: string | null | undefined) => {
     if (!categoryId) return false;
     const category = categories.find((item) => item.id === categoryId);
-    return category?.description === EXTRA_SERVICE_DESCRIPTION_FLAG;
+    if (!category?.description) return false;
+    return category.description === EXTRA_SERVICE_DESCRIPTION_FLAG || category.description.startsWith(EXTRA_SERVICE_DESCRIPTION_FLAG + '|');
   };
 
-  const handleCreateExtraServiceCategory = async () => {
-    const baseName = 'Доп услуги';
+  const getExtraServiceShowSectionTotal = (categoryId: string | null | undefined): boolean => {
+    if (!categoryId) return true;
+    const category = categories.find((item) => item.id === categoryId);
+    if (!category?.description) return true;
+    if (category.description === EXTRA_SERVICE_DESCRIPTION_FLAG) return true;
+    if (category.description.startsWith(EXTRA_SERVICE_DESCRIPTION_FLAG + '|')) {
+      const params = category.description.split('|')[1];
+      if (params === 'show_total=0') return false;
+    }
+    return true;
+  };
+
+  const handleCreateExtraServiceCategory = async ({ name, showSectionTotal }: { name: string; showSectionTotal: boolean }) => {
     const existingNames = categories.map((item) => item.name.trim().toLowerCase());
-    let nextName = baseName;
+    let nextName = name;
     let index = 2;
     while (existingNames.includes(nextName.toLowerCase())) {
-      nextName = `${baseName} ${index}`;
+      nextName = `${name} ${index}`;
       index += 1;
     }
 
+    const description = showSectionTotal
+      ? EXTRA_SERVICE_DESCRIPTION_FLAG
+      : `${EXTRA_SERVICE_DESCRIPTION_FLAG}|show_total=0`;
+
     try {
-      const category = await createCategory(nextName, EXTRA_SERVICE_DESCRIPTION_FLAG, false, eventId);
+      const category = await createCategory(nextName, description, false, eventId);
       const groupId = buildCategoryGroupId(category.id);
       setCategories((prev) => [...prev, category]);
       setActiveCategoryIds((prev) => {
@@ -353,7 +371,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setSelectedCategoryId(groupId);
     } catch (error) {
       console.error('Error creating extra service category:', error);
-      alert('Ошибка создания категории "Доп услуги"');
+      alert('Ошибка создания категории "Дополнительные услуги"');
     }
   };
 
@@ -1654,7 +1672,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     Добавить локацию
                   </button>
                   <button
-                    onClick={handleCreateExtraServiceCategory}
+                    onClick={() => setShowExtraServiceDialog(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
                   >
                     <Plus className="w-3.5 h-3.5" />
