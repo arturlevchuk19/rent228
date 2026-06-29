@@ -426,7 +426,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const category = data.categories.find((c) => c.id === categoryId);
       const categoryName = category?.name || 'Дополнительные услуги';
       let categoryTotal = 0;
-      const rows = items.map((item) => {
+      const rows = items.map((item, itemIdx) => {
+        const itemPrefix = `${itemIdx + 1}. `;
         const name = item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
         const displayName = notes ? `${name} ${notes}` : name;
@@ -437,17 +438,27 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         categoryTotal += total;
         return `
           <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 8px 8px; font-size: 14px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">${displayName}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
-            <td style="padding: 8px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
+              <div style="display: flex; align-items: flex-start;">
+                <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
+                <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
+              </div>
+            </td>
+            <td style="padding: 8px 8px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
+            <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
+            <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
           </tr>
         `;
       }).join('');
 
       return `
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 14px; font-weight: 700; color: #6d28d9; margin-bottom: 6px; text-transform: uppercase;">${categoryName}</div>
+        <div style="margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
+            <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
+            <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
+              ${categoryName}
+            </div>
+          </div>
           <table style="width: 100%; border-collapse: collapse;">
             <tbody>
               ${rows}
@@ -462,7 +473,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     }).join('');
 
     extraServicesHtml = `
-      <section style="margin-top: 20px; padding: 12px 14px; border: 1px solid #000000; border-radius: 10px; background: rgba(139, 92, 246, 0.04);">
+      <section style="margin-top: 20px; padding: 12px 14px; border: 1px solid #000000; border-radius: 10px; background: #ffffff;">
         ${extraCategoriesHtml}
       </section>
     `;
@@ -596,8 +607,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   if (extraBudgetItems.length > 0) {
     extraServicesHtml += `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 2px solid #000000;">
-        <span style="font-size: 20px; font-weight: 700; color: #6d28d9; text-transform: uppercase; letter-spacing: 0.8px;">Итого с дополнительными услугами:</span>
-        <span style="font-size: 24px; font-weight: 800; color: #6d28d9;">${formatMoney(grandTotalWithExtras)}${currencySuffix}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами:</span>
+        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtras)}${currencySuffix}</span>
       </div>
     `;
   }
