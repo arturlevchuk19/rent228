@@ -461,24 +461,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       `;
     }).join('');
 
-    // Calculate total of all extra services
-    const extraTotalAll = extraBudgetItems.reduce((sum, item) => {
-      const qty = item.quantity || 0;
-      const price = calculatePrice(item.price || 0, item);
-      return sum + price * qty;
-    }, 0);
-
-    // Get the main total for the current mode
-    const mainTotalForMode = isCombinedOnlyMode ? pdfCombinedTotal : pdfDay1Total;
-    const grandTotalWithExtras = mainTotalForMode + extraTotalAll;
-
     extraServicesHtml = `
       <section style="margin-top: 20px; padding: 12px 14px; border: 1px solid #000000; border-radius: 10px; background: rgba(139, 92, 246, 0.04);">
         ${extraCategoriesHtml}
-        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 2px solid #000000;">
-          <span style="font-size: 20px; font-weight: 700; color: #6d28d9; text-transform: uppercase; letter-spacing: 0.8px;">Итого с дополнительными услугами:</span>
-          <span style="font-size: 24px; font-weight: 800; color: #6d28d9;">${formatMoney(grandTotalWithExtras)}${currencySuffix}</span>
-        </div>
       </section>
     `;
   }
@@ -596,6 +581,26 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const pdfDay1Total = roundDownToNearestFive(editorDay1Total);
   const pdfCombinedTotal = roundDownToNearestFive(editorCombinedTotal);
   const dayPeriodNoWrapHtml = `<span style="white-space: nowrap;">за ${budgetDays} дн.</span>`;
+
+  // Build the total with extras for PDF
+  const extraTotalAll = extraBudgetItems.length > 0
+    ? extraBudgetItems.reduce((sum, item) => {
+        const qty = item.quantity || 0;
+        const price = calculatePrice(item.price || 0, item);
+        return sum + price * qty;
+      }, 0)
+    : 0;
+  const mainTotalForMode = isCombinedOnlyMode ? pdfCombinedTotal : pdfDay1Total;
+  const grandTotalWithExtras = mainTotalForMode + extraTotalAll;
+
+  if (extraBudgetItems.length > 0) {
+    extraServicesHtml += `
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 2px solid #000000;">
+        <span style="font-size: 20px; font-weight: 700; color: #6d28d9; text-transform: uppercase; letter-spacing: 0.8px;">Итого с дополнительными услугами:</span>
+        <span style="font-size: 24px; font-weight: 800; color: #6d28d9;">${formatMoney(grandTotalWithExtras)}${currencySuffix}</span>
+      </div>
+    `;
+  }
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
