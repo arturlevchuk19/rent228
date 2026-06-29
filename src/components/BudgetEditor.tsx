@@ -128,7 +128,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [stickyNotes, setStickyNotes] = useState<{ id: string; content: string }[]>([
     { id: `budget_note_1`, content: '' }
   ]);
-
+  const [showExtraTotal, setShowExtraTotal] = useState(false);
 
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -1449,6 +1449,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return normalizeGrandTotalForPaymentMode(rawTotal);
   };
 
+  const getExtraServiceItems = () => {
+    return budgetItems.filter((item) => isExtraServiceCategory(item.category_id));
+  };
+
+  const getTotalWithExtraForPaymentMode = () => {
+    const primaryTotal = getPrimaryTotalForMode();
+    const extraItems = getExtraServiceItems();
+    if (extraItems.length === 0) return primaryTotal;
+
+    const mode = budgetTotalsMode === 'combined_only' ? 'combined' : 'day1';
+    const extraTotal = calculateCategoryTotalForPaymentMode(extraItems, mode);
+    return normalizeGrandTotalForPaymentMode(primaryTotal + extraTotal);
+  };
+
   const getCurrencyLabel = () => {
     switch (paymentMode) {
       case 'byn_cash': return 'BYN';
@@ -2092,6 +2106,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               {budgetDays > 1 && (
                 <span className="text-[11px] text-gray-400">
                   Итого за {budgetDays} дней: <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                </span>
+              )}
+              <label className="flex items-center gap-2 cursor-pointer select-none mt-1">
+                <input
+                  type="checkbox"
+                  checked={showExtraTotal}
+                  onChange={(e) => setShowExtraTotal(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-violet-500 cursor-pointer"
+                />
+                <span className="text-[11px] text-gray-400 font-medium">Итого с дополнительными услугами</span>
+              </label>
+              {showExtraTotal && (
+                <span className="text-sm font-bold text-violet-400">
+                  {getTotalWithExtraForPaymentMode().toLocaleString()} {getCurrencyLabel()}
                 </span>
               )}
             </div>
