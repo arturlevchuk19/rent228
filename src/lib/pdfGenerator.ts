@@ -81,26 +81,10 @@ const formatDateRu = (dateValue?: string): string => {
   return trimmedDate;
 };
 
-const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
-  const baseAmount = priceUSD * exchangeRate;
-  return Math.ceil(baseAmount);
-};
-
 const isWorkNonDelivery = (item: BudgetItem): boolean => {
   if (!item.work_item?.name) return false;
   const workName = item.work_item.name.toLowerCase();
   return !workName.includes('доставка оборудования') && !workName.includes('доставка персонала');
-};
-
-const calculateBYNNonCashPrice = (priceUSD: number, exchangeRate: number, item?: BudgetItem): number => {
-  const baseAmount = priceUSD * exchangeRate;
-  let withBankRate: number;
-  if (item && item.work_item && isWorkNonDelivery(item)) {
-    withBankRate = baseAmount * 1.67;
-  } else {
-    withBankRate = baseAmount / 0.8;
-  }
-  return Math.ceil(withBankRate);
 };
 
 const formatMoney = (value: number): string => value.toFixed(2);
@@ -110,7 +94,7 @@ const escapeHtml = (value: string): string =>
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/\"/g, '&quot;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
 const isConsumablesEquipmentItem = (item: BudgetItem): boolean =>
@@ -207,7 +191,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   let categoriesHtml = '';
   let grandTotalDay1 = 0;
   const grayAccent = '#ffffff'; ///#4b5563
-  const grayBg = 'rgba(0, 0, 0, 0.04)';
   const paymentMode = data.paymentMode || 'usd';
   const currencySuffix = paymentMode !== 'usd' ? ' BYN' : ' $';
 
@@ -241,7 +224,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     return Math.floor(value / 5) * 5;
   };
 
-  let grandTotalNonWorkDay1 = 0;
   let grandTotalWorkDay1 = 0;
 
   let locationIdx = 0;
@@ -261,7 +243,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const locationPrefix = `${locationIdx}. `;
     const locationName = isNoLocation ? '' : (locationNameById.get(locationId) || 'Локация');
     const displayLocationName = isNoLocation ? '' : `${locationPrefix}${locationName}`;
-    const locationAccent = isNoLocation ? '#4b5563' : (locationColorById.get(locationId) || '#14532d');
 
     let locationHtml = '';
 
@@ -325,8 +306,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const categoryHasOnlyWork = items.every(item => !!item.work_item);
       if (categoryHasOnlyWork) {
         grandTotalWorkDay1 += categorySumDay1;
-      } else {
-        grandTotalNonWorkDay1 += categorySumDay1;
       }
       grandTotalDay1 += categorySumDay1;
       locationTotalDay1 += categorySumDay1;
@@ -534,19 +513,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const grandTotalWithDiscountDay1 =
     grandTotalDiscountEligibleDay1 * (1 - discountPercentRaw / 100) + grandTotalConsumablesDay1 + grandTotalWorkDay1;
 
-  const grandTotalNonWorkCombined = mainBudgetItems
-    .filter((item) => !item.work_item)
-    .reduce((sum, item) => {
-      const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedTotal(
-        { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-        budgetDays,
-        item.multi_day_rate_override
-      );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
-      return sum + unitPriceBYNCombined * qty;
-    }, 0);
-
   const grandTotalWorkCombined = mainBudgetItems
     .filter((item) => !!item.work_item)
     .reduce((sum, item) => {
@@ -604,14 +570,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const mainTotalForMode = isCombinedOnlyMode ? pdfCombinedTotal : pdfDay1Total;
   const grandTotalWithExtras = mainTotalForMode + extraTotalAll;
 
-  if (extraBudgetItems.length > 0) {
-    extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 2px solid #000000;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами:</span>
+  const extraTotalLineHtml = extraBudgetItems.length > 0
+    ? `
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Итого с дополнительными услугами:</span>
         <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtras)}${currencySuffix}</span>
       </div>
-    `;
-  }
+    `
+    : '';
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
@@ -619,6 +585,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
+      ${extraTotalLineHtml}
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Со скидкой ${discountPercentDisplay}% на оборудование${budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`}:</span>
@@ -636,6 +603,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ` : ''}
+      ${extraTotalLineHtml}
       ${data.discountEnabled && discountPercentRaw > 0 ? `
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
@@ -686,19 +654,22 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     </footer>
     ${extraServicesHtml}
     ${budgetNoteHtml}
-    <div style="height: 84px; background: #ffffff;"></div>
+    <div style="height: 120px; background: #ffffff;"></div>
   `;
 
   document.body.appendChild(container);
   await document.fonts.ready;
+
+  // Ensure the container has proper dimensions after fonts load
+  const containerHeight = container.scrollHeight;
 
   const canvas = await html2canvas(container, {
     scale: 2,
     backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
-    height: container.scrollHeight,
-    windowHeight: container.scrollHeight
+    height: containerHeight,
+    windowHeight: containerHeight
   });
 
   document.body.removeChild(container);
