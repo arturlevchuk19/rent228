@@ -425,6 +425,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const extraCategoriesHtml = Object.entries(extraGrouped).map(([categoryId, items]) => {
       const category = data.categories.find((c) => c.id === categoryId);
       const categoryName = category?.name || 'Дополнительные услуги';
+      const getShowTotal = (cat: Category | undefined): boolean => {
+        if (!cat?.description) return true;
+        if (cat.description === '__extra_service__') return true;
+        try {
+          const parsed = JSON.parse(cat.description);
+          return parsed.showTotal !== false;
+        } catch {
+          return true;
+        }
+      };
+      const showCategoryTotal = getShowTotal(category);
       let categoryTotal = 0;
       const rows = items.map((item) => {
         const name = item.equipment?.name || item.work_item?.name || '—';
@@ -451,10 +462,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <table style="width: 100%; border-collapse: collapse;">
             <tbody>
               ${rows}
+              ${showCategoryTotal ? `
               <tr style="border-bottom: 1px solid #000000;">
                 <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
                 <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
               </tr>
+              ` : ''}
             </tbody>
           </table>
         </div>
