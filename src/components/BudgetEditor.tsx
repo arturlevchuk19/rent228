@@ -19,7 +19,8 @@ import {
   PodiumStairDialog,
   TotemDialog,
   AddLocationDialog,
-  ContractDialog
+  ContractDialog,
+  ExtraServicesDialog
 } from './dialogs';
 import { StickyNotePanel } from './StickyNotePanel';
 
@@ -122,6 +123,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
   const [isBudgetConfirmed, setIsBudgetConfirmed] = useState(false);
   const [showContractDialog, setShowContractDialog] = useState(false);
+  const [showExtraServicesDialog, setShowExtraServicesDialog] = useState(false);
+  const [showExtraServicesDialog, setShowExtraServicesDialog] = useState(false);
   const [contractOrganizationId, setContractOrganizationId] = useState('');
   const [clientsList, setClientsList] = useState<Client[]>([]);
   const [showStickyNotes, setShowStickyNotes] = useState(false);
@@ -327,21 +330,37 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const isExtraServiceCategory = (categoryId: string | null | undefined) => {
     if (!categoryId) return false;
     const category = categories.find((item) => item.id === categoryId);
-    return category?.description === EXTRA_SERVICE_DESCRIPTION_FLAG;
+    if (!category?.description) return false;
+    if (category.description === EXTRA_SERVICE_DESCRIPTION_FLAG) return true;
+    try {
+      const parsed = JSON.parse(category.description);
+      return parsed.isExtra === true;
+    } catch {
+      return false;
+    }
   };
 
   const handleCreateExtraServiceCategory = async () => {
-    const baseName = 'Доп услуги';
-    const existingNames = categories.map((item) => item.name.trim().toLowerCase());
-    let nextName = baseName;
-    let index = 2;
-    while (existingNames.includes(nextName.toLowerCase())) {
-      nextName = `${baseName} ${index}`;
-      index += 1;
-    }
+    setShowExtraServicesDialog(true);
+  };
 
+  const getCategoryShowTotal = (categoryId: string | null | undefined): boolean => {
+    if (!categoryId) return true;
+    const category = categories.find((item) => item.id === categoryId);
+    if (!category?.description) return true;
+    if (category.description === EXTRA_SERVICE_DESCRIPTION_FLAG) return true;
     try {
-      const category = await createCategory(nextName, EXTRA_SERVICE_DESCRIPTION_FLAG, false, eventId);
+      const parsed = JSON.parse(category.description);
+      return parsed.showTotal !== false;
+    } catch {
+      return true;
+    }
+  };
+
+  const handleExtraServicesConfirm = async ({ name, showTotal }: { name: string; showTotal: boolean }) => {
+    const description = JSON.stringify({ isExtra: true, showTotal });
+    try {
+      const category = await createCategory(name.trim(), description, false, eventId);
       const groupId = buildCategoryGroupId(category.id);
       setCategories((prev) => [...prev, category]);
       setActiveCategoryIds((prev) => {
@@ -1860,6 +1879,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                     onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
                                     onTouchItemDrop={handleTouchItemDrop}
                                     dragOverItemId={dragOverItemId}
+                                    showTotal={getCategoryShowTotal(category.id)}
                                   />
                                 </div>
                               );
@@ -1948,6 +1968,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                           onTouchItemDrop={handleTouchItemDrop}
                           dragOverItemId={dragOverItemId}
                           categoryRef={(el) => { categoryRefs.current[category.id] = el; }}
+                          showTotal={getCategoryShowTotal(category.id)}
                         />
                       </div>
                     );
@@ -2398,6 +2419,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         initialOrganizationId={contractOrganizationId}
         onClose={() => setShowContractDialog(false)}
         onConfirm={handleContractConfirm}
+      />
+      <ExtraServicesDialog
+        isOpen={showExtraServicesDialog}
+        existingNames={categories.map((c) => c.name)}
+        onClose={() => setShowExtraServicesDialog(false)}
+        onConfirm={handleExtraServicesConfirm}
       />
     </div>
   );

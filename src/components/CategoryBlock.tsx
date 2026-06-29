@@ -39,6 +39,7 @@ interface CategoryBlockProps {
   onTouchItemDragStart?: (itemId: string) => void;
   onTouchItemDrop?: (targetItemId: string | null, targetGroup: BudgetDragTarget | null) => void;
   categoryRef?: (el: HTMLDivElement | null) => void;
+  showTotal?: boolean;
   headerStyle?: React.CSSProperties;
   headerClassName?: string;
 }
@@ -73,7 +74,8 @@ export function CategoryBlock({
   onTouchItemDrop,
   categoryRef,
   headerStyle,
-  headerClassName
+  headerClassName,
+  showTotal = true
 }: CategoryBlockProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(categoryName);
@@ -377,6 +379,7 @@ export function CategoryBlock({
           </>
         )}
 
+        {showTotal && (
         <div className="text-[10px] font-medium text-cyan-400 ml-0.5 text-right leading-tight" onClick={(e) => e.stopPropagation()}>
           {budgetTotalsMode === 'day1_plus_combined' && (
             <div>
@@ -387,6 +390,7 @@ export function CategoryBlock({
             {budgetDays}д: {formatSectionTotal(sectionCombinedTotal)}
           </div>
         </div>
+        )}
 
         <div className="text-[10px] text-gray-600 ml-0.5" onClick={(e) => e.stopPropagation()}>
           ({items.length})
