@@ -198,7 +198,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const container = document.createElement('div');
   // Уменьшены отступы для компактности [cite: 53]
   container.style.cssText = `
-    position: absolute; left: -9999px; width: 800px; height: auto;
+    position: absolute; position:relative; width: 800px; height: auto;
     background-color: #ffffff; color: #1a1a1a;
     font-family: 'Montserrat', sans-serif; padding: 20px 30px;
     box-sizing: border-box; line-height: 1.2;
@@ -606,7 +606,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   if (extraBudgetItems.length > 0) {
     extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 2px solid #000000;">
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами:</span>
         <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtras)}${currencySuffix}</span>
       </div>
@@ -686,12 +686,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     </footer>
     ${extraServicesHtml}
     ${budgetNoteHtml}
-    <div style="height: 84px; background: #ffffff;"></div>
+    <div style="height: 80px; background: #ffffff;"></div>
   `;
 
   document.body.appendChild(container);
   await document.fonts.ready;
-
+  ////
+  await new Promise(resolve => setTimeout(resolve, 100));
+  ////
   const canvas = await html2canvas(container, {
     scale: 2,
     backgroundColor: '#ffffff',
@@ -709,6 +711,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   
   // Calculate proportional height in mm to fit content exactly
   // This ensures page height matches the budget content height
+  
   let pageHeight = (imgHeightPx * pageWidth) / imgWidthPx;
   
   // Ensure portrait orientation: height must be >= width
