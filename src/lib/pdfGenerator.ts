@@ -134,7 +134,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventEndDate = formatDateRu(data.eventEndDate);
   const eventDateDisplayHtml =
     data.eventEndDate && data.eventEndDate.trim()
-      ? `с &quot;${formattedEventDate}&quot;<br/>по &quot;${formattedEventEndDate}&quot;`
+      ? `с ${formattedEventDate}<br/>по ${formattedEventEndDate}`
       : formattedEventDate;
   const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
   const versionLabel = (data.version || '1.0').trim() || '1.0';
