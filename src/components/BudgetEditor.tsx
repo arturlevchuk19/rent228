@@ -858,6 +858,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       await generateBudgetPDF({
         eventName: event.name || event.event_type,
         eventDate: event.event_date,
+        eventEndDate: event.event_end_date,
         createdDate: options?.createdDate || new Date().toISOString(),
         venueName: event.venues?.name,
         clientName: clientsList.find((client) => client.id === contractOrganizationId)?.organization || event.clients?.organization,
