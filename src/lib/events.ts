@@ -45,6 +45,7 @@ export interface Organizer {
 export interface Event {
   id: string;
   event_date: string;
+  event_end_date?: string;
   venue_id: string | null;
   event_type: string;
   client_id: string | null;
