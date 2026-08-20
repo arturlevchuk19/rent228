@@ -74,6 +74,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   const [formData, setFormData] = useState<{
     name: string;
     event_date: string;
+    event_end_date: string;
     event_type: string;
     venue_id: string | null;
     client_id: string | null;
@@ -89,6 +90,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   }>({
     name: event?.name || '',
     event_date: event?.event_date || '',
+    event_end_date: event?.event_end_date || '',
     event_type: event?.event_type || 'Концерт',
     venue_id: event?.venue_id || null,
     client_id: event?.client_id || null,
@@ -104,6 +106,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   });
 
   const [dateParts, setDateParts] = useState<DateParts>(initialDate);
+  const [endDateParts, setEndDateParts] = useState<DateParts>(parseEventDate(event?.event_end_date || ''));
   const [clients, setClients] = useState<Client[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
@@ -135,6 +138,15 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     const formatted = formatEventDate(dateParts.day, dateParts.month, dateParts.year);
     setFormData(prev => ({ ...prev, event_date: formatted }));
   }, [dateParts]);
+
+  useEffect(() => {
+    const formatted = formatEventDate(endDateParts.day, endDateParts.month, endDateParts.year);
+    // Не перезаписываем пустой датой, если конечная дата не введена
+    setFormData(prev => {
+      if (!formatted) return prev;
+      return { ...prev, event_end_date: formatted };
+    });
+  }, [endDateParts]);
 
   const checkBudgetItems = async () => {
     if (!event?.id) return;
@@ -179,11 +191,24 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
       return;
     }
 
+    const endDate = formData.event_end_date;
+    if (endDate) {
+      if (!isValidDate(endDateParts.day, endDateParts.month, endDateParts.year)) {
+        alert('Укажите корректную дату окончания мероприятия');
+        return;
+      }
+      if (endDate < formData.event_date) {
+        alert('Дата «по» не может быть раньше даты «с»');
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       const payload = {
         name: formData.name,
         event_date: formData.event_date,
+        event_end_date: formData.event_end_date,
         event_type: formData.event_type,
         venue_id: formData.venue_id || null,
         client_id: formData.client_id || null,
@@ -264,6 +289,11 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     setDateParts(prev => ({ ...prev, [field]: numericValue }));
   };
 
+  const handleEndDateChange = (field: keyof DateParts, value: string) => {
+    const numericValue = value.replace(/\D/g, '');
+    setEndDateParts(prev => ({ ...prev, [field]: numericValue }));
+  };
+
   const handleCopySuccess = (eventData?: Partial<Event>) => {
     setCopySuccess(true);
     checkBudgetItems();
@@ -290,6 +320,14 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     const d = dateParts.day.padStart(2, '0');
     const m = dateParts.month.padStart(2, '0');
     const y = dateParts.year;
+    if (!y) return '';
+    return `${d}.${m}.${y}`;
+  };
+
+  const formatEndDateDisplay = () => {
+    const d = endDateParts.day.padStart(2, '0');
+    const m = endDateParts.month.padStart(2, '0');
+    const y = endDateParts.year;
     if (!y) return '';
     return `${d}.${m}.${y}`;
   };
@@ -378,6 +416,53 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Дата по
+                  <span className="text-gray-500 font-normal ml-1">(ДД.ММ.ГГГГ, можно 00)</span>
+                </label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ДД"
+                    maxLength={2}
+                    value={endDateParts.day}
+                    onChange={(e) => handleEndDateChange('day', e.target.value)}
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                  />
+                  <span className="text-gray-500">.</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ММ"
+                    maxLength={2}
+                    value={endDateParts.month}
+                    onChange={(e) => handleEndDateChange('month', e.target.value)}
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                  />
+                  <span className="text-gray-500">.</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="ГГГГ"
+                    maxLength={4}
+                    value={endDateParts.year}
+                    onChange={(e) => handleEndDateChange('year', e.target.value)}
+                    className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                  />
+                </div>
+                {formatEndDateDisplay() && (
+                  <div className="text-xs text-cyan-400 mt-1">
+                    Сохранится как: {formData.event_end_date}
+                  </div>
+                )}
+              </div>
+
+              <div></div>
             </div>
 
             <div>

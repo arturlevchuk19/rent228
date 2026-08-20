@@ -174,6 +174,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
     return dateString;
   };
 
+  const formatDateRange = (event: Event) => {
+    const start = formatDate(event.event_date);
+    if (event.event_end_date) {
+      return `${start} - ${formatDate(event.event_end_date)}`;
+    }
+    return start;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -336,7 +344,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                         className="hover:bg-gray-800/50 transition-colors group"
                       >
                         <td className="px-4 py-2">
-                          <div className="text-cyan-400 font-medium text-sm">{formatDate(event.event_date)}</div>
+                          <div className="text-cyan-400 font-medium text-sm">{formatDateRange(event)}</div>
                         </td>
                         <td className="px-4 py-2 text-white text-sm">
                           {event.venues?.name || '-'}
@@ -495,7 +503,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-cyan-400 font-medium text-xs">{formatDate(event.event_date)}</span>
+                      <span className="text-cyan-400 font-medium text-xs">{formatDateRange(event)}</span>
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
                         {event.status}
                       </span>
