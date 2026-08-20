@@ -224,12 +224,15 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
       };
 
       let savedEvent: Event;
-      if (event) {
-        savedEvent = await updateEvent(event.id, payload);
-      } else {
-        savedEvent = await createEvent(payload);
-        // Store the new event ID so the form stays in edit mode
-        setSavedEventId(savedEvent.id);
+      if (event || savedEventId) {
+          // Update existing event (either passed as prop or just created)
+         const eventIdToUpdate = event?.id || savedEventId!;
+         savedEvent = await updateEvent(eventIdToUpdate, payload);
+        } 
+        else {
+          savedEvent = await createEvent(payload);
+           // Store the new event ID so subsequent saves use update instead of create
+          setSavedEventId(savedEvent.id);
         // Also copy the client_id for contract dialog
         if (savedEvent.client_id) {
           setContractOrganizationId(savedEvent.client_id);
