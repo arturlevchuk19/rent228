@@ -37,6 +37,7 @@ interface Location {
 interface PDFData {
   eventName: string;
   eventDate?: string;
+  eventEndDate?: string;
   createdDate?: string;
   version?: string;
   venueName?: string;
@@ -130,6 +131,11 @@ const hexToRgba = (hexColor?: string | null, alpha = 0.26): string | null => {
 
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
+  const formattedEventEndDate = formatDateRu(data.eventEndDate);
+  const eventDateDisplayHtml =
+    data.eventEndDate && data.eventEndDate.trim()
+      ? `с &quot;${formattedEventDate}&quot;<br/>по &quot;${formattedEventEndDate}&quot;`
+      : formattedEventDate;
   const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
   const versionLabel = (data.version || '1.0').trim() || '1.0';
 
@@ -666,7 +672,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; background: #ffffff; border: 1px solid #000000; border-radius: 12px; padding: 10px 16px; width: 350px; box-sizing: border-box;">
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
-            <span style="font-size: 16px; font-weight: 600;">${formattedEventDate}</span>
+            <span style="font-size: 16px; font-weight: 600;">${eventDateDisplayHtml}</span>
           </div>
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Локация</span>
