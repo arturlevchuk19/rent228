@@ -876,7 +876,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
         totalCombinedFromEditor: getCombinedTotalForPaymentMode(),
-        discountedTotalFromEditor: exportDiscountedTotal ?? undefined
+        discountedTotalFromEditor: exportDiscountedTotal ?? undefined,
+        totalWithExtraFromEditor: getTotalWithExtraForPaymentMode()
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
