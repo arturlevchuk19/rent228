@@ -56,6 +56,7 @@ interface PDFData {
   totalDay1FromEditor?: number;
   totalCombinedFromEditor?: number;
   discountedTotalFromEditor?: number;
+  totalWithExtraFromEditor?: number;
 }
 
 const formatDateRu = (dateValue?: string): string => {
@@ -608,7 +609,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       }, 0)
     : 0;
   const mainTotalForMode = isCombinedOnlyMode ? pdfCombinedTotal : pdfDay1Total;
-  const grandTotalWithExtras = mainTotalForMode + extraTotalAll;
+  // Prefer the estimate form's computed total-with-extras (it is discount-aware and
+  // never discounts extra services). Fall back to local recomputation for other callers
+  // that don't pass the value.
+  const grandTotalWithExtras = data.totalWithExtraFromEditor !== undefined
+    ? data.totalWithExtraFromEditor
+    : mainTotalForMode + extraTotalAll;
 
   if (extraBudgetItems.length > 0) {
     extraServicesHtml += `

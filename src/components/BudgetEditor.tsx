@@ -876,7 +876,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
         totalCombinedFromEditor: getCombinedTotalForPaymentMode(),
-        discountedTotalFromEditor: exportDiscountedTotal ?? undefined
+        discountedTotalFromEditor: exportDiscountedTotal ?? undefined,
+        totalWithExtraFromEditor: getTotalWithExtraForPaymentMode()
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1238,7 +1239,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return [...orderedItems, ...sortBudgetGroupItems(missingItems)];
   };
 
-  const mainBudgetItems = budgetItems;
+  // Discount/total math must operate on NON-extra items only. Extra services are
+  // added back separately via getTotalWithExtraForPaymentMode and are never discounted.
+  const mainBudgetItems = budgetItems.filter((item) => !isExtraServiceCategory(item.category_id));
   const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');
   const workItems2 = mainBudgetItems.filter(item => item.item_type === 'work');
   const isConsumablesEquipmentItem = (item: BudgetItem) =>
@@ -1455,13 +1458,20 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getTotalWithExtraForPaymentMode = () => {
-    const primaryTotal = getPrimaryTotalForMode();
     const extraItems = getExtraServiceItems();
-    if (extraItems.length === 0) return primaryTotal;
 
     const mode = budgetTotalsMode === 'combined_only' ? 'combined' : 'day1';
-    const extraTotal = calculateCategoryTotalForPaymentMode(extraItems, mode);
-    return normalizeGrandTotalForPaymentMode(primaryTotal + extraTotal);
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, mode)
+      : 0;
+
+    // Base total excludes extra services (they are never discounted). With a discount
+    // applied, the base is the discounted non-extra total; otherwise the plain primary total.
+    const baseTotal = discountEnabled && getDiscountedTotal() !== null
+      ? getDiscountedTotal()!
+      : getPrimaryTotalForMode();
+
+    return normalizeGrandTotalForPaymentMode(baseTotal + extraTotal);
   };
 
   const getCurrencyLabel = () => {
