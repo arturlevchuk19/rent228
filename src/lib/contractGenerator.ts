@@ -1,6 +1,9 @@
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import templateUrl from '../data/ШАБЛОН ДОГОВОРА 2026.docx?url';
 import type { BudgetItem, Client, Event } from './events';
+import type { Location } from './locations';
+import type { Category } from './categories';
+import { orderBudgetItemsForEstimate } from './budgetOrdering';
 
 interface ContractGenerationPayload {
   event: Event;
@@ -9,6 +12,10 @@ interface ContractGenerationPayload {
   contractDate: string;
   amount: number;
   budgetItems: BudgetItem[];
+  /** Ordered locations (as used by the estimate PDF) to render the asset list in the same order as the смета. */
+  locations?: Location[];
+  /** Ordered categories (as used by the estimate PDF) to render the asset list in the same order as the смета. */
+  categories?: Category[];
 }
 
 const sanitizeXmlString = (value: string | number | null | undefined): string =>
@@ -169,7 +176,7 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-export async function generateContractDocx({ event, client, equipmentTypeRP, contractDate, amount, budgetItems }: ContractGenerationPayload) {
+export async function generateContractDocx({ event, client, equipmentTypeRP, contractDate, amount, budgetItems, locations, categories }: ContractGenerationPayload) {
   const response = await fetch(templateUrl);
   if (!response.ok) {
     throw new Error('Не удалось загрузить шаблон договора');
@@ -207,8 +214,13 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
     Z: formatDate(contractDate)
   };
 
+  const orderedBudgetItems = orderBudgetItemsForEstimate(budgetItems, locations, categories);
+
   let documentXml = strFromU8(documentFile);
-  documentXml = replaceSpecificationPlaceholderTable(documentXml, budgetItems);
+  // Strip paragraphs for empty optional fields BEFORE injecting the specification table:
+  // this removal scans paragraph text for the optional placeholder letters (I/J/K/L/M), and if it
+  // ran afterwards it would wrongly drop asset rows whose names happen to contain those letters
+  // (e.g. "... K&M 27105" / "Lenovo ...") because the letters sit next to a non-letter character.
   documentXml = removeEmptyOptionalParagraphs(documentXml, {
     I: values.I,
     J: values.J,
@@ -216,6 +228,7 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
     L: values.L,
     M: values.M
   });
+  documentXml = replaceSpecificationPlaceholderTable(documentXml, orderedBudgetItems);
   documentXml = replaceTextPlaceholders(documentXml, values);
   zip[documentPath] = strToU8(documentXml);
 
