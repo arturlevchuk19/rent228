@@ -9,6 +9,7 @@ interface ContractGenerationPayload {
   contractDate: string;
   amount: number;
   budgetItems: BudgetItem[];
+  version?: string;
 }
 
 const sanitizeXmlString = (value: string | number | null | undefined): string =>
@@ -169,7 +170,7 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-export async function generateContractDocx({ event, client, equipmentTypeRP, contractDate, amount, budgetItems }: ContractGenerationPayload) {
+export async function generateContractDocx({ event, client, equipmentTypeRP, contractDate, amount, budgetItems, version }: ContractGenerationPayload) {
   const response = await fetch(templateUrl);
   if (!response.ok) {
     throw new Error('Не удалось загрузить шаблон договора');
@@ -220,9 +221,24 @@ export async function generateContractDocx({ event, client, equipmentTypeRP, con
   zip[documentPath] = strToU8(documentXml);
 
   const output = zipSync(zip, { level: 6 });
-  const safeEventName = (eventTitle || 'договор').replace(/[\\/:*?"<>|]+/g, '_');
+
+  const fileNameParts: string[] = ['Договор'];
+
+  if (eventDate) {
+    fileNameParts.push(eventDate);
+  }
+
+  const venueName = event.venues?.name;
+  if (venueName) {
+    fileNameParts.push(venueName);
+  }
+
+  const versionLabel = version || '1.0';
+  fileNameParts.push(`Версия ${versionLabel}`);
+
+  const fileName = fileNameParts.join('_').replace(/[<>:"/\\|?*]/g, '_');
   downloadBlob(
     new Blob([output.slice().buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }),
-    `Договор ${safeEventName}.docx`
+    `${fileName}.docx`
   );
 }
