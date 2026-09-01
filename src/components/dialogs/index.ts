@@ -22,3 +22,5 @@ export { ContractDialog } from './ContractDialog';
 
 export { PodiumStairDialog } from './PodiumStairDialog';
 export type { DialogResult as PodiumStairDialogResult } from './PodiumStairDialog';
+
+export { ExtraServicesDialog } from './ExtraServicesDialog';
