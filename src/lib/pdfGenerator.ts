@@ -130,6 +130,81 @@ const hexToRgba = (hexColor?: string | null, alpha = 0.26): string | null => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+// Кэш dataURL логотипа на уровне модуля: декодирование картинки и дорогой
+// canvas.toDataURL('image/png') выполняются один раз за сессию, повторные
+// экспорты PDF переиспользуют готовую строку без сетевого запроса и перекодирования.
+// Возвращаемое значение байт-в-байт идентично повторной загрузке того же файла,
+// поэтому выходной PDF не меняется.
+let cachedLogoDataURL: string | null = null;
+let pendingLogoPromise: Promise<string> | null = null;
+
+const loadImageAsDataURL = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Failed to get canvas context'));
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+};
+
+const getLogoDataURL = (): Promise<string> => {
+  if (cachedLogoDataURL) return Promise.resolve(cachedLogoDataURL);
+  if (!pendingLogoPromise) {
+    // Ограничиваем ожидание логотипа: раньше зависший запрос к /image2.png
+    // подвешивал весь экспорт на десятки секунд (браузерный дефолтный таймаут).
+    // На успешном пути поведение и выходной PDF не меняются.
+    const timeoutMs = 8000;
+    pendingLogoPromise = Promise.race([
+      loadImageAsDataURL('/image2.png'),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error(`Logo load timed out after ${timeoutMs}ms`)), timeoutMs)
+      ),
+    ]).then(
+      (dataURL) => {
+        cachedLogoDataURL = dataURL;
+        return dataURL;
+      },
+      (error) => {
+        // Не кэшируем ошибку: повторный экспорт попробует загрузить логотип снова.
+        pendingLogoPromise = null;
+        throw error;
+      }
+    );
+  }
+  return pendingLogoPromise;
+};
+
+// Ожидание шрифтов с верхней границей + отрисовка за два кадра вместо
+// фиксированного setTimeout(100). Когда шрифты уже загружены (обычный случай —
+// Montserrat в приложении даже не подключён, document.fonts.ready резолвится
+// сразу), это убирает ~70–90 мс чистого ожидания на каждый экспорт.
+// Рендер при этом идентичен: DOM уже в документе, два rAF гарантируют layout+paint.
+const waitForRenderReady = async (timeoutMs = 1500): Promise<void> => {
+  try {
+    await Promise.race([
+      document.fonts.ready,
+      new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  } catch {
+    // Отсутствие Font Loading API не должно ломать экспорт.
+  }
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+};
+
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
   const formattedEventEndDate = formatDateRu(data.eventEndDate);
@@ -140,28 +215,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
   const versionLabel = (data.version || '1.0').trim() || '1.0';
 
-  const loadImageAsDataURL = async (url: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
-        } else {
-          reject(new Error('Failed to get canvas context'));
-        }
-      };
-      img.onerror = reject;
-      img.src = url;
-    });
-  };
-
-  const logoDataURL = await loadImageAsDataURL('/image2.png');
+  const logoDataURL = await getLogoDataURL();
 
   const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra);
   const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra);
@@ -702,20 +756,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   `;
 
   document.body.appendChild(container);
-  await document.fonts.ready;
-  ////
-  await new Promise(resolve => setTimeout(resolve, 100));
-  ////
+  await waitForRenderReady();
   const canvas = await html2canvas(container, {
     scale: 2,
     backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
+    imageTimeout: 5000,
+    removeContainer: false,
     height: container.scrollHeight,
     windowHeight: container.scrollHeight
   });
 
-  document.body.removeChild(container);
+  container.remove();
 
   const pageWidth = 210; // A4 width in mm (portrait)
   const imgHeightPx = canvas.height;
