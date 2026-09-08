@@ -5,6 +5,8 @@ import { CopyBudgetDialog } from './dialogs/CopyBudgetDialog';
 import { ContractDialog } from './dialogs/ContractDialog';
 import { generateContractDocx } from '../lib/contractGenerator';
 import { calcGrandTotals } from '../lib/budgetPricing';
+import { getLocationsForEvent } from '../lib/locations';
+import { getCategoriesForEvent, getCategories } from '../lib/categories';
 import {
   createEvent,
   updateEvent,
@@ -273,13 +275,23 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
         amount = amount * (1 - fullEvent.discount_percent / 100);
       }
 
+      // Fetch locations and categories so the contract asset list is ordered the
+      // same as the estimate (смета) PDF.
+      const [locations, eventCategories] = await Promise.all([
+        getLocationsForEvent(effectiveEventId),
+        getCategoriesForEvent(effectiveEventId)
+      ]);
+      const categories = eventCategories.length > 0 ? eventCategories : await getCategories().catch(() => []);
+
       await generateContractDocx({
         event: fullEvent,
         client,
         equipmentTypeRP: payload.equipmentTypeRP,
         contractDate: payload.date,
         amount: amount,
-        budgetItems: budgetItems
+        budgetItems: budgetItems,
+        locations,
+        categories
       });
     } catch (error) {
       console.error('Error generating contract:', error);
