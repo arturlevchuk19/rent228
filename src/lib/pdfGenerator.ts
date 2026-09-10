@@ -757,45 +757,86 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   document.body.appendChild(container);
   await waitForRenderReady();
-  const canvas = await html2canvas(container, {
-    scale: 2,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    logging: false,
-    imageTimeout: 5000,
-    removeContainer: false,
-    height: container.scrollHeight,
-    windowHeight: container.scrollHeight
-  });
 
-  container.remove();
-
-  const pageWidth = 210; // A4 width in mm (portrait)
-  const imgHeightPx = canvas.height;
-  const imgWidthPx = canvas.width;
-  
-  // Calculate proportional height in mm to fit content exactly
-  // This ensures page height matches the budget content height
-  
-  let pageHeight = (imgHeightPx * pageWidth) / imgWidthPx;
-  
-  // Ensure portrait orientation: height must be >= width
-  // If content is short, set minimum height to width (210mm) to maintain portrait
-  // This adds minimal empty space while keeping portrait orientation
-  if (pageHeight < pageWidth) {
-    pageHeight = pageWidth;
-  }
+  // Постраничный (chunked) рендеринг: html2canvas никогда не растеризует весь
+  // высокий документ за один проход. Вместо одного гигантского canvas документ
+  // режется на полосы высотой ровно в одну страницу A4 (при ширине 800px это
+  // 800 * 297/210 ~= 1131px CSS), каждая полоса рендерится отдельным вызовом
+  // html2canvas с опциями кадрирования y/height (canvas ~= 1600x2263px при
+  // scale: 2 вместо ~1600xN0000px целиком), затем каждая картинка кладётся на
+  // свою страницу jsPDF формата A4. Качество (scale: 2) не менялось.
+  // Покрытие без пропусков/дублей: полосы идут строго стык в стык
+  // (offsetY += sliceHeightCss, последний кусок — остаток), сумма высот всех
+  // полос равна полной высоте документа; каждая полоса рендерится со сдвигом
+  // ctx.translate(-x, -y), поэтому стыковка попиксельно точная. Кадры полос
+  // могут разрезать строку таблицы на границе — так же, как её разрезал бы
+  // постраничный вывод; визуально внутри страницы всё идентично старому рендеру.
+  const PDF_PAGE_WIDTH_MM = 210; // A4 ширина, портрет
+  const PDF_PAGE_HEIGHT_MM = 297; // A4 высота, портрет
+  const RENDER_SCALE = 2;
+  const containerWidthCss = container.scrollWidth || 800;
+  const totalHeightCss = container.scrollHeight;
+  // Высота одной полосы в CSS-пикселях при пропорциях A4:
+  // при ширине 800px -> 800 * 297 / 210 ~= 1131px.
+  const sliceHeightCss = Math.max(
+    1,
+    Math.floor((containerWidthCss * PDF_PAGE_HEIGHT_MM) / PDF_PAGE_WIDTH_MM)
+  );
 
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [pageWidth, pageHeight],
+    format: 'a4',
     putOnlyUsedFonts: true,
-    compress: true
+    compress: true,
   });
 
-  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
+  try {
+    let offsetYCss = 0;
+    let isFirstPage = true;
+    while (offsetYCss < totalHeightCss) {
+      const chunkHeightCss = Math.min(sliceHeightCss, totalHeightCss - offsetYCss);
+      // eslint-disable-next-line no-await-in-loop
+      const chunkCanvas = await html2canvas(container, {
+        scale: RENDER_SCALE,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        imageTimeout: 5000,
+        removeContainer: false,
+        x: 0,
+        y: offsetYCss,
+        width: containerWidthCss,
+        height: chunkHeightCss,
+        windowWidth: containerWidthCss,
+        windowHeight: chunkHeightCss,
+      });
+      // Высота страницы в мм пропорциональна фактической высоте полосы:
+      // полные полосы -> ровно 297мм (A4), последняя (короткая) -> меньше,
+      // чтобы не было растяжения и пустого места внизу.
+      const chunkHeightMm =
+        (chunkCanvas.height * PDF_PAGE_WIDTH_MM) / chunkCanvas.width;
+      if (!isFirstPage) {
+        pdf.addPage('a4', 'portrait');
+      }
+      isFirstPage = false;
+      const imgData = chunkCanvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, PDF_PAGE_WIDTH_MM, chunkHeightMm);
+      // Освобождаем память полосы сразу: пиковое потребление ограничено
+      // размером одной страницы (~1600x2263px), а не всего документа.
+      chunkCanvas.width = 1;
+      chunkCanvas.height = 1;
+      offsetYCss += chunkHeightCss;
+      // Даём браузеру отрисовать кадр между тяжёлыми полосами, чтобы вкладка
+      // не висела монолитно на больших сметах.
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    }
+  } finally {
+    container.remove();
+  }
 
   // Формируем имя файла: Дата_Площадка_Версия
   const fileNameParts: string[] = [];
