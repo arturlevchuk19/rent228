@@ -738,7 +738,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     ? roundDownToNearestFive(data.totalWithExtraFromEditor)
     : roundDownToNearestFive(discountedTotalCombined + extraTotalCombined);
 
-  if (extraBudgetItems.length > 0) {
+  // Show extra services totals only if checkbox is enabled (totalWithExtraFromEditor is provided)
+  // and there are extra items
+  const showExtraTotals = data.totalWithExtraFromEditor !== undefined && extraBudgetItems.length > 0;
+  
+  if (showExtraTotals) {
     // Show totals based on mode
     if (isCombinedOnlyMode) {
       // Combined only mode: show only combined total with extras
