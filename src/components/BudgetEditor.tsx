@@ -1378,6 +1378,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return Math.floor(value);
   };
 
+  const roundDownToNearestFive = (value: number): number => {
+    return Math.floor(value / 5) * 5;
+  };
+
   const calculateCategoryTotalForPaymentMode = (items: BudgetItem[], mode: 'day1' | 'combined') => {
     switch (paymentMode) {
       case 'byn_cash':
@@ -1462,18 +1466,78 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getTotalWithExtraForPaymentMode = () => {
     const extraItems = getExtraServiceItems();
 
-    const mode = budgetTotalsMode === 'combined_only' ? 'combined' : 'day1';
-    const extraTotal = extraItems.length > 0
-      ? calculateCategoryTotalForPaymentMode(extraItems, mode)
+    // Calculate totals for both day1 and combined modes
+    const extraTotalDay1 = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
+      : 0;
+    
+    const extraTotalCombined = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
       : 0;
 
     // Base total excludes extra services (they are never discounted). With a discount
     // applied, the base is the discounted non-extra total; otherwise the plain primary total.
+    const baseTotalDay1 = discountEnabled && getDiscountedTotal() !== null
+      ? getDiscountedTotal()!
+      : getDay1TotalForPaymentMode();
+    
+    const baseTotalCombined = discountEnabled && getDiscountedTotal() !== null
+      ? getDiscountedTotal()!
+      : getCombinedTotalForPaymentMode();
+
+    // Apply round down to nearest 5 for consistency with main totals
+    const grandTotalWithExtrasDay1 = roundDownToNearestFive(baseTotalDay1 + extraTotalDay1);
+    const grandTotalWithExtrasCombined = roundDownToNearestFive(baseTotalCombined + extraTotalCombined);
+
+    // Return based on current mode
+    if (budgetTotalsMode === 'combined_only') {
+      return grandTotalWithExtrasCombined;
+    } else {
+      // In day1_plus_combined mode, return day1 total (UI will show both separately if needed)
+      return grandTotalWithExtrasDay1;
+    }
+  };
+
+  const getTotalWithExtraDay1 = () => {
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
+      : 0;
     const baseTotal = discountEnabled && getDiscountedTotal() !== null
       ? getDiscountedTotal()!
-      : getPrimaryTotalForMode();
+      : getDay1TotalForPaymentMode();
+    return roundDownToNearestFive(baseTotal + extraTotal);
+  };
 
-    return normalizeGrandTotalForPaymentMode(baseTotal + extraTotal);
+  const getTotalWithExtraCombined = () => {
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
+      : 0;
+    const baseTotal = discountEnabled && getDiscountedTotal() !== null
+      ? getDiscountedTotal()!
+      : getCombinedTotalForPaymentMode();
+    return roundDownToNearestFive(baseTotal + extraTotal);
+  };
+
+  const getDiscountedTotalWithExtraDay1 = () => {
+    if (!discountEnabled || getDiscountedTotal() === null) return null;
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
+      : 0;
+    const baseTotal = getDiscountedTotal()!;
+    return roundDownToNearestFive(baseTotal + extraTotal);
+  };
+
+  const getDiscountedTotalWithExtraCombined = () => {
+    if (!discountEnabled || getDiscountedTotal() === null) return null;
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
+      : 0;
+    const baseTotal = getDiscountedTotal()!;
+    return roundDownToNearestFive(baseTotal + extraTotal);
   };
 
   const getCurrencyLabel = () => {
@@ -2130,10 +2194,49 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 />
                 <span className="text-[11px] text-gray-400 font-medium">Итого с дополнительными услугами</span>
               </label>
-              {showExtraTotal && (
-                <span className="text-sm font-bold text-violet-400">
-                  {getTotalWithExtraForPaymentMode().toLocaleString()} {getCurrencyLabel()}
-                </span>
+              {showExtraTotal && budgetTotalsMode === 'combined_only' && (
+                <>
+                  <span className="text-sm font-bold text-violet-400">
+                    {getTotalWithExtraCombined().toLocaleString()} {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraCombined() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
+                      Итого со скидкой {discountPercent}%: {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                </>
+              )}
+              {showExtraTotal && budgetTotalsMode === 'day1_plus_combined' && budgetDays === 1 && (
+                <>
+                  <span className="text-sm font-bold text-violet-400">
+                    {getTotalWithExtraDay1().toLocaleString()} {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraDay1() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
+                      Итого со скидкой {discountPercent}%: {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                </>
+              )}
+              {showExtraTotal && budgetTotalsMode === 'day1_plus_combined' && budgetDays > 1 && (
+                <>
+                  <span className="text-[11px] text-gray-400">
+                    Итого с доп. услугами за 1 день: <span className="text-violet-300">{getTotalWithExtraDay1().toLocaleString()}</span> {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraDay1() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest -mt-1">
+                      Итого со скидкой {discountPercent}% (1 день): {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-gray-400">
+                    Итого с доп. услугами за {budgetDays} дн.: <span className="text-violet-300">{getTotalWithExtraCombined().toLocaleString()}</span> {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraCombined() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest -mt-1">
+                      Итого со скидкой {discountPercent}% ({budgetDays} дн.): {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
