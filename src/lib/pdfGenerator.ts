@@ -720,14 +720,22 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const mainTotalDay1 = pdfDay1Total;
   const mainTotalCombined = pdfCombinedTotal;
   
-  // Total with extras for each mode
+  // Calculate discounted totals for use with extras
+  const discountedTotalDay1 = data.discountEnabled && discountPercentRaw > 0
+    ? roundDownToNearestFive(editorDiscountedTotal)
+    : mainTotalDay1;
+  const discountedTotalCombined = data.discountEnabled && discountPercentRaw > 0
+    ? roundDownToNearestFive(editorDiscountedTotal)
+    : mainTotalCombined;
+  
+  // Total with extras for each mode: discounted main total + extra services
   const grandTotalWithExtrasDay1 = data.totalWithExtraFromEditor !== undefined && !isCombinedOnlyMode
     ? data.totalWithExtraFromEditor
-    : mainTotalDay1 + extraTotalDay1;
+    : discountedTotalDay1 + extraTotalDay1;
     
   const grandTotalWithExtrasCombined = data.totalWithExtraFromEditor !== undefined && isCombinedOnlyMode
     ? data.totalWithExtraFromEditor
-    : mainTotalCombined + extraTotalCombined;
+    : discountedTotalCombined + extraTotalCombined;
 
   if (extraBudgetItems.length > 0) {
     // Show totals based on mode
