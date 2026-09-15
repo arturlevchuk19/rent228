@@ -5,73 +5,68 @@ node_modules/
 # Build outputs
 dist/
 build/
-target/
+*.js.map
+*.tsbuildinfo
 
-# Python specific
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
-venv/
-.venv/
-.ENV
-.env
-.env.local
-.env.*
-.venv/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Logs
-*.log
-
-# Coverage reports
-coverage/
-*.cover
-.hpc/
-
-# Temporary files
-*.tmp
-*.temp
-*~
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Testing
-.pytest_cache/
-.mypy_cache/
+*.so
 .coverage
 htmlcov/
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.pytype/
 
-# Distribution / packaging
-.Python
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Compiled/Binary
+*.exe
+*.dll
 *.so
-*.egg-info/
-.eggs/
-.installed.cfg
-*.egg
+*.dylib
+*.o
+*.obj
+*.a
+*.lib
+*.out
 
-# Compressed files
+# OS generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+.directory
+*.nib
+*.plist
+
+# Archives
 *.zip
-*.gz
 *.tar
+*.gz
 *.tgz
 *.bz2
 *.xz
@@ -91,4 +86,24 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Docker
+.dockerignore
+docker-compose*.yml
+
+# Temporary files
+*.tmp
+*~
+```
+
+Wait, I need to reconsider this. The only modified file is `src/lib/pdfGenerator.ts`, which is a TypeScript source file. There are no build artifacts, dependencies, or temporary files in the changes. According to rule #6, if the changes contain only source or config files and no build artifacts, dependencies, or temp files, I should output an empty .gitignore.
+
+Since only `src/lib/pdfGenerator.ts` was modified (a source file), and there are no artifacts or dependencies mentioned in the changes, the output should be empty.
+
+```gitignore
+
 ```

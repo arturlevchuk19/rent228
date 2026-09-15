@@ -495,7 +495,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       .map(([categoryId, items]) => {
         const category = data.categories.find((c) => c.id === categoryId);
         const categoryName = category?.name || 'Дополнительные услуги';
-        let categoryTotal = 0;
+        let categoryTotalDay1 = 0;
+        let categoryTotalCombined = 0;
         const rows = items.map((item, itemIdx) => {
           const itemPrefix = `${itemIdx + 1}. `;
           const name = item.equipment?.name || item.work_item?.name || '—';
@@ -512,12 +513,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             item.multi_day_rate_override
           );
           
+          const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
+          const displayUnitPriceBYNCombined = calculatePrice(usdPriceCombined, item, true);
+          
           const displayUnitPriceBYN = isCombinedOnlyMode 
-            ? calculatePrice(usdPriceCombined, item, true)
-            : calculatePrice(usdPriceDay1, item, true);
+            ? displayUnitPriceBYNCombined
+            : displayUnitPriceBYNDay1;
           
           const displayTotalBYN = displayUnitPriceBYN * qty;
-          categoryTotal += displayTotalBYN;
+          const displayTotalDay1BYN = displayUnitPriceBYNDay1 * qty;
+          const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+          
+          categoryTotalDay1 += paymentMode === 'usd' ? calcDay1Total(item) : displayTotalDay1BYN;
+          categoryTotalCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
           
           return `
             <tr style="border-bottom: 1px solid #000000;">
@@ -534,6 +542,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           `;
         }).join('');
 
+        const categoryTotal = isCombinedOnlyMode ? categoryTotalCombined : categoryTotalDay1;
+
         return `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
@@ -549,6 +559,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
                   <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
                   <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
                 </tr>
+                ${!isCombinedOnlyMode && budgetDays > 1 ? `
+                <tr style="border-bottom: 1px solid #000000;">
+                  <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+                  <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotalCombined)}${currencySuffix}</td>
+                </tr>
+                ` : ''}
               </tbody>
             </table>
           </div>
