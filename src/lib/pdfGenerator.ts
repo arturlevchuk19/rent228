@@ -693,37 +693,74 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const dayPeriodNoWrapHtml = `<span style="white-space: nowrap;">за ${budgetDays} дн.</span>`;
 
   // Build the total with extras for PDF
-  const extraTotalAll = extraBudgetItems.length > 0
+  // Calculate extra services totals for both day1 and combined modes
+  const extraTotalDay1 = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
         const qty = item.quantity || 0;
-        // Calculate price with multi-day coefficient for extra services
+        const usdPriceDay1 = item.price || 0;
+        const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, false);
+        return sum + unitPriceBYNDay1 * qty;
+      }, 0)
+    : 0;
+    
+  const extraTotalCombined = extraBudgetItems.length > 0
+    ? extraBudgetItems.reduce((sum, item) => {
+        const qty = item.quantity || 0;
         const usdPriceDay1 = item.price || 0;
         const usdPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
           budgetDays,
           item.multi_day_rate_override
         );
-        const unitPriceBYN = isCombinedOnlyMode 
-          ? calculatePrice(usdPriceCombined, item, false)
-          : calculatePrice(usdPriceDay1, item, false);
-        return sum + unitPriceBYN * qty;
+        const unitPriceBYNCombined = calculatePrice(usdPriceCombined, item, false);
+        return sum + unitPriceBYNCombined * qty;
       }, 0)
     : 0;
-  const mainTotalForMode = isCombinedOnlyMode ? pdfCombinedTotal : pdfDay1Total;
-  // Prefer the estimate form's computed total-with-extras (it is discount-aware and
-  // never discounts extra services). Fall back to local recomputation for other callers
-  // that don't pass the value.
-  const grandTotalWithExtras = data.totalWithExtraFromEditor !== undefined
+    
+  const mainTotalDay1 = pdfDay1Total;
+  const mainTotalCombined = pdfCombinedTotal;
+  
+  // Total with extras for each mode
+  const grandTotalWithExtrasDay1 = data.totalWithExtraFromEditor !== undefined && !isCombinedOnlyMode
     ? data.totalWithExtraFromEditor
-    : mainTotalForMode + extraTotalAll;
+    : mainTotalDay1 + extraTotalDay1;
+    
+  const grandTotalWithExtrasCombined = data.totalWithExtraFromEditor !== undefined && isCombinedOnlyMode
+    ? data.totalWithExtraFromEditor
+    : mainTotalCombined + extraTotalCombined;
 
   if (extraBudgetItems.length > 0) {
-    extraServicesHtml += `
+    // Show totals based on mode
+    if (isCombinedOnlyMode) {
+      // Combined only mode: show only combined total with extras
+      extraServicesHtml += `
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;">
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами${budgetDays === 1 ? '' : ` за ${budgetDays} дн.`}:</span>
+        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasCombined)}${currencySuffix}</span>
+      </div>
+      `;
+    } else {
+      // Day1 plus combined mode: show both day1 and combined totals with extras
+      if (budgetDays === 1) {
+        extraServicesHtml += `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtras)}${currencySuffix}</span>
+        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasDay1)}${currencySuffix}</span>
       </div>
-    `;
+      `;
+      } else {
+        extraServicesHtml += `
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 10px 0; border-top: 2px solid #000000;">
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами за 1 день:</span>
+        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasDay1)}${currencySuffix}</span>
+      </div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 0 40px 0;">
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами за ${budgetDays} дн.:</span>
+        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasCombined)}${currencySuffix}</span>
+      </div>
+      `;
+      }
+    }
   }
 
   const footerTotalsHtml = isCombinedOnlyMode

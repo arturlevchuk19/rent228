@@ -1,72 +1,51 @@
 ```gitignore
-# Dependencies
-node_modules/
-
-# Build outputs
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
 dist/
 build/
-*.js.map
-*.tsbuildinfo
+target/
 
-# Logs
+# Dependencies
+.venv/
+venv/
+node_modules/
+.pip-cache/
+.mypy_cache/
+.pytest_cache/
+
+# Logs and temp files
 *.log
+*.tmp
+*.swp
+*.swo
 
-# Environment variables
+# Environment
 .env
 .env.local
 *.env.*
 
-# Editor/IDE
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-.coverage
-htmlcov/
-.coverage.*
-.pytest_cache/
-.mypy_cache/
-.pyre/
-.pytype/
-
-# Node.js
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Compiled/Binary
-*.exe
-*.dll
-*.so
-*.dylib
-*.o
-*.obj
-*.a
-*.lib
-*.out
-
-# OS generated
+# OS
 .DS_Store
 Thumbs.db
-ehthumbs.db
-Icon?
-.directory
-*.nib
-*.plist
 
-# Archives
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compressed files
 *.zip
-*.tar
 *.gz
+*.tar
 *.tgz
 *.bz2
 *.xz
@@ -86,24 +65,4 @@ Icon?
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-
-# Coverage
-coverage/
-.nyc_output/
-
-# Docker
-.dockerignore
-docker-compose*.yml
-
-# Temporary files
-*.tmp
-*~
-```
-
-Wait, I need to reconsider this. The only modified file is `src/lib/pdfGenerator.ts`, which is a TypeScript source file. There are no build artifacts, dependencies, or temporary files in the changes. According to rule #6, if the changes contain only source or config files and no build artifacts, dependencies, or temp files, I should output an empty .gitignore.
-
-Since only `src/lib/pdfGenerator.ts` was modified (a source file), and there are no artifacts or dependencies mentioned in the changes, the output should be empty.
-
-```gitignore
-
 ```
