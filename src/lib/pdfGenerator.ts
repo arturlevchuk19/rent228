@@ -503,9 +503,22 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           const displayName = notes ? `${name} ${notes}` : name;
           const qty = item.quantity || 0;
           const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
-          const price = calculatePrice(item.price || 0, item);
-          const total = price * qty;
-          categoryTotal += total;
+          
+          // Calculate price with multi-day coefficient for extra services
+          const usdPriceDay1 = item.price || 0;
+          const usdPriceCombined = calcCombinedTotal(
+            { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
+            budgetDays,
+            item.multi_day_rate_override
+          );
+          
+          const displayUnitPriceBYN = isCombinedOnlyMode 
+            ? calculatePrice(usdPriceCombined, item, true)
+            : calculatePrice(usdPriceDay1, item, true);
+          
+          const displayTotalBYN = displayUnitPriceBYN * qty;
+          categoryTotal += displayTotalBYN;
+          
           return `
             <tr style="border-bottom: 1px solid #000000;">
               <td style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
@@ -515,8 +528,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
                 </div>
               </td>
               <td style="padding: 8px 8px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
-              <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
-              <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
+              <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(displayUnitPriceBYN)}${currencySuffix}</td>
+              <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(displayTotalBYN)}${currencySuffix}</td>
             </tr>
           `;
         }).join('');
@@ -667,8 +680,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const extraTotalAll = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
         const qty = item.quantity || 0;
-        const price = calculatePrice(item.price || 0, item);
-        return sum + price * qty;
+        // Calculate price with multi-day coefficient for extra services
+        const usdPriceDay1 = item.price || 0;
+        const usdPriceCombined = calcCombinedTotal(
+          { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
+          budgetDays,
+          item.multi_day_rate_override
+        );
+        const unitPriceBYN = isCombinedOnlyMode 
+          ? calculatePrice(usdPriceCombined, item, false)
+          : calculatePrice(usdPriceDay1, item, false);
+        return sum + unitPriceBYN * qty;
       }, 0)
     : 0;
   const mainTotalForMode = isCombinedOnlyMode ? pdfCombinedTotal : pdfDay1Total;
