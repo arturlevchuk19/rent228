@@ -495,7 +495,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       .map(([categoryId, items]) => {
         const category = data.categories.find((c) => c.id === categoryId);
         const categoryName = category?.name || 'Дополнительные услуги';
-        let categoryTotal = 0;
+        let categorySumDay1 = 0;
+        let categorySumCombined = 0;
         const rows = items.map((item, itemIdx) => {
           const itemPrefix = `${itemIdx + 1}. `;
           const name = item.equipment?.name || item.work_item?.name || '—';
@@ -503,9 +504,27 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           const displayName = notes ? `${name} ${notes}` : name;
           const qty = item.quantity || 0;
           const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
-          const price = calculatePrice(item.price || 0, item);
-          const total = price * qty;
-          categoryTotal += total;
+          const usdPriceDay1 = item.price || 0;
+          const usdTotalDay1 = calcDay1Total(item);
+
+          // Use rounded values for display
+          const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
+          const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
+
+          const usdUnitPriceCombined = calcCombinedTotal(
+            { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
+            budgetDays,
+            item.multi_day_rate_override
+          );
+          const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
+          const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+
+          const rowTotalDisplay = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
+          const rowPriceDisplay = isCombinedOnlyMode ? displayUnitPriceBYNCombined : displayUnitPriceBYNDay1;
+
+          categorySumDay1 += paymentMode === 'usd' ? usdTotalDay1 : displayTotalDay1BYN;
+          categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
+
           return `
             <tr style="border-bottom: 1px solid #000000;">
               <td style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
@@ -515,11 +534,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
                 </div>
               </td>
               <td style="padding: 8px 8px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
-              <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
-              <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
+              <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(rowPriceDisplay)}${currencySuffix}</td>
+              <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(rowTotalDisplay)}${currencySuffix}</td>
             </tr>
           `;
         }).join('');
+
+        const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
 
         return `
           <div style="margin-bottom: 12px;">
@@ -667,8 +688,21 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const extraTotalAll = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
         const qty = item.quantity || 0;
-        const price = calculatePrice(item.price || 0, item);
-        return sum + price * qty;
+        const usdPriceDay1 = item.price || 0;
+        const usdTotalDay1 = calcDay1Total(item);
+        const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
+        const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
+
+        const usdUnitPriceCombined = calcCombinedTotal(
+          { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
+          budgetDays,
+          item.multi_day_rate_override
+        );
+        const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
+        const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+
+        const extraItemTotal = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
+        return sum + extraItemTotal;
       }, 0)
     : 0;
   const mainTotalForMode = isCombinedOnlyMode ? pdfCombinedTotal : pdfDay1Total;
