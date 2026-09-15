@@ -483,55 +483,64 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       return acc;
     }, {});
 
-    const extraCategoriesHtml = Object.entries(extraGrouped).map(([categoryId, items]) => {
-      const category = data.categories.find((c) => c.id === categoryId);
-      const categoryName = category?.name || 'Дополнительные услуги';
-      let categoryTotal = 0;
-      const rows = items.map((item, itemIdx) => {
-        const itemPrefix = `${itemIdx + 1}. `;
-        const name = item.equipment?.name || item.work_item?.name || '—';
-        const notes = item.notes?.trim();
-        const displayName = notes ? `${name} ${notes}` : name;
-        const qty = item.quantity || 0;
-        const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
-        const price = calculatePrice(item.price || 0, item);
-        const total = price * qty;
-        categoryTotal += total;
+    const extraCategoriesHtml = Object.entries(extraGrouped)
+      .sort(([a], [b]) => {
+        const indexA = categoryOrder.indexOf(a);
+        const indexB = categoryOrder.indexOf(b);
+        const normalizedIndexA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
+        const normalizedIndexB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
+        if (normalizedIndexA !== normalizedIndexB) return normalizedIndexA - normalizedIndexB;
+        return a.localeCompare(b, 'ru');
+      })
+      .map(([categoryId, items]) => {
+        const category = data.categories.find((c) => c.id === categoryId);
+        const categoryName = category?.name || 'Дополнительные услуги';
+        let categoryTotal = 0;
+        const rows = items.map((item, itemIdx) => {
+          const itemPrefix = `${itemIdx + 1}. `;
+          const name = item.equipment?.name || item.work_item?.name || '—';
+          const notes = item.notes?.trim();
+          const displayName = notes ? `${name} ${notes}` : name;
+          const qty = item.quantity || 0;
+          const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
+          const price = calculatePrice(item.price || 0, item);
+          const total = price * qty;
+          categoryTotal += total;
+          return `
+            <tr style="border-bottom: 1px solid #000000;">
+              <td style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
+                <div style="display: flex; align-items: flex-start;">
+                  <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
+                  <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
+                </div>
+              </td>
+              <td style="padding: 8px 8px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
+              <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
+              <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
+            </tr>
+          `;
+        }).join('');
+
         return `
-          <tr style="border-bottom: 1px solid #000000;">
-            <td style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; width: 60%; vertical-align: middle; line-height: 1.2;">
-              <div style="display: flex; align-items: flex-start;">
-                <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
-                <span style="display: inline-block; min-width: 0; overflow-wrap: anywhere; word-break: break-word;">${displayName}</span>
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
+              <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
+              <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
+                ${categoryName}
               </div>
-            </td>
-            <td style="padding: 8px 8px; font-size: 15px; text-align: center; color: #1a1a1a; width: 10%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${qty} ${unit}</td>
-            <td style="padding: 8px 8px; font-size: 15px; text-align: right; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(price)}${currencySuffix}</td>
-            <td style="padding: 8px 8px; font-size: 15px; text-align: right; font-weight: 600; color: #1a1a1a; width: 15%; vertical-align: middle; line-height: 1.2; white-space: nowrap;">${formatMoney(total)}${currencySuffix}</td>
-          </tr>
+            </div>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tbody>
+                ${rows}
+                <tr style="border-bottom: 1px solid #000000;">
+                  <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
+                  <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         `;
       }).join('');
-
-      return `
-        <div style="margin-bottom: 12px;">
-          <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
-            <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
-            <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
-              ${categoryName}
-            </div>
-          </div>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tbody>
-              ${rows}
-              <tr style="border-bottom: 1px solid #000000;">
-                <td colspan="3" style="padding: 0px 8px 8px 10px ; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
-                <td style="padding: 0px 8px 8px 10px; text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      `;
-    }).join('');
 
     extraServicesHtml = `
       <section style="margin-top: 20px; padding: 12px 14px; border: 1px solid #000000; border-radius: 10px; background: #ffffff;">
