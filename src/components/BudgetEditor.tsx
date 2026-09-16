@@ -847,7 +847,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         await updateBudgetItem(item.id, { exchange_rate: exchangeRate });
       }
 
-      alert('Смета сохранена успешно');
       onClose();
     } catch (error: any) {
       console.error('Error saving budget:', error);
