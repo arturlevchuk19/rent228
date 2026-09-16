@@ -235,6 +235,25 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     localStorage.setItem(`budget_totals_mode_${eventId}`, budgetTotalsMode);
   }, [eventId, budgetTotalsMode]);
 
+  // Save sticky notes to both localStorage and event data (server)
+  useEffect(() => {
+    if (stickyNotes.length > 0) {
+      localStorage.setItem(`budget_sticky_notes_${eventId}`, JSON.stringify(stickyNotes));
+    }
+  }, [stickyNotes, eventId]);
+  
+  const handleStickyNotesChange = async (newNotes: { id: string; content: string }[]) => {
+    setStickyNotes(newNotes);
+    // Also save to server via event update
+    try {
+      await updateEvent(eventId, {
+        sticky_notes: JSON.stringify(newNotes)
+      });
+    } catch (error) {
+      console.error('Error saving sticky notes to server:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -280,6 +299,43 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       } else {
         setBudgetNote('');
       }
+      
+      // Load sticky notes from event data first, then fallback to localStorage
+      if (eventData.sticky_notes !== undefined && eventData.sticky_notes !== null && eventData.sticky_notes.trim() !== '') {
+        try {
+          const parsed = JSON.parse(eventData.sticky_notes);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStickyNotes(parsed);
+          }
+        } catch (e) {
+          // If parsing fails, try localStorage as fallback
+          const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+          if (savedStickyNotes) {
+            try {
+              const parsedLocal = JSON.parse(savedStickyNotes);
+              if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
+                setStickyNotes(parsedLocal);
+              }
+            } catch (e2) {
+              // use default
+            }
+          }
+        }
+      } else {
+        // No sticky notes in event data, try localStorage
+        const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+        if (savedStickyNotes) {
+          try {
+            const parsed = JSON.parse(savedStickyNotes);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setStickyNotes(parsed);
+            }
+          } catch (e) {
+            // use default
+          }
+        }
+      }
+      
       setIsBudgetConfirmed(Boolean(eventData.progress_equipment_reserved));
       setContractOrganizationId((current) => current || eventData.client_id || '');
 
@@ -289,7 +345,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         discount_percent: eventData.discount_percent,
         budget_days: eventData.budget_days,
         budget_totals_mode: eventData.budget_totals_mode,
-        budget_note: eventData.budget_note
+        budget_note: eventData.budget_note,
+        sticky_notes: eventData.sticky_notes
       });
 
       const initialExpanded: Record<string, boolean> = {};
@@ -866,6 +923,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (budgetDays !== originalEventData.budget_days) return true;
     if (budgetTotalsMode !== originalEventData.budget_totals_mode) return true;
     if (budgetNote !== originalEventData.budget_note) return true;
+    if (JSON.stringify(stickyNotes) !== originalEventData.sticky_notes) return true;
     
     return false;
   };
@@ -2587,7 +2645,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       <StickyNotePanel
         notes={stickyNotes}
-        onNotesChange={setStickyNotes}
+        onNotesChange={handleStickyNotesChange}
         onClose={() => setShowStickyNotes(false)}
         isOpen={showStickyNotes}
         storageKey={`budget_sticky_notes_${eventId}`}
