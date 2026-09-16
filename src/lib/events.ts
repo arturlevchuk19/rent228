@@ -72,6 +72,7 @@ export interface Event {
   budget_days?: number;
   budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
   budget_note?: string;
+  sticky_notes?: string;
   venues?: Venue;
   clients?: Client;
   organizers?: Organizer;
