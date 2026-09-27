@@ -112,6 +112,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discountPercent, setDiscountPercent] = useState(10);
   const [discountPercentInput, setDiscountPercentInput] = useState('10');
   const [discountedTotalInput, setDiscountedTotalInput] = useState('');
+  const [discount2Enabled, setDiscount2Enabled] = useState(false);
+  const [discount2Percent, setDiscount2Percent] = useState(0);
+  const [discount2PercentInput, setDiscount2PercentInput] = useState('');
   const [showBudgetNoteDialog, setShowBudgetNoteDialog] = useState(false);
   const [budgetNote, setBudgetNote] = useState('');
   const [budgetVersion, setBudgetVersion] = useState('1.0');
@@ -278,12 +281,25 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       }
 
       // Load discount settings from event
+      const loadedDiscountEnabled = eventData.discount_enabled !== undefined
+        ? Boolean(eventData.discount_enabled)
+        : false;
       if (eventData.discount_enabled !== undefined) {
-        setDiscountEnabled(eventData.discount_enabled);
+        setDiscountEnabled(loadedDiscountEnabled);
       }
       if (eventData.discount_percent !== undefined) {
         setDiscountPercent(eventData.discount_percent);
         setDiscountPercentInput(eventData.discount_percent.toString());
+      }
+      // Скидка** доступна только при активной Скидке*: согласованно при загрузке —
+      // если в базе скидка** активна, а скидка* нет, активной она не станет.
+      const loadedDiscount2Enabled = Boolean(eventData.discount2_enabled) && loadedDiscountEnabled;
+      if (eventData.discount2_enabled !== undefined) {
+        setDiscount2Enabled(loadedDiscount2Enabled);
+      }
+      if (eventData.discount2_percent !== undefined) {
+        setDiscount2Percent(loadedDiscount2Enabled ? eventData.discount2_percent : 0);
+        setDiscount2PercentInput((loadedDiscount2Enabled ? eventData.discount2_percent : 0).toString());
       }
       if (eventData.budget_days !== undefined && eventData.budget_days !== null) {
         setBudgetDays(Math.max(1, eventData.budget_days));
@@ -895,6 +911,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       await updateEvent(eventId, {
         discount_enabled: discountEnabled,
         discount_percent: discountPercent,
+        discount2_enabled: discount2Enabled,
+        discount2_percent: discount2Percent,
         budget_days: budgetDays,
         budget_totals_mode: budgetTotalsMode,
         budget_note: budgetNote
@@ -964,6 +982,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const exportDiscountedTotal = hasManualDiscountedTotal
         ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
         : getDiscountedTotal();
+      // Согласованность для PDF: без активной «Скидка*» скидка** не применяется.
+      const exportDiscount2Enabled = discountEnabled && discount2Enabled;
+      const exportDiscount2Percent = exportDiscount2Enabled ? Math.round(discount2Percent) : 0;
 
       const exportBudgetNote = options?.contractEquipmentTypeRP
         ? `${budgetNote ? `${budgetNote}\n` : ''}Вид оборудования (в Р.П): ${options.contractEquipmentTypeRP}`
@@ -985,6 +1006,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
         discountPercent: exportDiscountPercent,
+        discount2Enabled: exportDiscount2Enabled,
+        discount2Percent: exportDiscount2Percent,
         budgetNote: exportBudgetNote,
         budgetDays,
         budgetTotalsMode,
@@ -1423,7 +1446,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
-    const multiplier = 1 - discountPercent / 100;
+    const hasSecondDiscount = discount2Enabled && discount2Percent > 0;
+    // Скидки применяются последовательно к стоимости оборудования:
+    // оборудование x (1 - d1/100) x (1 - d2/100)
+    const multiplier = (1 - discountPercent / 100) * (hasSecondDiscount ? 1 - discount2Percent / 100 : 1);
     let raw: number;
     switch (paymentMode) {
       case 'byn_cash': raw = discountEligibleTotalBYNCashCombined * multiplier + (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined; break;
@@ -1459,7 +1485,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     if (discountable <= 0) {
       return 0;
     }
-    const nextPercent = (1 - (targetTotal - fixed) / discountable) * 100;
+    const hasSecondDiscount = discount2Enabled && discount2Percent > 0;
+    const effectiveDiscountable = hasSecondDiscount ? discountable * (1 - discount2Percent / 100) : discountable;
+    if (effectiveDiscountable <= 0) {
+      return 0;
+    }
+    const nextPercent = (1 - (targetTotal - fixed) / effectiveDiscountable) * 100;
     return Math.min(100, Math.max(0, nextPercent));
   };
 
@@ -1470,7 +1501,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return;
     }
     setDiscountedTotalInput(String(discountedTotal));
-  }, [discountEnabled, discountPercent, paymentMode, budgetTotalsMode, budgetDays, budgetItems, exchangeRate]);
+  }, [discountEnabled, discountPercent, discount2Enabled, discount2Percent, paymentMode, budgetTotalsMode, budgetDays, budgetItems, exchangeRate]);
 
   const applyDiscountedTotalInput = () => {
     const parsedValue = parseFloat(discountedTotalInput.replace(',', '.'));
@@ -2361,10 +2392,19 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     <input
                       type="checkbox"
                       checked={discountEnabled}
-                      onChange={(e) => setDiscountEnabled(e.target.checked)}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        setDiscountEnabled(enabled);
+                        // При выключении «Скидка*» — «Скидка**» тоже выключается автоматически.
+                        if (!enabled && discount2Enabled) {
+                          setDiscount2Enabled(false);
+                          setDiscount2Percent(0);
+                          setDiscount2PercentInput('0');
+                        }
+                      }}
                       className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
                     />
-                    <span className="text-xs text-gray-300 font-medium">Скидка</span>
+                    <span className="text-xs text-gray-300 font-medium">Скидка*</span>
                     {discountEnabled && (
                       <div className="flex items-center gap-1">
                         <input
@@ -2397,9 +2437,51 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     )}
                   </label>
                 </div>
+                <div className="flex items-center gap-2">
+                  <label className={`flex items-center gap-2 select-none ${discountEnabled ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
+                    <input
+                      type="checkbox"
+                      checked={discount2Enabled}
+                      disabled={!discountEnabled}
+                      onChange={(e) => setDiscount2Enabled(e.target.checked)}
+                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <span className="text-xs text-gray-300 font-medium">Скидка**</span>
+                    {discount2Enabled && discountEnabled && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={discount2PercentInput}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setDiscount2PercentInput(raw);
+                            const parsed = parseFloat(raw);
+                            if (!isNaN(parsed)) {
+                              setDiscount2Percent(Math.min(100, Math.max(0, parsed)));
+                            }
+                          }}
+                          onBlur={() => {
+                            const parsed = parseFloat(discount2PercentInput);
+                            if (isNaN(parsed) || discount2PercentInput.trim() === '') {
+                              setDiscount2Percent(0);
+                              setDiscount2PercentInput('0');
+                            } else {
+                              const clamped = Math.min(100, Math.max(0, parsed));
+                              setDiscount2Percent(clamped);
+                              setDiscount2PercentInput(String(clamped));
+                            }
+                          }}
+                          className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                        />
+                        <span className="text-xs text-gray-400">%</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
                 {discountEnabled && getDiscountedTotal() !== null && (
                   <div className="flex flex-col">
-                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%</span>
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итого со скидкой {discountPercent}%*{discount2Enabled && discount2Percent > 0 ? ` + ${discount2Percent}%**` : ''}</span>
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
