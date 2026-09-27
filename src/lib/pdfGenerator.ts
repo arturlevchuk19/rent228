@@ -746,12 +746,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const mainTotalDay1 = pdfDay1Total;
   const mainTotalCombined = pdfCombinedTotal;
   
-  // Calculate discounted totals for use with extras
-  const discountedTotalDay1 = data.discountEnabled && discountPercentRaw > 0
-    ? roundDownToNearestFive(editorDiscountedTotal)
+  // Calculate discounted totals for use with extras.
+  // editorFinalTotal уже содержит применённые скидки (из редактора или пересчёт),
+  // поэтому при активной скидке берём его, иначе — основной итог без скидки.
+  const discountedTotalDay1 = hasFirstDiscount
+    ? roundDownToNearestFive(editorFinalTotal)
     : mainTotalDay1;
-  const discountedTotalCombined = data.discountEnabled && discountPercentRaw > 0
-    ? roundDownToNearestFive(editorDiscountedTotal)
+  const discountedTotalCombined = hasFirstDiscount
+    ? roundDownToNearestFive(editorFinalTotal)
     : mainTotalCombined;
   
   // Total with extras for each mode: discounted main total + extra services
