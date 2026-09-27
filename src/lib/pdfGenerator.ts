@@ -591,9 +591,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // Согласованность: без активной «Скидка*» второй уровень скидки не применяется.
   const hasFirstDiscount = Boolean(data.discountEnabled) && discountPercentRaw > 0;
   const discount2PercentRaw = hasFirstDiscount && data.discount2Enabled && (data.discount2Percent || 0) > 0 ? (data.discount2Percent || 0) : 0;
+  // Процент второго уровня берётся из своего поля (discount2Percent), а не из первой скидки.
+  const discount2PercentDisplay = Math.round(discount2PercentRaw);
   const discount2Multiplier = discount2PercentRaw > 0 ? 1 - discount2PercentRaw / 100 : 1;
   const discountLabelHtml = `Со скидкой ${discountPercentDisplay}%* на оборудование`;
-  const discount2LabelHtml = `Со скидкой ${discountPercentDisplay}%** на оборудование`;
+  const discount2LabelHtml = `Со скидкой ${discount2PercentDisplay}%** на оборудование`;
 
   const grandTotalDiscountEligibleDay1 = mainBudgetItems
     .filter((item) => !item.work_item && !isConsumablesEquipmentItem(item))
