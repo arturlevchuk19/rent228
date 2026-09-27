@@ -1421,6 +1421,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
 
+  // The discounted total is always rounded DOWN to the nearest multiple of 5, so it
+  // can never exceed the undiscounted total (previously a fractional discount percent
+  // combined with round-to-2-decimals/round-up currency conversion could produce a
+  // "discounted" total HIGHER than the original, e.g. 300 -> 310).
+  const roundDownToNearestFive = (value: number): number => {
+    return Math.floor(value / 5) * 5;
+  };
+
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
     const multiplier = 1 - discountPercent / 100;
@@ -1430,7 +1438,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       case 'byn_noncash': raw = discountEligibleTotalBYNNonCashCombined * multiplier + (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined; break;
       default: raw = discountEligibleTotalsUSD.combinedTotal * multiplier + (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal; break;
     }
-    return normalizeGrandTotalForPaymentMode(raw);
+    return roundDownToNearestFive(raw);
   };
 
   const getDiscountTotalsBaseForPaymentMode = () => {
@@ -1490,10 +1498,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return Math.round(value * 100) / 100;
     }
     return Math.floor(value);
-  };
-
-  const roundDownToNearestFive = (value: number): number => {
-    return Math.floor(value / 5) * 5;
   };
 
   const calculateCategoryTotalForPaymentMode = (items: BudgetItem[], mode: 'day1' | 'combined') => {
