@@ -251,19 +251,25 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       }
 
       // Load discount settings from event
+      const loadedDiscountEnabled = eventData.discount_enabled !== undefined
+        ? Boolean(eventData.discount_enabled)
+        : false;
       if (eventData.discount_enabled !== undefined) {
-        setDiscountEnabled(eventData.discount_enabled);
+        setDiscountEnabled(loadedDiscountEnabled);
       }
       if (eventData.discount_percent !== undefined) {
         setDiscountPercent(eventData.discount_percent);
         setDiscountPercentInput(eventData.discount_percent.toString());
       }
+      // Скидка** доступна только при активной Скидке*: согласованно при загрузке —
+      // если в базе скидка** активна, а скидка* нет, активной она не станет.
+      const loadedDiscount2Enabled = Boolean(eventData.discount2_enabled) && loadedDiscountEnabled;
       if (eventData.discount2_enabled !== undefined) {
-        setDiscount2Enabled(eventData.discount2_enabled);
+        setDiscount2Enabled(loadedDiscount2Enabled);
       }
       if (eventData.discount2_percent !== undefined) {
-        setDiscount2Percent(eventData.discount2_percent);
-        setDiscount2PercentInput(eventData.discount2_percent.toString());
+        setDiscount2Percent(loadedDiscount2Enabled ? eventData.discount2_percent : 0);
+        setDiscount2PercentInput((loadedDiscount2Enabled ? eventData.discount2_percent : 0).toString());
       }
       if (eventData.budget_days !== undefined && eventData.budget_days !== null) {
         setBudgetDays(Math.max(1, eventData.budget_days));
@@ -862,6 +868,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const exportDiscountedTotal = hasManualDiscountedTotal
         ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
         : getDiscountedTotal();
+      // Согласованность для PDF: без активной «Скидка*» скидка** не применяется.
+      const exportDiscount2Enabled = discountEnabled && discount2Enabled;
+      const exportDiscount2Percent = exportDiscount2Enabled ? Math.round(discount2Percent) : 0;
 
       const exportBudgetNote = options?.contractEquipmentTypeRP
         ? `${budgetNote ? `${budgetNote}\n` : ''}Вид оборудования (в Р.П): ${options.contractEquipmentTypeRP}`
@@ -883,8 +892,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         paymentMode: paymentMode,
         discountEnabled: discountEnabled,
         discountPercent: exportDiscountPercent,
-        discount2Enabled: discount2Enabled,
-        discount2Percent: Math.round(discount2Percent),
+        discount2Enabled: exportDiscount2Enabled,
+        discount2Percent: exportDiscount2Percent,
         budgetNote: exportBudgetNote,
         budgetDays,
         budgetTotalsMode,
@@ -2166,7 +2175,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                     <input
                       type="checkbox"
                       checked={discountEnabled}
-                      onChange={(e) => setDiscountEnabled(e.target.checked)}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        setDiscountEnabled(enabled);
+                        // При выключении «Скидка*» — «Скидка**» тоже выключается автоматически.
+                        if (!enabled && discount2Enabled) {
+                          setDiscount2Enabled(false);
+                          setDiscount2Percent(0);
+                          setDiscount2PercentInput('0');
+                        }
+                      }}
                       className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
                     />
                     <span className="text-xs text-gray-300 font-medium">Скидка*</span>
@@ -2203,15 +2221,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <label className={`flex items-center gap-2 select-none ${discountEnabled ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
                     <input
                       type="checkbox"
                       checked={discount2Enabled}
+                      disabled={!discountEnabled}
                       onChange={(e) => setDiscount2Enabled(e.target.checked)}
-                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer disabled:cursor-not-allowed"
                     />
                     <span className="text-xs text-gray-300 font-medium">Скидка**</span>
-                    {discount2Enabled && (
+                    {discount2Enabled && discountEnabled && (
                       <div className="flex items-center gap-1">
                         <input
                           type="text"
