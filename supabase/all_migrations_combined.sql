@@ -3227,6 +3227,18 @@ ALTER TABLE events
   DROP CONSTRAINT IF EXISTS events_budget_totals_mode_check,
   ADD CONSTRAINT events_budget_totals_mode_check CHECK (budget_totals_mode IN ('combined_only', 'day1_plus_combined'));
 
+-- Add sticky_notes column to events table for cross-device synchronization
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'events' AND column_name = 'sticky_notes'
+  ) THEN
+    ALTER TABLE events
+      ADD COLUMN sticky_notes text;
+  END IF;
+END $$;
+
 /*
   # Create warehouse specification budget items snapshot table
 

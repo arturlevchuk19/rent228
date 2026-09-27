@@ -132,6 +132,17 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     { id: `budget_note_1`, content: '' }
   ]);
   const [showExtraTotal, setShowExtraTotal] = useState(false);
+  const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
+  const [pendingCloseAction, setPendingCloseAction] = useState<(() => void) | null>(null);
+
+  // Store original event data to detect changes
+  const [originalEventData, setOriginalEventData] = useState<{
+    discount_enabled?: boolean;
+    discount_percent?: number;
+    budget_days?: number;
+    budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
+    budget_note?: string;
+  } | null>(null);
 
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -227,6 +238,25 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     localStorage.setItem(`budget_totals_mode_${eventId}`, budgetTotalsMode);
   }, [eventId, budgetTotalsMode]);
 
+  // Save sticky notes to both localStorage and event data (server)
+  useEffect(() => {
+    if (stickyNotes.length > 0) {
+      localStorage.setItem(`budget_sticky_notes_${eventId}`, JSON.stringify(stickyNotes));
+    }
+  }, [stickyNotes, eventId]);
+  
+  const handleStickyNotesChange = async (newNotes: { id: string; content: string }[]) => {
+    setStickyNotes(newNotes);
+    // Also save to server via event update
+    try {
+      await updateEvent(eventId, {
+        sticky_notes: JSON.stringify(newNotes)
+      });
+    } catch (error) {
+      console.error('Error saving sticky notes to server:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -285,8 +315,55 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       } else {
         setBudgetNote('');
       }
+      
+      // Load sticky notes from event data first, then fallback to localStorage
+      if (eventData.sticky_notes !== undefined && eventData.sticky_notes !== null && eventData.sticky_notes.trim() !== '') {
+        try {
+          const parsed = JSON.parse(eventData.sticky_notes);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStickyNotes(parsed);
+          }
+        } catch (e) {
+          // If parsing fails, try localStorage as fallback
+          const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+          if (savedStickyNotes) {
+            try {
+              const parsedLocal = JSON.parse(savedStickyNotes);
+              if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
+                setStickyNotes(parsedLocal);
+              }
+            } catch (e2) {
+              // use default
+            }
+          }
+        }
+      } else {
+        // No sticky notes in event data, try localStorage
+        const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+        if (savedStickyNotes) {
+          try {
+            const parsed = JSON.parse(savedStickyNotes);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setStickyNotes(parsed);
+            }
+          } catch (e) {
+            // use default
+          }
+        }
+      }
+      
       setIsBudgetConfirmed(Boolean(eventData.progress_equipment_reserved));
       setContractOrganizationId((current) => current || eventData.client_id || '');
+
+      // Store original event data for change detection
+      setOriginalEventData({
+        discount_enabled: eventData.discount_enabled,
+        discount_percent: eventData.discount_percent,
+        budget_days: eventData.budget_days,
+        budget_totals_mode: eventData.budget_totals_mode,
+        budget_note: eventData.budget_note,
+        sticky_notes: eventData.sticky_notes
+      });
 
       const initialExpanded: Record<string, boolean> = {};
       const initialActive = new Set<string>();
@@ -845,7 +922,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         await updateBudgetItem(item.id, { exchange_rate: exchangeRate });
       }
 
-      alert('Смета сохранена успешно');
       onClose();
     } catch (error: any) {
       console.error('Error saving budget:', error);
@@ -853,6 +929,44 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } finally {
       setSaving(false);
     }
+  };
+
+  // Check if there are unsaved changes in the form
+  const hasUnsavedChanges = (): boolean => {
+    if (!originalEventData) return false;
+    
+    // Check discount settings
+    if (discountEnabled !== originalEventData.discount_enabled) return true;
+    if (discountPercent !== originalEventData.discount_percent) return true;
+    if (budgetDays !== originalEventData.budget_days) return true;
+    if (budgetTotalsMode !== originalEventData.budget_totals_mode) return true;
+    if (budgetNote !== originalEventData.budget_note) return true;
+    if (JSON.stringify(stickyNotes) !== originalEventData.sticky_notes) return true;
+    
+    return false;
+  };
+
+  // Handle close with unsaved changes check
+  const handleCloseWithCheck = () => {
+    if (hasUnsavedChanges()) {
+      setPendingCloseAction(() => onClose);
+      setShowUnsavedChangesDialog(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const confirmCloseWithoutSaving = () => {
+    setShowUnsavedChangesDialog(false);
+    if (pendingCloseAction) {
+      pendingCloseAction();
+      setPendingCloseAction(null);
+    }
+  };
+
+  const cancelCloseAndStay = () => {
+    setShowUnsavedChangesDialog(false);
+    setPendingCloseAction(null);
   };
 
   const handleExportPDF = async (options?: { createdDate?: string; contractEquipmentTypeRP?: string }) => {
@@ -900,7 +1014,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
         totalCombinedFromEditor: getCombinedTotalForPaymentMode(),
         discountedTotalFromEditor: exportDiscountedTotal ?? undefined,
-        totalWithExtraFromEditor: getTotalWithExtraForPaymentMode()
+        totalWithExtraFromEditor: showExtraTotal ? getTotalWithExtraForPaymentMode() : undefined
       });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1409,6 +1523,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return Math.floor(value);
   };
 
+  const roundDownToNearestFive = (value: number): number => {
+    return Math.floor(value / 5) * 5;
+  };
+
   const calculateCategoryTotalForPaymentMode = (items: BudgetItem[], mode: 'day1' | 'combined') => {
     switch (paymentMode) {
       case 'byn_cash':
@@ -1493,18 +1611,78 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getTotalWithExtraForPaymentMode = () => {
     const extraItems = getExtraServiceItems();
 
-    const mode = budgetTotalsMode === 'combined_only' ? 'combined' : 'day1';
-    const extraTotal = extraItems.length > 0
-      ? calculateCategoryTotalForPaymentMode(extraItems, mode)
+    // Calculate totals for both day1 and combined modes
+    const extraTotalDay1 = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
+      : 0;
+    
+    const extraTotalCombined = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
       : 0;
 
     // Base total excludes extra services (they are never discounted). With a discount
     // applied, the base is the discounted non-extra total; otherwise the plain primary total.
+    const baseTotalDay1 = discountEnabled && getDiscountedTotal() !== null
+      ? getDiscountedTotal()!
+      : getDay1TotalForPaymentMode();
+    
+    const baseTotalCombined = discountEnabled && getDiscountedTotal() !== null
+      ? getDiscountedTotal()!
+      : getCombinedTotalForPaymentMode();
+
+    // Apply round down to nearest 5 for consistency with main totals
+    const grandTotalWithExtrasDay1 = roundDownToNearestFive(baseTotalDay1 + extraTotalDay1);
+    const grandTotalWithExtrasCombined = roundDownToNearestFive(baseTotalCombined + extraTotalCombined);
+
+    // Return based on current mode
+    if (budgetTotalsMode === 'combined_only') {
+      return grandTotalWithExtrasCombined;
+    } else {
+      // In day1_plus_combined mode, return day1 total (UI will show both separately if needed)
+      return grandTotalWithExtrasDay1;
+    }
+  };
+
+  const getTotalWithExtraDay1 = () => {
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
+      : 0;
     const baseTotal = discountEnabled && getDiscountedTotal() !== null
       ? getDiscountedTotal()!
-      : getPrimaryTotalForMode();
+      : getDay1TotalForPaymentMode();
+    return roundDownToNearestFive(baseTotal + extraTotal);
+  };
 
-    return normalizeGrandTotalForPaymentMode(baseTotal + extraTotal);
+  const getTotalWithExtraCombined = () => {
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
+      : 0;
+    const baseTotal = discountEnabled && getDiscountedTotal() !== null
+      ? getDiscountedTotal()!
+      : getCombinedTotalForPaymentMode();
+    return roundDownToNearestFive(baseTotal + extraTotal);
+  };
+
+  const getDiscountedTotalWithExtraDay1 = () => {
+    if (!discountEnabled || getDiscountedTotal() === null) return null;
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
+      : 0;
+    const baseTotal = getDiscountedTotal()!;
+    return roundDownToNearestFive(baseTotal + extraTotal);
+  };
+
+  const getDiscountedTotalWithExtraCombined = () => {
+    if (!discountEnabled || getDiscountedTotal() === null) return null;
+    const extraItems = getExtraServiceItems();
+    const extraTotal = extraItems.length > 0
+      ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
+      : 0;
+    const baseTotal = getDiscountedTotal()!;
+    return roundDownToNearestFive(baseTotal + extraTotal);
   };
 
   const getCurrencyLabel = () => {
@@ -2161,10 +2339,49 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                 />
                 <span className="text-[11px] text-gray-400 font-medium">Итого с дополнительными услугами</span>
               </label>
-              {showExtraTotal && (
-                <span className="text-sm font-bold text-violet-400">
-                  {getTotalWithExtraForPaymentMode().toLocaleString()} {getCurrencyLabel()}
-                </span>
+              {showExtraTotal && budgetTotalsMode === 'combined_only' && (
+                <>
+                  <span className="text-sm font-bold text-violet-400">
+                    {getTotalWithExtraCombined().toLocaleString()} {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraCombined() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
+                      Итого со скидкой {discountPercent}%: {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                </>
+              )}
+              {showExtraTotal && budgetTotalsMode === 'day1_plus_combined' && budgetDays === 1 && (
+                <>
+                  <span className="text-sm font-bold text-violet-400">
+                    {getTotalWithExtraDay1().toLocaleString()} {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraDay1() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
+                      Итого со скидкой {discountPercent}%: {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                </>
+              )}
+              {showExtraTotal && budgetTotalsMode === 'day1_plus_combined' && budgetDays > 1 && (
+                <>
+                  <span className="text-[11px] text-gray-400">
+                    Итого с доп. услугами за 1 день: <span className="text-violet-300">{getTotalWithExtraDay1().toLocaleString()}</span> {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraDay1() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest -mt-1">
+                      Итого со скидкой {discountPercent}% (1 день): {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-gray-400">
+                    Итого с доп. услугами за {budgetDays} дн.: <span className="text-violet-300">{getTotalWithExtraCombined().toLocaleString()}</span> {getCurrencyLabel()}
+                  </span>
+                  {discountEnabled && getDiscountedTotalWithExtraCombined() !== null && (
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest -mt-1">
+                      Итого со скидкой {discountPercent}% ({budgetDays} дн.): {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
@@ -2354,7 +2571,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             </button>
             <div className="w-px h-6 bg-gray-800 mx-1"></div>
             <button
-              onClick={onClose}
+              onClick={handleCloseWithCheck}
               className="px-4 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors"
             >
               Отмена
@@ -2365,7 +2582,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               className="flex items-center gap-1.5 px-5 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
-              {saving ? 'Сохранение...' : 'Завершить'}
+              {saving ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
         </div>
@@ -2510,7 +2727,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       <StickyNotePanel
         notes={stickyNotes}
-        onNotesChange={setStickyNotes}
+        onNotesChange={handleStickyNotesChange}
         onClose={() => setShowStickyNotes(false)}
         isOpen={showStickyNotes}
         storageKey={`budget_sticky_notes_${eventId}`}
@@ -2522,6 +2739,45 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         onClose={() => setShowContractDialog(false)}
         onConfirm={handleContractConfirm}
       />
+      {/* Unsaved Changes Warning Dialog */}
+      {showUnsavedChangesDialog && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4"
+          onClick={(e) => e.target === e.currentTarget && cancelCloseAndStay()}
+        >
+          <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
+              <h3 className="text-base font-bold text-white">Несохранённые изменения</h3>
+              <button
+                onClick={cancelCloseAndStay}
+                className="text-gray-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-gray-300">
+                У вас есть несохранённые изменения в форме (количество дней, форма оплаты, версия сметы и т.п.). 
+                Вы уверены, что хотите закрыть форму без сохранения?
+              </p>
+            </div>
+            <div className="px-5 py-3 border-t border-gray-800 flex justify-end gap-3">
+              <button
+                onClick={cancelCloseAndStay}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={confirmCloseWithoutSaving}
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
+              >
+                Закрыть без сохранения
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>ТЗ: RentMaster v2.3 (Dark, финальная)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+    body {
+      background-color: #000000;
+      color: #f0f0f0;
+      font-family: 'Roboto', Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    h1, h2, h3, h4 {
+      margin-top: 1.8em;
+      margin-bottom: 0.8em;
+    }
+    h1 {
+      font-size: 26px;
+      border-bottom: 2px solid #4fd1c5;
+      padding-bottom: 12px;
+      color: #ffffff;
+    }
+    h2 {
+      font-size: 22px;
+      color: #63b3ed;
+      border-left: 4px solid #3182ce;
+      padding-left: 12px;
+    }
+    h3 {
+      font-size: 20px;
+      color: #90cdf4;
+    }
+    h4 {
+      font-size: 18px;
+      color: #a0aec0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      background-color: #111;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 12px;
+      text-align: left;
+      color: #e2e8f0;
+    }
+    th {
+      background-color: #1a202c;
+      font-weight: 600;
+      color: #90cdf4;
+    }
+    ul, ol {
+      margin: 14px 0 14px 30px;
+      color: #e2e8f0;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    pre, code {
+      background: #0d0d0d;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      border: 1px solid #333;
+    }
+    .mermaid {
+      background: #0a0a0a;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      overflow: auto;
+      font-size: 13px;
+    }
+    .footer {
+      margin-top: 50px;
+      padding-top: 25px;
+      border-top: 1px solid #333;
+      font-style: italic;
+      color: #a0aec0;
+    }
+    .center {
+      text-align: center;
+    }
+    em {
+      color: #cbd5e0;
+    }
+    .highlight { 
+      background-color: #1e293b; 
+      padding: 2px 6px; 
+      border-radius: 4px; 
+    }
+  </style>
+</head>
+<body>
+
+<h1 class="center">Техническое задание: Система управления прокатом оборудования «RentMaster»</h1>
+<p class="center"><em>Версия 2.3 — финальная, объединённая: v2.0 + все доработки</em></p>
+
+<h2>1. Введение</h2>
+
+<h3>1.1. Назначение системы</h3>
+<p>Веб-система для управления прокатом концертного и сценического оборудования с полным циклом: от учета инвентаря до формирования смет, управления мероприятиями и фиксации фактически выполненных работ.</p>
+
+<h3>1.2. Цели проекта</h3>
+<ul>
+  <li>Автоматизация процессов проката оборудования</li>
+  <li>Учет инвентаря и управление складом</li>
+  <li>Формирование и управление сметами с разными типами расчетов</li>
+  <li>Планирование мероприятий и логистики</li>
+  <li>Контроль доступа на основе ролевой модели</li>
+  <li>Учет работ и автоматический расчет доставки</li>
+  <li><strong>Фиксация фактических работ и расчёт выплат персоналу</strong></li>
+</ul>
+
+<h3>1.3. Ключевые особенности</h3>
+<ul>
+  <li>Система версий смет</li>
+  <li>Три типа расчетов (доллары, наличные BYN, безналичные BYN)</li>
+  <li>Автоматический расчет доставки по расстоянию</li>
+  <li>Гибкая система работ и услуг</li>
+  <li>Интеграция с внешними API (курсы валют, карты)</li>
+  <li><strong>Расчёт выплат от суммы в смете (не от часов)</strong></li>
+  <li><strong>RFID-учёт единиц оборудования на складе</strong></li>
+</ul>
+
+<h2>2. Архитектура системы</h2>
+
+<h3>2.1. Технологический стек</h3>
+<ul>
+  <li><strong>Frontend</strong>: React + Tailwind CSS (хостинг Vercel/Netlify)</li>
+  <li><strong>Backend/Интеграции</strong>: n8n (REST API, вебхуки)</li>
+  <li><strong>База данных</strong>: Airtable</li>
+  <li><strong>Интеграции</strong>:
+    <ul>
+      <li>Telegram (уведомления)</li>
+      <li>Google Sheets (экспорт)</li>
+      <li>MyFin.by (курсы валют)</li>
+      <li>API карт (Google Maps/Яндекс.Карты)</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2.2. Общая схема работы</h3>
+<pre>
+Frontend (React) → n8n (API) → Airtable (DB)
+                        ↓
+                Внешние сервисы (MyFin, Карты, Telegram)
+</pre>
+
+<h2>3. Роли пользователей</h2>
+
+<h3>3.1. Иерархия ролей и прав (обновлена)</h3>
+<table>
+  <thead>
+    <tr><th>Роль</th><th>Права доступа</th><th>Основные модули</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Суперпользователь</td><td>Полный доступ ко всем модулям и <strong>всем полям</strong></td><td>Все разделы</td></tr>
+    <tr><td><strong>Администратор</strong><br><em>(объединённая роль)</em></td><td>Пользователи, Настройки, Финансы, Отчёты, Сметы, Мероприятия, <strong>Факт</strong></td><td>Пользователи, Настройки, Сметы, Мероприятия, Отчёты, Факт</td></tr>
+    <tr><td>Кладовщик</td><td>Склад, оборудование (ограниченные поля), логистика, отгрузки, приемка</td><td>Склад, Оборудование, Логистика, История операций</td></tr>
+    <tr><td>Персонал</td><td>Собственные задачи, календарь (просмотр), подтверждение выплат</td><td>Задачи, Календарь, Факт (только просмотр)</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2. Доступ к полям оборудования</h3>
+<table>
+  <thead><tr><th>Роль</th><th>Доступные поля оборудования</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Суперпользователь</strong></td><td>Все: Категория, Тип, Подтип, Артикул, Цена аренды ($), Потребление, Вес, Себестоимость и др.</td></tr>
+    <tr><td><strong>Администратор</strong></td><td><span class="highlight">Категория, Тип, Подтип, Артикул, Цена аренды ($)</span></td></tr>
+    <tr><td><strong>Кладовщик</strong></td><td><span class="highlight">Категория, Тип, Подтип, Артикул</span></td></tr>
+  </tbody>
+</table>
+
+<h3>3.3. Процесс регистрации</h3>
+<ol>
+  <li>Регистрация через форму (Имя, Email, Пароль)</li>
+  <li>Автоматическое создание записи в таблице Users со статусом "Ожидает подтверждения"</li>
+  <li>Администратор назначает роль</li>
+  <li>Пользователь получает доступ согласно роли</li>
+</ol>
+
+<h2>4. Функциональные модули</h2>
+
+<h3>4.1. Управление оборудованием и складом</h3>
+<ul>
+  <li>Каталог оборудования с расширенной фильтрацией</li>
+  <li>Учет <strong>единиц оборудования</strong> с RFID-привязкой</li>
+  <li>Статусы: В наличии, Забронировано, В аренде, На ТО, Списано</li>
+  <li><strong>Единая таблица <code>Equipment</code></strong> — без дублирования <code>Estimate Equipment</code></li>
+  <li>Процессы: Приёмка, Выдача, ТО, Списание</li>
+</ul>
+
+<h4>4.1.1. ER-диаграмма склада</h4>
+<pre class="mermaid">
+erDiagram
+    EQUIPMENT ||--o{ INVENTORY_UNITS : "имеет_единицы"
+    INVENTORY_UNITS ||--o{ ITEM_HISTORY : "имеет_историю"
+    INVENTORY_UNITS ||--o{ RESERVATIONS : "забронировано"
+
+    EQUIPMENT {
+        string ID PK
+        string Категория
+        string Тип
+        string Подтип
+        string Артикул
+        number Цена_аренды_USD
+        boolean Доступно_для_аренды
+    }
+    INVENTORY_UNITS {
+        string ID PK
+        string RFID
+        string Серийный_номер
+        string Текущий_статус
+        datetime Последнее_ТО
+    }
+</pre>
+
+<h3>4.2. Система смет (ключевой модуль)</h3>
+
+<h4>4.2.1. Типы расчетов</h4>
+<ul>
+  <li><strong>Доллары ($)</strong> — расчет в долларах без конвертации</li>
+  <li><strong>Наличные (BYN)</strong> — конвертация по курсу MyFin.by</li>
+  <li><strong>Безналичные (BYN)</strong> — конвертация по курсу + 20% (для сметы), <strong>−20% НДС при выплате</strong></li>
+</ul>
+
+<h4>4.2.2. Система версий</h4>
+<ul>
+  <li>Автоматическое управление версиями</li>
+  <li>История изменений с метками времени</li>
+  <li>Активна всегда последняя версия</li>
+</ul>
+
+<h4>4.2.3. Типы позиций сметы</h4>
+<ul>
+  <li><strong>Оборудование</strong> — из <code>Equipment</code> (фильтр: с ценой, в наличии)</li>
+  <li><strong>Работы</strong> — выбор из списка, цена вводится администратором</li>
+  <li><strong>Доставка</strong> — автоматический расчет по расстоянию + выбор транспорта</li>
+</ul>
+
+<h3>4.3. Работы и услуги</h3>
+<p><strong>Предопределенные виды работ:</strong></p>
+<ol>
+  <li>Монтаж</li>
+  <li>Демонтаж</li>
+  <li>Светорежиссер</li>
+  <li>Звукорежиссер</li>
+  <li>Звукооператор</li>
+  <li>Оператор экрана</li>
+  <li>Оператор пушки</li>
+</ol>
+
+<h3>4.4. Система доставки</h3>
+<p><strong>Варианты:</strong> Собственный транспорт, Аренда, Аренда с водителем, Комбинированная</p>
+<ul>
+  <li>Расчёт: (Расстояние × Ставка) × 2 (туда-обратно)</li>
+  <li>Расстояние — авто через API карт</li>
+</ul>
+
+<h3>4.5. Модуль «Факт / Выплаты» (новый)</h3>
+
+<h4>4.5.1. Типы трудоустройства</h4>
+<table>
+  <thead><tr><th>Тип</th><th>Оклад</th><th>% от сметной суммы</th></tr></thead>
+  <tbody>
+    <tr><td>Оклад</td><td><code>Оклад_BYN_мес</code></td><td>50%</td></tr>
+    <tr><td>Подряд</td><td>—</td><td>100%</td></tr>
+    <tr><td>Хелпер</td><td>—</td><td>70%</td></tr>
+  </tbody>
+</table>
+
+<h4>4.5.2. Таблица Staff (финальная)</h4>
+<pre class="mermaid">
+erDiagram
+    STAFF {
+        string ID PK
+        string Тип_трудоустройства "Оклад, Подряд, Хелпер"
+        number Оклад_BYN_мес
+        string Основная_роль
+        number Ставка_BYN_км "Для водителей"
+    }
+</pre>
+
+<h4>4.5.3. Формула расчёта выплаты</h4>
+<pre>
+Выплата (BYN) = Сумма_в_смете × Доля × %_оплаты 
+  → коррекция:
+    если "$"               → × Курс_сметы
+    если "Безналичные BYN" → × 0.8  // −20% НДС
+    если "Наличные BYN"    → без изменений
+</pre>
+
+<h4>4.5.4. Редактирование</h4>
+<p>— До «Оплачен»: свободно<br>
+— После: только Суперпользователь + запись в <code>Work Distribution History</code></p>
+
+<h2>5. Структура базы данных</h2>
+
+<h3>5.1. Основные таблицы Airtable</h3>
+<ul>
+  <li><strong>Users</strong> — пользователи</li>
+  <li><strong>Equipment</strong> — каталог оборудования (единая таблица)</li>
+  <li><strong>Inventory Units</strong> — единицы оборудования (RFID)</li>
+  <li><strong>Estimates</strong> — сметы</li>
+  <li><strong>Estimate Items</strong> — позиции смет</li>
+  <li><strong>Work Reports</strong> — факт-отчёты</li>
+  <li><strong>Work Distribution</strong> — распределение сумм</li>
+  <li><strong>Events, Clients, Venues, Cars, Staff</strong> — и др.</li>
+</ul>
+
+<h3>5.2. Ключевые поля таблиц (восстановлено из v2.0)</h3>
+
+<h4>5.2.1. Таблица Estimates (Сметы)</h4>
+<table>
+  <thead><tr><th>Поле</th><th>Тип</th><th>Описание</th></tr></thead>
+  <tbody>
+    <tr><td>ID</td><td>Auto-number</td><td>Уникальный идентификатор</td></tr>
+    <tr><td>Номер сметы</td><td>Formula</td><td>СМ-{год}-{последовательность}</td></tr>
+    <tr><td>Версия</td><td>Number</td><td>1, 2, 3...</td></tr>
+    <tr><td>Активная версия</td><td>Checkbox</td><td>Только одна активная</td></tr>
+    <tr><td>Мероприятие</td><td>Link to Events</td><td></td></tr>
+    <tr><td>Тип расчёта</td><td>Single Select</td><td>Доллары, Наличные, Безналичные</td></tr>
+    <tr><td>Курс доллара</td><td>Number</td><td>Фиксируется при создании</td></tr>
+    <tr><td>Статус</td><td>Single Select</td><td>Черновик, Отправлена, Одобрена</td></tr>
+    <tr><td>Общая сумма</td><td>Formula</td><td>∑ позиций</td></tr>
+    <tr><td>Дата создания</td><td>Date</td><td></td></tr>
+    <tr><td>Создал</td><td>Link to Users</td><td></td></tr>
+  </tbody>
+</table>
+
+<h4>5.2.2. Таблица Estimate Items (Позиции сметы)</h4>
+<table>
+  <thead><tr><th>Поле</th><th>Тип</th><th>Описание</th></tr></thead>
+  <tbody>
+    <tr><td>ID</td><td>Auto-number</td><td></td></tr>
+    <tr><td>Смета</td><td>Link to Estimates</td><td></td></tr>
+    <tr><td>Тип позиции</td><td>Single Select</td><td>Оборудование, Работа, Доставка</td></tr>
+    <tr><td>Оборудование</td><td>Link to Equipment</td><td>Только для "Оборудование"</td></tr>
+    <tr><td>Работа</td><td>Single Select</td><td>Монтаж, Демонтаж...</td></tr>
+    <tr><td>Транспорт</td><td>Link to Cars</td><td>Для доставки</td></tr>
+    <tr><td>Количество</td><td>Number</td><td></td></tr>
+    <tr><td>Цена ($)</td><td>Number</td><td>Базовая цена</td></tr>
+    <tr><td>Сумма ($)</td><td>Formula</td><td>Расчёт по типу</td></tr>
+  </tbody>
+</table>
+
+<h4>5.2.3. Таблица Cars (Транспорт)</h4>
+<table>
+  <thead><tr><th>Поле</th><th>Тип</th><th>Описание</th></tr></thead>
+  <tbody>
+    <tr><td>ID</td><td>Auto-number</td><td></td></tr>
+    <tr><td>Марка</td><td>Text</td><td></td></tr>
+    <tr><td>Гос. номер</td><td>Text</td><td></td></tr>
+    <tr><td>Ставка за км ($)</td><td>Currency</td><td></td></tr>
+    <tr><td>Статус</td><td>Single Select</td><td>Активен, На ТО, Списан</td></tr>
+  </tbody>
+</table>
+
+<h2>6. Процессы и workflow</h2>
+
+<h3>6.1. Процесс создания сметы</h3>
+<ol>
+  <li>Администратор создаёт смету</li>
+  <li>Выбирает тип расчёта → система получает курс с MyFin.by</li>
+  <li>Добавляет позиции: оборудование (из Equipment), работы, доставку</li>
+  <li>Сохраняет → создаётся Estimate v1</li>
+</ol>
+
+<h3>6.2. Алгоритмы расчёта</h3>
+<p><strong>Доллары:</strong> Сумма = Цена ($) × Кол-во × Дни</p>
+<p><strong>Наличные BYN:</strong> Сумма = (Цена × Курс) × Кол-во × Дни</p>
+<p><strong>Безналичные BYN:</strong> Сумма = (Цена × Курс) × Кол-во × Дни × 1.20</p>
+<p><strong>Доставка:</strong> (Расстояние × Ставка) × 2</p>
+
+<h3>6.3. Интеграции</h3>
+<ul>
+  <li><strong>MyFin.by</strong> — курс при создании сметы</li>
+  <li><strong>Google/Яндекс.Карты</strong> — расстояние для доставки</li>
+</ul>
+
+<h2>7. Техническая реализация</h2>
+
+<h3>7.1. API эндпоинты (n8n) — восстановлено из v2.0</h3>
+
+<h4>Сметы и расчеты</h4>
+<pre>
+POST /api/estimates/create
+POST /api/estimates/{id}/add-item
+POST /api/estimates/{id}/create-version
+GET /api/estimates/{id}/versions
+GET /api/equipment/for-estimates?category=...
+GET /api/works
+GET /api/cars/available
+</pre>
+
+<h4>Интеграции</h4>
+<pre>
+GET /api/currency/rate?currency=USD
+POST /api/calculate-distance
+POST /api/notifications/send
+</pre>
+
+<h4>Склад</h4>
+<pre>
+POST /api/inventory/scan
+GET /api/equipment/availability
+</pre>
+
+<h3>7.2. n8n workflows</h3>
+<ul>
+  <li>Создание резерва → проверка доступности → бронирование</li>
+  <li>RFID-скан → обновление статуса → запись в историю</li>
+  <li>Смета одобрена → создание бронирований</li>
+  <li>Расчёт доставки → API карт → обновление сметы</li>
+</ul>
+
+<h3>7.3. Безопасность</h3>
+<ul>
+  <li>Аутентификация: JWT / Bearer token</li>
+  <li>Ролевой контроль на уровне API и UI</li>
+  <li>HTTPS, валидация входных данных</li>
+</ul>
+
+<h2>8. Этапы реализации (восстановлено из v2.0)</h2>
+
+<p><strong>Этап 1: База данных и ядро (1 неделя)</strong></p>
+<ul>
+  <li>Настройка таблиц в Airtable</li>
+  <li>n8n workflows для аутентификации</li>
+  <li>React: Login/Register</li>
+</ul>
+
+<p><strong>Этап 2: Роли и UI (2 недели)</strong></p>
+<ul>
+  <li>Middleware проверки ролей</li>
+  <li>Адаптивная навигация</li>
+  <li>Раздел «Пользователи»</li>
+</ul>
+
+<p><strong>Этап 3: Склад (2 недели)</strong></p>
+<ul>
+  <li>Каталог Equipment + фильтр для смет</li>
+  <li>Учёт Inventory Units с RFID</li>
+  <li>История операций</li>
+</ul>
+
+<p><strong>Этап 4: Сметы (3 недели)</strong></p>
+<ul>
+  <li>Конструктор с трёмя типами расчётов</li>
+  <li>Система версий</li>
+  <li>Интеграция с курсами и картами</li>
+</ul>
+
+<p><strong>Этап 5: Мероприятия и логистика (2 недели)</strong></p>
+<ul>
+  <li>Карточки мероприятий</li>
+  <li>Бронирование оборудования</li>
+  <li>Модуль логистики</li>
+</ul>
+
+<p><strong>Этап 6: Факт и тестирование (2 недели)</strong></p>
+<ul>
+  <li>Модуль «Факт» с распределением выплат</li>
+  <li>Отчёты и аналитика</li>
+  <li>Уведомления в Telegram</li>
+  <li>Финальное тестирование</li>
+</ul>
+
+<p><strong>Общий срок: 12 недель</strong></p>
+
+<h2>9. Требования к интерфейсу</h2>
+
+<h3>9.1. Общие принципы</h3>
+<ul>
+  <li>Современный дизайн в стиле Rentman</li>
+  <li>Адаптивность (desktop, tablet, mobile)</li>
+  <li>Быстрый отклик (<200 мс)</li>
+</ul>
+
+<h3>9.2. Ключевые интерфейсы (восстановлено из v2.0)</h3>
+
+<h4>Конструктор сметы</h4>
+<pre>
+[Шапка сметы]
+← Назад | № СМ-2025-001 v.1 | Статус: Черновик
+Тип расчёта: ● Доллары ○ Наличные ○ Безналичные | Курс: 3.25 BYN
+
+ЛЕВАЯ КОЛОНКА             ПРАВАЯ КОЛОНКА
+[Тип: ● Оборудование]     | Наименование | Кол-во | Цена $ | Сумма $ |
+[Поиск: Beam 7R]          |-------------|--------|---------|----------|
+▢ Beam 7R — 100$ [+]      | Beam 7R     | 2      | 100     | 200      |
+                          | Монтаж      | 8      | 25      | 200      |
+                          | Доставка    | 15 км  | 0.5     | 15       |
+                          | ИТОГО: 415$ | [Сохранить] [Новая версия] |
+</pre>
+
+<h4>Управление версиями</h4>
+<pre>
+История версий СМ-2025-001:
+✓ v.1 (активная) — 10.04.2025 — Доллары — 415$
+[Восстановить] [Сравнить]
+</pre>
+
+<h2>Приложения</h2>
+
+<h3>Приложение A: Список работ</h3>
+<ol><li>Монтаж</li><li>Демонтаж</li><li>Светорежиссер</li><li>Звукорежиссер</li><li>Звукооператор</li><li>Оператор экрана</li><li>Оператор пушки</li></ol>
+
+<h3>Приложение B: Формулы расчёта</h3>
+<p>(см. раздел 6.2)</p>
+
+<h3>Приложение C: API спецификация</h3>
+<p>(см. раздел 7.1)</p>
+
+<h3>Приложение D: Полная ER-диаграмма</h3>
+<pre class="mermaid">
+erDiagram
+    USERS ||--o{ STAFF : "является"
+    EVENTS ||--|| ESTIMATES : "имеет"
+    ESTIMATES ||--o{ ESTIMATE_ITEMS : "содержит"
+    ESTIMATE_ITEMS ||--o{ WORK_DISTRIBUTION : "распределяется"
+    STAFF ||--o{ WORK_DISTRIBUTION : "получает"
+    EQUIPMENT ||--o{ INVENTORY_UNITS : "единицы"
+    INVENTORY_UNITS ||--o{ ITEM_HISTORY : "история"
+
+    USERS { string ID; string Роль; }
+    STAFF { string Тип_трудоустройства; number Оклад_BYN_мес; number Ставка_BYN_км; }
+    WORK_DISTRIBUTION { number Доля_проценты; number Выплата_BYN; }
+</pre>
+
+
+<h1 class="center">Гид по разработке RentMaster в Bolt.new</h1>
+<p class="center"><em>Версия 1.0 — для команды разработки</em></p>
+
+<h2>1. Инициализация проекта</h2>
+
+<h3>1.1. Создание проекта</h3>
+<pre class="cmd">
+/bolt new rentmaster --template=next-app
+cd rentmaster
+npm install next-themes react-qr-reader @heroicons/react
+</pre>
+
+<h3>1.2. Настройка тёмной темы</h3>
+<p><strong>Файл:</strong> <code>tailwind.config.js</code></p>
+<pre>
+module.exports = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        primary: { 500: "#0ea5e9", 600: "#0284c7" },
+        dark: { 900: "#000000", 800: "#111827" }
+      }
+    }
+  }
+}
+</pre>
+
+<p><strong>Файл:</strong> <code>src/components/ThemeProvider.tsx</code></p>
+<pre>
+"use client";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+
+export function ThemeProvider({ children }) {
+  return (
+    <NextThemesProvider 
+      attribute="class" 
+      defaultTheme="dark"
+      enableSystem={false}
+    >
+      {children}
+    </NextThemesProvider>
+  );
+}
+</pre>
+
+<h2>2. Генерация структуры</h2>
+
+<h3>2.1. Страницы</h3>
+<pre class="cmd">
+/bolt new page dashboard
+/bolt new page estimates
+/bolt new page estimates/[id]
+/bolt new page equipment
+/bolt new page events
+/bolt new page events/[id]
+/bolt new page staff
+/bolt new page reports
+</pre>
+
+<h3>2.2. Компоненты</h3>
+<pre class="cmd">
+/bolt new component EstimateBuilder
+/bolt new component EstimateHeader
+/bolt new component DistributionTable
+/bolt new component EquipmentFilters
+/bolt new component RfidScanner
+/bolt new component RoleAwareSidebar
+</pre>
+
+<h3>2.3. Типы данных</h3>
+<pre class="cmd">
+/bolt new type User
+/bolt new type Equipment
+/bolt new type Estimate
+/bolt new type EstimateItem
+/bolt new type WorkReport
+/bolt new type StaffMember
+</pre>
+
+<h2>3. Аутентификация и роли</h2>
+
+<h3>3.1. Генерация auth</h3>
+<pre class="cmd">
+/bolt new auth
+</pre>
+
+<h3>3.2. Роли (файл <code>src/lib/auth.ts</code>)</h3>
+<pre>
+export type UserRole = "superuser" | "admin" | "clerk" | "staff";
+
+export const hasAccess = (user, requiredRole) => {
+  if (!user) return false;
+  const order = ["staff", "clerk", "admin", "superuser"];
+  return order.indexOf(user.role) >= order.indexOf(requiredRole);
+};
+</pre>
+
+<h2>4. Ключевые требования к UI</h2>
+
+<table>
+  <thead>
+    <tr><th>Модуль</th><th>Особенности реализации</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Конструктор сметы</strong></td>
+      <td>Двухколоночный layout, фильтры по категориям, авто-расчёт итогов, поддержка 3 типов расчётов ($ / наличные / безналичные)</td>
+    </tr>
+    <tr>
+      <td><strong>Склад</strong></td>
+      <td>Вкладки: Каталог / Единицы / История, RFID-сканер (react-qr-reader), статусы: В наличии / В аренде / На ТО</td>
+    </tr>
+    <tr>
+      <td><strong>Факт-отчёт</strong></td>
+      <td>Распределение суммы сметы между персоналом, коррекция: ×0.8 для безнала, ×курс для $, поддержка долей >100%</td>
+    </tr>
+    <tr>
+      <td><strong>Мобильная версия</strong></td>
+      <td>Крупные кнопки, оффлайн-кэширование (SWR), оптимизация под сканирование в поле</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. Интеграция с API</h2>
+
+<h3>5.1. Базовый клиент (<code>src/lib/api/client.ts</code>)</h3>
+<pre>
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+
+export const apiClient = {
+  async get(path, token) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.json();
+  },
+  async post(path, data, token) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  }
+};
+</pre>
+
+<h3>5.2. Переменные окружения (<code>.env.local</code>)</h3>
+<pre>
+NEXT_PUBLIC_API_BASE=https://your-n8n-instance/api
+JWT_SECRET=ваш_секрет_длиной_32_символа
+</pre>
+
+<h2>6. Деплой</h2>
+<ul>
+  <li>Хостинг: <strong>Vercel</strong> (нативная интеграция с Bolt)</li>
+  <li>Domain: <code>rentmaster.yourcompany.by</code></li>
+  <li>CI/CD: Авто-деплой при пуше в <code>main</code></li>
+</ul>
+
+
+
+
+<div class="footer">
+  <p><strong>ТЗ v2.3</strong> — финальная версия. Объединяет детализацию v2.0 и все доработки: факт-учёт, склад с RFID, коррекция НДС/курса, Mermaid-схемы. Готово к передаче в разработку.</p>
+</div>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
