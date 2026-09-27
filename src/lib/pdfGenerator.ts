@@ -714,8 +714,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
 
   const makeDiscountRowHtml = (label: string, amount: number) => `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">${label}${budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`}:</span>
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: none;">
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1; white-space: nowrap;">${label}${budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
 
@@ -826,19 +826,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: 450px;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ${discountRowsHtml}
     `
     : `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: 450px;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: 450px;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Итого за ${budgetDays} дн.:</span>
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ` : ''}
