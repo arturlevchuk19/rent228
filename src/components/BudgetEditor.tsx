@@ -976,15 +976,23 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       const parsedDiscountedTotalInput = parseFloat(discountedTotalInput.replace(',', '.'));
       const hasManualDiscountedTotal = discountEnabled && discountedTotalInput.trim() !== '' && !isNaN(parsedDiscountedTotalInput);
-      const exportDiscountPercent = hasManualDiscountedTotal
-        ? calculateDiscountPercentFromTotal(parsedDiscountedTotalInput)
-        : discountPercent;
-      const exportDiscountedTotal = hasManualDiscountedTotal
+      // Итоговая сумма со скидками для экспорта: ручное значение или расчёт.
+      const exportFinalDiscountedTotal = hasManualDiscountedTotal
         ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
         : getDiscountedTotal();
       // Согласованность для PDF: без активной «Скидка*» скидка** не применяется.
       const exportDiscount2Enabled = discountEnabled && discount2Enabled;
       const exportDiscount2Percent = exportDiscount2Enabled ? Math.round(discount2Percent) : 0;
+      // Промежуточный итог «со скидкой*» (без скидки**) — для корректной первой строки в PDF.
+      const exportLevel1DiscountedTotal = getDiscountedTotalLevel1();
+      // Если итог введён вручную — пересчитываем процент скидки* из него (скидку** фиксируем),
+      // иначе берём текущий процент из полей редактора.
+      const exportDiscountPercent = hasManualDiscountedTotal
+        ? calculateDiscountPercentFromTotal(
+            exportFinalDiscountedTotal ?? parsedDiscountedTotalInput,
+            exportDiscount2Enabled ? exportDiscount2Percent : 0
+          )
+        : discountPercent;
 
       const exportBudgetNote = options?.contractEquipmentTypeRP
         ? `${budgetNote ? `${budgetNote}\n` : ''}Вид оборудования (в Р.П): ${options.contractEquipmentTypeRP}`
@@ -1013,7 +1021,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         budgetTotalsMode,
         totalDay1FromEditor: getDay1TotalForPaymentMode(),
         totalCombinedFromEditor: getCombinedTotalForPaymentMode(),
-        discountedTotalFromEditor: exportDiscountedTotal ?? undefined,
+        discountedTotalFromEditor: exportFinalDiscountedTotal ?? undefined,
+        discountedTotalLevel1FromEditor: exportLevel1DiscountedTotal ?? undefined,
         totalWithExtraFromEditor: showExtraTotal ? getTotalWithExtraForPaymentMode() : undefined
       });
     } catch (error: any) {
@@ -1443,6 +1452,42 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
     return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
   }, 0);
+  const discountEligibleTotalBYNCashDay1 = discountEligibleNonWorkItems.reduce(
+    (sum, item) => sum + calculateBYNCash(item.price) * item.quantity, 0);
+  const discountEligibleTotalBYNNonCashDay1 = discountEligibleNonWorkItems.reduce(
+    (sum, item) => sum + calculateBYNNonCash(item.price, item) * item.quantity, 0);
+
+  // Суммы по текущему режиму итогов (combined_only / day1_plus_combined),
+  // чтобы первая скидка в PDF не считалась всегда по combined-сметам.
+  const isCombinedOnlyTotals = budgetTotalsMode === 'combined_only';
+  const nonWorkTotalForModeCash = isCombinedOnlyTotals ? nonWorkTotalBYNCashCombined : nonWorkTotalBYNCashForMode;
+  const nonWorkTotalForModeNonCash = isCombinedOnlyTotals ? nonWorkTotalBYNNonCashCombined : nonWorkTotalBYNNonCashForMode;
+  const workTotalForModeCash = isCombinedOnlyTotals ? workTotalBYNCashCombined : workTotalBYNCashForMode;
+  const workTotalForModeNonCash = isCombinedOnlyTotals ? workTotalBYNNonCashCombined : workTotalBYNNonCashForMode;
+  const discountEligibleTotalForModeCash = isCombinedOnlyTotals ? discountEligibleTotalBYNCashCombined : discountEligibleTotalBYNCashDay1;
+  const discountEligibleTotalForModeNonCash = isCombinedOnlyTotals ? discountEligibleTotalBYNNonCashCombined : discountEligibleTotalBYNNonCashDay1;
+  const discountEligibleTotalsForModeUSD = isCombinedOnlyTotals
+    ? discountEligibleTotalsUSD.combinedTotal
+    : discountEligibleTotalsUSD.day1Total;
+  const nonWorkTotalsForModeUSD = isCombinedOnlyTotals
+    ? nonWorkTotalsUSD.combinedTotal
+    : nonWorkTotalsUSD.day1Total;
+  const workTotalsForModeUSD = isCombinedOnlyTotals
+    ? workTotalsUSD.combinedTotal
+    : workTotalsUSD.day1Total;
+
+  // Промежуточный итог «со скидкой*» (без скидки**) — для первой строки в PDF.
+  const getDiscountedTotalLevel1 = () => {
+    if (!discountEnabled || discountPercent <= 0) return null;
+    const multiplier = 1 - discountPercent / 100;
+    let raw: number;
+    switch (paymentMode) {
+      case 'byn_cash': raw = discountEligibleTotalForModeCash * multiplier + (nonWorkTotalForModeCash - discountEligibleTotalForModeCash) + workTotalForModeCash; break;
+      case 'byn_noncash': raw = discountEligibleTotalForModeNonCash * multiplier + (nonWorkTotalForModeNonCash - discountEligibleTotalForModeNonCash) + workTotalForModeNonCash; break;
+      default: raw = discountEligibleTotalsForModeUSD * multiplier + (nonWorkTotalsForModeUSD - discountEligibleTotalsForModeUSD) + workTotalsForModeUSD; break;
+    }
+    return normalizeGrandTotalForPaymentMode(raw);
+  };
 
   const getDiscountedTotal = () => {
     if (!discountEnabled || discountPercent <= 0) return null;
@@ -1452,9 +1497,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     const multiplier = (1 - discountPercent / 100) * (hasSecondDiscount ? 1 - discount2Percent / 100 : 1);
     let raw: number;
     switch (paymentMode) {
-      case 'byn_cash': raw = discountEligibleTotalBYNCashCombined * multiplier + (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined; break;
-      case 'byn_noncash': raw = discountEligibleTotalBYNNonCashCombined * multiplier + (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined; break;
-      default: raw = discountEligibleTotalsUSD.combinedTotal * multiplier + (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal; break;
+      case 'byn_cash': raw = discountEligibleTotalForModeCash * multiplier + (nonWorkTotalForModeCash - discountEligibleTotalForModeCash) + workTotalForModeCash; break;
+      case 'byn_noncash': raw = discountEligibleTotalForModeNonCash * multiplier + (nonWorkTotalForModeNonCash - discountEligibleTotalForModeNonCash) + workTotalForModeNonCash; break;
+      default: raw = discountEligibleTotalsForModeUSD * multiplier + (nonWorkTotalsForModeUSD - discountEligibleTotalsForModeUSD) + workTotalsForModeUSD; break;
     }
     return normalizeGrandTotalForPaymentMode(raw);
   };
@@ -1463,30 +1508,30 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     switch (paymentMode) {
       case 'byn_cash':
         return {
-          discountable: discountEligibleTotalBYNCashCombined,
-          fixed: (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined
+          discountable: discountEligibleTotalForModeCash,
+          fixed: (nonWorkTotalForModeCash - discountEligibleTotalForModeCash) + workTotalForModeCash
         };
       case 'byn_noncash':
         return {
-          discountable: discountEligibleTotalBYNNonCashCombined,
-          fixed: (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined
+          discountable: discountEligibleTotalForModeNonCash,
+          fixed: (nonWorkTotalForModeNonCash - discountEligibleTotalForModeNonCash) + workTotalForModeNonCash
         };
       default:
         return {
-          discountable: discountEligibleTotalsUSD.combinedTotal,
-          fixed: (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal
+          discountable: discountEligibleTotalsForModeUSD,
+          fixed: (nonWorkTotalsForModeUSD - discountEligibleTotalsForModeUSD) + workTotalsForModeUSD
         };
     }
   };
 
 
-  const calculateDiscountPercentFromTotal = (targetTotal: number) => {
+  const calculateDiscountPercentFromTotal = (targetTotal: number, secondDiscountPercent = discount2Enabled ? discount2Percent : 0) => {
     const { discountable, fixed } = getDiscountTotalsBaseForPaymentMode();
     if (discountable <= 0) {
       return 0;
     }
-    const hasSecondDiscount = discount2Enabled && discount2Percent > 0;
-    const effectiveDiscountable = hasSecondDiscount ? discountable * (1 - discount2Percent / 100) : discountable;
+    const hasSecondDiscount = secondDiscountPercent > 0;
+    const effectiveDiscountable = hasSecondDiscount ? discountable * (1 - secondDiscountPercent / 100) : discountable;
     if (effectiveDiscountable <= 0) {
       return 0;
     }
@@ -1511,9 +1556,34 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return;
     }
 
-    const clampedPercent = calculateDiscountPercentFromTotal(parsedValue);
-    setDiscountPercent(clampedPercent);
-    setDiscountPercentInput(String(clampedPercent));
+    // Согласованность: без активной «Скидка*» второй уровень не применяется.
+    const effectiveD2Enabled = discountEnabled && discount2Enabled;
+    const effectiveD2Percent = Math.round(effectiveD2Enabled ? discount2Percent : 0);
+
+    if (!discountEnabled) {
+      // Включаем «Скидку*» и подбираем процент так, чтобы итог совпал с введённой суммой.
+      setDiscountEnabled(true);
+    }
+
+    let percent1 = calculateDiscountPercentFromTotal(parsedValue, effectiveD2Percent);
+
+    if (effectiveD2Enabled && effectiveD2Percent > 0) {
+      // Первая скидка отображается в процентах — округляем её до целого и
+      // корректируем вторую скидку так, чтобы итоговая сумма осталась равной введённой.
+      const roundedPercent1 = Math.max(1, Math.min(99, Math.round(percent1)));
+      const { discountable, fixed } = getDiscountTotalsBaseForPaymentMode();
+      const afterFirst = discountable * (1 - roundedPercent1 / 100);
+      if (afterFirst > 0) {
+        const d2 = (1 - (parsedValue - fixed) / afterFirst) * 100;
+        const clampedD2 = Math.min(100, Math.max(0, d2));
+        setDiscount2Percent(clampedD2);
+        setDiscount2PercentInput(String(clampedD2));
+      }
+      percent1 = roundedPercent1;
+    }
+
+    setDiscountPercent(percent1);
+    setDiscountPercentInput(String(percent1));
   };
 
   const normalizeGrandTotalForPaymentMode = (value: number) => {

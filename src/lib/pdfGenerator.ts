@@ -58,6 +58,9 @@ interface PDFData {
   totalDay1FromEditor?: number;
   totalCombinedFromEditor?: number;
   discountedTotalFromEditor?: number;
+  // Промежуточный итог «со скидкой*» (без скидки**), чтобы в PDF первая строка скидки
+  // не восстанавливалась делением на множитель второй скидки.
+  discountedTotalLevel1FromEditor?: number;
   totalWithExtraFromEditor?: number;
 }
 
@@ -623,8 +626,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // Процент второго уровня берётся из своего поля (discount2Percent), а не из первой скидки.
   const discount2PercentDisplay = Math.round(discount2PercentRaw);
   const discount2Multiplier = discount2PercentRaw > 0 ? 1 - discount2PercentRaw / 100 : 1;
-  const discountLabelHtml = `Со скидкой ${discountPercentDisplay}%* на оборудование`;
-  const discount2LabelHtml = `Со скидкой ${discount2PercentDisplay}%** на оборудование`;
+  // Значки «*» и «**» (Скидка*/Скидка**) выносятся в надписи итогов:
+  // «Итого со скидкой на оборудование* …%» и «…на оборудование** …%».
+  const discountLabelHtml = `Итого со скидкой на оборудование* ${discountPercentDisplay}%`;
+  const discount2LabelHtml = `Итого со скидкой на оборудование** ${discount2PercentDisplay}%`;
 
   const grandTotalDiscountEligibleDay1 = mainBudgetItems
     .filter((item) => !item.work_item && !isConsumablesEquipmentItem(item))
@@ -694,16 +699,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     data.paymentMode === 'usd' ? Math.round(value * 100) / 100 : Math.floor(value);
   const hasSecondDiscountRow = hasFirstDiscount && discount2PercentRaw > 0;
 
-  // Если редактор передал только финальную сумму (с обеими скидками или ручной ввод),
-  // берём её как есть; иначе пересчитываем из базовых сумм. Промежуточный итог
-  // после скидки* восстанавливаем делением на множитель второй скидки.
+  // Итоговые суммы со скидками: если редактор передал готовую сумму — берём её как есть,
+  // иначе пересчитываем из базовых сумм. Промежуточный итог «после скидки*» восстанавливаем
+  // делением на множитель второй скидки (или берём из discountedTotalLevel1FromEditor).
+  // Обе строки округляются кратно 5 в меньшую сторону — как и остальные итоги PDF.
   const editorFinalTotal = data.discountedTotalFromEditor ?? fallbackRound(
     discountEligibleBaseForMode * (1 - discountPercentRaw / 100) * discount2Multiplier + fixedBaseForMode
   );
-  const level1Display = hasFirstDiscount
-    ? (hasSecondDiscountRow ? editorFinalTotal / discount2Multiplier : editorFinalTotal)
+  const level1Raw = hasFirstDiscount
+    ? (data.discountedTotalLevel1FromEditor
+        ?? (hasSecondDiscountRow ? editorFinalTotal / discount2Multiplier : editorFinalTotal))
     : 0;
-  const level2Display = hasSecondDiscountRow ? editorFinalTotal : 0;
+  const level1Display = roundDownToNearestFive(level1Raw);
+  const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
 
   const makeDiscountRowHtml = (label: string, amount: number) => `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
@@ -746,12 +754,25 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const mainTotalDay1 = pdfDay1Total;
   const mainTotalCombined = pdfCombinedTotal;
   
-  // Calculate discounted totals for use with extras
-  const discountedTotalDay1 = data.discountEnabled && discountPercentRaw > 0
-    ? roundDownToNearestFive(editorDiscountedTotal)
+  // Calculate discounted totals for use with extras. Сумма «со скидкой» считается
+  // по той же формуле, что и в редакторе (скидка применяется только к оборудованию*),
+  // с промежуточным итогом после скидки* (без скидки**), и округляется вниз кратно 5.
+  const fixedDay1 = grandTotalConsumablesDay1 + grandTotalWorkDay1;
+  const fixedCombined = grandTotalConsumablesCombined + grandTotalWorkCombined;
+  // Промежуточный итог после скидки* (без скидки**):
+  const level1Day1 = grandTotalDiscountEligibleDay1 * (1 - discountPercentRaw / 100) + fixedDay1;
+  const level1Combined = grandTotalDiscountEligibleCombined * (1 - discountPercentRaw / 100) + fixedCombined;
+  // Окончательный итог — обе скидки применяются последовательно только к оборудованию*:
+  const finalDay1 = (level1Day1 - fixedDay1) * discount2Multiplier + fixedDay1;
+  const finalCombined = (level1Combined - fixedCombined) * discount2Multiplier + fixedCombined;
+
+  // Если редактор передал точную сумму (например, введённую вручную) — берём её,
+  // иначе используем пересчитанное значение. Округление вниз кратно 5.
+  const discountedTotalDay1 = hasFirstDiscount
+    ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalDay1)
     : mainTotalDay1;
-  const discountedTotalCombined = data.discountEnabled && discountPercentRaw > 0
-    ? roundDownToNearestFive(editorDiscountedTotal)
+  const discountedTotalCombined = hasFirstDiscount
+    ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalCombined)
     : mainTotalCombined;
   
   // Total with extras for each mode: discounted main total + extra services
