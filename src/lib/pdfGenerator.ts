@@ -713,17 +713,25 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const level1Display = roundDownToNearestFive(level1Raw);
   const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
 
-  const makeDiscountRowHtml = (label: string, amount: number) => `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: none;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1; white-space: nowrap;">${label}${budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`}:</span>
+  // Строка скидки: вся метка «Итого со скидкой на оборудование* …%» должна быть в одну
+  // строку, поэтому для неё отключается верхний регистр (широкие заглавные буквы как раз
+  // и не давали месту хватить) — текст остаётся тем же самым. Остальной текст строк
+  // (период «за N дн.») может переноситься: nowrap только у самой метки со знаком и %.
+  const DISCOUNT_ROW_MAX_WIDTH = 640;
+  const makeDiscountRowHtml = (label: string, amount: number) => {
+    const periodPart = budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`;
+    return `
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: ${DISCOUNT_ROW_MAX_WIDTH}px;">
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
+  };
 
   const discountRowsHtml = hasFirstDiscount
     ? (hasSecondDiscountRow
-        ? makeDiscountRowHtml(`${discountLabelHtml}`, level1Display) +
-          makeDiscountRowHtml(`${discount2LabelHtml}`, level2Display)
-        : makeDiscountRowHtml(`${discountLabelHtml}`, level1Display))
+        ? makeDiscountRowHtml(discountLabelHtml, level1Display) +
+          makeDiscountRowHtml(discount2LabelHtml, level2Display)
+        : makeDiscountRowHtml(discountLabelHtml, level1Display))
     : '';
 
   // Build the total with extras for PDF
