@@ -825,19 +825,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: 450px;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ${discountRowsHtml}
     `
     : `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: 450px;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%;">
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: 450px;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2; flex: 1;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
