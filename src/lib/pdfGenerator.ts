@@ -754,12 +754,25 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const mainTotalDay1 = pdfDay1Total;
   const mainTotalCombined = pdfCombinedTotal;
   
-  // Calculate discounted totals for use with extras
-  const discountedTotalDay1 = data.discountEnabled && discountPercentRaw > 0
-    ? roundDownToNearestFive(editorDiscountedTotal)
+  // Calculate discounted totals for use with extras. Сумма «со скидкой» считается
+  // по той же формуле, что и в редакторе (скидка применяется только к оборудованию*),
+  // с промежуточным итогом после скидки* (без скидки**), и округляется вниз кратно 5.
+  const fixedDay1 = grandTotalConsumablesDay1 + grandTotalWorkDay1;
+  const fixedCombined = grandTotalConsumablesCombined + grandTotalWorkCombined;
+  // Промежуточный итог после скидки* (без скидки**):
+  const level1Day1 = grandTotalDiscountEligibleDay1 * (1 - discountPercentRaw / 100) + fixedDay1;
+  const level1Combined = grandTotalDiscountEligibleCombined * (1 - discountPercentRaw / 100) + fixedCombined;
+  // Окончательный итог — обе скидки применяются последовательно только к оборудованию*:
+  const finalDay1 = (level1Day1 - fixedDay1) * discount2Multiplier + fixedDay1;
+  const finalCombined = (level1Combined - fixedCombined) * discount2Multiplier + fixedCombined;
+
+  // Если редактор передал точную сумму (например, введённую вручную) — берём её,
+  // иначе используем пересчитанное значение. Округление вниз кратно 5.
+  const discountedTotalDay1 = hasFirstDiscount
+    ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalDay1)
     : mainTotalDay1;
-  const discountedTotalCombined = data.discountEnabled && discountPercentRaw > 0
-    ? roundDownToNearestFive(editorDiscountedTotal)
+  const discountedTotalCombined = hasFirstDiscount
+    ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalCombined)
     : mainTotalCombined;
   
   // Total with extras for each mode: discounted main total + extra services
