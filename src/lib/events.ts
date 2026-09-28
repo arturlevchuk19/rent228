@@ -71,6 +71,7 @@ export interface Event {
   discount_percent?: number;
   discount2_enabled?: boolean;
   discount2_percent?: number;
+  discount2_mode?: 'client' | 'estimate';
   budget_days?: number;
   budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
   budget_note?: string;
