@@ -732,8 +732,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // делается отступ (padding-bottom), чтобы линия не прилипала к числу.
   const makeDiscountRowHtml = (label: string, amount: number, underlineAmount = false) => {
     const periodPart = budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`;
+    // Отступ между числом и линией: text-decoration: underline игнорирует padding,
+    // поэтому линия делается через border-bottom + padding-bottom.
     const amountDecoration = underlineAmount
-      ? ' text-decoration: underline; padding-bottom: 6px; display: inline-block;'
+      ? ' border-bottom: 2px solid #000000; padding-bottom: 8px;'
       : '';
     return `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: ${DISCOUNT_ROW_MAX_WIDTH}px;">
