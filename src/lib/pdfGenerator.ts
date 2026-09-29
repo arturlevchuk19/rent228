@@ -52,9 +52,9 @@ interface PDFData {
   discountPercent?: number;
   discount2Enabled?: boolean;
   discount2Percent?: number;
-  // Режим скидки организатора: 'client' — от скидки клиента (последовательно, по умолчанию),
-  // 'estimate' — от базы сметы (оборудования) независимо от скидки клиента.
-  discount2Mode?: 'client' | 'estimate';
+  // Зависимость скидки организатора (режимы выбора убраны): скидка организатору
+  // применяется только при активной скидке клиенту и считается от скидки клиента
+  // (последовательное применение). Без активной скидки клиента скидка организатора не действует.
   budgetNote?: string;
   budgetDays: number;
   budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
@@ -623,20 +623,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const discountPercentRaw = data.discountPercent || 0;
   const discountPercentDisplay = Math.round(discountPercentRaw);
-  // Режим скидки организатора: в режиме «от сметы» она считается от базы сметы независимо
-  // от скидки клиента, без последовательного множителя.
-  const isEstimateDiscountMode = (data.discount2Mode || 'client') === 'estimate';
-  // Согласованность: без активной скидки клиента второй уровень скидки не применяется
-  // (кроме режима «от сметы», где он независим и может работать без первой скидки).
+  // Зависимость (режимов нет): без активной скидки клиента второй уровень скидки
+  // (скидка организатору) не применяется; при активной скидке клиента скидка
+  // организатора считается от скидки клиента — последовательно к базе сметы.
   const hasFirstDiscount = Boolean(data.discountEnabled) && discountPercentRaw > 0;
   const hasSecondDiscountRow = Boolean(data.discount2Enabled) && (data.discount2Percent || 0) > 0
-    && (isEstimateDiscountMode || hasFirstDiscount);
+    && hasFirstDiscount;
   // Процент второго уровня берётся из своего поля (discount2Percent), а не из первой скидки.
   const discount2PercentRaw = hasSecondDiscountRow ? (data.discount2Percent || 0) : 0;
   const discount2PercentDisplay = Math.round(discount2PercentRaw);
   const discount2Multiplier = discount2PercentRaw > 0 ? 1 - discount2PercentRaw / 100 : 1;
-  // В режиме «от сметы» итог считается по активной скидке: организатора, иначе клиента.
-  const estimateFinalDiscountPercent = discount2PercentRaw > 0 ? discount2PercentRaw : discountPercentRaw;
   const discountLabelHtml = `Итого со скидкой на оборудование ${discountPercentDisplay}%`;
   const discount2LabelHtml = `Итого со скидкой на оборудование ${discount2PercentDisplay}%`;
 
@@ -708,22 +704,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     data.paymentMode === 'usd' ? Math.round(value * 100) / 100 : Math.floor(value);
 
   // Итоговые суммы со скидками: если редактор передал готовую сумму — берём её как есть,
-  // иначе пересчитываем из базовых сумм. Промежуточный итог «после скидки клиента» в режиме
-  // «от скидки клиента» восстанавливаем делением на множитель организаторской скидки
-  // (или берём из discountedTotalLevel1FromEditor), в режиме «от сметы» считаем своим процентом.
+  // иначе пересчитываем из базовых сумм. Промежуточный итог «после скидки клиента»
+  // восстанавливаем делением на множитель организаторской скидки
+  // (или берём из discountedTotalLevel1FromEditor).
   // Обе строки округляются кратно 5 в меньшую сторону — как и остальные итоги PDF.
   const editorFinalTotal = data.discountedTotalFromEditor ?? fallbackRound(
-    isEstimateDiscountMode
-      ? discountEligibleBaseForMode * (1 - estimateFinalDiscountPercent / 100) + fixedBaseForMode
-      : discountEligibleBaseForMode * (1 - discountPercentRaw / 100) * discount2Multiplier + fixedBaseForMode
+    discountEligibleBaseForMode * (1 - discountPercentRaw / 100) * discount2Multiplier + fixedBaseForMode
   );
-  // Промежуточный итог по скидке клиента: в режиме «от сметы» считается своим процентом
-  // от базы сметы (без деления на множитель организаторской скидки).
+  // Промежуточный итог по скидке клиента.
   const level1Raw = hasFirstDiscount
     ? (data.discountedTotalLevel1FromEditor
-        ?? (isEstimateDiscountMode
-          ? fallbackRound(discountEligibleBaseForMode * (1 - discountPercentRaw / 100) + fixedBaseForMode)
-          : (hasSecondDiscountRow ? editorFinalTotal / discount2Multiplier : editorFinalTotal)))
+        ?? (hasSecondDiscountRow ? editorFinalTotal / discount2Multiplier : editorFinalTotal))
     : 0;
   const level1Display = roundDownToNearestFive(level1Raw);
   const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
@@ -745,14 +736,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>`;
   };
 
-  // Строки скидок: строка клиента (d1) — как было, строка организатора (d2) в режиме
-  // «от сметы» показывается независимо от неё.
+  // Строки скидок: строка клиента (d1) и строка организатора (d2) — скидка организатора
+  // показывается только вместе с активной скидкой клиента (зависимость описана выше).
   const discountRowsHtml = hasFirstDiscount
     ? (hasSecondDiscountRow
         ? makeDiscountRowHtml(discountLabelHtml, level1Display) +
           makeDiscountRowHtml(discount2LabelHtml, level2Display, true)
         : makeDiscountRowHtml(discountLabelHtml, level1Display))
-    : (hasSecondDiscountRow ? makeDiscountRowHtml(discount2LabelHtml, level2Display, true) : '');
+    : '';
 
   // Build the total with extras for PDF
   // Calculate extra services totals for both day1 and combined modes
@@ -790,21 +781,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // Промежуточный итог после скидки клиента (без скидки организатора):
   const level1Day1 = grandTotalDiscountEligibleDay1 * (1 - discountPercentRaw / 100) + fixedDay1;
   const level1Combined = grandTotalDiscountEligibleCombined * (1 - discountPercentRaw / 100) + fixedCombined;
-  // Окончательный итог: в режиме «от сметы» организаторская скидка считается от базы сметы
-  // независимо от клиентской, в остальных режимах обе применяются последовательно.
-  const finalDay1 = isEstimateDiscountMode
-    ? grandTotalDiscountEligibleDay1 * (1 - estimateFinalDiscountPercent / 100) + fixedDay1
-    : (level1Day1 - fixedDay1) * discount2Multiplier + fixedDay1;
-  const finalCombined = isEstimateDiscountMode
-    ? grandTotalDiscountEligibleCombined * (1 - estimateFinalDiscountPercent / 100) + fixedCombined
-    : (level1Combined - fixedCombined) * discount2Multiplier + fixedCombined;
+  // Окончательный итог: обе скидки применяются последовательно (скидка организатора —
+  // от результата скидки клиента).
+  const finalDay1 = (level1Day1 - fixedDay1) * discount2Multiplier + fixedDay1;
+  const finalCombined = (level1Combined - fixedCombined) * discount2Multiplier + fixedCombined;
 
   // Если редактор передал точную сумму (например, введённую вручную) — берём её,
   // иначе используем пересчитанное значение. Округление вниз кратно 5.
-  // В режиме «от сметы» скидка применяется и без активной скидки клиента.
-  const hasAppliedDiscount = isEstimateDiscountMode
-    ? (hasFirstDiscount || discount2PercentRaw > 0)
-    : hasFirstDiscount;
+  // Без активной скидки клиента скидки не применяются.
+  const hasAppliedDiscount = hasFirstDiscount;
   const discountedTotalDay1 = hasAppliedDiscount
     ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalDay1)
     : mainTotalDay1;

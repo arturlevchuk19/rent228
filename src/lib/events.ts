@@ -71,7 +71,9 @@ export interface Event {
   discount_percent?: number;
   discount2_enabled?: boolean;
   discount2_percent?: number;
-  discount2_mode?: 'client' | 'estimate';
+  // discount2_mode убран из приложения: скидка организатору не имеет режимов выбора —
+  // она считается от сметы, если скидка клиенту не активна (фактически не применяется),
+  // и от скидки клиента, если скидка клиенту активна. Колонка в БД остаётся нетронутой.
   budget_days?: number;
   budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
   budget_note?: string;
