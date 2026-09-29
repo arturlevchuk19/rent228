@@ -728,10 +728,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // (период «за N дн.») может переноситься: nowrap только у самой метки со знаком и %.
   const DISCOUNT_ROW_MAX_WIDTH = 640;
   // Подчёркивается сумма строки организатора (строки со скидкой организатора);
-  // сумма строки клиента — без подчёркивания.
+  // сумма строки клиента — без подчёркивания. Между цифрами и линией подчёркивания
+  // делается отступ (padding-bottom), чтобы линия не прилипала к числу.
   const makeDiscountRowHtml = (label: string, amount: number, underlineAmount = false) => {
     const periodPart = budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`;
-    const amountDecoration = underlineAmount ? ' text-decoration: underline;' : '';
+    // Отступ между числом и линией: text-decoration: underline игнорирует padding,
+    // поэтому линия делается через border-bottom + padding-bottom.
+    const amountDecoration = underlineAmount
+      ? ' border-bottom: 2px solid #000000; padding-bottom: 8px;'
+      : '';
     return `
       <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: ${DISCOUNT_ROW_MAX_WIDTH}px;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
