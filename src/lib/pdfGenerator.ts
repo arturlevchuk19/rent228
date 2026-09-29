@@ -827,36 +827,51 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // and there are extra items
   const showExtraTotals = data.totalWithExtraFromEditor !== undefined && extraBudgetItems.length > 0;
   
+  // Строки «Итого с дополнительными услугами»: используются те же параметры ширины и
+  // шрифта, что и у строки «Итого со скидкой на оборудование …%» (makeDiscountRowHtml):
+  // max-width = DISCOUNT_ROW_MAX_WIDTH, метка 24px/650 без верхнего регистра и
+  // letter-spacing, сумма 30px/700 в одну строку — иначе текст переносился на 2 строчки.
+  const makeExtraTotalRowHtml = (label: string, amount: number, wrapperStyle: string) => {
+    const periodPart = budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`;
+    return `
+      <div style="${wrapperStyle}">
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: ${DISCOUNT_ROW_MAX_WIDTH}px;">
+          <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
+          <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(amount)}${currencySuffix}</span>
+        </div>
+      </div>
+    `;
+  };
+
   if (showExtraTotals) {
     // Show totals based on mode
     if (isCombinedOnlyMode) {
       // Combined only mode: show only combined total with extras
-      extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами${budgetDays === 1 ? '' : ` за ${budgetDays} дн.`}:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasCombined)}${currencySuffix}</span>
-      </div>
-      `;
+      extraServicesHtml += makeExtraTotalRowHtml(
+        'Итого с дополнительными услугами',
+        grandTotalWithExtrasCombined,
+        'margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;'
+      );
     } else {
       // Day1 plus combined mode: show both day1 and combined totals with extras
       if (budgetDays === 1) {
-        extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasDay1)}${currencySuffix}</span>
-      </div>
-      `;
+        extraServicesHtml += makeExtraTotalRowHtml(
+          'Итого с дополнительными услугами',
+          grandTotalWithExtrasDay1,
+          'margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;'
+        );
       } else {
-        extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 10px 0; border-top: 2px solid #000000;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами за 1 день:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasDay1)}${currencySuffix}</span>
-      </div>
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 0 40px 0;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами за ${budgetDays} дн.:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasCombined)}${currencySuffix}</span>
-      </div>
-      `;
+        extraServicesHtml +=
+          makeExtraTotalRowHtml(
+            'Итого с дополнительными услугами за 1 день',
+            grandTotalWithExtrasDay1,
+            'margin-top: 20px; padding: 20px 0 10px 0; border-top: 2px solid #000000;'
+          ) +
+          makeExtraTotalRowHtml(
+            'Итого с дополнительными услугами',
+            grandTotalWithExtrasCombined,
+            'margin-top: 10px; padding: 10px 0 40px 0;'
+          );
       }
     }
   }
