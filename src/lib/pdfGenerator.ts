@@ -52,9 +52,10 @@ interface PDFData {
   discountPercent?: number;
   discount2Enabled?: boolean;
   discount2Percent?: number;
-  // Зависимость скидки организатора (режимы выбора убраны): скидка организатору
-  // применяется только при активной скидке клиенту и считается от скидки клиента
-  // (последовательное применение). Без активной скидки клиента скидка организатора не действует.
+  // Зависимость скидки организатора (режимы выбора убраны): скидка организатору доступна
+  // и без скидки клиенту. Если скидка клиенту НЕ активна — скидка организатору считается
+  // от сметы (базы оборудования); если скидка клиенту активна — скидка организатору
+  // считается от скидки клиента (последовательное применение: база x (1 - d1) x (1 - d2)).
   budgetNote?: string;
   budgetDays: number;
   budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
@@ -623,14 +624,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const discountPercentRaw = data.discountPercent || 0;
   const discountPercentDisplay = Math.round(discountPercentRaw);
-  // Зависимость (режимов нет): без активной скидки клиента второй уровень скидки
-  // (скидка организатору) не применяется; при активной скидке клиента скидка
-  // организатора считается от скидки клиента — последовательно к базе сметы.
   const hasFirstDiscount = Boolean(data.discountEnabled) && discountPercentRaw > 0;
-  const hasSecondDiscountRow = Boolean(data.discount2Enabled) && (data.discount2Percent || 0) > 0
-    && hasFirstDiscount;
-  // Процент второго уровня берётся из своего поля (discount2Percent), а не из первой скидки.
-  const discount2PercentRaw = hasSecondDiscountRow ? (data.discount2Percent || 0) : 0;
+  // Скидка организатора доступна независимо от скидки клиенту:
+  // - без активной скидки клиенту она считается от сметы (применяется к базе оборудования);
+  // - с активной скидкой клиенту — от скидки клиента (скидки применяются последовательно).
+  const hasOrganizerDiscount = Boolean(data.discount2Enabled) && (data.discount2Percent || 0) > 0;
+  // Отдельная строка «со скидкой» для организатора печатается только когда есть первый
+  // уровень (иначе итог один — «Итого со скидкой на оборудование d2%» от сметы).
+  const hasSecondDiscountRow = hasOrganizerDiscount && hasFirstDiscount;
+  // Итоговый множитель второй скидки применяется в обоих случаях (от сметы или от скидки клиента).
+  const discount2PercentRaw = hasOrganizerDiscount ? (data.discount2Percent || 0) : 0;
   const discount2PercentDisplay = Math.round(discount2PercentRaw);
   const discount2Multiplier = discount2PercentRaw > 0 ? 1 - discount2PercentRaw / 100 : 1;
   const discountLabelHtml = `Итого со скидкой на оборудование ${discountPercentDisplay}%`;
@@ -736,13 +739,21 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>`;
   };
 
-  // Строки скидок: строка клиента (d1) и строка организатора (d2) — скидка организатора
-  // показывается только вместе с активной скидкой клиента (зависимость описана выше).
-  const discountRowsHtml = hasFirstDiscount
+  // Строки скидок: строка клиента (d1) и строка организатора (d2). Скидка организатора
+  // доступна и без скидки клиенту — в этом случае печатается одна итоговая строка
+  // «Итого со скидкой на оборудование d2%» (скидка считается от сметы, сумма подчёркнута).
+  // При активной скидке клиенту печатаются обе строки, а итог — последовательное
+  // применение обеих скидок (скидка организатору — от скидки клиента; зависимость выше).
+  const singleDiscountLabelHtml = hasFirstDiscount ? discountLabelHtml : discount2LabelHtml;
+  const discountRowsHtml = (hasFirstDiscount || hasOrganizerDiscount)
     ? (hasSecondDiscountRow
         ? makeDiscountRowHtml(discountLabelHtml, level1Display) +
           makeDiscountRowHtml(discount2LabelHtml, level2Display, true)
-        : makeDiscountRowHtml(discountLabelHtml, level1Display))
+        : makeDiscountRowHtml(
+            singleDiscountLabelHtml,
+            roundDownToNearestFive(editorFinalTotal),
+            !hasFirstDiscount
+          ))
     : '';
 
   // Build the total with extras for PDF
@@ -788,8 +799,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   // Если редактор передал точную сумму (например, введённую вручную) — берём её,
   // иначе используем пересчитанное значение. Округление вниз кратно 5.
-  // Без активной скидки клиента скидки не применяются.
-  const hasAppliedDiscount = hasFirstDiscount;
+  // Скидки применяются, если активен хотя бы один уровень (клиент или организатор).
+  const hasAppliedDiscount = hasFirstDiscount || hasOrganizerDiscount;
   const discountedTotalDay1 = hasAppliedDiscount
     ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalDay1)
     : mainTotalDay1;

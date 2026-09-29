@@ -117,11 +117,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [discount2PercentInput, setDiscount2PercentInput] = useState('');
   // Зависимость скидки организатора от скидки клиента (режимы выбора убраны):
   // 1) если скидка клиенту НЕ активна — скидка организатору считается от сметы
-  //    (базы оборудования) независимо от скидки клиента;
-  // 2) если скидка клиенту активна — скидка организатору считается от скидки клиента
-  //    (последовательное применение: база x (1 - d1) x (1 - d2)).
-  // Эффективное состояние: без активной скидки клиента скидка организатора не применяется.
-  const effectiveDiscount2Enabled = discountEnabled && discount2Enabled;
+  //    (базы оборудования): итог = база x (1 - d2);
+  // 2) если скидка клиенту активна — скидка организатору считается от скидки клиента,
+  //    т.е. скидки применяются последовательно: итог = база x (1 - d1) x (1 - d2).
+  // Скидка организатора доступна всегда, независимо от активности скидки клиенту.
+  const hasClientDiscount = discountEnabled && discountPercent > 0;
+  const hasOrganizerDiscount = discount2Enabled && discount2Percent > 0;
+  // Итоговая скидка активна, если включён хотя бы один из уровней.
+  const hasAnyDiscount = hasClientDiscount || hasOrganizerDiscount;
   const [showBudgetNoteDialog, setShowBudgetNoteDialog] = useState(false);
   const [budgetNote, setBudgetNote] = useState('');
   const [budgetVersion, setBudgetVersion] = useState('1.0');
@@ -298,9 +301,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         setDiscountPercent(eventData.discount_percent);
         setDiscountPercentInput(eventData.discount_percent.toString());
       }
-      // Зависимость: скидка организатору доступна только при активной скидке клиенту.
-      // Если в базе скидка организатора активна, а скидка клиента нет — она не станет активной.
-      const loadedDiscount2Enabled = Boolean(eventData.discount2_enabled) && loadedDiscountEnabled;
+      // Скидка организатора независима от скидки клиенту: загружаем как есть.
+      const loadedDiscount2Enabled = Boolean(eventData.discount2_enabled);
       if (eventData.discount2_enabled !== undefined) {
         setDiscount2Enabled(loadedDiscount2Enabled);
       }
@@ -918,9 +920,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       await updateEvent(eventId, {
         discount_enabled: discountEnabled,
         discount_percent: discountPercent,
-        // Скидка организатора применяется только вместе со скидкой клиенту.
-        discount2_enabled: effectiveDiscount2Enabled,
-        discount2_percent: effectiveDiscount2Enabled ? discount2Percent : 0,
+        // Скидка организатора сохраняется независимо от скидки клиенту.
+        discount2_enabled: discount2Enabled,
+        discount2_percent: discount2Enabled ? discount2Percent : 0,
         budget_days: budgetDays,
         budget_totals_mode: budgetTotalsMode,
         budget_note: budgetNote
@@ -983,20 +985,22 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       const event = await getEvent(eventId);
 
       const parsedDiscountedTotalInput = parseFloat(discountedTotalInput.replace(',', '.'));
-      const hasManualDiscountedTotal = discountEnabled
+      const hasManualDiscountedTotal = hasAnyDiscount
         && discountedTotalInput.trim() !== '' && !isNaN(parsedDiscountedTotalInput);
       // Итоговая сумма со скидками для экспорта: ручное значение или расчёт.
       const exportFinalDiscountedTotal = hasManualDiscountedTotal
         ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
         : getDiscountedTotal();
-      // Согласованность для PDF: без активной скидки клиента скидка организатора не применяется.
-      const exportDiscount2Enabled = effectiveDiscount2Enabled;
+      // Скидка организатора передаётся в PDF независимо от скидки клиенту.
+      const exportDiscount2Enabled = discount2Enabled;
       const exportDiscount2Percent = exportDiscount2Enabled ? Math.round(discount2Percent) : 0;
       // Промежуточный итог со скидкой клиента (без скидки организатора) — для первой строки в PDF.
       const exportLevel1DiscountedTotal = getDiscountedTotalLevel1();
-      // Если итог введён вручную — пересчитываем процент скидки клиента из него (скидку
+      // Если итог введён вручную — пересчитываем процент скидки из него (скидку
       // организатора фиксируем), иначе берём текущий процент из полей редактора.
-      const exportDiscountPercent = hasManualDiscountedTotal
+      // Ручной пересчёт процентов имеет смысл только при активной скидке клиенту
+      // (строка «Итого со скидкой d1%» в PDF есть только в этом случае).
+      const exportDiscountPercent = hasManualDiscountedTotal && hasClientDiscount
         ? calculateDiscountPercentFromTotal(
             exportFinalDiscountedTotal ?? parsedDiscountedTotalInput,
             exportDiscount2Enabled ? exportDiscount2Percent : 0
@@ -1054,7 +1058,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
 
     const parsedDiscountedTotalInput = parseFloat(discountedTotalInput.replace(',', '.'));
-    const hasManualDiscountedTotal = discountEnabled
+    const hasManualDiscountedTotal = hasAnyDiscount
       && discountedTotalInput.trim() !== '' && !isNaN(parsedDiscountedTotalInput);
     const contractAmount = hasManualDiscountedTotal
       ? normalizeGrandTotalForPaymentMode(parsedDiscountedTotalInput)
@@ -1488,7 +1492,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   // Промежуточный итог со скидкой клиента (без скидки организатора) — для первой строки в PDF.
   const getDiscountedTotalLevel1 = () => {
-    if (!discountEnabled || discountPercent <= 0) return null;
+    if (!hasClientDiscount) return null;
     const multiplier = 1 - discountPercent / 100;
     let raw: number;
     switch (paymentMode) {
@@ -1500,14 +1504,16 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
   const getDiscountedTotal = () => {
-    // Без активной скидки клиента скидка организатора не применяется: итог со скидками
-    // считается только когда скидка клиенту активна.
-    if (!discountEnabled || discountPercent <= 0) return null;
-    const hasSecondDiscount = effectiveDiscount2Enabled && discount2Percent > 0;
-    // Зависимость: при активной скидке клиенту скидка организатора считается от скидки
-    // клиента — скидки применяются последовательно к стоимости оборудования (базе сметы):
-    // оборудование x (1 - d1/100) x (1 - d2/100).
-    const multiplier = (1 - discountPercent / 100) * (hasSecondDiscount ? 1 - discount2Percent / 100 : 1);
+    // Итог со скидками считается, если активен хотя бы один уровень скидок.
+    if (!hasAnyDiscount) return null;
+    // Зависимость (режимов выбора нет):
+    // - скидка клиенту НЕ активна -> скидка организатору применяется к базе сметы
+    //   (стоимости оборудования): база x (1 - d2/100);
+    // - скидка клиенту активна -> скидка организатору считается от скидки клиента,
+    //   скидки применяются последовательно: база x (1 - d1/100) x (1 - d2/100).
+    const d1Multiplier = hasClientDiscount ? 1 - discountPercent / 100 : 1;
+    const d2Multiplier = hasOrganizerDiscount ? 1 - discount2Percent / 100 : 1;
+    const multiplier = d1Multiplier * d2Multiplier;
     let raw: number;
     switch (paymentMode) {
       case 'byn_cash': raw = discountEligibleTotalForModeCash * multiplier + (nonWorkTotalForModeCash - discountEligibleTotalForModeCash) + workTotalForModeCash; break;
@@ -1517,10 +1523,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     return normalizeGrandTotalForPaymentMode(raw);
   };
 
-  // Активный процент для надписей «Итого со скидкой …%».
-  const activeDiscountPercent = discountPercent;
+  // Активный процент для надписей «Итого со скидкой …%» (комбинация уровней скидок).
+  const activeDiscountPercentLabel = (() => {
+    const parts: string[] = [];
+    if (hasClientDiscount) parts.push(`${discountPercent}%`);
+    if (hasOrganizerDiscount) parts.push(`${discount2Percent}%`);
+    return parts.join(' + ');
+  })();
   // Подпись строки «Итого со скидкой» в подвале редактора (без значков-сносок).
-  const footerDiscountLabel = `Итого со скидкой ${discountPercent}%${effectiveDiscount2Enabled && discount2Percent > 0 ? ` + ${discount2Percent}%` : ''}`;
+  const footerDiscountLabel = `Итого со скидкой ${activeDiscountPercentLabel}`;
 
   const getDiscountTotalsBaseForPaymentMode = () => {
     switch (paymentMode) {
@@ -1543,11 +1554,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   };
 
 
-  const calculateDiscountPercentFromTotal = (targetTotal: number, secondDiscountPercent = effectiveDiscount2Enabled ? discount2Percent : 0) => {
+  const calculateDiscountPercentFromTotal = (targetTotal: number, secondDiscountPercent = hasOrganizerDiscount ? discount2Percent : 0) => {
     const { discountable, fixed } = getDiscountTotalsBaseForPaymentMode();
     if (discountable <= 0) {
       return 0;
     }
+    // Скидка организатора фиксируется при обратном расчёте процента скидки клиента.
+    // Зависимость: если скидка клиенту активна — скидка организатора «от скидки клиента»
+    // (база x (1 - d1) уже учтена множителем (1 - d2)); если скидка клиенту неактивна —
+    // скидка организатора идёт от сметы (множитель (1 - d2) к базе сметы).
     const hasSecondDiscount = secondDiscountPercent > 0;
     const effectiveDiscountable = hasSecondDiscount ? discountable * (1 - secondDiscountPercent / 100) : discountable;
     if (effectiveDiscountable <= 0) {
@@ -1574,18 +1589,26 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       return;
     }
 
-    // Согласованность: без активной скидки клиента скидка организатора не применяется.
-    const effectiveD2Enabled = effectiveDiscount2Enabled;
-    const effectiveD2Percent = Math.round(effectiveD2Enabled ? discount2Percent : 0);
-
-    if (!discountEnabled) {
-      // Включаем «Скидку*» и подбираем процент так, чтобы итог совпал с введённой суммой.
+    // Обратный пересчёт процентов из введённой суммы имеет смысл только при активной
+    // скидке клиенту (скидка организатора — второй уровень, её процент фиксируем).
+    // Если скидка клиенту неактивна, а активна только скидка организатора — итог
+    // считается от сметы, и ручная сумма остаётся как есть (проценты не меняются).
+    if (!hasClientDiscount) {
+      if (hasOrganizerDiscount) return;
+      // Ни одна скидка не активна — включаем «Скидку клиенту» и подбираем её процент,
+      // чтобы итог совпал с введённой суммой.
       setDiscountEnabled(true);
+      const percent1 = calculateDiscountPercentFromTotal(parsedValue, 0);
+      setDiscountPercent(percent1);
+      setDiscountPercentInput(String(percent1));
+      return;
     }
+
+    const effectiveD2Percent = Math.round(hasOrganizerDiscount ? discount2Percent : 0);
 
     let percent1 = calculateDiscountPercentFromTotal(parsedValue, effectiveD2Percent);
 
-    if (effectiveD2Enabled && effectiveD2Percent > 0) {
+    if (hasOrganizerDiscount && effectiveD2Percent > 0) {
       // Первая скидка отображается в процентах — округляем её до целого и
       // корректируем вторую скидку так, чтобы итоговая сумма осталась равной введённой.
       const roundedPercent1 = Math.max(1, Math.min(99, Math.round(percent1)));
@@ -2434,7 +2457,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </span>
                   {getDiscountedTotalWithExtraCombined() !== null && (
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
-                      Итого со скидкой {activeDiscountPercent}%: {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
+                      Итого со скидкой {activeDiscountPercentLabel}: {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
                     </span>
                   )}
                 </>
@@ -2446,7 +2469,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </span>
                   {getDiscountedTotalWithExtraDay1() !== null && (
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
-                      Итого со скидкой {activeDiscountPercent}%: {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
+                      Итого со скидкой {activeDiscountPercentLabel}: {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
                     </span>
                   )}
                 </>
@@ -2458,7 +2481,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </span>
                   {getDiscountedTotalWithExtraDay1() !== null && (
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest -mt-1">
-                      Итого со скидкой {activeDiscountPercent}% (1 день): {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
+                      Итого со скидкой {activeDiscountPercentLabel} (1 день): {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
                     </span>
                   )}
                   <span className="text-[11px] text-gray-400">
@@ -2466,7 +2489,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </span>
                   {getDiscountedTotalWithExtraCombined() !== null && (
                     <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest -mt-1">
-                      Итого со скидкой {activeDiscountPercent}% ({budgetDays} дн.): {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
+                      Итого со скидкой {activeDiscountPercentLabel} ({budgetDays} дн.): {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
                     </span>
                   )}
                 </>
@@ -2481,15 +2504,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                       type="checkbox"
                       checked={discountEnabled}
                       onChange={(e) => {
-                        const enabled = e.target.checked;
-                        setDiscountEnabled(enabled);
-                        // Зависимость: при выключении скидки клиенту скидка организатора
-                        // автоматически выключается и обнуляется.
-                        if (!enabled && discount2Enabled) {
-                          setDiscount2Enabled(false);
-                          setDiscount2Percent(0);
-                          setDiscount2PercentInput('0');
-                        }
+                        setDiscountEnabled(e.target.checked);
+                        // Скидка организатора остаётся активной независимо от скидки клиенту:
+                        // без скидки клиенту она считается от сметы, со скидкой клиенту —
+                        // от скидки клиента (зависимость описана в расчётах выше).
                       }}
                       className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
                     />
@@ -2527,16 +2545,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                   </label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className={`flex items-center gap-2 select-none ${discountEnabled ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={discount2Enabled}
-                      disabled={!discountEnabled}
                       onChange={(e) => setDiscount2Enabled(e.target.checked)}
-                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer disabled:cursor-not-allowed"
+                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
                     />
                     <span className="text-xs text-gray-300 font-medium">Скидка организатору</span>
-                    {discount2Enabled && discountEnabled && (
+                    {discount2Enabled && (
                       <div className="flex items-center gap-1">
                         <input
                           type="text"
