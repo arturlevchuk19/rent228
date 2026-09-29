@@ -696,7 +696,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   // Строки итогов со скидками для PDF. Скидки применяются только к оборудованию
   // (расходники и работа не скидываются).
-  const dayPeriodNoWrapHtml = `<span style="white-space: nowrap;">за ${budgetDays} дн.</span>`;
   const discountEligibleBaseForMode = isCombinedOnlyMode || budgetDays > 1
     ? grandTotalDiscountEligibleCombined
     : grandTotalDiscountEligibleDay1;
@@ -722,27 +721,46 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const level1Display = roundDownToNearestFive(level1Raw);
   const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
 
-  // Строка скидки: вся метка «Итого со скидкой на оборудование …%» должна быть в одну
-  // строку, поэтому для неё отключается верхний регистр (широкие заглавные буквы как раз
-  // и не давали месту хватить) — текст остаётся тем же самым. Остальной текст строк
-  // (период «за N дн.») может переноситься: nowrap только у самой метки со знаком и %.
-  const DISCOUNT_ROW_MAX_WIDTH = 640;
+  // Общий шаблон итоговых строк («Итого со скидкой на оборудование …%» и
+  // «Итого с дополнительными услугами …»): метка всегда выводится в одну строку —
+  // для неё отключается верхний регистр (широкие заглавные буквы как раз и не давали
+  // месту хватить) и ставится white-space: nowrap. Период «за N дн.» — отдельный
+  // nowrap-блок, двоеточие прижимается к концу метки. Ширина строки ограничивается
+  // только снизу (min-width), поэтому длинная метка может занять всю ширину
+  // контейнера и не переносится на вторую строку.
+  const TOTAL_ROW_MIN_WIDTH = 640;
   // Подчёркивается сумма строки организатора (строки со скидкой организатора);
   // сумма строки клиента — без подчёркивания. Между цифрами и линией подчёркивания
   // делается отступ (padding-bottom), чтобы линия не прилипала к числу.
-  const makeDiscountRowHtml = (label: string, amount: number, underlineAmount = false) => {
-    const periodPart = budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`;
+  const makeTotalRowHtml = (
+    label: string,
+    amount: number,
+    options: {
+      underlineAmount?: boolean;
+      period?: string;
+      minWidth?: number;
+      extraContainerStyle?: string;
+    } = {}
+  ) => {
+    const { underlineAmount = false, period = '', minWidth = TOTAL_ROW_MIN_WIDTH, extraContainerStyle = '' } = options;
+    const periodPart = period ? ` <span style="white-space: nowrap;">${period}</span>` : '';
     // Отступ между числом и линией: text-decoration: underline игнорирует padding,
     // поэтому линия делается через border-bottom + padding-bottom.
     const amountDecoration = underlineAmount
       ? ' border-bottom: 2px solid #000000; padding-bottom: 8px;'
       : '';
     return `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: ${DISCOUNT_ROW_MAX_WIDTH}px;">
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; min-width: ${minWidth}px;${extraContainerStyle}">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;${amountDecoration}">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
   };
+
+  const makeDiscountRowHtml = (label: string, amount: number, underlineAmount = false) =>
+    makeTotalRowHtml(label, amount, {
+      underlineAmount,
+      period: budgetDays === 1 ? '' : `за ${budgetDays} дн.`
+    });
 
   // Строки скидок: строка клиента (d1) и строка организатора (d2). Скидка организатора
   // доступна и без скидки клиенту — в этом случае печатается одна итоговая строка
@@ -828,35 +846,38 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const showExtraTotals = data.totalWithExtraFromEditor !== undefined && extraBudgetItems.length > 0;
   
   if (showExtraTotals) {
+    // Строки «Итого с дополнительными услугами» выводятся по тому же шаблону, что и
+    // строка «Итого со скидкой на оборудование …%»: метка в одну строку (white-space:
+    // nowrap, без UPPERCASE и letter-spacing), чтобы текст не переносился на 2 строчки.
+    const extrasLabel = 'Итого с дополнительными услугами';
+    const extrasContainerStyle = ' margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;';
     // Show totals based on mode
     if (isCombinedOnlyMode) {
       // Combined only mode: show only combined total with extras
-      extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами${budgetDays === 1 ? '' : ` за ${budgetDays} дн.`}:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasCombined)}${currencySuffix}</span>
-      </div>
-      `;
+      extraServicesHtml += makeTotalRowHtml(
+        extrasLabel,
+        grandTotalWithExtrasCombined,
+        {
+          period: budgetDays === 1 ? '' : `за ${budgetDays} дн.`,
+          extraContainerStyle: extrasContainerStyle
+        }
+      );
     } else {
       // Day1 plus combined mode: show both day1 and combined totals with extras
       if (budgetDays === 1) {
-        extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasDay1)}${currencySuffix}</span>
-      </div>
-      `;
+        extraServicesHtml += makeTotalRowHtml(extrasLabel, grandTotalWithExtrasDay1, {
+          extraContainerStyle: extrasContainerStyle
+        });
       } else {
-        extraServicesHtml += `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 20px; padding: 20px 0 10px 0; border-top: 2px solid #000000;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами за 1 день:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasDay1)}${currencySuffix}</span>
-      </div>
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 0 40px 0;">
-        <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 1px; text-align: right; line-height: 1.2;">Итого с дополнительными услугами за ${budgetDays} дн.:</span>
-        <span style="font-size: 30px; font-weight: 700; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(grandTotalWithExtrasCombined)}${currencySuffix}</span>
-      </div>
-      `;
+        extraServicesHtml +=
+          makeTotalRowHtml(extrasLabel, grandTotalWithExtrasDay1, {
+            period: 'за 1 день',
+            extraContainerStyle: ' margin-top: 20px; padding: 20px 0 10px 0; border-top: 2px solid #000000;'
+          }) +
+          makeTotalRowHtml(extrasLabel, grandTotalWithExtrasCombined, {
+            period: `за ${budgetDays} дн.`,
+            extraContainerStyle: ' margin-top: 10px; padding: 10px 0 40px 0;'
+          });
       }
     }
   }
