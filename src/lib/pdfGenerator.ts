@@ -827,52 +827,58 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // and there are extra items
   const showExtraTotals = data.totalWithExtraFromEditor !== undefined && extraBudgetItems.length > 0;
   
-  // Строки «Итого с дополнительными услугами»: используются те же параметры ширины и
-  // шрифта, что и у строки «Итого со скидкой на оборудование …%» (makeDiscountRowHtml):
-  // max-width = DISCOUNT_ROW_MAX_WIDTH, метка 24px/650 без верхнего регистра и
-  // letter-spacing, сумма 30px/700 в одну строку — иначе текст переносился на 2 строчки.
-  const makeExtraTotalRowHtml = (label: string, amount: number, wrapperStyle: string) => {
+  // Строка «Итого с дополнительными услугами»: те же параметры шрифта, что у строки
+  // «Итого со скидкой на оборудование …%» (makeDiscountRowHtml): метка 24px/650 без
+  // верхнего регистра и letter-spacing, сумма 30px/700 в одну строку (nowrap) — перенос
+  // на 2 строчки не появляется.
+  // Ключевое отличие от прошлой версии: строка больше не оборачивается в дополнительный div
+  // и не печатается отдельным блоком после footer. Раньше из-за обёртки строка оставалась
+  // во flex-контейнере с align-items: flex-end, её max-width 640px выходил за ширину блока
+  // «ИТОГО» (450px), а label с flex: 1 растягивался до 640px — между суммой и правым краем
+  // возникал большой пустой отступ. Теперь строка добавляется ВНУТРЬ того же контейнера
+  // итогов, что и «Итого»/строки скидки, а ширина label ограничена значением, при котором
+  // весь текст метки гарантированно помещается в одну строку (перенос = 2 строки).
+  const EXTRA_TOTALS_LABEL_MAX_WIDTH = 430;
+  const makeExtraTotalRowHtml = (label: string, amount: number, rowStyle: string) => {
     const periodPart = budgetDays === 1 ? '' : ` ${dayPeriodNoWrapHtml}`;
-    return `
-      <div style="${wrapperStyle}">
-        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: ${DISCOUNT_ROW_MAX_WIDTH}px;">
-          <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
-          <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(amount)}${currencySuffix}</span>
-        </div>
-      </div>
-    `;
+    return `<div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; max-width: ${DISCOUNT_ROW_MAX_WIDTH}px;${rowStyle}">
+        <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1; max-width: ${EXTRA_TOTALS_LABEL_MAX_WIDTH}px;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
+        <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;">${formatMoney(amount)}${currencySuffix}</span>
+      </div>`;
   };
 
+  // Итоговые строки доп. услуг (печатаются внутри контейнера итогов, см. totalsRowsHtml).
+  let extraTotalsRowsHtml = '';
   if (showExtraTotals) {
-    // Show totals based on mode
+    // Отделительная линия сверху и отступы — как раньше; нижний отступ даёт footer
+    // (padding-bottom: 16px), поэтому padding-bottom здесь не нужен.
+    const dividerStyle = ' margin-top: 20px; padding-top: 20px; border-top: 2px solid #000000;';
     if (isCombinedOnlyMode) {
       // Combined only mode: show only combined total with extras
-      extraServicesHtml += makeExtraTotalRowHtml(
+      extraTotalsRowsHtml = makeExtraTotalRowHtml(
         'Итого с дополнительными услугами',
         grandTotalWithExtrasCombined,
-        'margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;'
+        dividerStyle
+      );
+    } else if (budgetDays === 1) {
+      extraTotalsRowsHtml = makeExtraTotalRowHtml(
+        'Итого с дополнительными услугами',
+        grandTotalWithExtrasDay1,
+        dividerStyle
       );
     } else {
       // Day1 plus combined mode: show both day1 and combined totals with extras
-      if (budgetDays === 1) {
-        extraServicesHtml += makeExtraTotalRowHtml(
-          'Итого с дополнительными услугами',
+      extraTotalsRowsHtml =
+        makeExtraTotalRowHtml(
+          'Итого с дополнительными услугами за 1 день',
           grandTotalWithExtrasDay1,
-          'margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;'
+          dividerStyle
+        ) +
+        makeExtraTotalRowHtml(
+          'Итого с дополнительными услугами',
+          grandTotalWithExtrasCombined,
+          ' margin-top: 10px;'
         );
-      } else {
-        extraServicesHtml +=
-          makeExtraTotalRowHtml(
-            'Итого с дополнительными услугами за 1 день',
-            grandTotalWithExtrasDay1,
-            'margin-top: 20px; padding: 20px 0 10px 0; border-top: 2px solid #000000;'
-          ) +
-          makeExtraTotalRowHtml(
-            'Итого с дополнительными услугами',
-            grandTotalWithExtrasCombined,
-            'margin-top: 10px; padding: 10px 0 40px 0;'
-          );
-      }
     }
   }
 
@@ -897,6 +903,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ` : ''}
       ${discountRowsHtml}
     `;
+
+  // Все итоговые строки (обычные итоги, скидки, итоги с доп. услугами) рендерятся в одном
+  // контейнере — иначе строка доп. услуг съезжала и давала большой отступ справа от суммы.
+  const totalsRowsHtml = extraTotalsRowsHtml
+    ? `${footerTotalsHtml}${extraTotalsRowsHtml}`
+    : footerTotalsHtml;
 
   container.innerHTML = `
     <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 15px;">
@@ -929,7 +941,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     <footer style="margin-top: 25px; border-top: 2px solid #000000; padding-top: 15px; padding-bottom: 16px; display: flex; justify-content: flex-end;">
       <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-right: 0px; width: 100%;">
-        ${footerTotalsHtml}
+        ${totalsRowsHtml}
       </div>
     </footer>
     ${extraServicesHtml}
