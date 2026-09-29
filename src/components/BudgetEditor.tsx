@@ -1471,9 +1471,13 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const discountEligibleTotalBYNNonCashDay1 = discountEligibleNonWorkItems.reduce(
     (sum, item) => sum + calculateBYNNonCash(item.price, item) * item.quantity, 0);
 
-  // Суммы по текущему режиму итогов (combined_only / day1_plus_combined),
-  // чтобы первая скидка в PDF не считалась всегда по combined-сметам.
+  // Суммы по текущему режиму итогов (combined_only / day1_plus_combined).
+  // ВАЖНО: в режиме «Итого за 1дн и Nдн» при нескольких днях базой скидки является
+  // сумма оборудования на N день (combined), а не за первый день — обе скидки и
+  // промежуточный итог считаются от неё.
   const isCombinedOnlyTotals = budgetTotalsMode === 'combined_only';
+  const isMultiDayTotals = budgetDays > 1;
+  const discountBasesFollowCombined = isCombinedOnlyTotals || isMultiDayTotals;
   const nonWorkTotalForModeCash = isCombinedOnlyTotals ? nonWorkTotalBYNCashCombined : nonWorkTotalBYNCashForMode;
   const nonWorkTotalForModeNonCash = isCombinedOnlyTotals ? nonWorkTotalBYNNonCashCombined : nonWorkTotalBYNNonCashForMode;
   const workTotalForModeCash = isCombinedOnlyTotals ? workTotalBYNCashCombined : workTotalBYNCashForMode;
@@ -1525,14 +1529,14 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   // totalsMode задает базу скидки ('day1' | 'combined'); по умолчанию — по текущему режиму итогов.
   const getDiscountedTotalLevel1 = (totalsMode?: DiscountTotalsMode) => {
     if (!hasClientDiscount) return null;
-    const mode = totalsMode ?? (isCombinedOnlyTotals ? 'combined' : 'day1');
+    const mode = totalsMode ?? (discountBasesFollowCombined ? 'combined' : 'day1');
     return computeDiscountedTotalFromBases(mode, 1 - discountPercent / 100);
   };
 
   const getDiscountedTotal = (totalsMode?: DiscountTotalsMode) => {
     // Итог со скидками считается, если активен хотя бы один уровень скидок.
     if (!hasAnyDiscount) return null;
-    const mode = totalsMode ?? (isCombinedOnlyTotals ? 'combined' : 'day1');
+    const mode = totalsMode ?? (discountBasesFollowCombined ? 'combined' : 'day1');
     // Зависимость (режимов выбора нет):
     // - скидка клиенту НЕ активна -> скидка организатору применяется к базе сметы
     //   (стоимости оборудования): база x (1 - d2/100);
@@ -1557,17 +1561,32 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const getDiscountTotalsBaseForPaymentMode = () => {
     switch (paymentMode) {
       case 'byn_cash':
-        return {
+        return discountBasesFollowCombined
+          ? {
+              discountable: discountEligibleTotalBYNCashCombined,
+              fixed: (nonWorkTotalBYNCashCombined - discountEligibleTotalBYNCashCombined) + workTotalBYNCashCombined
+            }
+          : {
           discountable: discountEligibleTotalForModeCash,
           fixed: (nonWorkTotalForModeCash - discountEligibleTotalForModeCash) + workTotalForModeCash
         };
       case 'byn_noncash':
-        return {
+        return discountBasesFollowCombined
+          ? {
+              discountable: discountEligibleTotalBYNNonCashCombined,
+              fixed: (nonWorkTotalBYNNonCashCombined - discountEligibleTotalBYNNonCashCombined) + workTotalBYNNonCashCombined
+            }
+          : {
           discountable: discountEligibleTotalForModeNonCash,
           fixed: (nonWorkTotalForModeNonCash - discountEligibleTotalForModeNonCash) + workTotalForModeNonCash
         };
       default:
-        return {
+        return discountBasesFollowCombined
+          ? {
+              discountable: discountEligibleTotalsUSD.combinedTotal,
+              fixed: (nonWorkTotalsUSD.combinedTotal - discountEligibleTotalsUSD.combinedTotal) + workTotalsUSD.combinedTotal
+            }
+          : {
           discountable: discountEligibleTotalsForModeUSD,
           fixed: (nonWorkTotalsForModeUSD - discountEligibleTotalsForModeUSD) + workTotalsForModeUSD
         };
