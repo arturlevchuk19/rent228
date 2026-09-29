@@ -43,6 +43,8 @@ import {
   resetWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
+import type { EquipmentComposition } from '../lib/equipmentCompositions';
+import type { ModificationComponent } from '../lib/equipment';
 import { StickyNotePanel } from './StickyNotePanel';
 
 interface WarehouseSpecificationProps {
@@ -178,6 +180,62 @@ const getPersistedBudgetItemId = (budgetItemId: string) => budgetItemId.replace(
 
 const isGeneratedCompositionItemId = (budgetItemId: string) => COMPOSED_ITEM_ID_SUFFIX_REGEX.test(budgetItemId);
 
+// У виртуальных субэлементов раскладного состава (compositions/modifications) нет
+// собственной строки в БД, поэтому их состояние «отмечено» хранится локально и
+// переживает перезагрузку страницы. Отметка такого субэлемента дополнительно
+// помечает родительскую запись как изменённую — при сохранении изменений
+// субэлементы создаются в БД как обычные дочерние budget items (parent_budget_item_id),
+// после чего работают так же, как все остальные элементы спецификации.
+const buildCompositionPickedStorageKey = (eventId: string) => `spec_composition_picked_${eventId}`;
+
+type CompositionPickedSnapshot = Record<string, { picked?: boolean; return_picked?: boolean }>;
+
+const readCompositionPickedSnapshot = (eventId: string): CompositionPickedSnapshot => {
+  try {
+    const raw = localStorage.getItem(buildCompositionPickedStorageKey(eventId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed as CompositionPickedSnapshot : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeCompositionPickedSnapshot = (eventId: string, snapshot: CompositionPickedSnapshot) => {
+  try {
+    localStorage.setItem(buildCompositionPickedStorageKey(eventId), JSON.stringify(snapshot));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+// Детерминированный хэш строки (FNV-1a) — используется для стабильных ключей субэлементов.
+const hashString = (value: string): string => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+};
+
+// Строит стабильный ключ виртуального субэлемента привязки к родителю,
+// составу/модификации и компоненту. Ключ не зависит от времени, поэтому
+// восстановленные после перезагрузки отметки совпадают с новыми строками.
+const buildStableCompositionItemKey = (
+  parentBudgetItemId: string,
+  kind: 'comp' | 'mod',
+  sourceId: string,
+  childEquipmentId?: string | null
+) => `${parentBudgetItemId}-${kind}-${sourceId}${childEquipmentId ? `-${childEquipmentId}` : ''}`;
+
+// Извлекает части стабильного ключа субэлемента раскладного состава (-comp-/-mod-).
+const parseCompositionItemKey = (budgetItemId: string): { parentId: string; kind: 'comp' | 'mod'; sourceId: string } | null => {
+  const match = /^(.+)-(comp|mod)-(.+)$/.exec(budgetItemId);
+  if (!match) return null;
+  return { parentId: match[1], kind: match[2] as 'comp' | 'mod', sourceId: match[3] };
+};
+
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
@@ -235,6 +293,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingConfirmMode, setPendingConfirmMode] = useState<'shipment' | 'return' | null>(null);
   const [addEquipmentTarget, setAddEquipmentTarget] = useState<AddEquipmentTarget>({ categoryId: null, locationId: null });
   const [pendingDeleteItem, setPendingDeleteItem] = useState<PendingDeleteItem | null>(null);
+  // Загруженные раскладные составы/модификации по id бюджетной позиции родителя —
+  // нужны, чтобы при сохранении воссоздать субэлементы как реальные записи БД.
+  const [compositionPartsByParentId, setCompositionPartsByParentId] = useState<Record<string, Array<{
+    key: string;
+    kind: 'comp' | 'mod';
+    equipment_id: string | null;
+    name: string;
+    sku: string;
+    category: string;
+    quantity: number;
+  }>>>({});
   const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
   const [pendingComponentCaseSelections, setPendingComponentCaseSelections] = useState<PendingComponentCaseSelection[]>([]);
@@ -563,6 +632,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       const items: ExpandedItem[] = [];
       const pendingComponentDecisions: ComponentDecisionGroup[] = [];
       const pendingGroupsByKey = new Map<string, ComponentDecisionGroup>();
+      const compositionPartsMap: Record<string, Array<{
+        key: string;
+        kind: 'comp' | 'mod';
+        equipment_id: string | null;
+        name: string;
+        sku: string;
+        category: string;
+        quantity: number;
+      }>> = {};
 
       console.log('Loading warehouse specification for event:', eventId);
 
@@ -742,8 +820,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   hasExpandedChildren = true;
                 }
                 for (const comp of compositions) {
+                  const subKey = buildStableCompositionItemKey(item.id, 'comp', comp.id, comp.child_id);
                   items.push({
-                    budgetItemId: `${item.id}-comp-${comp.id}`,
+                    budgetItemId: subKey,
                     parentBudgetItemId: item.id,
                     categoryId: item.category_id || null,
                     locationId: itemLocationId,
@@ -760,6 +839,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     isExtra: item.is_extra || false,
                     parentName: item.equipment?.name
                   });
+                  (compositionPartsMap[item.id] = compositionPartsMap[item.id] || []).push({
+                    key: subKey,
+                    kind: 'comp',
+                    equipment_id: comp.child_id || null,
+                    name: comp.child_name || 'Unknown',
+                    sku: comp.child_sku || '',
+                    category: comp.child_category || 'Components',
+                    quantity: item.quantity * comp.quantity
+                  });
                 }
               } catch (error) {
                 console.error('Error loading composition for', item.equipment?.name, ':', error);
@@ -774,8 +862,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                   hasExpandedChildren = true;
                 }
                 for (const component of components) {
+                  const subKey = buildStableCompositionItemKey(item.id, 'mod', component.id, component.component_equipment_id);
                   items.push({
-                    budgetItemId: `${item.id}-mod-${component.id}`,
+                    budgetItemId: subKey,
                     parentBudgetItemId: item.id,
                     categoryId: item.category_id || null,
                     locationId: itemLocationId,
@@ -791,6 +880,15 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                     isFromComposition: true,
                     isExtra: item.is_extra || false,
                     parentName: item.equipment?.name
+                  });
+                  (compositionPartsMap[item.id] = compositionPartsMap[item.id] || []).push({
+                    key: subKey,
+                    kind: 'mod',
+                    equipment_id: component.component_equipment_id || null,
+                    name: component.component?.name || 'Unknown',
+                    sku: component.component?.sku || '',
+                    category: component.component?.category || 'Modification Components',
+                    quantity: item.quantity * component.quantity
                   });
                 }
               } catch (error) {
@@ -823,6 +921,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
             setComponentDecisionQueue(pendingComponentDecisions);
             setActiveComponentDecisionIndex(0);
+            setCompositionPartsByParentId(compositionPartsMap);
 
             // Pre-load modifications for all equipment items to know which ones have modifications
             const equipmentIds = budgetData
@@ -851,6 +950,18 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 }
               }
             }
+
+            // Восстанавливаем отметки виртуальных субэлементов раскладного состава,
+            // сохранённые до перезагрузки страницы
+            const compositionPickedSnapshot = readCompositionPickedSnapshot(eventId);
+            items.forEach((subItem) => {
+              if (!isGeneratedCompositionItemId(subItem.budgetItemId)) return;
+              const saved = compositionPickedSnapshot[subItem.budgetItemId];
+              if (!saved) return;
+              if (saved.picked !== undefined) subItem.picked = saved.picked;
+              if (saved.return_picked !== undefined) subItem.return_picked = saved.return_picked;
+            });
+
             setExpandedItems(items);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -1017,13 +1128,37 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     setActiveComponentDecisionIndex(prev => prev + 1);
   };
 
+  // Сохраняет отметку виртуального субэлемента раскладного состава, чтобы она
+  // не терялась после перезагрузки страницы (у таких строк пока нет своей записи в БД).
+  // Отмеченный субэлемент дополнительно помечает родителя как изменённый — при
+  // сохранении изменений он будет создан в БД как обычная дочерняя позиция.
+  const persistCompositionPickedState = (budgetItemId: string, patch: { picked?: boolean; return_picked?: boolean }) => {
+    const snapshot = readCompositionPickedSnapshot(eventId);
+    snapshot[budgetItemId] = { ...(snapshot[budgetItemId] || {}), ...patch };
+
+    // Подчищаем устаревший legacy-ключ с временным суффиксом (mod-<id>-<timestamp>),
+    // чтобы после смены формата ключей отметка не задваивалась.
+    if (budgetItemId.includes('-mod-')) {
+      const parentId = getPersistedBudgetItemId(budgetItemId);
+      Object.keys(snapshot).forEach((key) => {
+        if (key === budgetItemId) return;
+        if (/^.*-mod-.*-\d+$/.test(key) && getPersistedBudgetItemId(key) === parentId) {
+          delete snapshot[key];
+        }
+      });
+    }
+
+    writeCompositionPickedSnapshot(eventId, snapshot);
+    setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
+  };
+
   const handlePickedChange = async (budgetItemId: string, picked: boolean) => {
     try {
       if (isGeneratedCompositionItemId(budgetItemId)) {
         setExpandedItems(prev => prev.map(item =>
           item.budgetItemId === budgetItemId ? { ...item, picked } : item
         ));
-        setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
+        persistCompositionPickedState(budgetItemId, { picked });
         return;
       }
 
@@ -1123,6 +1258,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     try {
       setResettingSpecification(true);
       await resetWarehouseSpecificationSnapshot(eventId);
+      // При сбросе спецификации очищаем и локальные отметки субэлементов раскладного состава
+      try {
+        localStorage.removeItem(buildCompositionPickedStorageKey(eventId));
+      } catch {
+        // ignore storage errors
+      }
       setModifiedItems(new Set());
       setItemsWithAppliedModifications(new Set());
       setLedItemsWithCases(new Set());
@@ -1147,7 +1288,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         setExpandedItems(prev => prev.map(item =>
           item.budgetItemId === budgetItemId ? { ...item, return_picked } : item
         ));
-        setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
+        persistCompositionPickedState(budgetItemId, { return_picked });
         return;
       }
 
@@ -1790,6 +1931,23 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       if (errors.length > 0) {
         showNotification('Ошибка при сохранении: ' + errors.join(', '));
       } else {
+        // Отметки субэлементов, которые стали реальными записями БД после сохранения,
+        // больше не нужны в локальном снимке — удаляем их, чтобы не переносить устаревшие значения
+        const persistedVirtualIds = createdItems.map(c => c.oldId);
+        if (persistedVirtualIds.length > 0) {
+          const snapshot = readCompositionPickedSnapshot(eventId);
+          let snapshotChanged = false;
+          for (const virtualId of persistedVirtualIds) {
+            if (snapshot[virtualId] !== undefined) {
+              delete snapshot[virtualId];
+              snapshotChanged = true;
+            }
+          }
+          if (snapshotChanged) {
+            writeCompositionPickedSnapshot(eventId, snapshot);
+          }
+        }
+
         setModifiedItems(new Set());
         setPendingComponentCaseSelections([]);
         showNotification('Изменения сохранены', 'success');
