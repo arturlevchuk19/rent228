@@ -824,13 +824,28 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // иначе используем пересчитанное значение. Округление вниз кратно 5.
   // Скидки применяются, если активен хотя бы один уровень (клиент или организатор).
   const hasAppliedDiscount = hasFirstDiscount || hasOrganizerDiscount;
-  const discountedTotalDay1 = hasAppliedDiscount
-    ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalDay1)
-    : mainTotalDay1;
-  const discountedTotalCombined = hasAppliedDiscount
-    ? roundDownToNearestFive(data.discountedTotalFromEditor ?? finalCombined)
-    : mainTotalCombined;
-  
+
+  // Итоги «со скидкой» отдельно для каждого периода. В режиме «Итого за 1дн и Nдн»
+  // при выводе обеих сумм скидка считается от суммы оборудования соответствующего
+  // дня: для N-го итога — от суммы на N день (combined), а не на первый.
+  // Ручная сумма из редактора (discountedTotalFromEditor) относится к текущему
+  // режиму итогов: в combined_only — к N-дневному итогу, в day1_plus_combined — к итогу за 1 день.
+  const discountedTotalForPeriod = (period: 'day1' | 'combined'): number => {
+    if (!hasAppliedDiscount) return period === 'combined' ? mainTotalCombined : mainTotalDay1;
+    const manualAppliesToPeriod = (period === 'combined') === isCombinedOnlyMode;
+    if (manualAppliesToPeriod && data.discountedTotalFromEditor !== undefined) {
+      return roundDownToNearestFive(data.discountedTotalFromEditor);
+    }
+    const level1 = period === 'combined' ? level1Combined : level1Day1;
+    const final = period === 'combined' ? finalCombined : finalDay1;
+    // Без второй строки скидок печатается только итог со скидкой клиента —
+    // промежуточный уровень (без множителя организатора).
+    return roundDownToNearestFive(hasSecondDiscountRow ? final : level1);
+  };
+
+  const discountedTotalDay1 = discountedTotalForPeriod('day1');
+  const discountedTotalCombined = discountedTotalForPeriod('combined');
+
   // Total with extras for each mode: discounted main total + extra services
   // Apply round down to nearest 5 for consistency with main totals
   const grandTotalWithExtrasDay1 = data.totalWithExtraFromEditor !== undefined && !isCombinedOnlyMode
@@ -851,6 +866,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     // nowrap, без UPPERCASE и letter-spacing), чтобы текст не переносился на 2 строчки.
     const extrasLabel = 'Итого с дополнительными услугами';
     const extrasContainerStyle = ' margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;';
+    // Итог с доп. услугами за период = скинутая база этого периода + доп. услуги периода.
+    const makeGrandTotalWithExtrasForPeriod = (period: 'day1' | 'combined') =>
+      roundDownToNearestFive(discountedTotalForPeriod(period) + (period === 'combined' ? extraTotalCombined : extraTotalDay1));
     // Show totals based on mode
     if (isCombinedOnlyMode) {
       // Combined only mode: show only combined total with extras
@@ -863,21 +881,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         }
       );
     } else {
-      // Day1 plus combined mode: show both day1 and combined totals with extras
+      // Day1 plus combined mode: in multi-day mode only the N-day total with extras
+      // is shown (the "за 1 день" row with extra services is removed by design).
       if (budgetDays === 1) {
         extraServicesHtml += makeTotalRowHtml(extrasLabel, grandTotalWithExtrasDay1, {
           extraContainerStyle: extrasContainerStyle
         });
       } else {
-        extraServicesHtml +=
-          makeTotalRowHtml(extrasLabel, grandTotalWithExtrasDay1, {
-            period: 'за 1 день',
-            extraContainerStyle: ' margin-top: 20px; padding: 20px 0 10px 0; border-top: 2px solid #000000;'
-          }) +
-          makeTotalRowHtml(extrasLabel, grandTotalWithExtrasCombined, {
-            period: `за ${budgetDays} дн.`,
-            extraContainerStyle: ' margin-top: 10px; padding: 10px 0 40px 0;'
-          });
+        extraServicesHtml += makeTotalRowHtml(extrasLabel, makeGrandTotalWithExtrasForPeriod('combined'), {
+          period: `за ${budgetDays} дн.`,
+          extraContainerStyle: extrasContainerStyle
+        });
       }
     }
   }
