@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { getCurrentUser, AuthUser, signIn } from '../lib/auth';
+import { getCurrentUser, AuthUser } from '../lib/auth';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -9,10 +9,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Auto-login credentials for testing
-const TEST_EMAIL = 'admin@onpromo.by';
-const TEST_PASSWORD = 'admin';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -43,24 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
-
-  // Auto-login for testing
-  useEffect(() => {
-    const autoLogin = async () => {
-      if (!user && !loading) {
-        try {
-          console.log('[AutoLogin] Attempting auto-login with test credentials...');
-          await signIn(TEST_EMAIL, TEST_PASSWORD);
-          console.log('[AutoLogin] Auto-login successful');
-          await loadUser();
-        } catch (error) {
-          console.error('[AutoLogin] Auto-login failed:', error);
-        }
-      }
-    };
-
-    autoLogin();
-  }, [user, loading]);
 
   return (
     <AuthContext.Provider value={{ user, loading, refreshUser: loadUser }}>
