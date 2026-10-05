@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Package, Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { getTemplates, deleteTemplate, Template, getTemplateById } from '../lib/templates';
 import { TemplateForm } from '../components/TemplateForm';

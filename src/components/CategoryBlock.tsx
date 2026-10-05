@@ -99,26 +99,10 @@ export function CategoryBlock({
     setIsEditingName(false);
   };
 
-  const calculateBYNCash = (amountUSD: number): number => {
-    const baseAmount = amountUSD * exchangeRate;
-    return Math.ceil(baseAmount);
-  };
-
   const isDeliveryWork = (item: BudgetItem): boolean => {
     if (item.item_type !== 'work') return false;
     const workName = item.work_item?.name?.toLowerCase() || '';
     return workName.includes('доставка оборудования') || workName.includes('доставка персонала');
-  };
-
-  const calculateBYNNonCash = (amountUSD: number, item?: BudgetItem): number => {
-    const baseAmount = amountUSD * exchangeRate;
-    let withBankRate: number;
-    if (item && item.item_type === 'work' && !isDeliveryWork(item)) {
-      withBankRate = baseAmount * 1.67;
-    } else {
-      withBankRate = baseAmount / 0.8;
-    }
-    return Math.ceil(withBankRate);
   };
 
   const convertUSDtoBYNCashPrice = (priceUSD: number): number => {
@@ -417,7 +401,6 @@ export function CategoryBlock({
           <div>
             {items.map((item) => {
               const isNoteEditorOpen = noteEditorsOpen[item.id] ?? Boolean(item.notes);
-              const displayedPrice = getDisplayedPrice(item);
               const editablePrice = getDisplayedPrice(item);
               return (
                 <div

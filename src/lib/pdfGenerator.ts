@@ -88,26 +88,10 @@ const formatDateRu = (dateValue?: string): string => {
   return trimmedDate;
 };
 
-const calculateBYNCashPrice = (priceUSD: number, exchangeRate: number): number => {
-  const baseAmount = priceUSD * exchangeRate;
-  return Math.ceil(baseAmount);
-};
-
 const isWorkNonDelivery = (item: BudgetItem): boolean => {
   if (!item.work_item?.name) return false;
   const workName = item.work_item.name.toLowerCase();
   return !workName.includes('доставка оборудования') && !workName.includes('доставка персонала');
-};
-
-const calculateBYNNonCashPrice = (priceUSD: number, exchangeRate: number, item?: BudgetItem): number => {
-  const baseAmount = priceUSD * exchangeRate;
-  let withBankRate: number;
-  if (item && item.work_item && isWorkNonDelivery(item)) {
-    withBankRate = baseAmount * 1.67;
-  } else {
-    withBankRate = baseAmount / 0.8;
-  }
-  return Math.ceil(withBankRate);
 };
 
 const formatMoney = (value: number): string => value.toFixed(2);
@@ -273,7 +257,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   let categoriesHtml = '';
   let grandTotalDay1 = 0;
   const grayAccent = '#ffffff'; ///#4b5563
-  const grayBg = 'rgba(0, 0, 0, 0.04)';
   const paymentMode = data.paymentMode || 'usd';
   const currencySuffix = paymentMode !== 'usd' ? ' BYN' : ' $';
 
@@ -327,7 +310,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const locationPrefix = `${locationIdx}. `;
     const locationName = isNoLocation ? '' : (locationNameById.get(locationId) || 'Локация');
     const displayLocationName = isNoLocation ? '' : `${locationPrefix}${locationName}`;
-    const locationAccent = isNoLocation ? '#4b5563' : (locationColorById.get(locationId) || '#14532d');
 
     let locationHtml = '';
 

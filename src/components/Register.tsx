@@ -7,7 +7,7 @@ interface RegisterProps {
   onSwitchToLogin: () => void;
 }
 
-export function Register({ onSuccess, onSwitchToLogin }: RegisterProps) {
+export function Register({ onSwitchToLogin }: RegisterProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');

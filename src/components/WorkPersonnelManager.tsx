@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { Personnel, getPersonnel, assignPersonnelToBudgetItem, getBudgetItemPersonnel } from '../lib/personnel';
@@ -9,11 +9,6 @@ interface WorkPersonnelManagerProps {
   onSave: () => void;
   paymentMode: 'usd' | 'byn_cash' | 'byn_noncash';
   exchangeRate: number;
-}
-
-interface WorkPersonnelAssignment {
-  budgetItemId: string;
-  personnelIds: string[];
 }
 
 export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, exchangeRate }: WorkPersonnelManagerProps) {

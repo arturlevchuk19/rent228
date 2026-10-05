@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Calendar, Copy, Loader2, Check, FileText, User, MapPin } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Search, Calendar, Copy, Loader2, User, MapPin } from 'lucide-react';
 import { Event, getEvents, copyBudgetFromEvent, getEvent, updateEvent } from '../../lib/events';
 
 interface CopyBudgetDialogProps {

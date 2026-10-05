@@ -365,20 +365,24 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           <div className="flex items-center gap-1.5">
                             <ReceiptText
                               className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
-                              title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
-                            />
+                              >
+                                <title>{event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}</title>
+                            </ReceiptText>
                             <CheckCircle
                               className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
-                              title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
-                            />
+                              >
+                                <title>{event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}</title>
+                            </CheckCircle>
                             <ClipboardCheck
                               className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
-                              title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
-                            />
+                              >
+                                <title>{event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}</title>
+                            </ClipboardCheck>
                             <CreditCard
                               className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
-                              title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
-                            />
+                              >
+                                <title>{event.progress_paid ? 'Оплачен' : 'Не оплачен'}</title>
+                            </CreditCard>
                           </div>
                         </td>
                         <td className="px-4 py-2 text-right">
@@ -521,20 +525,24 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                     <div className="flex items-center gap-1.5">
                       <ReceiptText
                         className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
-                        title={event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}
-                      />
+                        >
+                          <title>{event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}</title>
+                      </ReceiptText>
                       <CheckCircle
                         className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
-                        title={event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}
-                      />
+                        >
+                          <title>{event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}</title>
+                      </CheckCircle>
                       <ClipboardCheck
                         className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
-                        title={event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}
-                      />
+                        >
+                          <title>{event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}</title>
+                      </ClipboardCheck>
                       <CreditCard
                         className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
-                        title={event.progress_paid ? 'Оплачен' : 'Не оплачен'}
-                      />
+                        >
+                          <title>{event.progress_paid ? 'Оплачен' : 'Не оплачен'}</title>
+                      </CreditCard>
                     </div>
                   </div>
                 ))}

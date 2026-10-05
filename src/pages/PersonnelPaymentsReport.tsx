@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, FileText, Calendar } from 'lucide-react';
+import { DollarSign, FileText } from 'lucide-react';
 import { getPersonnel, Personnel } from '../lib/personnel';
 import { getPaymentsByPersonnel, PaymentWithDetails } from '../lib/payments';
 

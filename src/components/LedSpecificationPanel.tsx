@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Calculator, Plus, Minus, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Calculator, Plus, Minus, ChevronDown } from 'lucide-react';
 import { BudgetItem, getBudgetItems } from '../lib/events';
 import { getEquipmentCompositions, addEquipmentComposition, getAvailableLedModules, findCasesForModules } from '../lib/equipmentCompositions';
 import { EquipmentComposition, EquipmentModule } from '../lib/equipmentCompositions';
@@ -23,7 +23,7 @@ interface LedSpecificationPanelProps {
   onSaveWithCases?: (cases: CalculatedCase[]) => void;
 }
 
-export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItems, eventId, onClose, onSaveWithCases }: LedSpecificationPanelProps) {
+export function LedSpecificationPanel({ budgetItemId, budgetItems, eventId, onClose, onSaveWithCases }: LedSpecificationPanelProps) {
   const budgetItem = budgetItems.find(b => b.id === budgetItemId);
 
   console.log('LedSpecificationPanel props:', {
@@ -142,7 +142,7 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, allBudgetItem
     if (!budgetItem?.equipment_id) return;
     
     try {
-      const newCompositionId = await addEquipmentComposition(budgetItem.equipment_id, moduleModule.id, quantity);
+      await addEquipmentComposition(budgetItem.equipment_id, moduleModule.id, quantity);
       // Reload modules to get the new composition
       const compositions = await getEquipmentCompositions(budgetItem.equipment_id, true);
       setModules(compositions);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Package, Plus, Search } from 'lucide-react';
 import { getTemplates, getTemplateById, applyTemplateToEvent, Template } from '../lib/templates';
 
@@ -11,7 +11,6 @@ interface TemplatesInBudgetProps {
 export function TemplatesInBudget({ eventId, onClose, onApply }: TemplatesInBudgetProps) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [templateDetails, setTemplateDetails] = useState<Record<string, { itemCount: number }>>({});
   const [applying, setApplying] = useState<string | null>(null);

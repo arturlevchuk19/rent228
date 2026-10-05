@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Calculator } from 'lucide-react';
 import { EquipmentItem } from '../../lib/equipment';
 
