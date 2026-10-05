@@ -331,14 +331,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
-  const formatDateDisplay = () => {
-    const d = dateParts.day.padStart(2, '0');
-    const m = dateParts.month.padStart(2, '0');
-    const y = dateParts.year;
-    if (!y) return '';
-    return `${d}.${m}.${y}`;
-  };
-
   const formatEndDateDisplay = () => {
     const d = endDateParts.day.padStart(2, '0');
     const m = endDateParts.month.padStart(2, '0');

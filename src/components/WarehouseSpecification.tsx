@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Package, Download, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { BudgetItem, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
@@ -251,7 +251,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
-  const [allEquipment, setAllEquipment] = useState<EquipmentItem[]>([]);
+  const [, setAllEquipment] = useState<EquipmentItem[]>([]);
   const [eventDetails, setEventDetails] = useState<any>(null);
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
@@ -275,14 +275,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [showLedSpecification, setShowLedSpecification] = useState<string | null>(null);
   const [ledItemsWithCases, setLedItemsWithCases] = useState<Set<string>>(new Set());
   const [showPodiumSpecification, setShowPodiumSpecification] = useState<string | null>(null);
-  const [podiumItemsWithComposition, setPodiumItemsWithComposition] = useState<Set<string>>(new Set());
-  const [ledSpecifications, setLedSpecifications] = useState<Record<string, {
-    moduleType: string;
-    moduleSize: { width: number; height: number };
-    totalArea: number;
-    progress: number;
-    cases: Array<{ modulesCount: number; caseCount: number; caseId: string }>;
-  }>>({});
+  const [, setPodiumItemsWithComposition] = useState<Set<string>>(new Set());
   const [modifiedItems, setModifiedItems] = useState<Set<string>>(new Set());
   const [savingChanges, setSavingChanges] = useState(false);
   const [inputDraftValues, setInputDraftValues] = useState<Record<string, string>>({});
@@ -400,28 +393,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     
     // If not loaded yet, we need to check
     return false;
-  };
-
-  const checkAndLoadModifications = async (budgetItem: BudgetItem) => {
-    if (!budgetItem.equipment_id) return false;
-    
-    // If we already know about this equipment's modifications, return that result
-    if (equipmentModifications[budgetItem.equipment_id] !== undefined) {
-      return equipmentModifications[budgetItem.equipment_id].length > 0;
-    }
-    
-    // Otherwise, load the modifications
-    try {
-      const mods = await getEquipmentModifications(budgetItem.equipment_id);
-      setEquipmentModifications(prev => ({
-        ...prev,
-        [budgetItem.equipment_id]: mods
-      }));
-      return mods.length > 0;
-    } catch (error) {
-      console.error('Error loading modifications for equipment', budgetItem.equipment_id, ':', error);
-      return false;
-    }
   };
 
   const mainItems = expandedItems.filter(item => !item.isExtra);
@@ -926,7 +897,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             // Pre-load modifications for all equipment items to know which ones have modifications
             const equipmentIds = budgetData
               .filter(item => item.item_type === 'equipment' && item.equipment_id && item.equipment?.object_type !== 'virtual')
-              .map(item => item.equipment_id);
+              .map(item => item.equipment_id)
+              .filter((id): id is string => Boolean(id));
 
             if (equipmentIds.length > 0) {
               try {
@@ -1473,20 +1445,21 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleOpenModificationSelector = async (budgetItem: BudgetItem) => {
-    if (!budgetItem.equipment_id) return;
+    const equipmentId = budgetItem.equipment_id;
+    if (!equipmentId) return;
     
     setLoadingModifications(true);
     
     // Check if we already have modifications loaded for this equipment
-    if (!equipmentModifications[budgetItem.equipment_id]) {
+    if (!equipmentModifications[equipmentId]) {
       try {
-        const mods = await getEquipmentModifications(budgetItem.equipment_id);
+        const mods = await getEquipmentModifications(equipmentId);
         setEquipmentModifications(prev => ({
           ...prev,
-          [budgetItem.equipment_id]: mods
+          [equipmentId]: mods
         }));
       } catch (error) {
-        console.error('Error loading modifications for equipment', budgetItem.equipment_id, ':', error);
+        console.error('Error loading modifications for equipment', equipmentId, ':', error);
         showNotification('Ошибка загрузки модификаций');
         setLoadingModifications(false);
         return;
@@ -1976,7 +1949,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           cable_length: cableLength,
           quantity: normalizedQuantity,
           notes: '',
-          picked: false
+          picked: false,
+          return_picked: false
         });
         setCables(prev => [...prev, newCable]);
         return;
@@ -2021,7 +1995,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           connector_item: itemType,
           quantity: normalizedQuantity,
           notes: '',
-          picked: false
+          picked: false,
+          return_picked: false
         });
         setConnectors(prev => [...prev, newConnector]);
         return;
@@ -2084,7 +2059,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           item_type: itemType,
           quantity: normalizedQuantity,
           notes: '',
-          picked: false
+          picked: false,
+          return_picked: false
         });
         setOtherItems(prev => [...prev, newItem]);
         return;
@@ -2120,135 +2096,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       console.error('Error updating other item picked status:', error);
       showNotification('Ошибка при обновлении статуса');
     }
-  };
-
-  const getOtherQuantity = (category: string, itemType: string) => {
-    const item = otherItems.find(i => i.category === category && i.item_type === itemType);
-    return item?.quantity || 0;
-  };
-
-  const getOtherId = (category: string, itemType: string) => {
-    const item = otherItems.find(i => i.category === category && i.item_type === itemType);
-    return item?.id;
-  };
-
-  const getOtherNotes = (category: string, itemType: string) => {
-    const item = otherItems.find(i => i.category === category && i.item_type === itemType);
-    return item?.notes || '';
-  };
-
-  const getOtherPicked = (category: string, itemType: string) => {
-    const item = otherItems.find(i => i.category === category && i.item_type === itemType);
-    return item?.picked || false;
-  };
-
-  const handleExportBudget = () => {
-    const csvRows = [['№', 'Наименование', 'Артикул', 'Локация', 'Категория', 'Количество', 'Ед. изм.', 'Взято', 'Примечания']];
-    
-    let globalIndex = 1;
-    locationGroups.forEach(locationGroup => {
-      locationGroup.categories.forEach(categoryGroup => {
-        categoryGroup.items.forEach(item => {
-          csvRows.push([
-            String(globalIndex++),
-            `"${item.name}"`,
-            item.sku,
-            `"${item.locationName || locationGroup.locationName || ''}"`,
-            `"${categoryGroup.categoryName}"`,
-            String(item.quantity),
-            item.unit,
-            item.picked ? 'Да' : 'Нет',
-            `"${item.notes}"`
-          ]);
-        });
-      });
-    });
-
-    const csvContent = csvRows.map(row => row.join(',')).join('\n');
-    downloadCSV(csvContent, `Спецификация_Смета_${eventName}_${new Date().toISOString().split('T')[0]}.csv`);
-  };
-
-  const handleExportCables = () => {
-    const csvContent = [
-      ['№', 'Тип кабеля', 'Длина', 'Количество', 'Взято', 'Примечания'].join(','),
-      ...cables.map((cable, index) =>
-        [
-          index + 1,
-          `"${cable.cable_type}"`,
-          cable.cable_length,
-          cable.quantity,
-          cable.picked ? 'Да' : 'Нет',
-          `"${cable.notes}"`
-        ].join(',')
-      )
-    ].join('\n');
-
-    downloadCSV(csvContent, `Спецификация_Кабели_${eventName}_${new Date().toISOString().split('T')[0]}.csv`);
-  };
-
-  const handleExportConnectors = () => {
-    const csvContent = [
-      ['№', 'Категория', 'Тип аксессуара', 'Количество', 'Взято', 'Примечания'].join(','),
-      ...connectors.map((connector, index) =>
-        (() => {
-          const parsed = parseConnectorScopedType(connector.connector_type);
-          return [
-            index + 1,
-            `"${parsed.category || connector.connector_type}"`,
-            `"${parsed.itemType}"`,
-            connector.quantity,
-            connector.picked ? 'Да' : 'Нет',
-            `"${connector.notes}"`
-          ].join(',');
-        })()
-      )
-    ].join('\n');
-
-    downloadCSV(csvContent, `Спецификация_Аксессуары_${eventName}_${new Date().toISOString().split('T')[0]}.csv`);
-  };
-
-  const handleExportOther = () => {
-    const csvContent = [
-      ['№', 'Категория', 'Предмет', 'Количество', 'Взято', 'Примечания'].join(','),
-      ...otherItems.map((item, index) =>
-        [
-          index + 1,
-          `"${item.category}"`,
-          `"${item.item_type}"`,
-          item.quantity,
-          item.picked ? 'Да' : 'Нет',
-          `"${item.notes}"`
-        ].join(',')
-      )
-    ].join('\n');
-
-    downloadCSV(csvContent, `Спецификация_Прочее_${eventName}_${new Date().toISOString().split('T')[0]}.csv`);
-  };
-
-  const downloadCSV = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const getCableQuantity = (cableType: string, cableLength: string) => {
-    const cable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
-    return cable?.quantity || 0;
-  };
-
-  const getCableId = (cableType: string, cableLength: string) => {
-    const cable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
-    return cable?.id;
-  };
-
-  const getCablePicked = (cableType: string, cableLength: string) => {
-    const cable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
-    return cable?.picked || false;
   };
 
   if (initialLoading && loading) {

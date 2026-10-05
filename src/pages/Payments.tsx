@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, DollarSign, CheckCircle, Clock, AlertCircle, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, DollarSign, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   getPaymentsByMonth,
-  getMonthsWithPayments,
   formatMonth,
   getFirstDayOfMonth,
   createPayment,
@@ -86,19 +85,6 @@ export default function Payments() {
         return 'bg-red-100 text-red-800 border-red-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  }
-
-  function getStatusIcon(status: string) {
-    switch (status) {
-      case 'Выплачено':
-        return <CheckCircle className="w-4 h-4" />;
-      case 'Запланировано':
-        return <Clock className="w-4 h-4" />;
-      case 'Просрочено':
-        return <AlertCircle className="w-4 h-4" />;
-      default:
-        return null;
     }
   }
 

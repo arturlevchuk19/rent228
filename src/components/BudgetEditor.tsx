@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote, FileSignature } from 'lucide-react';
+import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
@@ -133,7 +133,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [budgetTotalsMode, setBudgetTotalsMode] = useState<'combined_only' | 'day1_plus_combined'>('combined_only');
   const [draggedLocationId, setDraggedLocationId] = useState<string | null>(null);
   const [locationDragOverId, setLocationDragOverId] = useState<string | null>(null);
-  const [isBudgetConfirmed, setIsBudgetConfirmed] = useState(false);
+  const [, setIsBudgetConfirmed] = useState(false);
   const [showContractDialog, setShowContractDialog] = useState(false);
   const [contractOrganizationId, setContractOrganizationId] = useState('');
   const [clientsList, setClientsList] = useState<Client[]>([]);
@@ -152,6 +152,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     budget_days?: number;
     budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
     budget_note?: string;
+    sticky_notes?: string;
   } | null>(null);
 
   const budgetListRef = useRef<HTMLDivElement>(null);
@@ -1139,6 +1140,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         return;
       }
       // Handle location change if source and destination locations differ
+      const sourceCategoryId = sourceGroup.categoryId;
       const sourceLocId = sourceGroup.locationId || null;
       const destLocId = destinationGroup.locationId || null;
 
@@ -1168,8 +1170,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
         setActiveCategoryIds((prev) => {
           const next = new Set(prev);
-          next.delete(buildCategoryGroupId(sourceGroup.categoryId, sourceLocId));
-          next.add(buildCategoryGroupId(sourceGroup.categoryId, destLocId));
+          next.delete(buildCategoryGroupId(sourceCategoryId, sourceLocId));
+          next.add(buildCategoryGroupId(sourceCategoryId, destLocId));
           return next;
         });
       }
@@ -1845,38 +1847,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       case 'byn_noncash': return 'BYN';
       default: return 'USD';
     }
-  };
-
-  const calculateSectionTotalsForPaymentMode = (items: BudgetItem[]) => {
-    const day1Total = (() => {
-      switch (paymentMode) {
-        case 'byn_cash':
-          return items.reduce((sum, item) => sum + calculateBYNCash(item.price) * item.quantity, 0);
-        case 'byn_noncash':
-          return items.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item) * item.quantity, 0);
-        default:
-          return items.reduce((sum, item) => sum + calcDay1Total(item), 0);
-      }
-    })();
-
-    const combinedTotal = (() => {
-      switch (paymentMode) {
-        case 'byn_cash':
-          return items.reduce((sum, item) => {
-            const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-            return sum + calculateBYNCash(priceNDays) * item.quantity;
-          }, 0);
-        case 'byn_noncash':
-          return items.reduce((sum, item) => {
-            const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-            return sum + calculateBYNNonCash(priceNDays, item) * item.quantity;
-          }, 0);
-        default:
-          return items.reduce((sum, item) => sum + calcCombinedTotal(item, budgetDays), 0);
-      }
-    })();
-
-    return { day1Total, combinedTotal };
   };
 
   const handleLocationDragStart = (e: React.DragEvent, locationId: string) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, Building2, CircleUser as UserCircle, Plus, Pencil, Trash2, Search, Briefcase, Calendar } from 'lucide-react';
 import { getClients, getVenues, getOrganizers, getEvents, getEventTypes, createEventType, updateEventType, deleteEventType, deleteClient, deleteVenue, deleteOrganizer, Client, Venue, Organizer, Event, EventTypeItem } from '../lib/events';
 import { getWorkItems, createWorkItem, updateWorkItem, deleteWorkItem, WorkItem } from '../lib/personnel';
@@ -18,7 +18,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
   const [venues, setVenues] = useState<Venue[]>([]);
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [, setEvents] = useState<Event[]>([]);
   const [eventTypes, setEventTypes] = useState<EventTypeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -129,16 +129,6 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
     } catch (error) {
       console.error('Error deleting work item:', error);
       alert('Ошибка при удалении');
-    }
-  };
-
-  const handleRenameEventType = async (eventType: EventTypeItem) => {
-    try {
-      await updateEventType(eventType.id, eventTypeName.trim());
-      await loadData();
-    } catch (error) {
-      console.error('Error renaming event type:', error);
-      alert('Ошибка при редактировании');
     }
   };
 

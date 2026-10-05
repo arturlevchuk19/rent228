@@ -142,5 +142,6 @@ export async function getBudgetItemPersonnel(budgetItemId: string): Promise<Pers
     .eq('budget_item_id', budgetItemId);
 
   if (error) throw error;
-  return data?.map(item => item.personnel).filter(Boolean) as Personnel[] || [];
+  const rows = (data || []) as Array<{ personnel: unknown }>;
+  return rows.map(row => row.personnel).filter((person): person is Personnel => Boolean(person));
 }

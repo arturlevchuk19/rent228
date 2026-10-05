@@ -68,7 +68,7 @@ export async function addCaseRowsForLedScreen(
           unit: 'шт.',
           category: caseInfo.category,
           notes: `Кейс для ${totalModuleQty} шт. модулей`,
-          picked: item.picked_in_warehouse || false,
+          picked: item.picked,
           isFromComposition: true,
           parentName: item.equipment?.name
         });

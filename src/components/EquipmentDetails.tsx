@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Package, Plus, Trash2, Settings, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   EquipmentItem,

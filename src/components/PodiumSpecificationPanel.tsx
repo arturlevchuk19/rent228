@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Calculator, Plus, Minus, ChevronDown } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { getEquipmentCompositions, addEquipmentComposition } from '../lib/equipmentCompositions';
@@ -13,7 +13,7 @@ interface PodiumSpecificationPanelProps {
   onSaveWithComposition?: (selectedModules: EquipmentComposition[]) => void;
 }
 
-export function PodiumSpecificationPanel({ budgetItemId, budgetItems, eventId, onClose, onSaveWithComposition }: PodiumSpecificationPanelProps) {
+export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, onSaveWithComposition }: PodiumSpecificationPanelProps) {
   const budgetItem = budgetItems.find(b => b.id === budgetItemId);
 
   const [modules, setModules] = useState<EquipmentComposition[]>([]);
