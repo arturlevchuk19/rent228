@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import {
   addEquipmentCategory,
-  addEquipmentSubtype,
-  addEquipmentType,
+  addEquipmentSubtypeAndGetList,
+  addEquipmentTypeAndGetList,
   createEquipmentItem,
   updateEquipmentItem,
   EquipmentItem,
@@ -94,7 +94,12 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
   const [showSubtypeDialog, setShowSubtypeDialog] = useState(false);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
+  // Локальные копии справочников: позволяют обновлять выпадающие списки
+  // при добавлении нового значения без перезагрузки данных всей страницы
+  // (иначе форма перерисовывалась и введённые данные терялись).
+  const [localTypes, setLocalTypes] = useState<string[]>(types);
+  const [localSubtypes, setLocalSubtypes] = useState<string[]>(subtypes);
+  const [formData, setFormData] = useState(() => ({
     category: item?.category || '',
     type: item?.type || '',
     subtype: item?.subtype || '',
@@ -111,7 +116,16 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
     rental_type: item?.rental_type || 'rental' as 'rental' | 'sublease',
     has_composition: item?.has_composition || false,
     is_component: item?.is_component || false
-  });
+  }));
+
+  // Синхронизируем локальные копии со справочниками родителя,
+  // но только когда окно формы закрыто, чтобы не затирать незавершённый ввод.
+  useEffect(() => {
+    if (!showTypeDialog && !showSubtypeDialog && !showCategoryDialog) {
+      setLocalTypes(types);
+      setLocalSubtypes(subtypes);
+    }
+  }, [types, subtypes, showTypeDialog, showSubtypeDialog, showCategoryDialog]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,7 +259,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
                     <DirectorySelect
                       value={formData.type}
                       onChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
-                      options={types}
+                      options={localTypes}
                       placeholder="Выберите тип"
                       required
                     />
@@ -265,7 +279,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
                     <DirectorySelect
                       value={formData.subtype}
                       onChange={(value) => setFormData((prev) => ({ ...prev, subtype: value }))}
-                      options={subtypes}
+                      options={localSubtypes}
                       placeholder="Не выбрано"
                     />
                   </div>
@@ -660,11 +674,13 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
         isOpen={showTypeDialog}
         title="Добавить тип оборудования"
         inputLabel="Тип *"
-        existingItems={types}
+        existingItems={localTypes}
         onClose={() => setShowTypeDialog(false)}
         onConfirm={async (name) => {
-          await addEquipmentType(name);
-          await onDirectoriesChanged();
+          // Добавляем тип и обновляем только локальный справочник,
+          // не перезагружая данные страницы — форма сохраняет введённые значения.
+          const updated = await addEquipmentTypeAndGetList(name);
+          setLocalTypes(updated);
           setFormData((prev) => ({ ...prev, type: name }));
         }}
       />
@@ -672,11 +688,13 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
         isOpen={showSubtypeDialog}
         title="Добавить подтип оборудования"
         inputLabel="Подтип *"
-        existingItems={subtypes}
+        existingItems={localSubtypes}
         onClose={() => setShowSubtypeDialog(false)}
         onConfirm={async (name) => {
-          await addEquipmentSubtype(name);
-          await onDirectoriesChanged();
+          // Добавляем подтип и обновляем только локальный справочник,
+          // не перезагружая данные страницы — форма сохраняет введённые значения.
+          const updated = await addEquipmentSubtypeAndGetList(name);
+          setLocalSubtypes(updated);
           setFormData((prev) => ({ ...prev, subtype: name }));
         }}
       />

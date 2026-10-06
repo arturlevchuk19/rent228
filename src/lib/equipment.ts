@@ -75,8 +75,22 @@ export async function addEquipmentType(name: string): Promise<void> {
   await addEquipmentDirectoryValue('equipment_types', name);
 }
 
+// Возвращает актуальный список типов после добавления нового значения,
+// чтобы обновить справочник без перезагрузки страницы.
+export async function addEquipmentTypeAndGetList(name: string): Promise<string[]> {
+  await addEquipmentDirectoryValue('equipment_types', name);
+  return getEquipmentTypes();
+}
+
 export async function addEquipmentSubtype(name: string): Promise<void> {
   await addEquipmentDirectoryValue('equipment_subtypes', name);
+}
+
+// Возвращает актуальный список подтипов после добавления нового значения,
+// чтобы обновить справочник без перезагрузки страницы.
+export async function addEquipmentSubtypeAndGetList(name: string): Promise<string[]> {
+  await addEquipmentDirectoryValue('equipment_subtypes', name);
+  return getEquipmentSubtypes();
 }
 
 export async function addEquipmentCategory(name: string): Promise<void> {
