@@ -352,7 +352,6 @@ export function Equipment() {
               categories={categories}
               types={typesDirectory}
               subtypes={subtypesDirectory}
-              onDirectoriesChanged={loadData}
               onClose={handleFormClose}
             />
       )}
