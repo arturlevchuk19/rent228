@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import {
-  addEquipmentCategory,
+  addEquipmentCategoryAndGetList,
   addEquipmentSubtypeAndGetList,
   addEquipmentTypeAndGetList,
   createEquipmentItem,
@@ -84,11 +84,10 @@ interface EquipmentFormProps {
   categories: string[];
   types: string[];
   subtypes: string[];
-  onDirectoriesChanged: () => Promise<void>;
   onClose: () => void;
 }
 
-export function EquipmentForm({ item, categories, types, subtypes, onDirectoriesChanged, onClose }: EquipmentFormProps) {
+export function EquipmentForm({ item, categories, types, subtypes, onClose }: EquipmentFormProps) {
   const [loading, setLoading] = useState(false);
   const [showTypeDialog, setShowTypeDialog] = useState(false);
   const [showSubtypeDialog, setShowSubtypeDialog] = useState(false);
@@ -97,6 +96,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
   // Локальные копии справочников: позволяют обновлять выпадающие списки
   // при добавлении нового значения без перезагрузки данных всей страницы
   // (иначе форма перерисовывалась и введённые данные терялись).
+  const [localCategories, setLocalCategories] = useState<string[]>(categories);
   const [localTypes, setLocalTypes] = useState<string[]>(types);
   const [localSubtypes, setLocalSubtypes] = useState<string[]>(subtypes);
   const [formData, setFormData] = useState(() => ({
@@ -122,10 +122,11 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
   // но только когда окно формы закрыто, чтобы не затирать незавершённый ввод.
   useEffect(() => {
     if (!showTypeDialog && !showSubtypeDialog && !showCategoryDialog) {
+      setLocalCategories(categories);
       setLocalTypes(types);
       setLocalSubtypes(subtypes);
     }
-  }, [types, subtypes, showTypeDialog, showSubtypeDialog, showCategoryDialog]);
+  }, [categories, types, subtypes, showTypeDialog, showSubtypeDialog, showCategoryDialog]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,7 +240,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
                     <DirectorySelect
                       value={formData.category}
                       onChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
-                      options={categories}
+                      options={localCategories}
                       placeholder="Выберите категорию"
                       required
                     />
@@ -662,11 +663,13 @@ export function EquipmentForm({ item, categories, types, subtypes, onDirectories
         isOpen={showCategoryDialog}
         title="Добавить категорию оборудования"
         inputLabel="Категория *"
-        existingItems={categories}
+        existingItems={localCategories}
         onClose={() => setShowCategoryDialog(false)}
         onConfirm={async (name) => {
-          await addEquipmentCategory(name);
-          await onDirectoriesChanged();
+          // Добавляем категорию и обновляем только локальный справочник,
+          // не перезагружая данные страницы — форма сохраняет введённые значения.
+          const updated = await addEquipmentCategoryAndGetList(name);
+          setLocalCategories(updated);
           setFormData((prev) => ({ ...prev, category: name }));
         }}
       />

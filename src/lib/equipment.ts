@@ -126,6 +126,13 @@ export async function addEquipmentCategory(name: string): Promise<void> {
   if (error) throw error;
 }
 
+// Возвращает актуальный список категорий после добавления нового значения,
+// чтобы обновить справочник без перезагрузки страницы.
+export async function addEquipmentCategoryAndGetList(name: string): Promise<string[]> {
+  await addEquipmentCategory(name);
+  return getEquipmentCategories();
+}
+
 export async function getEquipmentItems(): Promise<EquipmentItem[]> {
   const { data, error} = await supabase
     .from('equipment_items')
