@@ -92,6 +92,34 @@ const formatDateRu = (dateValue?: string): string => {
   return trimmedDate;
 };
 
+// Формат отображения диапазона дат мероприятия: "13.10-15.10.2026"
+const formatEventDateRangeRu = (startDate?: string, endDate?: string): string => {
+  const formattedStart = formatDateRu(startDate);
+  if (!endDate || !endDate.trim() || formattedStart === '—') {
+    return formattedStart;
+  }
+
+  const formattedEnd = formatDateRu(endDate);
+  if (formattedEnd === '—' || formattedEnd === formattedStart) {
+    return formattedStart;
+  }
+
+  const startParts = formattedStart.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  const endParts = formattedEnd.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (startParts && endParts) {
+    const [, startDay, startMonth, startYear] = startParts;
+    const [, endDay, endMonth, endYear] = endParts;
+    if (startYear === endYear && startMonth === endMonth) {
+      // Один месяц: "13-15.10.2026"
+      return `${startDay}-${endDay}.${startMonth}.${startYear}`;
+    }
+    // Разные месяцы: "13.10-15.10.2026"
+    return `${startDay}.${startMonth}-${endDay}.${endMonth}.${endYear}`;
+  }
+
+  return `${formattedStart} - ${formattedEnd}`;
+};
+
 const isWorkNonDelivery = (item: BudgetItem): boolean => {
   if (!item.work_item?.name) return false;
   const workName = item.work_item.name.toLowerCase();
@@ -200,11 +228,7 @@ const waitForRenderReady = async (timeoutMs = 1500): Promise<void> => {
 
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
-  const formattedEventEndDate = formatDateRu(data.eventEndDate);
-  const eventDateDisplayHtml =
-    data.eventEndDate && data.eventEndDate.trim()
-      ? `с ${formattedEventDate}<br/>по ${formattedEventEndDate}`
-      : formattedEventDate;
+  const eventDateDisplayHtml = formatEventDateRangeRu(data.eventDate, data.eventEndDate);
   const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
   const versionLabel = (data.version || '1.0').trim() || '1.0';
 
