@@ -597,8 +597,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const budgetNoteHtml = trimmedBudgetNote
     ? `
       <section style="margin-top: 18px; padding: 14px; border: 1px solid #000000; border-radius: 10px; background: #ffffff;">
-        <div style="font-size: 14px; color: #6b7280; text-transform: uppercase; margin-bottom: 6px; font-weight: 700;">Примечание</div>
-        <div style="font-size: 15px; color: #1a1a1a; line-height: 1.4; white-space: normal;">${escapeHtml(trimmedBudgetNote).replace(/\n/g, '<br/>')}</div>
+        <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
+          <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
+          <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">Примечание</div>
+        </div>
+        <div style="padding: 8px 8px; font-size: 15px; color: #1a1a1a; line-height: 1.2; white-space: normal;">${escapeHtml(trimmedBudgetNote).replace(/\n/g, '<br/>')}</div>
       </section>
     `
     : '';
