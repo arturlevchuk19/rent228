@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
-import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
+import { type BudgetItem, type Client, type Event, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -146,6 +146,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingCloseAction, setPendingCloseAction] = useState<(() => void) | null>(null);
 
+  // Кэш события, загруженного при открытии редактора: нужен для экспорта PDF/Договора,
+  // чтобы не делать повторный запрос events + venues + clients + organizers в БД
+  // в момент нажатия кнопки (экспорт должен работать только по уже полученным данным).
+  const loadedEventRef = useRef<Event | null>(null);
+
   // Store original event data to detect changes
   const [originalEventData, setOriginalEventData] = useState<{
     discount_enabled?: boolean;
@@ -281,6 +286,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         getWorkItems(),
         getEvent(eventId)
       ]);
+      loadedEventRef.current = eventData;
       setBudgetItems(budgetData);
       setGlobalCategories(globalCategoriesData);
       setCategories([...globalCategoriesData, ...eventCategoriesData]);
@@ -1088,7 +1094,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const handleExportPDF = async (options?: { createdDate?: string; contractEquipmentTypeRP?: string }) => {
     try {
       setGeneratingPDF(true);
-      const event = await getEvent(eventId);
+      // Данные события (площадка, клиент, организатор) уже получены при открытии
+      // редактора — берём их из кэша, без повторного запроса к БД. Если кэш пуст
+      // (например, загрузка ещё не завершилась), делаем один запрос и кладём в кэш.
+      const event = loadedEventRef.current ?? await getEvent(eventId);
+      loadedEventRef.current = event;
 
       const parsedDiscountedTotalInput = parseFloat(discountedTotalInput.replace(',', '.'));
       const hasManualDiscountedTotal = hasAnyDiscount
@@ -1156,7 +1166,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     setContractOrganizationId(payload.organizationId);
     setShowContractDialog(false);
 
-    const event = await getEvent(eventId);
+    // Аналогично экспорту PDF: событие уже загружено при открытии редактора —
+    // берём из кэша, повторный запрос к БД только если кэш пуст.
+    const event = loadedEventRef.current ?? await getEvent(eventId);
+    loadedEventRef.current = event;
     const client = clientsList.find((item) => item.id === payload.organizationId);
     if (!client) {
       alert('Выбранная организация не найдена');
