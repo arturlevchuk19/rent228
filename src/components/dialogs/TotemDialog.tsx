@@ -8,6 +8,15 @@ export interface DialogResult {
   customPrice?: number;
 }
 
+// Проверка на "Монототем тип "T"" (независимо от вида кавычек)
+const isTypeT = (name?: string) => /монототем\s+тип\s*["»"']?T["»"']?/i.test(name || '');
+
+// Округление стоимости монототема: дробная часть <= 0.5 -> вниз, > 0.5 -> вверх
+const roundMonototemPrice = (value: number) => {
+  const fraction = value - Math.floor(value);
+  return fraction > 0.5 ? Math.ceil(value) : Math.floor(value);
+};
+
 interface TotemDialogProps {
   equipment: EquipmentItem;
   isOpen: boolean;
@@ -33,9 +42,17 @@ export function TotemDialog({ equipment, isOpen, onClose, onConfirm, isMonototem
     const heightLabel = `${heightNum}м`;
 
     if (isMonototem) {
+      // Монототем: $5 базовая цена + $1 за каждый метр высоты,
+      // округление до целого: дробная часть <= 0.5 -> вниз, > 0.5 -> вверх
+      let monototemPrice = roundMonototemPrice(5 + heightNum);
+      // Монототем тип "T": +$1 к цене
+      if (isTypeT(equipment.name)) {
+        monototemPrice += 1;
+      }
       onConfirm({
         quantity: 1,
-        customName: heightLabel
+        customName: heightLabel,
+        customPrice: monototemPrice
       });
     } else {
       const totalPrice = heightNum <= 2 ? 10 : 10 + Math.ceil((heightNum - 2) / 0.5) * 5;
@@ -51,6 +68,9 @@ export function TotemDialog({ equipment, isOpen, onClose, onConfirm, isMonototem
 
   const isValid = height !== '';
   const heightNum = height ? parseFloat(height) : null;
+  const monototemTotal = isMonototem && heightNum !== null
+    ? roundMonototemPrice(5 + heightNum) + (isTypeT(equipment.name) ? 1 : 0)
+    : null;
   const totalPrice = !isMonototem && heightNum !== null ? (heightNum <= 2 ? 10 : 10 + Math.ceil((heightNum - 2) / 0.5) * 5) : null;
 
   return (
@@ -90,6 +110,28 @@ export function TotemDialog({ equipment, isOpen, onClose, onConfirm, isMonototem
                 onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
               />
             </div>
+
+            {isMonototem && monototemTotal !== null && (
+              <div className="bg-gray-800/30 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-1">Расчет стоимости</p>
+                <p className="text-xs text-gray-500 mb-2">
+                  Базовая цена: $5
+                  <br />
+                  +$1 за каждый метр высоты
+                  {isTypeT(equipment.name) && (
+                    <>
+                      <br />
+                      +$1 за тип "T"
+                    </>
+                  )}
+                  <br />
+                  Округление: дробная часть ≤ 0.5 — вниз, &gt; 0.5 — вверх
+                </p>
+                <p className="text-sm font-bold text-green-400">
+                  ${monototemTotal.toFixed(2)}
+                </p>
+              </div>
+            )}
 
             {!isMonototem && totalPrice !== null && (
               <div className="bg-gray-800/30 rounded-lg p-3">
