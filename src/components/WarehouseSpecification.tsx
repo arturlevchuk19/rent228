@@ -43,8 +43,6 @@ import {
   resetWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
-import type { EquipmentComposition } from '../lib/equipmentCompositions';
-import type { ModificationComponent } from '../lib/equipment';
 import { StickyNotePanel } from './StickyNotePanel';
 
 interface WarehouseSpecificationProps {
@@ -209,16 +207,6 @@ const writeCompositionPickedSnapshot = (eventId: string, snapshot: CompositionPi
   }
 };
 
-// Детерминированный хэш строки (FNV-1a) — используется для стабильных ключей субэлементов.
-const hashString = (value: string): string => {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(36);
-};
-
 // Строит стабильный ключ виртуального субэлемента привязки к родителю,
 // составу/модификации и компоненту. Ключ не зависит от времени, поэтому
 // восстановленные после перезагрузки отметки совпадают с новыми строками.
@@ -228,13 +216,6 @@ const buildStableCompositionItemKey = (
   sourceId: string,
   childEquipmentId?: string | null
 ) => `${parentBudgetItemId}-${kind}-${sourceId}${childEquipmentId ? `-${childEquipmentId}` : ''}`;
-
-// Извлекает части стабильного ключа субэлемента раскладного состава (-comp-/-mod-).
-const parseCompositionItemKey = (budgetItemId: string): { parentId: string; kind: 'comp' | 'mod'; sourceId: string } | null => {
-  const match = /^(.+)-(comp|mod)-(.+)$/.exec(budgetItemId);
-  if (!match) return null;
-  return { parentId: match[1], kind: match[2] as 'comp' | 'mod', sourceId: match[3] };
-};
 
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
   const { user } = useAuth();
@@ -288,7 +269,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingDeleteItem, setPendingDeleteItem] = useState<PendingDeleteItem | null>(null);
   // Загруженные раскладные составы/модификации по id бюджетной позиции родителя —
   // нужны, чтобы при сохранении воссоздать субэлементы как реальные записи БД.
-  const [compositionPartsByParentId, setCompositionPartsByParentId] = useState<Record<string, Array<{
+  const [, setCompositionPartsByParentId] = useState<Record<string, Array<{
     key: string;
     kind: 'comp' | 'mod';
     equipment_id: string | null;
