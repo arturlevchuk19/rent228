@@ -8,9 +8,20 @@ import {
   updatePayment,
   deletePayment,
   PaymentWithDetails,
+  Payment,
 } from '../lib/payments';
-import { getPersonnel } from '../lib/personnel';
-import { getEvents } from '../lib/events';
+import { getPersonnel, type Personnel } from '../lib/personnel';
+import { getEvents, type Event } from '../lib/events';
+
+/** Values collected by the payment form before they are mapped onto a Payment row. */
+interface PaymentFormData {
+  personnel_id: string;
+  event_id: string;
+  amount: number;
+  status: Payment['status'];
+  payment_date: string;
+  notes: string;
+}
 
 export default function Payments() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -18,8 +29,8 @@ export default function Payments() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingPayment, setEditingPayment] = useState<PaymentWithDetails | null>(null);
-  const [personnelList, setPersonnelList] = useState<any[]>([]);
-  const [eventsList, setEventsList] = useState<any[]>([]);
+  const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
+  const [eventsList, setEventsList] = useState<Event[]>([]);
 
   const currentMonth = getFirstDayOfMonth(selectedDate.getFullYear(), selectedDate.getMonth());
 
@@ -121,12 +132,17 @@ export default function Payments() {
     setEditingPayment(null);
   }
 
-  async function handleSavePayment(paymentData: any) {
+  async function handleSavePayment(paymentData: PaymentFormData) {
     try {
       if (editingPayment) {
         await updatePayment(editingPayment.id, paymentData);
       } else {
-        await createPayment({ ...paymentData, month: currentMonth });
+        await createPayment({
+          ...paymentData,
+          month: currentMonth,
+          budget_item_id: null,
+          work_item_id: null,
+        });
       }
       loadPayments();
       handleCloseForm();
@@ -324,14 +340,14 @@ export default function Payments() {
 
 interface PaymentFormModalProps {
   payment: PaymentWithDetails | null;
-  personnelList: any[];
-  eventsList: any[];
-  onSave: (data: any) => void;
+  personnelList: Personnel[];
+  eventsList: Event[];
+  onSave: (data: PaymentFormData) => void;
   onClose: () => void;
 }
 
 function PaymentFormModal({ payment, personnelList, eventsList, onSave, onClose }: PaymentFormModalProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PaymentFormData>({
     personnel_id: payment?.personnel_id || '',
     event_id: payment?.event_id || '',
     amount: payment?.amount || 0,
@@ -414,7 +430,7 @@ function PaymentFormModal({ payment, personnelList, eventsList, onSave, onClose 
             <select
               required
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as Payment['status'] })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="Запланировано">Запланировано</option>

@@ -18,8 +18,18 @@ interface ContractGenerationPayload {
   categories?: Category[];
 }
 
+/**
+ * XML 1.0 forbids C0 control characters except tab, LF and CR, so they are dropped
+ * one code point at a time: a regex literal for this range trips `no-control-regex`
+ * and its allow-list cannot cover the range without weakening the sanitising.
+ */
 const sanitizeXmlString = (value: string | number | null | undefined): string =>
-  String(value ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  Array.from(String(value ?? ''))
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return !(code <= 0x08 || code === 0x0b || code === 0x0c || (code >= 0x0e && code <= 0x1f));
+    })
+    .join('');
 
 const escapeXml = (value: string | number | null | undefined): string =>
   sanitizeXmlString(value)

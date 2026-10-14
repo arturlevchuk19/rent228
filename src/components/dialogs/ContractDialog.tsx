@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FileSignature, X } from 'lucide-react';
+import { getErrorMessage } from '../../lib/errors';
 
 interface ContractOrganizationOption {
   id: string;
@@ -48,9 +49,9 @@ export function ContractDialog({ isOpen, clients, initialOrganizationId = '', on
     try {
       await onConfirm({ date: contractDate, equipmentTypeRP: equipmentTypeRP.trim(), organizationId });
       handleClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating contract:', error);
-      alert(`Ошибка при создании договора: ${error.message || 'неизвестная ошибка'}`);
+      alert(`Ошибка при создании договора: ${getErrorMessage(error) || 'неизвестная ошибка'}`);
     } finally {
       setIsSubmitting(false);
     }

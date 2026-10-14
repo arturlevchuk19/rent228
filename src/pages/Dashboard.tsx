@@ -1,4 +1,4 @@
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/authContext';
 import { Package, Calendar, FileText, DollarSign } from 'lucide-react';
 
 export function Dashboard() {

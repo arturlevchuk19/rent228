@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { Personnel, getPersonnel, assignPersonnelToBudgetItem, getBudgetItemPersonnel } from '../lib/personnel';
+import { getErrorMessage } from '../lib/errors';
 
 interface WorkPersonnelManagerProps {
   workItems: BudgetItem[];
@@ -72,9 +73,9 @@ export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, 
       alert('Персонал успешно назначен');
       onSave();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving assignments:', error);
-      alert(`Ошибка сохранения: ${error.message}`);
+      alert(`Ошибка сохранения: ${getErrorMessage(error)}`);
     } finally {
       setSaving(false);
     }

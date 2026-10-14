@@ -249,7 +249,7 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
     const dy = e.clientY - resizeStartMouse.y;
 
     applyResize(dx, dy, resizeHandle);
-  }, [isResizing, resizeHandle, resizeStartMouse, resizeStartSize, resizeStartPos, applyResize]);
+  }, [isResizing, resizeHandle, resizeStartMouse, applyResize]);
 
   const handleResizeMouseUp = useCallback(() => {
     setIsResizing(false);
@@ -289,7 +289,7 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
     const dy = touch.clientY - resizeStartMouse.y;
 
     applyResize(dx, dy, resizeHandle);
-  }, [isTouchResizing, resizeHandle, resizeStartMouse, resizeStartSize, resizeStartPos, applyResize]);
+  }, [isTouchResizing, resizeHandle, resizeStartMouse, applyResize]);
 
   const handleResizeTouchEnd = useCallback(() => {
     setIsTouchResizing(false);

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES } from '../lib/events';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/authContext';
 
 interface EventsProps {
   onEventFormOpen?: (event?: Event) => void;

@@ -173,7 +173,7 @@ export async function getEventTypes(): Promise<EventTypeItem[]> {
   const { data, error } = await supabase.from('event_types').select('*').order('name');
   if (error) {
     // Fallback for environments where migration has not been applied yet.
-    if ((error as any).code === '42P01') return [];
+    if (error.code === '42P01') return [];
     throw error;
   }
   return data || [];
@@ -583,8 +583,8 @@ export async function copyBudgetFromEvent(
   options?: { copyCategories?: boolean; copyLocations?: boolean }
 ): Promise<void> {
   // Сначала копируем категории, если нужно
-  let categoryIdMap: Record<string, string> = {};
-  let locationIdMap: Record<string, string> = {};
+  const categoryIdMap: Record<string, string> = {};
+  const locationIdMap: Record<string, string> = {};
 
   if (options?.copyCategories !== false) {
     const { data: sourceCategories, error: catError } = await supabase

@@ -133,7 +133,7 @@ const escapeHtml = (value: string): string =>
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/\"/g, '&quot;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
 const isConsumablesEquipmentItem = (item: BudgetItem): boolean =>
@@ -318,7 +318,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     return Math.floor(value / 5) * 5;
   };
 
-  let grandTotalNonWorkDay1 = 0;
   let grandTotalWorkDay1 = 0;
 
   let locationIdx = 0;
@@ -399,10 +398,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       }).join('');
 
       const categoryHasOnlyWork = items.every(item => !!item.work_item);
+      // Only the work-day-1 total is rendered in the PDF footer; non-work items are
+      // already part of grandTotalDay1 below, so no separate non-work total is tracked.
       if (categoryHasOnlyWork) {
         grandTotalWorkDay1 += categorySumDay1;
-      } else {
-        grandTotalNonWorkDay1 += categorySumDay1;
       }
       grandTotalDay1 += categorySumDay1;
       locationTotalDay1 += categorySumDay1;

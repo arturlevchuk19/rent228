@@ -5,8 +5,8 @@
  * Проверяет наличие всех необходимых переменных окружения и зависимостей
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Цвета для консоли
 const colors = {
@@ -35,7 +35,7 @@ function checkFileExists(filePath, description) {
 function checkEnvVariables() {
   log('\n=== Checking Environment Variables ===\n', 'cyan');
   
-  const envPath = path.join(__dirname, '.env');
+  const envPath = path.join(import.meta.dirname, '.env');
   if (!fs.existsSync(envPath)) {
     log('✗ .env file not found', 'red');
     log('  Run: cp .env.example .env', 'yellow');
@@ -65,7 +65,7 @@ function checkEnvVariables() {
 function checkNodeModules() {
   log('\n=== Checking Dependencies ===\n', 'cyan');
   
-  const nodeModulesPath = path.join(__dirname, 'node_modules');
+  const nodeModulesPath = path.join(import.meta.dirname, 'node_modules');
   if (!fs.existsSync(nodeModulesPath)) {
     log('✗ node_modules not found', 'red');
     log('  Run: npm install', 'yellow');
@@ -99,7 +99,7 @@ function checkNodeModules() {
 function checkSupabaseSetup() {
   log('\n=== Checking Supabase Setup ===\n', 'cyan');
   
-  const migrationsPath = path.join(__dirname, 'supabase', 'migrations');
+  const migrationsPath = path.join(import.meta.dirname, 'supabase', 'migrations');
   if (!fs.existsSync(migrationsPath)) {
     log('✗ supabase/migrations directory not found', 'red');
     return false;
@@ -109,12 +109,12 @@ function checkSupabaseSetup() {
   log(`✓ Found ${migrationFiles.length} migration files`, 'green');
 
   checkFileExists(
-    path.join(__dirname, 'supabase', 'config.toml'),
+    path.join(import.meta.dirname, 'supabase', 'config.toml'),
     'supabase/config.toml'
   );
   
   checkFileExists(
-    path.join(__dirname, 'supabase', 'run-migrations.sh'),
+    path.join(import.meta.dirname, 'supabase', 'run-migrations.sh'),
     'supabase/run-migrations.sh'
   );
 

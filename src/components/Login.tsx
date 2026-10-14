@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { signIn } from '../lib/auth';
 import { LogIn } from 'lucide-react';
+import { getErrorMessage } from '../lib/errors';
 
 interface LoginProps {
   onSuccess: () => void;
@@ -30,8 +31,8 @@ export function Login({ onSuccess, onSwitchToRegister }: LoginProps) {
     try {
       await signIn(email, password);
       onSuccess();
-    } catch (err: any) {
-      setError(translateError(err.message || 'Failed to sign in'));
+    } catch (err) {
+      setError(translateError(getErrorMessage(err) || 'Failed to sign in'));
     } finally {
       setLoading(false);
     }

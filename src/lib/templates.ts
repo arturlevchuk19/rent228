@@ -141,7 +141,7 @@ export async function updateTemplateItem(
   quantity: number,
   price?: number
 ): Promise<TemplateItem> {
-  const updates: any = { quantity };
+  const updates: Partial<TemplateItem> = { quantity };
   if (price !== undefined) updates.price = price;
 
   const { data, error } = await supabase

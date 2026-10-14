@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
-import { BudgetItem, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
+import { type BudgetItem, type Event, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
@@ -9,7 +9,7 @@ import { CalculatedCase } from './LedSpecificationPanel';
 import { EquipmentSelector } from './EquipmentSelector';
 import { LedSpecificationPanel } from './LedSpecificationPanel';
 import { PodiumSpecificationPanel } from './PodiumSpecificationPanel';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/authContext';
 import { isWarehouse } from '../lib/auth';
 import {
   CableItem,
@@ -252,7 +252,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
   const [, setAllEquipment] = useState<EquipmentItem[]>([]);
-  const [eventDetails, setEventDetails] = useState<any>(null);
+  const [eventDetails, setEventDetails] = useState<Partial<Event> | null>(null);
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
   const [expandedOtherCategories, setExpandedOtherCategories] = useState<Record<string, boolean>>({});
@@ -592,7 +592,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           if (Array.isArray(parsed) && parsed.length > 0) {
             setStickyNotes(parsed);
           }
-        } catch (e) {
+        } catch {
           // use default
         }
       }
@@ -1771,11 +1771,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               sort_order: 0
             });
             createdItems.push({ oldId: caseItem.budgetItemId, newId: newItem.id });
-          } catch (err: any) {
+          } catch (err) {
+            // Supabase/PostgREST errors carry message/details/hint alongside the error itself.
+            const errorInfo = err as { message?: string; details?: string; hint?: string };
             console.error('Error creating LED case budget item:', caseItem.budgetItemId, err);
-            console.error('Error message:', err?.message);
-            console.error('Error details:', err?.details);
-            console.error('Error hint:', err?.hint);
+            console.error('Error message:', errorInfo.message);
+            console.error('Error details:', errorInfo.details);
+            console.error('Error hint:', errorInfo.hint);
           }
         }
 
@@ -2127,7 +2129,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               {eventDetails && (
                 <>
                   <p className="text-[10px] text-gray-500">
-                    {eventDetails.venues?.name} • {new Date(eventDetails.event_date).toLocaleDateString('ru-RU')}
+                    {eventDetails.venues?.name} • {new Date(eventDetails.event_date ?? '').toLocaleDateString('ru-RU')}
                   </p>
                   {eventDetails.specification_confirmed && (
                     <span className="px-1.5 py-0.5 bg-green-900/30 text-green-400 border border-green-600/30 rounded text-[10px] font-medium flex items-center gap-1">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { signUp } from '../lib/auth';
 import { UserPlus } from 'lucide-react';
+import { getErrorMessage } from '../lib/errors';
 
 interface RegisterProps {
   onSuccess: () => void;
@@ -32,8 +33,8 @@ export function Register({ onSwitchToLogin }: RegisterProps) {
     try {
       await signUp(email, password, fullName);
       setSuccess(true);
-    } catch (err: any) {
-      setError(translateError(err.message || 'Failed to register'));
+    } catch (err) {
+      setError(translateError(getErrorMessage(err) || 'Failed to register'));
     } finally {
       setLoading(false);
     }

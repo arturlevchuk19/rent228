@@ -213,7 +213,6 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, eventId, onCl
 
   // Calculate total area covered by modules using actual module dimensions
   let totalModuleArea = 0;
-  let totalModuleCount = 0;
 
   modules.forEach(module => {
     const dimensions = getModuleDimensions(module.child_name, module.child_sku);
@@ -223,7 +222,6 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, eventId, onCl
       // Fallback to 0.25 m² if no dimensions found
       totalModuleArea += module.quantity * 0.25;
     }
-    totalModuleCount += module.quantity;
   });
 
   const requiredArea = screenDimensions?.area || 0;
