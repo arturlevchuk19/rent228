@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
+import { getErrorMessage } from '../lib/errors';
 import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
@@ -217,7 +218,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
     const savedPaymentMode = localStorage.getItem(`budget_payment_mode_${eventId}`);
     if (savedPaymentMode === 'usd' || savedPaymentMode === 'byn_cash' || savedPaymentMode === 'byn_noncash') {
-      setPaymentMode(savedPaymentMode as any);
+      setPaymentMode(savedPaymentMode);
     }
     const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${eventId}`);
     if (savedTotalsMode === 'combined_only' || savedTotalsMode === 'day1_plus_combined') {
@@ -231,7 +232,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         if (Array.isArray(parsed) && parsed.length > 0) {
           setStickyNotes(parsed);
         }
-      } catch (e) {
+      } catch {
         // use default
       }
     }
@@ -333,7 +334,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           if (Array.isArray(parsed) && parsed.length > 0) {
             setStickyNotes(parsed);
           }
-        } catch (e) {
+        } catch {
           // If parsing fails, try localStorage as fallback
           const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
           if (savedStickyNotes) {
@@ -342,7 +343,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
                 setStickyNotes(parsedLocal);
               }
-            } catch (e2) {
+            } catch {
               // use default
             }
           }
@@ -356,7 +357,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             if (Array.isArray(parsed) && parsed.length > 0) {
               setStickyNotes(parsed);
             }
-          } catch (e) {
+          } catch {
             // use default
           }
         }
@@ -510,9 +511,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     try {
       const updated = await updateLocation(location.id, { name });
       setLocations((prev) => prev.map((item) => (item.id === location.id ? updated : item)));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating location:', error);
-      alert(`Ошибка обновления локации: ${error.message}`);
+      alert(`Ошибка обновления локации: ${getErrorMessage(error)}`);
     }
   };
 
@@ -553,9 +554,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setSelectedCategoryId((prev) =>
         prev && prev.startsWith(`location:${location.id}`) ? null : prev
       );
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting location:', error);
-      alert(`Ошибка удаления локации: ${error.message}`);
+      alert(`Ошибка удаления локации: ${getErrorMessage(error)}`);
     }
   };
 
@@ -767,9 +768,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           budgetListRef.current.scrollTop = budgetListRef.current.scrollHeight;
         }
       }, 150);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding item:', error);
-      alert(`Ошибка добавления: ${error.message}`);
+      alert(`Ошибка добавления: ${getErrorMessage(error)}`);
     }
   };
 
@@ -841,9 +842,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           budgetListRef.current.scrollTop = budgetListRef.current.scrollHeight;
         }
       }, 150);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding work item:', error);
-      alert(`Ошибка добавления: ${error.message}`);
+      alert(`Ошибка добавления: ${getErrorMessage(error)}`);
     }
   };
 
@@ -853,9 +854,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setBudgetItems(budgetItems.map(item =>
         item.id === itemId ? { ...item, ...updatedItem } : item
       ));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating item:', error);
-      alert(`Ошибка обновления: ${error.message}`);
+      alert(`Ошибка обновления: ${getErrorMessage(error)}`);
     }
   };
 
@@ -872,9 +873,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     try {
       await deleteBudgetItem(itemId);
       setBudgetItems(budgetItems.filter(item => item.id !== itemId));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting item:', error);
-      alert(`Ошибка удаления: ${error.message}`);
+      alert(`Ошибка удаления: ${getErrorMessage(error)}`);
     }
   };
 
@@ -895,9 +896,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         return newSet;
       });
       setSelectedCategoryId(prev => prev === `category:${categoryId}` ? null : prev);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting category:', error);
-      alert(`Ошибка удаления категории: ${error.message}`);
+      alert(`Ошибка удаления категории: ${getErrorMessage(error)}`);
     }
   };
 
@@ -907,9 +908,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       setCategories(categories.map(cat =>
         cat.id === categoryId ? { ...cat, name: newName } : cat
       ));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating category:', error);
-      alert(`Ошибка обновления категории: ${error.message}`);
+      alert(`Ошибка обновления категории: ${getErrorMessage(error)}`);
     }
   };
 
@@ -934,9 +935,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       }
 
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving budget:', error);
-      alert(`Ошибка сохранения: ${error.message}`);
+      alert(`Ошибка сохранения: ${getErrorMessage(error)}`);
     } finally {
       setSaving(false);
     }
@@ -1021,7 +1022,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         clientName: clientsList.find((client) => client.id === contractOrganizationId)?.organization || event.clients?.organization,
         organizerName: event.organizers?.full_name,
         version: budgetVersion,
-        budgetItems: budgetItems as any,
+        budgetItems,
         categories: categories,
         locations,
         exchangeRate: exchangeRate,
@@ -1039,9 +1040,9 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         discountedTotalLevel1FromEditor: exportLevel1DiscountedTotal ?? undefined,
         totalWithExtraFromEditor: showExtraTotal ? getTotalWithExtraForPaymentMode() : undefined
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error generating PDF:', error);
-      alert(`Ошибка при создании PDF: ${error.message}`);
+      alert(`Ошибка при создании PDF: ${getErrorMessage(error)}`);
     } finally {
       setGeneratingPDF(false);
     }

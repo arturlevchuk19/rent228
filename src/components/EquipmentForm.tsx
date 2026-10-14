@@ -10,6 +10,7 @@ import {
   EQUIPMENT_UNITS
 } from '../lib/equipment';
 import { AddEquipmentDirectoryItemDialog } from './dialogs/AddEquipmentDirectoryItemDialog';
+import { getErrorMessage } from '../lib/errors';
 
 function DirectorySelect({
   value,
@@ -151,8 +152,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose }: Eq
         await createEquipmentItem(submitData);
       }
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Ошибка при сохранении');
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Ошибка при сохранении');
     } finally {
       setLoading(false);
     }

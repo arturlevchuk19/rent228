@@ -27,6 +27,48 @@ export interface EquipmentModule {
   quantity?: number; // For existing compositions
 }
 
+/** `equipment_items` row joined as the composition child. */
+interface CompositionChildEquipment {
+  name: string;
+  sku: string;
+  category: string;
+  type: string;
+  object_type?: string;
+  note: string;
+  subtype: string;
+}
+
+/** `equipment_items` row joined as the composition parent (a case). */
+interface CompositionParentEquipment {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  type: string;
+  object_type?: string;
+  has_composition?: boolean;
+}
+
+/**
+ * PostgREST nests joined rows and supabase-js types every join as an array, so the
+ * real shape is restored with the casts in the queries below.
+ */
+interface CompositionChildRow {
+  id: string;
+  parent_id: string;
+  child_id: string;
+  quantity: number;
+  created_at: string;
+  child: CompositionChildEquipment;
+}
+
+interface CompositionCaseRow {
+  id: string;
+  child_id: string;
+  quantity: number;
+  parent: CompositionParentEquipment | null;
+}
+
 export async function getEquipmentCompositions(parentId: string, filterForLedModules: boolean = false): Promise<EquipmentComposition[]> {
   const { data, error } = await supabase
     .from('equipment_compositions')
@@ -51,18 +93,20 @@ export async function getEquipmentCompositions(parentId: string, filterForLedMod
 
   if (error) throw error;
 
-  const compositions = (data || []).map(item => ({
+  const rows = (data || []) as unknown as CompositionChildRow[];
+
+  const compositions = rows.map(item => ({
     id: item.id,
     parent_id: item.parent_id,
     child_id: item.child_id,
     quantity: item.quantity,
-    child_name: (item.child as any).name,
-    child_sku: (item.child as any).sku,
-    child_category: (item.child as any).category,
-    child_type: (item.child as any).type,
-    child_object_type: (item.child as any).object_type,
-    child_note: (item.child as any).note,
-    child_subtype: (item.child as any).subtype,
+    child_name: item.child.name,
+    child_sku: item.child.sku,
+    child_category: item.child.category,
+    child_type: item.child.type,
+    child_object_type: item.child.object_type,
+    child_note: item.child.note,
+    child_subtype: item.child.subtype,
     created_at: item.created_at
   }));
 
@@ -236,8 +280,10 @@ export async function findCasesContainingComponent(componentId: string): Promise
 
   if (error) throw error;
 
-  return (data || [])
-    .map((item: any) => {
+  const rows = (data || []) as unknown as Array<{ quantity: number; parent: CompositionParentEquipment | null }>;
+
+  return rows
+    .map((item) => {
       const parent = item.parent;
       if (!parent) return null;
       if (parent.object_type !== 'physical') return null;
@@ -278,9 +324,10 @@ export async function findCasesForModules(moduleIds: string[]): Promise<ModuleCa
   if (error) throw error;
 
   const cases: ModuleCase[] = [];
+  const rows = (data || []) as unknown as CompositionCaseRow[];
   
-  for (const item of data || []) {
-    const parent = (item.parent as any);
+  for (const item of rows) {
+    const parent = item.parent;
     // Фильтруем только физические элементы (кейсы)
     if (parent && parent.object_type === 'physical') {
       cases.push({

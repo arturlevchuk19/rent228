@@ -26,7 +26,7 @@ export function Templates() {
         try {
           const fullTemplate = await getTemplateById(template.id);
           details[template.id] = { itemCount: fullTemplate.items.length };
-        } catch (error) {
+        } catch {
           details[template.id] = { itemCount: 0 };
         }
       }

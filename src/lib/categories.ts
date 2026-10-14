@@ -59,7 +59,7 @@ export async function createCategory(name: string, description?: string, isTempl
 
   const sortOrder = (lastCategory?.sort_order || 0) + 1;
 
-  const insertData: any = {
+  const insertData: Omit<Category, 'id' | 'created_at' | 'updated_at'> = {
     name,
     description: description || '',
     sort_order: sortOrder,

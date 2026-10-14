@@ -10,6 +10,7 @@ import {
   getTemplateById,
   reorderTemplateItems
 } from '../lib/templates';
+import { getErrorMessage } from '../lib/errors';
 import { EquipmentItem } from '../lib/equipment';
 import { EquipmentSelector } from './EquipmentSelector';
 
@@ -45,12 +46,15 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
       setName(data.name);
       setDescription(data.description);
       setItems(
-        data.items.map((item: any) => ({
-          ...item.equipment_items,
-          templateItemId: item.id,
-          quantity: item.quantity,
-          price: item.price || item.equipment_items.rental_price || 0
-        }))
+        data.items.map((item) => {
+          const equipment = item.equipment_items as EquipmentItem;
+          return {
+            ...equipment,
+            templateItemId: item.id,
+            quantity: item.quantity,
+            price: item.price || equipment.rental_price || 0,
+          };
+        })
       );
     } catch (error) {
       console.error('Error loading template:', error);
@@ -219,9 +223,9 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
 
       onSave();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving template:', error);
-      alert(`Ошибка при сохранении: ${error.message || 'Неизвестная ошибка'}`);
+      alert(`Ошибка при сохранении: ${getErrorMessage(error) || 'Неизвестная ошибка'}`);
     } finally {
       setSaving(false);
     }

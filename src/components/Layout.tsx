@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/authContext';
 import { signOut, hasAccess } from '../lib/auth';
+import type { UserRole } from '../lib/supabase';
+import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
   FileText,
@@ -43,7 +45,12 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     warehouse: 'Кладовщик',
   };
 
-  const menuItems = [
+  const menuItems: Array<{
+    id: string;
+    label: string;
+    icon: LucideIcon;
+    minRole: UserRole;
+  }> = [
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard, minRole: 'warehouse' },
     { id: 'templates', label: 'Шаблоны для сметы', icon: Package, minRole: 'admin' },
     { id: 'equipment', label: 'Оборудование', icon: Package, minRole: 'warehouse' },
@@ -58,7 +65,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   ];
 
   const availableMenuItems = menuItems.filter((item) =>
-    hasAccess(user, item.minRole as any)
+    hasAccess(user, item.minRole)
   );
 
   return (
