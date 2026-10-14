@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, MessageSquarePlus, Highlighter } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, Copy, MessageSquarePlus, Highlighter } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { EQUIPMENT_UNITS } from '../lib/equipment';
 import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
@@ -25,6 +25,7 @@ interface CategoryBlockProps {
   onUpdateItem: (itemId: string, updates: Partial<BudgetItem>) => void;
   onDeleteItem: (itemId: string) => void;
   onDeleteCategory?: (categoryId: string) => void;
+  onDuplicateCategory?: (categoryId: string) => void;
   onManagePersonnel?: (categoryId: string) => void;
   paymentMode: 'usd' | 'byn_cash' | 'byn_noncash';
   exchangeRate: number;
@@ -58,6 +59,7 @@ export function CategoryBlock({
   onUpdateItem,
   onDeleteItem,
   onDeleteCategory,
+  onDuplicateCategory,
   onManagePersonnel,
   paymentMode,
   exchangeRate,
@@ -341,6 +343,22 @@ export function CategoryBlock({
                 className="text-gray-500 hover:text-gray-400 transition-colors"
               >
                 <Pencil className="w-2.5 h-2.5" />
+              </button>
+            )}
+            {categoryId !== 'uncategorized' && onDuplicateCategory && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rawCategoryId = categoryId.includes('::')
+                    ? categoryId.split('::')[1].replace('category:', '')
+                    : categoryId.replace('category:', '');
+                  onDuplicateCategory(rawCategoryId);
+                }}
+                className="text-gray-500 hover:text-cyan-400 transition-colors"
+                title="Дублировать категорию (копия со всеми позициями)"
+              >
+                <Copy className="w-2.5 h-2.5" />
               </button>
             )}
             {categoryId !== 'uncategorized' && onDeleteCategory && (
