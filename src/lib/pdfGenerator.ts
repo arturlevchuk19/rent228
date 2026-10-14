@@ -406,25 +406,33 @@ function buildVectorPDF(rd: VectorRenderData): jsPDF {
     printTotals(loc.totals, true);
   });
 
+  // Печать жирной строки итога: метка прижата к сумме справа, сумма — к правому краю.
+  // Метка не переносится по словам (nowrap), как в HTML-версии; если одна строка
+  // не умещается слева от суммы, она обрезается по ширине, чтобы ничего не
+  // наезжало на сумму. Возвращает высоту блока для продвижения курсора.
+  const printStrongLine = (text: string, amount: string, fontSize: number, underline: boolean): number => {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(fontSize);
+    pdf.setTextColor(0, 0, 0);
+    const amountW = pdf.getTextWidth(amount);
+    const baselineY = y + fontSize * 0.35;
+    const maxLabelW = Math.max(10, pageW - marginX - amountW - 4 - marginX);
+    pdf.text(pdf.splitTextToSize(text, maxLabelW)[0] || '', pageW - marginX - amountW - 4, baselineY, { align: 'right' });
+    pdf.text(amount, pageW - marginX, baselineY, { align: 'right' });
+    if (underline) {
+      pdf.setDrawColor(0);
+      pdf.setLineWidth(0.6);
+      pdf.line(pageW - marginX - amountW, baselineY + 1.2, pageW - marginX, baselineY + 1.2);
+    }
+    return fontSize * 0.45 + 3;
+  };
+
   // Футер: итоги/скидки — справа, подчёркнутые суммы как в HTML-версии
   rd.footerLines.forEach((line) => {
     if (line.gapBefore) y += 4;
     const fs = line.strong ? 13 : 11;
-    ensureSpace(fs === 13 ? 10 : 8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(fs);
-    pdf.setTextColor(0, 0, 0);
-    const amountW = pdf.getTextWidth(line.amount);
-    const labelX = pageW - marginX - amountW - 4;
-    const lines = pdf.splitTextToSize(line.text, labelX - marginX);
-    const blockH = lines.length * (fs * 0.37) + 3;
-    pdf.text(lines, marginX, y + fs * 0.35, { align: 'right' });
-    pdf.text(line.amount, pageW - marginX, y + fs * 0.35, { align: 'right' });
-    if (line.underline) {
-      pdf.setLineWidth(0.6);
-      pdf.line(pageW - marginX - amountW, y + fs * 0.35 + 1.2, pageW - marginX, y + fs * 0.35 + 1.2);
-    }
-    y += blockH;
+    ensureSpace(fs + 6);
+    y += printStrongLine(line.text, line.amount, fs, Boolean(line.underline));
   });
 
   // Дополнительные услуги: own section(s) + итоги
@@ -437,18 +445,11 @@ function buildVectorPDF(rd: VectorRenderData): jsPDF {
   rd.extrasTotalLines.forEach((line) => {
     pdf.setDrawColor(0);
     pdf.setLineWidth(0.5);
-    ensureSpace(12);
+    ensureSpace(22);
     pdf.line(marginX, y, pageW - marginX, y);
     y += 3;
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(13);
-    pdf.setTextColor(0, 0, 0);
-    const amountW = pdf.getTextWidth(line.amount);
-    const labelX = pageW - marginX - amountW - 4;
-    const lines = pdf.splitTextToSize(line.text, labelX - marginX);
-    pdf.text(lines, marginX, y + 4.5, { align: 'right' });
-    pdf.text(line.amount, pageW - marginX, y + 4.5, { align: 'right' });
-    y += lines.length * 5 + 6;
+    y += printStrongLine(line.text, line.amount, 13, Boolean(line.underline));
+    y += 3;
   });
 
   // Примечание
@@ -468,44 +469,7 @@ function buildVectorPDF(rd: VectorRenderData): jsPDF {
   return pdf;
 }
 
-// Пиксельное сравнение canvas-скриншотов для self-check режима vector_checked
-const canvasesLookEqual = (a: HTMLCanvasElement, b: HTMLCanvasElement): boolean => {
-  if (Math.abs(a.width - b.width) > 2 || Math.abs(a.height - b.height) > 2) return false;
-  const w = Math.min(a.width, b.width);
-  const h = Math.min(a.height, b.height);
-  const ca = a.getContext('2d')!.getImageData(0, 0, w, h).data;
-  const cb = b.getContext('2d')!.getImageData(0, 0, w, h).data;
-  let diffPixels = 0;
-  const step = Math.max(1, Math.floor(w / 800)); // выборка по ширине
-  for (let yy = 0; yy < h; yy += step) {
-    for (let xx = 0; xx < w; xx += step) {
-      const i = (yy * w + xx) * 4;
-      if (Math.abs(ca[i] - cb[i]) > 16 || Math.abs(ca[i + 1] - cb[i + 1]) > 16 || Math.abs(ca[i + 2] - cb[i + 2]) > 16) {
-        diffPixels++;
-      }
-    }
-  }
-  const sampled = Math.ceil(h / step) * Math.ceil(w / step);
-  return diffPixels / sampled < 0.02; // допускаем ≤2% расхождения (антиалиасинг)
-};
-
-const renderHtmlContainerToCanvas = async (container: HTMLElement): Promise<HTMLCanvasElement> => {
-  document.body.appendChild(container);
-  await waitForRenderReady();
-  const canvas = await html2canvas(container, {
-    scale: RASTER_SCALE,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    logging: false,
-    imageTimeout: 5000,
-    removeContainer: false,
-    height: container.scrollHeight,
-    windowHeight: container.scrollHeight
-  });
-  container.remove();
-  return canvas;
-};
-
+// Сохранение растерного PDF (скриншот всей сметы на одной странице) — fallback-движок.
 const saveRasterPdf = (canvas: HTMLCanvasElement, fileName: string): void => {
   const pageWidth = 210; // A4 width in mm (portrait)
   const imgHeightPx = canvas.height;
@@ -926,6 +890,18 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         const categoryTotal = isCombinedOnlyMode ? categoryTotalCombined : categoryTotalDay1;
 
+        vectorExtras.push({
+          kind: 'category',
+          title: categoryName,
+          rows: vectorExtraRows,
+          totals: [
+            { label: 'ИТОГО ПО РАЗДЕЛУ', value: `${formatMoney(categoryTotal)}${currencySuffix}` },
+            ...((!isCombinedOnlyMode && budgetDays > 1)
+              ? [{ label: `ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.`, value: `${formatMoney(categoryTotalCombined)}${currencySuffix}` }]
+              : []),
+          ],
+        });
+
         return `
           <div style="margin-bottom: 12px;">
             <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
@@ -1291,6 +1267,124 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ${discountRowsHtml}
     `;
 
+  // ─── Плоские данные для векторного рендера ─────────────────────────────────
+  // Шапка документа
+  const vectorInfoCells: { label: string; value: string }[] = [
+    { label: 'Дата', value: eventDateDisplayHtml },
+    { label: 'Локация', value: data.venueName || '—' },
+  ];
+  if (data.clientName) vectorInfoCells.push({ label: 'Заказчик', value: data.clientName });
+  if (data.organizerName) vectorInfoCells.push({ label: 'Организатор', value: data.organizerName });
+
+  // Итоговые строки футера (ИТОГО / за N дн.) — по той же логике, что и HTML-версия
+  if (isCombinedOnlyMode) {
+    vectorFooterLines.push({
+      text: budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`,
+      amount: `${formatMoney(pdfCombinedTotal)}${currencySuffix}`,
+      strong: true,
+    });
+  } else {
+    vectorFooterLines.push({
+      text: budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:',
+      amount: `${formatMoney(pdfDay1Total)}${currencySuffix}`,
+      strong: true,
+    });
+    if (budgetDays > 1) {
+      vectorFooterLines.push({
+        text: `Итого за ${budgetDays} дн.:`,
+        amount: `${formatMoney(pdfCombinedTotal)}${currencySuffix}`,
+        strong: true,
+      });
+    }
+  }
+
+  // Строки скидок: зеркалим discountRowsHtml (клиент d1, организатор d2 с подчёркиванием)
+  const periodSuffix = budgetDays === 1 ? '' : ` за ${budgetDays} дн.`;
+  const discountRowText = (label: string) => `${label}${periodSuffix}:`;
+  if (hasFirstDiscount || hasOrganizerDiscount) {
+    if (hasSecondDiscountRow) {
+      vectorFooterLines.push({
+        text: discountRowText(discountLabelHtml),
+        amount: `${formatMoney(level1Display)}${currencySuffix}`,
+        strong: true,
+        gapBefore: true,
+      });
+      vectorFooterLines.push({
+        text: discountRowText(discount2LabelHtml),
+        amount: `${formatMoney(level2Display)}${currencySuffix}`,
+        strong: true,
+        underline: true,
+      });
+    } else {
+      vectorFooterLines.push({
+        text: discountRowText(hasFirstDiscount ? discountLabelHtml : discount2LabelHtml),
+        amount: `${formatMoney(roundDownToNearestFive(editorFinalTotal))}${currencySuffix}`,
+        strong: true,
+        underline: !hasFirstDiscount,
+        gapBefore: true,
+      });
+    }
+  }
+
+  // Строки «Итого с дополнительными услугами» — зеркалят extraServicesHtml.
+  // Итог с доп. услугами за период = скинутая база этого периода + доп. услуги периода.
+  const makeGrandTotalWithExtrasForPeriod = (period: 'day1' | 'combined') =>
+    roundDownToNearestFive(discountedTotalForPeriod(period) + (period === 'combined' ? extraTotalCombined : extraTotalDay1));
+
+  if (showExtraTotals) {
+    const extrasLabel = 'Итого с дополнительными услугами';
+    const pushExtrasLine = (amount: number, withPeriod: boolean) => {
+      vectorExtrasTotalLines.push({
+        text: `${extrasLabel}${withPeriod && budgetDays > 1 ? ` за ${budgetDays} дн.` : ''}:`,
+        amount: `${formatMoney(amount)}${currencySuffix}`,
+        strong: true,
+      });
+    };
+    if (isCombinedOnlyMode) {
+      pushExtrasLine(grandTotalWithExtrasCombined, budgetDays !== 1);
+    } else if (budgetDays === 1) {
+      pushExtrasLine(grandTotalWithExtrasDay1, false);
+    } else {
+      pushExtrasLine(makeGrandTotalWithExtrasForPeriod('combined'), true);
+    }
+  }
+
+  const vectorRenderData: VectorRenderData = {
+    logoDataURL,
+    title: 'Коммерческое предложение',
+    versionLine: `Версия ${versionLabel}`,
+    createdLine: `Дата создания: ${formattedCreatedDate}`,
+    infoCells: vectorInfoCells,
+    locations: vectorLocations,
+    footerLines: vectorFooterLines,
+    extras: vectorExtras,
+    extrasTotalLines: vectorExtrasTotalLines,
+    note: trimmedBudgetNote || undefined,
+  };
+
+  // Формируем имя файла: Дата_Площадка_Версия (общее для обоих движков)
+  const fileNameParts: string[] = [];
+
+  if (formattedEventDate && formattedEventDate !== '—') {
+    fileNameParts.push(formattedEventDate);
+  }
+
+  if (data.venueName) {
+    fileNameParts.push(data.venueName);
+  }
+
+  fileNameParts.push(`Версия ${versionLabel}`);
+
+  // Убираем недопустимые символы для имени файла
+  const fileName = fileNameParts.join('_').replace(/[<>:"/\\|?*]/g, '_');
+
+  // Векторный движок не использует DOM/html2canvas вообще — экспорт занимает
+  // десятки миллисекунд вместо десятков секунд на скриншот длинной сметы.
+  if (PDF_ENGINE === 'vector') {
+    buildVectorPDF(vectorRenderData).save(`${fileName}.pdf`);
+    return;
+  }
+
   container.innerHTML = `
     <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 15px;">
       <div style="display: flex; align-items: center;">
@@ -1333,7 +1427,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   document.body.appendChild(container);
   await waitForRenderReady();
   const canvas = await html2canvas(container, {
-    scale: 2,
+    scale: RASTER_SCALE,
     backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
@@ -1345,47 +1439,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   container.remove();
 
-  const pageWidth = 210; // A4 width in mm (portrait)
-  const imgHeightPx = canvas.height;
-  const imgWidthPx = canvas.width;
-  
-  // Calculate proportional height in mm to fit content exactly
-  // This ensures page height matches the budget content height
-  
-  let pageHeight = (imgHeightPx * pageWidth) / imgWidthPx;
-  
-  // Ensure portrait orientation: height must be >= width
-  // If content is short, set minimum height to width (210mm) to maintain portrait
-  // This adds minimal empty space while keeping portrait orientation
-  if (pageHeight < pageWidth) {
-    pageHeight = pageWidth;
-  }
-
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: [pageWidth, pageHeight],
-    putOnlyUsedFonts: true,
-    compress: true
-  });
-
-  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
-
-  // Формируем имя файла: Дата_Площадка_Версия
-  const fileNameParts: string[] = [];
-  
-  if (formattedEventDate && formattedEventDate !== '—') {
-    fileNameParts.push(formattedEventDate);
-  }
-  
-  if (data.venueName) {
-    fileNameParts.push(data.venueName);
-  }
-  
-  fileNameParts.push(`Версия ${versionLabel}`);
-  
-  // Убира��м недопустим��е символы для имени файла
-  const fileName = fileNameParts.join('_').replace(/[<>:"/\\|?*]/g, '_');
-  pdf.save(`${fileName}.pdf`);
+  // Растерный fallback: скриншот всей сметы на одной странице.
+  saveRasterPdf(canvas, fileName);
 }
