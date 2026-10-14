@@ -535,6 +535,15 @@ export async function createBudgetItem(item: Partial<BudgetItem>): Promise<Budge
   return data;
 }
 
+export async function createBudgetItems(items: Partial<BudgetItem>[]): Promise<BudgetItem[]> {
+  if (items.length === 0) return [];
+  const { data, error } = await supabase
+    .from('budget_items')
+    .insert(items)
+    .select(BUDGET_ITEM_BASE_SELECT);
+  if (error) throw error;
+  return data || [];
+}
 export async function updateBudgetItem(id: string, item: Partial<BudgetItem>): Promise<BudgetItem> {
   const { data, error } = await supabase
     .from('budget_items')

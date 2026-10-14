@@ -4,7 +4,7 @@ import { getErrorMessage } from '../lib/errors';
 import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
-import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
+import { Category, EXTRA_SERVICE_CATEGORY_DESCRIPTION, createCategory, deleteCategory, duplicateCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
 import { Location, createLocation, getLocationsForEvent, updateLocation, deleteLocation } from '../lib/locations';
 import { CategoryBlock, type BudgetDragTarget } from './CategoryBlock';
 import { WorkPersonnelManager } from './WorkPersonnelManager';
@@ -36,7 +36,6 @@ interface GroupedItemsByLocation {
 
 const NO_LOCATION_GROUP_ID = 'no-location';
 const UNCATEGORIZED_IN_LOCATION_KEY = 'uncategorized';
-const EXTRA_SERVICE_DESCRIPTION_FLAG = '__extra_service__';
 
 const buildCategoryGroupId = (categoryId: string, locationId?: string | null) =>
   locationId ? `location:${locationId}::category:${categoryId}` : `category:${categoryId}`;
@@ -87,6 +86,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(new Set());
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [duplicatingCategoryId, setDuplicatingCategoryId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showWarehouseSpec, setShowWarehouseSpec] = useState(false);
   const [showExchangeRatePopover, setShowExchangeRatePopover] = useState(false);
@@ -431,7 +431,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   const isExtraServiceCategory = (categoryId: string | null | undefined) => {
     if (!categoryId) return false;
     const category = categories.find((item) => item.id === categoryId);
-    return category?.description === EXTRA_SERVICE_DESCRIPTION_FLAG;
+    return category?.description === EXTRA_SERVICE_CATEGORY_DESCRIPTION;
   };
 
   const handleCreateExtraServiceCategory = async () => {
@@ -445,7 +445,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
 
     try {
-      const category = await createCategory(nextName, EXTRA_SERVICE_DESCRIPTION_FLAG, false, eventId);
+      const category = await createCategory(nextName, EXTRA_SERVICE_CATEGORY_DESCRIPTION, false, eventId);
       const groupId = buildCategoryGroupId(category.id);
       setCategories((prev) => [...prev, category]);
       setActiveCategoryIds((prev) => {
@@ -458,6 +458,85 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     } catch (error) {
       console.error('Error creating extra service category:', error);
       alert('Ошибка создания категории "Доп услуги"');
+    }
+  };
+  const handleDuplicateCategory = async (source: Category) => {
+    if (duplicatingCategoryId) return;
+    setDuplicatingCategoryId(source.id);
+    let createdCategoryId: string | null = null;
+    try {
+      const sourceItems = sortBudgetGroupItems(budgetItems.filter(item => item.category_id === source.id));
+      const { category: newCategory, items: newItems } = await duplicateCategory(source, eventId, sourceItems, {
+        isExtraService: source.description === EXTRA_SERVICE_CATEGORY_DESCRIPTION
+      });
+      createdCategoryId = newCategory.id;
+
+      // Persisted order: event-scoped categories are numbered after the global ones and the
+      // copy is inserted directly after its source inside that event-scoped range.
+      const globalMaxSortOrder = categories
+        .filter(cat => cat.event_id !== eventId)
+        .reduce((max, cat) => Math.max(max, cat.sort_order || 0), 0);
+      const baseSortOrder = globalMaxSortOrder + 1;
+      const eventCategories = categories.filter(cat => cat.event_id === eventId);
+      const reorderedCategories = eventCategories.filter(cat => cat.id !== newCategory.id);
+      const sourceIndex = reorderedCategories.findIndex(cat => cat.id === source.id);
+      reorderedCategories.splice(sourceIndex === -1 ? reorderedCategories.length : sourceIndex + 1, 0, newCategory);
+
+      const sortOrders = new Map<string, number>();
+      for (let index = 0; index < reorderedCategories.length; index += 1) {
+        const entry = reorderedCategories[index];
+        const sortOrder = baseSortOrder + index;
+        sortOrders.set(entry.id, sortOrder);
+        if (entry.sort_order !== sortOrder) {
+          await updateCategory(entry.id, { sort_order: sortOrder });
+        }
+      }
+
+      setCategories(prev => {
+        const renumbered = prev.map(cat => {
+          const sortOrder = sortOrders.get(cat.id);
+          return sortOrder === undefined ? cat : { ...cat, sort_order: sortOrder };
+        });
+        const insertAt = renumbered.findIndex(cat => cat.id === source.id);
+        if (insertAt === -1) return [...renumbered, newCategory];
+        const next = [...renumbered];
+        next.splice(insertAt + 1, 0, newCategory);
+        return next;
+      });
+      setBudgetItems(prev => [...prev, ...newItems]);
+
+      // The copies keep the source's location_id, so the new group lives in the same
+      // location container (or in the main area when the source has no location).
+      const copiedLocationId = sourceItems.find(item => item.location_id)?.location_id ?? null;
+      const groupId = buildCategoryGroupId(newCategory.id, copiedLocationId);
+      setActiveCategoryIds(prev => {
+        const next = new Set(prev);
+        next.add(groupId);
+        return next;
+      });
+      setExpandedCategories(prev => ({
+        ...prev,
+        [groupId]: true,
+        ...(copiedLocationId ? { [`location:${copiedLocationId}`]: true } : {})
+      }));
+      setSelectedCategoryId(groupId);
+
+      setTimeout(() => {
+        categoryRefs.current[newCategory.id]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 150);
+    } catch (error) {
+      console.error('Error duplicating category:', error);
+      if (createdCategoryId) {
+        // Roll back the half-created copy so the смета keeps its previous state.
+        try {
+          await deleteCategory(createdCategoryId);
+        } catch (cleanupError) {
+          console.error('Error cleaning up duplicated category:', cleanupError);
+        }
+      }
+      alert(`Ошибка дублирования категории: ${getErrorMessage(error)}`);
+    } finally {
+      setDuplicatingCategoryId(null);
     }
   };
 
@@ -2208,6 +2287,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                     onUpdateItem={handleUpdateItem}
                                     onDeleteItem={handleDeleteItem}
                                     onDeleteCategory={() => handleDeleteCategory(category.id)}
+                                    onDuplicateCategory={() => handleDuplicateCategory(category)}
                                     onManagePersonnel={handleOpenWorkPersonnelManager}
                                     paymentMode={paymentMode}
                                     exchangeRate={exchangeRate}
@@ -2295,6 +2375,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                           onUpdateItem={handleUpdateItem}
                           onDeleteItem={handleDeleteItem}
                           onDeleteCategory={() => handleDeleteCategory(category.id)}
+                          onDuplicateCategory={() => handleDuplicateCategory(category)}
                           onManagePersonnel={handleOpenWorkPersonnelManager}
                           paymentMode={paymentMode}
                           exchangeRate={exchangeRate}
