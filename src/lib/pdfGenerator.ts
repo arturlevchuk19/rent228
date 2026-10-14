@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import autoTable from 'jspdf-autotable';
 import { calcCombinedTotal, calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
@@ -13,6 +14,7 @@ interface BudgetItem {
   } | null;
   equipment?: { name: string; unit?: string; category?: string };
   work_item?: { name: string; unit?: string };
+  name?: string;
   quantity: number;
   price: number;
   total: number;
@@ -226,6 +228,313 @@ const waitForRenderReady = async (timeoutMs = 1500): Promise<void> => {
   });
 };
 
+// ─── Настройки экспорта ──────────────────────────────────────────────────────
+// Режим генератора PDF:
+//  - 'vector' (по умолчанию): jsPDF + autoTable, текст векторный. html2canvas не
+//    используется вовсе — экспорт занимает десятки миллисекунд независимо от
+//    размера сметы, файл весит килобайты, текст копируется/ищется в PDF.
+//  - 'raster': legacy-рендер через скриншот DOM (html2canvas). Сохранён как
+//    fallback для пиксельно-идентичного результата при необходимости.
+type PdfEngine = 'vector' | 'raster';
+const PDF_ENGINE: PdfEngine = 'vector';
+// Качество растеризации legacy-режима (1 px CSS = scale device px).
+// scale 2 → ~4x быстрее scale 4 по времени html2canvas и PNG-кодирования.
+const RASTER_SCALE = 2;
+
+// Данные для векторного рендера: плоская структура, из которой страницы собираются
+// без DOM. Строки итогов уже отформатированы (с валютой), чтобы не дублировать
+// бизнес-логику скидок/округлений.
+interface VectorRow {
+  name: string;
+  qty: string;
+  price: string;
+  total: string;
+  bg?: [number, number, number]; // подсветка маркера строки
+}
+interface VectorSection {
+  kind: 'category';
+  title: string;
+  rows: VectorRow[];
+  totals: { label: string; value: string }[];
+}
+interface VectorLocation {
+  header?: string;
+  sections: VectorSection[];
+  totals: { label: string; value: string }[];
+}
+interface VectorFooterLine {
+  text: string;
+  amount: string;
+  underline?: boolean;
+  strong?: boolean;
+  gapBefore?: boolean;
+}
+interface VectorRenderData {
+  logoDataURL: string;
+  title: string;
+  versionLine: string;
+  createdLine: string;
+  infoCells: { label: string; value: string }[];
+  locations: VectorLocation[];
+  footerLines: VectorFooterLine[];
+  extras: VectorSection[];
+  extrasTotalLines: VectorFooterLine[];
+  note?: string;
+}
+
+// ─── Векторный генератор (jsPDF + autoTable) ─────────────────────────────────
+// Собирает документ на стандартных A4-страницах: таблица категорий разбивается
+// по страницам автоматически, итоги разделов/локаций и футер дописываются после.
+function buildVectorPDF(rd: VectorRenderData): jsPDF {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+  const pageW = 210;
+  const marginX = 8;
+  const contentW = pageW - marginX * 2;
+  let y = 8;
+
+  // Логотип слева, шапка справа (как в HTML-версии)
+  try {
+    const logoH = 16;
+    pdf.addImage(rd.logoDataURL, 'PNG', marginX, y, logoH * 2, logoH);
+  } catch {
+    // логотип не критичен для экспорта
+  }
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(13);
+  pdf.setTextColor(26, 26, 26);
+  pdf.text(rd.title, pageW - marginX, y + 4, { align: 'right' });
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9);
+  pdf.setTextColor(107, 114, 128);
+  pdf.text(rd.versionLine, pageW - marginX, y + 9, { align: 'right' });
+  pdf.text(rd.createdLine, pageW - marginX, y + 13.5, { align: 'right' });
+  y += 20;
+
+  // Инфо-блоки (Дата / Локация / Заказчик / Организатор) в сетке 2 колонки
+  if (rd.infoCells.length > 0) {
+    const colW = contentW / 2;
+    rd.infoCells.forEach((cell, idx) => {
+      const cx = marginX + (idx % 2) * colW;
+      const cy = y + Math.floor(idx / 2) * 9;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(107, 114, 128);
+      pdf.text(cell.label.toUpperCase(), cx, cy);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(26, 26, 26);
+      pdf.text(cell.value, cx, cy + 4);
+    });
+    y += Math.ceil(rd.infoCells.length / 2) * 9 + 1;
+  }
+  pdf.setDrawColor(0);
+  pdf.setLineWidth(0.4);
+  pdf.line(marginX, y, pageW - marginX, y);
+  y += 4;
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed > 282) {
+      pdf.addPage();
+      y = 12;
+    }
+  };
+
+  const printSectionTitle = (title: string) => {
+    ensureSpace(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(title.toUpperCase(), marginX + 3, y + 4);
+    y += 6;
+  };
+
+  const renderTable = (rows: VectorRow[]) => {
+    autoTable(pdf, {
+      startY: y,
+      theme: 'plain',
+      styles: { font: 'helvetica', fontSize: 9.5, cellPadding: { top: 0.8, bottom: 2.2, left: 2, right: 2 }, textColor: [26, 26, 26], lineColor: [0, 0, 0], lineWidth: { bottom: 0.2, top: 0, left: 0, right: 0 } },
+      head: [['Наименование', 'Кол-во', 'Цена', 'Сумма']],
+      headStyles: { font: 'helvetica', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0], cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, lineWidth: { bottom: 0.3, top: 0, left: 0, right: 0 }, lineColor: [0, 0, 0] },
+      columnStyles: {
+        0: { cellWidth: contentW * 0.6 },
+        1: { cellWidth: contentW * 0.1, halign: 'center' },
+        2: { cellWidth: contentW * 0.15, halign: 'right' },
+        3: { cellWidth: contentW * 0.15, halign: 'right' },
+      },
+      body: rows.map((r) => [r.name, r.qty, r.price, r.total]),
+      didParseCell: (hookData) => {
+        if (hookData.section === 'body') {
+          const rowDef = rows[hookData.row.index];
+          if (rowDef?.bg) hookData.cell.styles.fillColor = rowDef.bg;
+          if (hookData.column.index === 3) hookData.cell.styles.fontStyle = 'bold';
+        }
+      },
+      margin: { left: marginX, right: marginX, bottom: 12, top: 12 },
+    });
+    y = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 1.5;
+  };
+
+  const printTotals = (totals: { label: string; value: string }[], big: boolean) => {
+    totals.forEach((t) => {
+      ensureSpace(big ? 9 : 7);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(big ? 11 : 10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`${t.label}:`, pageW - marginX - 32, y + 3.5, { align: 'right' });
+      pdf.text(t.value, pageW - marginX, y + 3.5, { align: 'right' });
+      y += big ? 6.5 : 5.5;
+    });
+    y += 2;
+  };
+
+  rd.locations.forEach((loc) => {
+    if (loc.header) {
+      ensureSpace(10);
+      pdf.setFillColor(75, 85, 99);
+      pdf.rect(marginX, y, 1.8, 5, 'F');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(loc.header.toUpperCase(), marginX + 4.5, y + 4);
+      y += 7;
+    }
+    loc.sections.forEach((section) => {
+      printSectionTitle(section.title);
+      renderTable(section.rows);
+      printTotals(section.totals, false);
+    });
+    printTotals(loc.totals, true);
+  });
+
+  // Футер: итоги/скидки — справа, подчёркнутые суммы как в HTML-версии
+  rd.footerLines.forEach((line) => {
+    if (line.gapBefore) y += 4;
+    const fs = line.strong ? 13 : 11;
+    ensureSpace(fs === 13 ? 10 : 8);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(fs);
+    pdf.setTextColor(0, 0, 0);
+    const amountW = pdf.getTextWidth(line.amount);
+    const labelX = pageW - marginX - amountW - 4;
+    const lines = pdf.splitTextToSize(line.text, labelX - marginX);
+    const blockH = lines.length * (fs * 0.37) + 3;
+    pdf.text(lines, marginX, y + fs * 0.35, { align: 'right' });
+    pdf.text(line.amount, pageW - marginX, y + fs * 0.35, { align: 'right' });
+    if (line.underline) {
+      pdf.setLineWidth(0.6);
+      pdf.line(pageW - marginX - amountW, y + fs * 0.35 + 1.2, pageW - marginX, y + fs * 0.35 + 1.2);
+    }
+    y += blockH;
+  });
+
+  // Дополнительные услуги: own section(s) + итоги
+  rd.extras.forEach((section) => {
+    y += 3;
+    printSectionTitle(section.title);
+    renderTable(section.rows);
+    printTotals(section.totals, false);
+  });
+  rd.extrasTotalLines.forEach((line) => {
+    pdf.setDrawColor(0);
+    pdf.setLineWidth(0.5);
+    ensureSpace(12);
+    pdf.line(marginX, y, pageW - marginX, y);
+    y += 3;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(13);
+    pdf.setTextColor(0, 0, 0);
+    const amountW = pdf.getTextWidth(line.amount);
+    const labelX = pageW - marginX - amountW - 4;
+    const lines = pdf.splitTextToSize(line.text, labelX - marginX);
+    pdf.text(lines, marginX, y + 4.5, { align: 'right' });
+    pdf.text(line.amount, pageW - marginX, y + 4.5, { align: 'right' });
+    y += lines.length * 5 + 6;
+  });
+
+  // Примечание
+  if (rd.note) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8);
+    pdf.setTextColor(107, 114, 128);
+    const noteLines = pdf.splitTextToSize(rd.note, contentW - 6);
+    ensureSpace(noteLines.length * 4 + 10);
+    pdf.text('ПРИМЕЧАНИЕ', marginX + 3, y + 4);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(26, 26, 26);
+    pdf.text(noteLines, marginX + 3, y + 9);
+  }
+
+  return pdf;
+}
+
+// Пиксельное сравнение canvas-скриншотов для self-check режима vector_checked
+const canvasesLookEqual = (a: HTMLCanvasElement, b: HTMLCanvasElement): boolean => {
+  if (Math.abs(a.width - b.width) > 2 || Math.abs(a.height - b.height) > 2) return false;
+  const w = Math.min(a.width, b.width);
+  const h = Math.min(a.height, b.height);
+  const ca = a.getContext('2d')!.getImageData(0, 0, w, h).data;
+  const cb = b.getContext('2d')!.getImageData(0, 0, w, h).data;
+  let diffPixels = 0;
+  const step = Math.max(1, Math.floor(w / 800)); // выборка по ширине
+  for (let yy = 0; yy < h; yy += step) {
+    for (let xx = 0; xx < w; xx += step) {
+      const i = (yy * w + xx) * 4;
+      if (Math.abs(ca[i] - cb[i]) > 16 || Math.abs(ca[i + 1] - cb[i + 1]) > 16 || Math.abs(ca[i + 2] - cb[i + 2]) > 16) {
+        diffPixels++;
+      }
+    }
+  }
+  const sampled = Math.ceil(h / step) * Math.ceil(w / step);
+  return diffPixels / sampled < 0.02; // допускаем ≤2% расхождения (антиалиасинг)
+};
+
+const renderHtmlContainerToCanvas = async (container: HTMLElement): Promise<HTMLCanvasElement> => {
+  document.body.appendChild(container);
+  await waitForRenderReady();
+  const canvas = await html2canvas(container, {
+    scale: RASTER_SCALE,
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    logging: false,
+    imageTimeout: 5000,
+    removeContainer: false,
+    height: container.scrollHeight,
+    windowHeight: container.scrollHeight
+  });
+  container.remove();
+  return canvas;
+};
+
+const saveRasterPdf = (canvas: HTMLCanvasElement, fileName: string): void => {
+  const pageWidth = 210; // A4 width in mm (portrait)
+  const imgHeightPx = canvas.height;
+  const imgWidthPx = canvas.width;
+
+  // Calculate proportional height in mm to fit content exactly
+  // This ensures page height matches the budget content height
+  let pageHeight = (imgHeightPx * pageWidth) / imgWidthPx;
+
+  // Ensure portrait orientation: height must be >= width
+  // If content is short, set minimum height to width (210mm) to maintain portrait
+  // This adds minimal empty space while keeping portrait orientation
+  if (pageHeight < pageWidth) {
+    pageHeight = pageWidth;
+  }
+
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: [pageWidth, pageHeight],
+    putOnlyUsedFonts: true,
+    compress: true
+  });
+
+  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
+  pdf.save(`${fileName}.pdf`);
+};
+
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
   const eventDateDisplayHtml = formatEventDateRangeRu(data.eventDate, data.eventEndDate);
@@ -260,6 +569,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   });
 
   const locationOrder = (data.locations || []).map(location => location.id);
+
+  // Плоские данные для векторного рендера (jsPDF + autoTable) — собираются параллельно
+  // с HTML-строками, чтобы бизнес-логика расчёта цен/скидок была общей.
+  const vectorLocations: VectorLocation[] = [];
+  const vectorExtras: VectorSection[] = [];
+  const vectorFooterLines: VectorFooterLine[] = [];
+  const vectorExtrasTotalLines: VectorFooterLine[] = [];
   const sortedLocationIds = Object.keys(groupedByLocation).sort((a, b) => {
     if (a === 'no-location') return 1;
     if (b === 'no-location') return -1;
@@ -320,6 +636,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   let grandTotalWorkDay1 = 0;
 
+  // Подсветка строки маркером в векторном PDF: смешение цвета с белым (alpha 0.26)
+  const markerToRgb = (hexColor?: string | null): [number, number, number] | undefined => {
+    if (!hexColor) return undefined;
+    const match = hexColor.trim().match(/^#([0-9a-fA-F]{6})$/);
+    if (!match) return undefined;
+    const parsed = match[1];
+    const mix = (c: number) => Math.round(c * 0.26 + 255 * 0.74);
+    return [mix(parseInt(parsed.slice(0, 2), 16)), mix(parseInt(parsed.slice(2, 4), 16)), mix(parseInt(parsed.slice(4, 6), 16))];
+  };
+
   let locationIdx = 0;
   sortedLocationIds.forEach(locationId => {
     const groupedByCategory = groupedByLocation[locationId];
@@ -339,6 +665,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const displayLocationName = isNoLocation ? '' : `${locationPrefix}${locationName}`;
 
     let locationHtml = '';
+    const vectorSections: VectorSection[] = [];
 
     let locationTotalDay1 = 0;
     let locationTotalCombined = 0;
@@ -353,9 +680,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
       let categorySumDay1 = 0;
       let categorySumCombined = 0;
+      const vectorRows: VectorRow[] = [];
       const rows = items.map((item, itemIdx) => {
         const itemPrefix = `${itemIdx + 1}. `;
-        const name = item.equipment?.name || item.work_item?.name || '—';
+        const name = item.name || item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
@@ -380,6 +708,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         categorySumDay1 += paymentMode === 'usd' ? usdTotalDay1 : displayTotalDay1BYN;
         categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
+
+        vectorRows.push({
+          name: `${itemPrefix}${displayName}`,
+          qty: `${qty} ${unit}`,
+          price: `${formatMoney(rowPriceDisplay)}${currencySuffix}`,
+          total: `${formatMoney(rowTotalDisplay)}${currencySuffix}`,
+          bg: markerToRgb(item.marker_color),
+        });
 
         const rowBg = hexToRgba(item.marker_color, 0.26);
         return `
@@ -407,6 +743,18 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       locationTotalDay1 += categorySumDay1;
       locationTotalCombined += categorySumCombined;
       const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
+
+      vectorSections.push({
+        kind: 'category',
+        title: `${categoryPrefix}${categoryName}`,
+        rows: vectorRows,
+        totals: [
+          { label: 'ИТОГО ПО РАЗДЕЛУ', value: `${formatMoney(categoryTotal)}${currencySuffix}` },
+          ...((!isCombinedOnlyMode && budgetDays > 1)
+            ? [{ label: `ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.`, value: `${formatMoney(categorySumCombined)}${currencySuffix}` }]
+            : []),
+        ],
+      });
 
       locationHtml += `
        <div style="margin-bottom: 12px;">
@@ -486,6 +834,17 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         ${locationTotalsHtml}
       </section>
     `;
+
+    vectorLocations.push({
+      header: isNoLocation ? undefined : displayLocationName,
+      sections: vectorSections,
+      totals: isNoLocation ? [] : [
+        { label: 'ИТОГО ЛОКАЦИИ', value: `${formatMoney(locationTotal)}${currencySuffix}` },
+        ...((!isCombinedOnlyMode && budgetDays > 1)
+          ? [{ label: `ИТОГО ЛОКАЦИИ ЗА ${budgetDays} ДН.`, value: `${formatMoney(locationTotalCombined)}${currencySuffix}` }]
+          : []),
+      ],
+    });
   });
 
   let extraServicesHtml = '';
@@ -511,9 +870,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const categoryName = category?.name || 'Дополнительные услуги';
         let categoryTotalDay1 = 0;
         let categoryTotalCombined = 0;
+        const vectorExtraRows: VectorRow[] = [];
         const rows = items.map((item, itemIdx) => {
           const itemPrefix = `${itemIdx + 1}. `;
-          const name = item.equipment?.name || item.work_item?.name || '—';
+          const name = item.name || item.equipment?.name || item.work_item?.name || '—';
           const notes = item.notes?.trim();
           const displayName = notes ? `${name} ${notes}` : name;
           const qty = item.quantity || 0;
@@ -540,6 +900,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           
           categoryTotalDay1 += paymentMode === 'usd' ? calcDay1Total(item) : displayTotalDay1BYN;
           categoryTotalCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
+          
+          vectorExtraRows.push({
+            name: `${itemPrefix}${displayName}`,
+            qty: `${qty} ${unit}`,
+            price: `${formatMoney(displayUnitPriceBYN)}${currencySuffix}`,
+            total: `${formatMoney(displayTotalBYN)}${currencySuffix}`,
+            bg: markerToRgb(item.marker_color),
+          });
           
           return `
             <tr style="border-bottom: 1px solid #000000;">
