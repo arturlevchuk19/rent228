@@ -902,6 +902,110 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
   };
 
+  const handleDuplicateCategory = async (categoryId: string) => {
+    try {
+      const sourceCategory = categories.find(cat => cat.id === categoryId);
+      if (!sourceCategory) return;
+
+      // Create a copy of the category right after the original one
+      const newCategory = await createCategory(
+        `${sourceCategory.name} (копия)`,
+        sourceCategory.description,
+        false,
+        eventId
+      );
+
+      const insertIndex = categories.findIndex(cat => cat.id === categoryId);
+      const nextCategories = [...categories];
+      nextCategories.splice(insertIndex + 1, 0, newCategory);
+
+      let sortBase = 0;
+      for (let i = 0; i < nextCategories.length; i++) {
+        if (nextCategories[i].sort_order >= sortBase) {
+          sortBase = nextCategories[i].sort_order + 1;
+        }
+      }
+
+      const updatedCategories = nextCategories.map((cat, index) => ({
+        ...cat,
+        sort_order: sortBase + index
+      }));
+
+      for (const cat of updatedCategories) {
+        await updateCategory(cat.id, { sort_order: cat.sort_order });
+      }
+
+      setCategories(updatedCategories);
+
+      // Copy all items of the source category into the duplicate
+      const sourceItems = [...budgetItems]
+        .filter(item => item.category_id === categoryId)
+        .sort((a, b) =>
+          (a.sort_order || 0) - (b.sort_order || 0) ||
+          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+        );
+
+      const copiedItems: BudgetItem[] = [];
+      for (const item of sourceItems) {
+        const payload: Partial<BudgetItem> = {
+          event_id: item.event_id,
+          equipment_id: item.equipment_id ?? null,
+          work_item_id: item.work_item_id ?? null,
+          modification_id: item.modification_id ?? null,
+          parent_budget_item_id: null,
+          item_type: item.item_type,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total,
+          notes: item.notes,
+          exchange_rate: item.exchange_rate,
+          multi_day_rate_override: item.multi_day_rate_override ?? null,
+          category_id: newCategory.id,
+          location_id: item.location_id ?? null,
+          picked: false,
+          is_extra: item.is_extra,
+          unit: item.unit ?? null,
+          marker_color: item.marker_color ?? null,
+          name: item.name ?? undefined,
+          sku: item.sku ?? undefined,
+          sort_order: item.sort_order
+        };
+        const created = await createBudgetItem(payload);
+        copiedItems.push(created);
+      }
+
+      if (copiedItems.length > 0) {
+        setBudgetItems(prev => [...prev, ...copiedItems]);
+      }
+
+      // Activate/expand the duplicate in every group where the original is visible
+      const sourceGroupIds = Array.from(activeCategoryIds).filter(id => {
+        const parsed = parseGroupId(id);
+        return parsed.categoryId === categoryId;
+      });
+      const newGroupIds = sourceGroupIds.map(id =>
+        buildCategoryGroupId(newCategory.id, parseGroupId(id).locationId)
+      );
+      if (newGroupIds.length === 0) {
+        newGroupIds.push(buildCategoryGroupId(newCategory.id, null));
+      }
+      setActiveCategoryIds(prev => {
+        const next = new Set(prev);
+        newGroupIds.forEach(id => next.add(id));
+        return next;
+      });
+      setExpandedCategories(prev => {
+        const next = { ...prev };
+        newGroupIds.forEach(id => { next[id] = true; });
+        return next;
+      });
+      setSelectedCategoryId(newGroupIds[0]);
+    } catch (error) {
+      console.error('Error duplicating category:', error);
+      alert(`Ошибка дублирования категории: ${getErrorMessage(error)}`);
+    }
+  };
+
   const handleUpdateCategoryName = async (categoryId: string, newName: string) => {
     try {
       await updateCategory(categoryId, { name: newName });
@@ -2208,6 +2312,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                                     onUpdateItem={handleUpdateItem}
                                     onDeleteItem={handleDeleteItem}
                                     onDeleteCategory={() => handleDeleteCategory(category.id)}
+                                    onDuplicateCategory={handleDuplicateCategory}
                                     onManagePersonnel={handleOpenWorkPersonnelManager}
                                     paymentMode={paymentMode}
                                     exchangeRate={exchangeRate}
@@ -2295,6 +2400,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                           onUpdateItem={handleUpdateItem}
                           onDeleteItem={handleDeleteItem}
                           onDeleteCategory={() => handleDeleteCategory(category.id)}
+                          onDuplicateCategory={handleDuplicateCategory}
                           onManagePersonnel={handleOpenWorkPersonnelManager}
                           paymentMode={paymentMode}
                           exchangeRate={exchangeRate}
