@@ -70,8 +70,7 @@ interface PDFData {
 
 const formatDateRu = (dateValue?: string): string => {
   if (!dateValue) return '—';
-
-  const trimmedDate = dateValue.trim();
+        const trimmedDate = dateValue.trim();
   if (!trimmedDate) return '—';
 
   if (/^\d{2}\.\d{2}\.\d{4}$/.test(trimmedDate)) {
@@ -105,10 +104,10 @@ const formatEventDateRangeRu = (startDate?: string, endDate?: string): string =>
   }
 
   const startParts = formattedStart.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  const endParts = formattedEnd.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        const endParts = formattedEnd.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   if (startParts && endParts) {
     const [, startDay, startMonth, startYear] = startParts;
-    const [, endDay, endMonth, endYear] = endParts;
+        const [, endDay, endMonth, endYear] = endParts;
     if (startYear === endYear && startMonth === endMonth) {
       // Один месяц: "13-15.10.2026"
       return `${startDay}-${endDay}.${startMonth}.${startYear}`;
@@ -119,35 +118,30 @@ const formatEventDateRangeRu = (startDate?: string, endDate?: string): string =>
 
   return `${formattedStart} - ${formattedEnd}`;
 };
-
-const isWorkNonDelivery = (item: BudgetItem): boolean => {
+        const isWorkNonDelivery = (item: BudgetItem): boolean => {
   if (!item.work_item?.name) return false;
-  const workName = item.work_item.name.toLowerCase();
+        const workName = item.work_item.name.toLowerCase();
   return !workName.includes('доставка оборудования') && !workName.includes('доставка персонала');
 };
-
-const formatMoney = (value: number): string => value.toFixed(2);
-
-const escapeHtml = (value: string): string =>
+        const formatMoney = (value: number): string => value.toFixed(2);
+        const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-
-const isConsumablesEquipmentItem = (item: BudgetItem): boolean =>
+        const isConsumablesEquipmentItem = (item: BudgetItem): boolean =>
   !item.work_item && item.equipment?.category?.trim().toLowerCase() === 'расходные материалы';
-
-const hexToRgba = (hexColor?: string | null, alpha = 0.26): string | null => {
+        const hexToRgba = (hexColor?: string | null, alpha = 0.26): string | null => {
   if (!hexColor) return null;
-  const normalized = hexColor.trim();
-  const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
+        const normalized = hexColor.trim();
+        const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
   if (!match) return null;
-  const parsed = match[1];
-  const r = parseInt(parsed.slice(0, 2), 16);
-  const g = parseInt(parsed.slice(2, 4), 16);
-  const b = parseInt(parsed.slice(4, 6), 16);
+        const parsed = match[1];
+        const r = parseInt(parsed.slice(0, 2), 16);
+        const g = parseInt(parsed.slice(2, 4), 16);
+        const b = parseInt(parsed.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
@@ -158,8 +152,7 @@ const hexToRgba = (hexColor?: string | null, alpha = 0.26): string | null => {
 // поэтому выходной PDF не меняется.
 let cachedLogoDataURL: string | null = null;
 let pendingLogoPromise: Promise<string> | null = null;
-
-const loadImageAsDataURL = (url: string): Promise<string> => {
+        const loadImageAsDataURL = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -167,7 +160,7 @@ const loadImageAsDataURL = (url: string): Promise<string> => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0);
         resolve(canvas.toDataURL('image/png'));
@@ -179,8 +172,7 @@ const loadImageAsDataURL = (url: string): Promise<string> => {
     img.src = url;
   });
 };
-
-const getLogoDataURL = (): Promise<string> => {
+        const getLogoDataURL = (): Promise<string> => {
   if (cachedLogoDataURL) return Promise.resolve(cachedLogoDataURL);
   if (!pendingLogoPromise) {
     // Ограничиваем ожидание логотипа: раньше зависший запрос к /image2.png
@@ -226,19 +218,16 @@ const waitForRenderReady = async (timeoutMs = 1500): Promise<void> => {
 
 export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const formattedEventDate = formatDateRu(data.eventDate);
-  const eventDateDisplayHtml = formatEventDateRangeRu(data.eventDate, data.eventEndDate);
-  const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
-  const versionLabel = (data.version || '1.0').trim() || '1.0';
-
-  const logoDataURL = await getLogoDataURL();
-
-  const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra);
-  const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra);
-
-  const groupedByLocation: Record<string, Record<string, BudgetItem[]>> = {};
+        const eventDateDisplayHtml = formatEventDateRangeRu(data.eventDate, data.eventEndDate);
+        const formattedCreatedDate = formatDateRu(data.createdDate || new Date().toISOString());
+        const versionLabel = (data.version || '1.0').trim() || '1.0';
+        const logoDataURL = await getLogoDataURL();
+        const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra);
+        const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra);
+        const groupedByLocation: Record<string, Record<string, BudgetItem[]>> = {};
   mainBudgetItems.forEach((item) => {
     const locationId = item.location_id || 'no-location';
-    const categoryId = item.category_id || 'uncategorized';
+        const categoryId = item.category_id || 'uncategorized';
     if (!groupedByLocation[locationId]) {
       groupedByLocation[locationId] = {};
     }
@@ -247,31 +236,27 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     }
     groupedByLocation[locationId][categoryId].push(item);
   });
-
-  const locationNameById = new Map((data.locations || []).map(location => [location.id, location.name]));
-  const locationColorById = new Map((data.locations || []).map(location => [location.id, location.color || '#14532d']));
+        const locationNameById = new Map((data.locations || []).map(location => [location.id, location.name]));
+        const locationColorById = new Map((data.locations || []).map(location => [location.id, location.color || '#14532d']));
   data.budgetItems.forEach(item => {
     if (item.location_id && item.location?.name && !locationNameById.has(item.location_id)) {
       locationNameById.set(item.location_id, item.location.name);
       locationColorById.set(item.location_id, item.location.color || '#14532d');
     }
   });
-
-  const locationOrder = (data.locations || []).map(location => location.id);
-  const sortedLocationIds = Object.keys(groupedByLocation).sort((a, b) => {
+        const locationOrder = (data.locations || []).map(location => location.id);
+        const sortedLocationIds = Object.keys(groupedByLocation).sort((a, b) => {
     if (a === 'no-location') return 1;
     if (b === 'no-location') return -1;
-    const indexA = locationOrder.indexOf(a);
-    const indexB = locationOrder.indexOf(b);
-    const normalizedIndexA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
-    const normalizedIndexB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
+        const indexA = locationOrder.indexOf(a);
+        const indexB = locationOrder.indexOf(b);
+        const normalizedIndexA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
+        const normalizedIndexB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
     if (normalizedIndexA !== normalizedIndexB) return normalizedIndexA - normalizedIndexB;
     return (locationNameById.get(a) || '').localeCompare(locationNameById.get(b) || '', 'ru');
   });
-
-  const categoryOrder = data.categories.map(c => c.id);
-
-  const container = document.createElement('div');
+        const categoryOrder = data.categories.map(c => c.id);
+        const container = document.createElement('div');
   // Уменьшены отступы для компактности [cite: 53]
   container.style.cssText = `
     position: absolute; position:relative; width: 800px; height: auto;
@@ -282,14 +267,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   let categoriesHtml = '';
   let grandTotalDay1 = 0;
-  const grayAccent = '#ffffff'; ///#4b5563
+        const grayAccent = '#ffffff'; ///#4b5563
   const paymentMode = data.paymentMode || 'usd';
-  const currencySuffix = paymentMode !== 'usd' ? ' BYN' : ' $';
-
-  const budgetDays = Math.max(1, data.budgetDays || 1);
-  const isCombinedOnlyMode = data.budgetTotalsMode === 'combined_only';
-
-  const calculatePrice = (usdPrice: number, item?: BudgetItem, round = true): number => {
+        const currencySuffix = paymentMode !== 'usd' ? ' BYN' : ' $';
+        const budgetDays = Math.max(1, data.budgetDays || 1);
+        const isCombinedOnlyMode = data.budgetTotalsMode === 'combined_only';
+        const calculatePrice = (usdPrice: number, item?: BudgetItem, round = true): number => {
     const baseAmount = usdPrice * data.exchangeRate;
     switch (paymentMode) {
       case 'byn_cash':
@@ -307,12 +290,10 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         return usdPrice;
     }
   };
-
-  const roundGrandTotalForPaymentMode = (value: number): number => {
+        const roundGrandTotalForPaymentMode = (value: number): number => {
     return Math.floor(value);
   };
-
-  const roundDownToNearestFive = (value: number): number => {
+        const roundDownToNearestFive = (value: number): number => {
     return Math.floor(value / 5) * 5;
   };
 
@@ -321,20 +302,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   let locationIdx = 0;
   sortedLocationIds.forEach(locationId => {
     const groupedByCategory = groupedByLocation[locationId];
-    const sortedCategoryIds = Object.keys(groupedByCategory).sort((a, b) => {
+        const sortedCategoryIds = Object.keys(groupedByCategory).sort((a, b) => {
       const indexA = categoryOrder.indexOf(a);
-      const indexB = categoryOrder.indexOf(b);
-      const normalizedIndexA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
-      const normalizedIndexB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
+        const indexB = categoryOrder.indexOf(b);
+        const normalizedIndexA = indexA === -1 ? Number.MAX_SAFE_INTEGER : indexA;
+        const normalizedIndexB = indexB === -1 ? Number.MAX_SAFE_INTEGER : indexB;
       if (normalizedIndexA !== normalizedIndexB) return normalizedIndexA - normalizedIndexB;
       return a.localeCompare(b, 'ru');
     });
-
-    const isNoLocation = locationId === 'no-location';
+        const isNoLocation = locationId === 'no-location';
     locationIdx++;
-    const locationPrefix = `${locationIdx}. `;
-    const locationName = isNoLocation ? '' : (locationNameById.get(locationId) || 'Локация');
-    const displayLocationName = isNoLocation ? '' : `${locationPrefix}${locationName}`;
+        const locationPrefix = `${locationIdx}. `;
+        const locationName = isNoLocation ? '' : (locationNameById.get(locationId) || 'Локация');
+        const displayLocationName = isNoLocation ? '' : `${locationPrefix}${locationName}`;
 
     let locationHtml = '';
 
@@ -344,14 +324,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     let categoryIdx = 0;
     sortedCategoryIds.forEach(catId => {
       categoryIdx++;
-      const items = groupedByCategory[catId];
-      const category = data.categories.find(c => c.id === catId);
-      const categoryName = category?.name || 'Прочее';
-      const categoryPrefix = `${categoryIdx}. `;
+        const items = groupedByCategory[catId];
+        const category = data.categories.find(c => c.id === catId);
+        const categoryName = category?.name || 'Прочее';
+        const categoryPrefix = `${categoryIdx}. `;
 
       let categorySumDay1 = 0;
       let categorySumCombined = 0;
-      const rows = items.map((item, itemIdx) => {
+        const rows = items.map((item, itemIdx) => {
         const itemPrefix = `${itemIdx + 1}. `;
         const name = item.equipment?.name || item.work_item?.name || '—';
         const notes = item.notes?.trim();
@@ -364,7 +344,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         // Use rounded values for display
         const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
         const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
-
         const usdUnitPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
           budgetDays,
@@ -372,13 +351,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         );
         const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
         const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
-
         const rowTotalDisplay = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
         const rowPriceDisplay = isCombinedOnlyMode ? displayUnitPriceBYNCombined : displayUnitPriceBYNDay1;
 
         categorySumDay1 += paymentMode === 'usd' ? usdTotalDay1 : displayTotalDay1BYN;
         categorySumCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
-
         const rowBg = hexToRgba(item.marker_color, 0.26);
         return `
           <tr style="border-bottom: 1px solid #000000;${rowBg ? ` background-color: ${rowBg};` : ''}">
@@ -394,15 +371,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           </tr>
         `;
       }).join('');
-
-      const categoryHasOnlyWork = items.every(item => !!item.work_item);      // Only the work-day-1 total is rendered in the PDF footer; non-work items are
+        const categoryHasOnlyWork = items.every(item => !!item.work_item);      // Only the work-day-1 total is rendered in the PDF footer; non-work items are
       // already part of grandTotalDay1 below, so no separate non-work total is tracked.      if (categoryHasOnlyWork) {
         grandTotalWorkDay1 += categorySumDay1;
       }
       grandTotalDay1 += categorySumDay1;
       locationTotalDay1 += categorySumDay1;
       locationTotalCombined += categorySumCombined;
-      const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
+        const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
 
       locationHtml += `
        <div style="margin-bottom: 12px;">
@@ -438,9 +414,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>
       `;
     });
-    const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
-
-    const locationTotalsHtml = isNoLocation
+        const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
+        const locationTotalsHtml = isNoLocation
       ? ''
       : `
         <div style="padding: 2px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 5px;">
@@ -454,8 +429,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         </div>
         ` : ''}
       `;
-
-    const locationHeaderHtml = isNoLocation
+        const locationHeaderHtml = isNoLocation
   ? ''
   : `<div style="display: flex; align-items: center; margin-bottom: 12px; min-height: 22px;">
       <div style="width: 6px; height: 20px; border-radius: 10px; margin-right: 11px; background: #4b5563; flex-shrink: 0;"></div>
@@ -492,8 +466,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       acc[categoryId].push(item);
       return acc;
     }, {});
-
-    const extraCategoriesHtml = Object.entries(extraGrouped)
+        const extraCategoriesHtml = Object.entries(extraGrouped)
       .sort(([a], [b]) => {
         const indexA = categoryOrder.indexOf(a);
         const indexB = categoryOrder.indexOf(b);
@@ -509,30 +482,27 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         let categoryTotalCombined = 0;
         const rows = items.map((item, itemIdx) => {
           const itemPrefix = `${itemIdx + 1}. `;
-          const name = item.equipment?.name || item.work_item?.name || '—';
-          const notes = item.notes?.trim();
-          const displayName = notes ? `${name} ${notes}` : name;
-          const qty = item.quantity || 0;
-          const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
+        const name = item.equipment?.name || item.work_item?.name || '—';
+        const notes = item.notes?.trim();
+        const displayName = notes ? `${name} ${notes}` : name;
+        const qty = item.quantity || 0;
+        const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
           
           // Calculate price with multi-day coefficient for extra services
           const usdPriceDay1 = item.price || 0;
-          const usdPriceCombined = calcCombinedTotal(
+        const usdPriceCombined = calcCombinedTotal(
             { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
             budgetDays,
-            item.multi_day_rate_override
+          item.multi_day_rate_override
           );
-          
-          const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
-          const displayUnitPriceBYNCombined = calculatePrice(usdPriceCombined, item, true);
-          
-          const displayUnitPriceBYN = isCombinedOnlyMode 
+        const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
+        const displayUnitPriceBYNCombined = calculatePrice(usdPriceCombined, item, true);
+        const displayUnitPriceBYN = isCombinedOnlyMode 
             ? displayUnitPriceBYNCombined
             : displayUnitPriceBYNDay1;
-          
-          const displayTotalBYN = displayUnitPriceBYN * qty;
-          const displayTotalDay1BYN = displayUnitPriceBYNDay1 * qty;
-          const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+        const displayTotalBYN = displayUnitPriceBYN * qty;
+        const displayTotalDay1BYN = displayUnitPriceBYNDay1 * qty;
+        const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
           
           categoryTotalDay1 += paymentMode === 'usd' ? calcDay1Total(item) : displayTotalDay1BYN;
           categoryTotalCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
@@ -551,7 +521,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             </tr>
           `;
         }).join('');
-
         const categoryTotal = isCombinedOnlyMode ? categoryTotalCombined : categoryTotalDay1;
 
         return `
@@ -589,7 +558,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   }
 
   const trimmedBudgetNote = (data.budgetNote || '').trim();
-  const budgetNoteHtml = trimmedBudgetNote
+        const budgetNoteHtml = trimmedBudgetNote
     ? `
       <section style="margin-top: 18px; padding: 14px; border: 1px solid #000000; border-radius: 10px; background: #ffffff;">
         <div style="font-size: 14px; color: #6b7280; text-transform: uppercase; margin-bottom: 6px; font-weight: 700;">Примечание</div>
@@ -602,28 +571,25 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
       <span style="font-size: 16px; font-weight: 600; color: #1a1a1a;">${data.clientName}</span>
     </div>` : '';
-
-  const organizerHtml = data.organizerName ? `
+        const organizerHtml = data.organizerName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
       <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
       <span style="font-size: 16px; font-weight: 600; color: #1a1a1a;">${data.organizerName}</span>
     </div>` : '';
-  const participantsCellsHtml = `${clientHtml}${organizerHtml}`;
-
-  const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
+        const participantsCellsHtml = `${clientHtml}${organizerHtml}`;
+        const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
-    const usdUnitPriceCombined = calcCombinedTotal(
+        const usdUnitPriceCombined = calcCombinedTotal(
       { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
       budgetDays,
-      item.multi_day_rate_override
+          item.multi_day_rate_override
     );
-    const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+        const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
     return sum + unitPriceBYNCombined * qty;
   }, 0);
-
-  const discountPercentRaw = data.discountPercent || 0;
-  const discountPercentDisplay = Math.round(discountPercentRaw);
-  const hasFirstDiscount = Boolean(data.discountEnabled) && discountPercentRaw > 0;
+        const discountPercentRaw = data.discountPercent || 0;
+        const discountPercentDisplay = Math.round(discountPercentRaw);
+        const hasFirstDiscount = Boolean(data.discountEnabled) && discountPercentRaw > 0;
   // Скидка организатора доступна независимо от скидки клиенту:
   // - без активной скидки клиенту она считается от сметы (применяется к базе оборудования);
   // - с активной скидкой клиенту — от скидки клиента (скидки применяются последовательно).
@@ -633,75 +599,74 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const hasSecondDiscountRow = hasOrganizerDiscount && hasFirstDiscount;
   // Итоговый множитель второй скидки применяется в обоих случаях (от сметы или от скидки клиента).
   const discount2PercentRaw = hasOrganizerDiscount ? (data.discount2Percent || 0) : 0;
-  const discount2PercentDisplay = Math.round(discount2PercentRaw);
-  const discount2Multiplier = discount2PercentRaw > 0 ? 1 - discount2PercentRaw / 100 : 1;
-  const discountLabelHtml = `Итого со скидкой на оборудование ${discountPercentDisplay}%`;
-  const discount2LabelHtml = `Итого со скидкой на оборудование ${discount2PercentDisplay}%`;
-
-  const grandTotalDiscountEligibleDay1 = mainBudgetItems
+        const discount2PercentDisplay = Math.round(discount2PercentRaw);
+        const discount2Multiplier = discount2PercentRaw > 0 ? 1 - discount2PercentRaw / 100 : 1;
+        const discountLabelHtml = `Итого со скидкой на оборудование ${discountPercentDisplay}%`;
+        const discount2LabelHtml = `Итого со скидкой на оборудование ${discount2PercentDisplay}%`;
+        const grandTotalDiscountEligibleDay1 = mainBudgetItems
     .filter((item) => !item.work_item && !isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const unitPriceBYN = calculatePrice(item.price || 0, item, true);
+        const unitPriceBYN = calculatePrice(item.price || 0, item, true);
       return sum + unitPriceBYN * qty;
     }, 0);
-  const grandTotalConsumablesDay1 = mainBudgetItems
+        const grandTotalConsumablesDay1 = mainBudgetItems
     .filter((item) => isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const unitPriceBYN = calculatePrice(item.price || 0, item, true);
+        const unitPriceBYN = calculatePrice(item.price || 0, item, true);
       return sum + unitPriceBYN * qty;
     }, 0);
-  const grandTotalWorkCombined = mainBudgetItems
+        const grandTotalWorkCombined = mainBudgetItems
     .filter((item) => !!item.work_item)
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedTotal(
+        const usdUnitPriceCombined = calcCombinedTotal(
         { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
-        item.multi_day_rate_override
+          item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+        const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
-  const grandTotalDiscountEligibleCombined = mainBudgetItems
+        const grandTotalDiscountEligibleCombined = mainBudgetItems
     .filter((item) => !item.work_item && !isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedTotal(
+        const usdUnitPriceCombined = calcCombinedTotal(
         { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
-        item.multi_day_rate_override
+          item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+        const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
-  const grandTotalConsumablesCombined = mainBudgetItems
+        const grandTotalConsumablesCombined = mainBudgetItems
     .filter((item) => isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedTotal(
+        const usdUnitPriceCombined = calcCombinedTotal(
         { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
-        item.multi_day_rate_override
+          item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+        const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
-  const editorDay1Total = data.totalDay1FromEditor ?? roundGrandTotalForPaymentMode(grandTotalDay1);
-  const editorCombinedTotal = data.totalCombinedFromEditor ?? roundGrandTotalForPaymentMode(grandTotalCombined);
-  const pdfDay1Total = roundDownToNearestFive(editorDay1Total);
-  const pdfCombinedTotal = roundDownToNearestFive(editorCombinedTotal);
+        const editorDay1Total = data.totalDay1FromEditor ?? roundGrandTotalForPaymentMode(grandTotalDay1);
+        const editorCombinedTotal = data.totalCombinedFromEditor ?? roundGrandTotalForPaymentMode(grandTotalCombined);
+        const pdfDay1Total = roundDownToNearestFive(editorDay1Total);
+        const pdfCombinedTotal = roundDownToNearestFive(editorCombinedTotal);
 
   // Строки итогов со скидками для PDF. Скидки применяются только к оборудованию
   // (расходники и работа не скидываются).
   const discountEligibleBaseForMode = isCombinedOnlyMode || budgetDays > 1
     ? grandTotalDiscountEligibleCombined
     : grandTotalDiscountEligibleDay1;
-  const fixedBaseForMode = isCombinedOnlyMode || budgetDays > 1
+        const fixedBaseForMode = isCombinedOnlyMode || budgetDays > 1
     ? grandTotalConsumablesCombined + grandTotalWorkCombined
     : grandTotalConsumablesDay1 + grandTotalWorkDay1;
-  const fallbackRound = (value: number) =>
+        const fallbackRound = (value: number) =>
     data.paymentMode === 'usd' ? Math.round(value * 100) / 100 : Math.floor(value);
 
   // Итоговые суммы со скидками: если редактор передал готовую сумму — берём её как есть,
@@ -717,8 +682,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     ? (data.discountedTotalLevel1FromEditor
         ?? (hasSecondDiscountRow ? editorFinalTotal / discount2Multiplier : editorFinalTotal))
     : 0;
-  const level1Display = roundDownToNearestFive(level1Raw);
-  const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
+        const level1Display = roundDownToNearestFive(level1Raw);
+        const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
 
   // Общий шаблон итоговых строк («Итого со скидкой на оборудование …%» и
   // «Итого с дополнительными услугами …»): метка всегда выводится в одну строку —
@@ -742,7 +707,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     } = {}
   ) => {
     const { underlineAmount = false, period = '', minWidth = TOTAL_ROW_MIN_WIDTH, extraContainerStyle = '' } = options;
-    const periodPart = period ? ` <span style="white-space: nowrap;">${period}</span>` : '';
+        const periodPart = period ? ` <span style="white-space: nowrap;">${period}</span>` : '';
     // Отступ между числом и линией: text-decoration: underline игнорирует padding,
     // поэтому линия делается через border-bottom + padding-bottom.
     const amountDecoration = underlineAmount
@@ -754,8 +719,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;${amountDecoration}">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
   };
-
-  const makeDiscountRowHtml = (label: string, amount: number, underlineAmount = false) =>
+        const makeDiscountRowHtml = (label: string, amount: number, underlineAmount = false) =>
     makeTotalRowHtml(label, amount, {
       underlineAmount,
       period: budgetDays === 1 ? '' : `за ${budgetDays} дн.`
@@ -767,7 +731,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // При активной скидке клиенту печатаются обе строки, а итог — последовательное
   // применение обеих скидок (скидка организатору — от скидки клиента; зависимость выше).
   const singleDiscountLabelHtml = hasFirstDiscount ? discountLabelHtml : discount2LabelHtml;
-  const discountRowsHtml = (hasFirstDiscount || hasOrganizerDiscount)
+        const discountRowsHtml = (hasFirstDiscount || hasOrganizerDiscount)
     ? (hasSecondDiscountRow
         ? makeDiscountRowHtml(discountLabelHtml, level1Display) +
           makeDiscountRowHtml(discount2LabelHtml, level2Display, true)
@@ -788,34 +752,34 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         return sum + unitPriceBYNDay1 * qty;
       }, 0)
     : 0;
-    
-  const extraTotalCombined = extraBudgetItems.length > 0
+        const extraTotalCombined = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
-        const qty = item.quantity || 0;        const usdPriceDay1 = item.price || 0;
+        const qty = item.quantity || 0;
+        const usdPriceDay1 = item.price || 0;
         const usdPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-          budgetDays,          item.multi_day_rate_override
+          budgetDays,
+          item.multi_day_rate_override
         );
         const unitPriceBYNCombined = calculatePrice(usdPriceCombined, item, false);
         return sum + unitPriceBYNCombined * qty;
       }, 0)
     : 0;
-    
-  const mainTotalDay1 = pdfDay1Total;
-  const mainTotalCombined = pdfCombinedTotal;
+        const mainTotalDay1 = pdfDay1Total;
+        const mainTotalCombined = pdfCombinedTotal;
   
   // Calculate discounted totals for use with extras. Сумма «со скидкой» считается
   // по той же формуле, что и в редакторе (скидка применяется только к оборудованию),
   // с промежуточным итогом после скидки клиента (без скидки организатора), вниз кратно 5.
   const fixedDay1 = grandTotalConsumablesDay1 + grandTotalWorkDay1;
-  const fixedCombined = grandTotalConsumablesCombined + grandTotalWorkCombined;
+        const fixedCombined = grandTotalConsumablesCombined + grandTotalWorkCombined;
   // Промежуточный итог после скидки клиента (без скидки организатора):
   const level1Day1 = grandTotalDiscountEligibleDay1 * (1 - discountPercentRaw / 100) + fixedDay1;
-  const level1Combined = grandTotalDiscountEligibleCombined * (1 - discountPercentRaw / 100) + fixedCombined;
+        const level1Combined = grandTotalDiscountEligibleCombined * (1 - discountPercentRaw / 100) + fixedCombined;
   // Окончательный итог: обе скидки применяются последовательно (скидка организатора —
   // от результата скидки клиента).
   const finalDay1 = (level1Day1 - fixedDay1) * discount2Multiplier + fixedDay1;
-  const finalCombined = (level1Combined - fixedCombined) * discount2Multiplier + fixedCombined;
+        const finalCombined = (level1Combined - fixedCombined) * discount2Multiplier + fixedCombined;
 
   // Если редактор передал точную сумму (например, введённую вручную) — берём её,
   // иначе используем пересчитанное значение. Округление вниз кратно 5.
@@ -829,27 +793,25 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   // режиму итогов: в combined_only — к N-дневному итогу, в day1_plus_combined — к итогу за 1 день.
   const discountedTotalForPeriod = (period: 'day1' | 'combined'): number => {
     if (!hasAppliedDiscount) return period === 'combined' ? mainTotalCombined : mainTotalDay1;
-    const manualAppliesToPeriod = (period === 'combined') === isCombinedOnlyMode;
+        const manualAppliesToPeriod = (period === 'combined') === isCombinedOnlyMode;
     if (manualAppliesToPeriod && data.discountedTotalFromEditor !== undefined) {
       return roundDownToNearestFive(data.discountedTotalFromEditor);
     }
     const level1 = period === 'combined' ? level1Combined : level1Day1;
-    const final = period === 'combined' ? finalCombined : finalDay1;
+        const final = period === 'combined' ? finalCombined : finalDay1;
     // Без второй строки скидок печатается только итог со скидкой клиента —
     // промежуточный уровень (без множителя организатора).
     return roundDownToNearestFive(hasSecondDiscountRow ? final : level1);
   };
-
-  const discountedTotalDay1 = discountedTotalForPeriod('day1');
-  const discountedTotalCombined = discountedTotalForPeriod('combined');
+        const discountedTotalDay1 = discountedTotalForPeriod('day1');
+        const discountedTotalCombined = discountedTotalForPeriod('combined');
 
   // Total with extras for each mode: discounted main total + extra services
   // Apply round down to nearest 5 for consistency with main totals
   const grandTotalWithExtrasDay1 = data.totalWithExtraFromEditor !== undefined && !isCombinedOnlyMode
     ? roundDownToNearestFive(data.totalWithExtraFromEditor)
     : roundDownToNearestFive(discountedTotalDay1 + extraTotalDay1);
-    
-  const grandTotalWithExtrasCombined = data.totalWithExtraFromEditor !== undefined && isCombinedOnlyMode
+        const grandTotalWithExtrasCombined = data.totalWithExtraFromEditor !== undefined && isCombinedOnlyMode
     ? roundDownToNearestFive(data.totalWithExtraFromEditor)
     : roundDownToNearestFive(discountedTotalCombined + extraTotalCombined);
 
@@ -862,7 +824,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     // строка «Итого со скидкой на оборудование …%»: метка в одну строку (white-space:
     // nowrap, без UPPERCASE и letter-spacing), чтобы текст не переносился на 2 строчки.
     const extrasLabel = 'Итого с дополнительными услугами';
-    const extrasContainerStyle = ' margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;';
+        const extrasContainerStyle = ' margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;';
     // Итог с доп. услугами за период = скинутая база этого периода + доп. услуги периода.
     const makeGrandTotalWithExtrasForPeriod = (period: 'day1' | 'combined') =>
       roundDownToNearestFive(discountedTotalForPeriod(period) + (period === 'combined' ? extraTotalCombined : extraTotalDay1));
@@ -956,7 +918,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   document.body.appendChild(container);
   await waitForRenderReady();
-  const canvas = await html2canvas(container, {
+        const canvas = await html2canvas(container, {
     // Scale 1 keeps large budgets responsive: scale 2 quadrupled canvas pixels and
     // made html2canvas/Png encoding take tens of seconds for long estimates.
     scale: 1,
@@ -970,17 +932,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   });
 
   container.remove();
-
-  const pageWidth = 210;
-  const pageHeight = 297;
-  const imgHeightPx = canvas.height;
-  const imgWidthPx = canvas.width;
-  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  const imageData = canvas.toDataURL('image/jpeg', 0.88);
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const imgHeightPx = canvas.height;
+        const imgWidthPx = canvas.width;
+        const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
+        const imageData = canvas.toDataURL('image/jpeg', 0.88);
 
   // Разбиваем длинную смету на стандартные листы A4, сохраняя читаемый размер.
   const pageCount = Math.max(1, Math.ceil(renderedImageHeightMm / pageHeight));
-  const pdf = new jsPDF({
+        const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
