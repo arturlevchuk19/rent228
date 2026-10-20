@@ -944,13 +944,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: 'a4',
+    format: [pageWidth, pageHeight],
     putOnlyUsedFonts: true,
     compress: true
   });
 
   for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
-    if (pageIndex > 0) pdf.addPage('a4', 'portrait');
+    if (pageIndex > 0) pdf.addPage([pageWidth, pageHeight], 'portrait');
     pdf.addImage(imageData, 'JPEG', 0, -pageIndex * pageHeight, pageWidth, renderedImageHeightMm);
   }
 
