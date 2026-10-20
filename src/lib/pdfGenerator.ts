@@ -197,8 +197,7 @@ const getLogoDataURL = (): Promise<string> => {
         cachedLogoDataURL = dataURL;
         return dataURL;
       },
-      (error) => {        // Не кэшируем ошибку: повторный экспорт попробует загрузить логотип снова.
-        pendingLogoPromise = null;
+      (error) => {        // Не кэшируем ошибку: повторный экспорт попробует загрузить логотип снова.        pendingLogoPromise = null;
         throw error;
       }
     );
@@ -397,8 +396,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       }).join('');
 
       const categoryHasOnlyWork = items.every(item => !!item.work_item);      // Only the work-day-1 total is rendered in the PDF footer; non-work items are
-      // already part of grandTotalDay1 below, so no separate non-work total is tracked.
-      if (categoryHasOnlyWork) {
+      // already part of grandTotalDay1 below, so no separate non-work total is tracked.      if (categoryHasOnlyWork) {
         grandTotalWorkDay1 += categorySumDay1;
       }
       grandTotalDay1 += categorySumDay1;
@@ -598,7 +596,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <div style="font-size: 15px; color: #1a1a1a; line-height: 1.4; white-space: normal;">${escapeHtml(trimmedBudgetNote).replace(/\n/g, '<br/>')}</div>      </section>
     `
     : '';
-
   // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
   const clientHtml = data.clientName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
@@ -797,8 +794,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;        const usdPriceDay1 = item.price || 0;
         const usdPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-          budgetDays,
-          item.multi_day_rate_override
+          budgetDays,          item.multi_day_rate_override
         );
         const unitPriceBYNCombined = calculatePrice(usdPriceCombined, item, false);
         return sum + unitPriceBYNCombined * qty;
@@ -975,32 +971,27 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   container.remove();
 
-  const pageWidth = 210; // A4 width in mm (portrait)
+  const pageWidth = 210;
+  const pageHeight = 297;
   const imgHeightPx = canvas.height;
   const imgWidthPx = canvas.width;
-  
-  // Calculate proportional height in mm to fit content exactly
-  // This ensures page height matches the budget content height
-  
-  let pageHeight = (imgHeightPx * pageWidth) / imgWidthPx;
-  
-  // Ensure portrait orientation: height must be >= width
-  // If content is short, set minimum height to width (210mm) to maintain portrait
-  // This adds minimal empty space while keeping portrait orientation
-  if (pageHeight < pageWidth) {
-    pageHeight = pageWidth;
-  }
+  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
+  const imageData = canvas.toDataURL('image/jpeg', 0.88);
 
+  // Разбиваем длинную смету на стандартные листы A4, сохраняя читаемый размер.
+  const pageCount = Math.max(1, Math.ceil(renderedImageHeightMm / pageHeight));
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: [pageWidth, pageHeight],
-    putOnlyUsedFonts: true,    compress: true
+    format: 'a4',
+    putOnlyUsedFonts: true,
+    compress: true
   });
 
-  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  // JPEG is much smaller and faster to encode than a huge lossless PNG canvas.
-  pdf.addImage(canvas.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, pageWidth, renderedImageHeightMm);
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    if (pageIndex > 0) pdf.addPage('a4', 'portrait');
+    pdf.addImage(imageData, 'JPEG', 0, -pageIndex * pageHeight, pageWidth, renderedImageHeightMm);
+  }
 
   // Формируем имя файла: Дата_Площадка_Версия
   const fileNameParts: string[] = [];
