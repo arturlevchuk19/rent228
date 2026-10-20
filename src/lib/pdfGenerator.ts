@@ -197,8 +197,7 @@ const getLogoDataURL = (): Promise<string> => {
         cachedLogoDataURL = dataURL;
         return dataURL;
       },
-      (error) => {
-        // Не кэшируем ошибку: повторный экспорт попробует загрузить логотип снова.
+      (error) => {        // Не кэшируем ошибку: повторный экспорт попробует загрузить логотип снова.
         pendingLogoPromise = null;
         throw error;
       }
@@ -397,8 +396,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         `;
       }).join('');
 
-      const categoryHasOnlyWork = items.every(item => !!item.work_item);
-      // Only the work-day-1 total is rendered in the PDF footer; non-work items are
+      const categoryHasOnlyWork = items.every(item => !!item.work_item);      // Only the work-day-1 total is rendered in the PDF footer; non-work items are
       // already part of grandTotalDay1 below, so no separate non-work total is tracked.
       if (categoryHasOnlyWork) {
         grandTotalWorkDay1 += categorySumDay1;
@@ -597,8 +595,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     ? `
       <section style="margin-top: 18px; padding: 14px; border: 1px solid #000000; border-radius: 10px; background: #ffffff;">
         <div style="font-size: 14px; color: #6b7280; text-transform: uppercase; margin-bottom: 6px; font-weight: 700;">Примечание</div>
-        <div style="font-size: 15px; color: #1a1a1a; line-height: 1.4; white-space: normal;">${escapeHtml(trimmedBudgetNote).replace(/\n/g, '<br/>')}</div>
-      </section>
+        <div style="font-size: 15px; color: #1a1a1a; line-height: 1.4; white-space: normal;">${escapeHtml(trimmedBudgetNote).replace(/\n/g, '<br/>')}</div>      </section>
     `
     : '';
 
@@ -797,8 +794,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     
   const extraTotalCombined = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
-        const qty = item.quantity || 0;
-        const usdPriceDay1 = item.price || 0;
+        const qty = item.quantity || 0;        const usdPriceDay1 = item.price || 0;
         const usdPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
           budgetDays,
@@ -965,7 +961,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   document.body.appendChild(container);
   await waitForRenderReady();
   const canvas = await html2canvas(container, {
-    scale: 2,
+    // Scale 1 keeps large budgets responsive: scale 2 quadrupled canvas pixels and
+    // made html2canvas/Png encoding take tens of seconds for long estimates.
+    scale: 1,
     backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
@@ -997,12 +995,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     orientation: 'portrait',
     unit: 'mm',
     format: [pageWidth, pageHeight],
-    putOnlyUsedFonts: true,
-    compress: true
+    putOnlyUsedFonts: true,    compress: true
   });
 
   const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
+  // JPEG is much smaller and faster to encode than a huge lossless PNG canvas.
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, pageWidth, renderedImageHeightMm);
 
   // Формируем имя файла: Дата_Площадка_Версия
   const fileNameParts: string[] = [];
