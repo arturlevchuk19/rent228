@@ -960,30 +960,44 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   document.body.appendChild(container);
   await waitForRenderReady();
-  const canvas = await html2canvas(container, {
-    // Scale 1 keeps large budgets responsive: scale 2 quadrupled canvas pixels and
-    // made html2canvas/Png encoding take tens of seconds for long estimates.
-    scale: 1,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    logging: false,
-    imageTimeout: 5000,
-    removeContainer: false,
-    height: container.scrollHeight,
-    windowHeight: container.scrollHeight
-  });
 
+  // Формируем страницы по целым блокам сметы, а не разрезаем одну длинную картинку.
+  // Это не допускает разрыва строки или категории между страницами.
+  const sourceChildren = Array.from(container.children);
+  const header = sourceChildren.shift();
+  const footer = sourceChildren.pop();
+  const maxPageHeightPx = 1050;
+  const pages: HTMLElement[] = [];
+  let currentPage: HTMLDivElement | null = null;
+
+  const createPage = () => {
+    const page = document.createElement('div');
+    page.style.cssText = container.style.cssText
+      .replace('position: absolute;', 'position: absolute;')
+      .replace('position:relative;', 'position: absolute;')
+      + ' left: -10000px; top: 0; height: auto;';
+    if (header && pages.length === 0) page.appendChild(header.cloneNode(true));
+    container.parentElement?.appendChild(page);
+    return page;
+  };
+
+  currentPage = createPage();
+  for (const child of sourceChildren) {
+    const clone = child.cloneNode(true);
+    currentPage.appendChild(clone);
+    if (currentPage.scrollHeight > maxPageHeightPx && currentPage.children.length > 1) {
+      currentPage.removeChild(clone);
+      pages.push(currentPage);
+      currentPage = createPage();
+      currentPage.appendChild(clone);
+    }
+  }
+  if (footer) currentPage.appendChild(footer.cloneNode(true));
+  pages.push(currentPage);
   container.remove();
 
   const pageWidth = 210;
   const pageHeight = 297;
-  const imgHeightPx = canvas.height;
-  const imgWidthPx = canvas.width;
-  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  const imageData = canvas.toDataURL('image/jpeg', 0.88);
-
-  // Разбиваем длинную смету на стандартные листы A4, сохраняя читаемый размер.
-  const pageCount = Math.max(1, Math.ceil(renderedImageHeightMm / pageHeight));
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -992,9 +1006,23 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     compress: true
   });
 
-  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+  for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
+    const pageElement = pages[pageIndex];
+    await waitForRenderReady();
+    const canvas = await html2canvas(pageElement, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      imageTimeout: 5000,
+      removeContainer: false,
+      height: pageElement.scrollHeight,
+      windowHeight: pageElement.scrollHeight
+    });
+    const renderedHeightMm = canvas.height * pageWidth / canvas.width;
     if (pageIndex > 0) pdf.addPage([pageWidth, pageHeight], 'portrait');
-    pdf.addImage(imageData, 'JPEG', 0, -pageIndex * pageHeight, pageWidth, renderedImageHeightMm);
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, Math.min(renderedHeightMm, pageHeight));
+    pageElement.remove();
   }
 
   // Формируем имя файла: Дата_Площадка_Версия
@@ -1011,6 +1039,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   fileNameParts.push(`Версия ${versionLabel}`);
   
   // Убира��м недопустим��е символы для имени файла
-  const fileName = fileNameParts.join('_').replace(/[<>:"/\\|?*]/g, '_');
+  const fileName = fileNameParts.join('_').replace(/[<>:"/\\\\|?*]/g, '_');
   pdf.save(`${fileName}.pdf`);
 }
