@@ -909,12 +909,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             setActiveComponentDecisionIndex(0);
             setCompositionPartsByParentId(compositionPartsMap);
 
-            // Pre-load modifications for all equipment items to know which ones have modifications
-            const equipmentIds = budgetData
-              .filter(item => item.item_type === 'equipment' && item.equipment_id && item.equipment?.object_type !== 'virtual')
-              .map(item => item.equipment_id)
-              .filter((id): id is string => Boolean(id));
-
+            // Reuse the preloaded equipment IDs for modification lookup.
             if (equipmentIds.length > 0) {
               try {
                 const modificationEntries = await Promise.all(
