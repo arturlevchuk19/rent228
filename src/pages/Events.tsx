@@ -21,6 +21,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>(() => String(new Date().getFullYear()));
   const [showCancelled, setShowCancelled] = useState(false);
   const [visibleEventCount, setVisibleEventCount] = useState(50);
   const monthRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -33,7 +34,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
   useEffect(() => {
     setVisibleEventCount(50);
-  }, [searchTerm, filterType, filterMonth, showCancelled]);
+  }, [searchTerm, filterType, filterMonth, filterYear, showCancelled]);
 
   useEffect(() => {
     if (!loading && events.length > 0 && !hasScrolled.current) {
@@ -130,6 +131,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
     return 'Дата не установлена';
   };
 
+  const availableYears = Array.from(new Set(
+    events
+      .map(event => event.event_date?.slice(0, 4))
+      .filter((year): year is string => Boolean(year && /^\\d{4}$/.test(year)))
+  )).sort((a, b) => Number(b) - Number(a));
+
   const availableMonths = Array.from(new Set(events.map(getEventMonthTitle)))
     .filter(title => title !== 'Дата не установлена')
     .sort((a, b) => {
@@ -146,8 +153,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
       event.venues?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || event.event_type === filterType;
     const matchesMonth = filterMonth === 'all' || getEventMonthTitle(event) === filterMonth;
+    const matchesYear = filterYear === 'all' || event.event_date?.slice(0, 4) === filterYear;
     const matchesCancelled = showCancelled || event.status !== 'Отменено';
-    return matchesSearch && matchesType && matchesMonth && matchesCancelled;
+    return matchesSearch && matchesType && matchesMonth && matchesYear && matchesCancelled;
   });
 
   const visibleEvents = filteredEvents.slice(0, visibleEventCount);
@@ -243,7 +251,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
@@ -265,6 +273,20 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
               <option value="all">Все типы</option>
               {EVENT_TYPES.map(type => (
                 <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <select
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
+            >
+              <option value="all">Все годы</option>
+              {availableYears.map(year => (
+                <option key={year} value={year}>{year}</option>
               ))}
             </select>
           </div>
