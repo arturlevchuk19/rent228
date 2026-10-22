@@ -26,10 +26,15 @@ export function Equipment() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [importing, setImporting] = useState(false);
+  const [visibleItemCount, setVisibleItemCount] = useState(50);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setVisibleItemCount(50);
+  }, [searchTerm, filterCategory, filterType]);
 
   const loadData = async () => {
     try {
@@ -112,6 +117,7 @@ export function Equipment() {
   });
 
   const types = [...new Set(items.map(item => item.type).filter(Boolean))];
+  const visibleItems = filteredItems.slice(0, visibleItemCount);
 
   if (loading) {
     return (
@@ -257,7 +263,7 @@ export function Equipment() {
                   </td>
                 </tr>
               ) : (
-                filteredItems.map((item) => (
+                visibleItems.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-800/50 transition-colors group">
                     <td className="px-4 py-2">
                       <div className="text-white font-medium text-sm leading-tight">{item.name}</div>
@@ -345,6 +351,18 @@ export function Equipment() {
           )}
         </div>
       </div>
+
+      {filteredItems.length > visibleItemCount && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setVisibleItemCount((count) => count + 50)}
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm"
+          >
+            Показать ещё ({filteredItems.length - visibleItemCount})
+          </button>
+        </div>
+      )}
 
       {showForm && (
             <EquipmentForm
