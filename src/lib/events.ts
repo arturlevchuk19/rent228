@@ -547,6 +547,15 @@ export async function updateBudgetItem(id: string, item: Partial<BudgetItem>): P
   return data;
 }
 
+export async function updateBudgetItemsExchangeRate(eventId: string, exchangeRate: number): Promise<void> {
+  const { error } = await supabase.rpc('update_budget_items_exchange_rate', {
+    p_event_id: eventId,
+    p_exchange_rate: exchangeRate
+  });
+
+  if (error) throw error;
+}
+
 export async function updateBudgetItemPicked(id: string, picked: boolean): Promise<void> {
   const { error } = await supabase
     .from('budget_items')
