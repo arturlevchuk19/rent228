@@ -7,6 +7,8 @@ import { generateContractDocx } from '../lib/contractGenerator';
 import { calcGrandTotals } from '../lib/budgetPricing';
 import { getLocationsForEvent } from '../lib/locations';
 import { getCategoriesForEvent, getCategories } from '../lib/categories';
+import { getActiveUsers } from '../lib/auth';
+import type { User } from '../lib/supabase';
 import {
   createEvent,
   updateEvent,
@@ -79,6 +81,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     event_end_date: string;
     event_type: string;
     venue_id: string | null;
+    site_manager_id: string | null;
     client_id: string | null;
     organizer_id: string | null;
     budget: string;
@@ -95,6 +98,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     event_end_date: event?.event_end_date || '',
     event_type: event?.event_type || 'Концерт',
     venue_id: event?.venue_id || null,
+    site_manager_id: event?.site_manager_id || null,
     client_id: event?.client_id || null,
     organizer_id: event?.organizer_id || null,
     budget: event?.budget || '',
@@ -112,6 +116,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   const [clients, setClients] = useState<Client[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [organizers, setOrganizers] = useState<Organizer[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -163,15 +168,17 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   const loadData = async () => {
     try {
       setLoading(true);
-      const [clientsData, venuesData, organizersData, eventTypesData] = await Promise.all([
+      const [clientsData, venuesData, organizersData, eventTypesData, usersData] = await Promise.all([
         getClients(),
         getVenues(),
         getOrganizers(),
-        getEventTypes()
+        getEventTypes(),
+        getActiveUsers()
       ]);
       setClients(clientsData);
       setVenues(venuesData);
       setOrganizers(organizersData);
+      setUsers(usersData);
       const typesFromDb = eventTypesData.map((item) => item.name).filter(Boolean);
       setEventTypes(typesFromDb.length > 0 ? typesFromDb : [...EVENT_TYPES]);
       
@@ -215,6 +222,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
         venue_id: formData.venue_id || null,
         client_id: formData.client_id || null,
         organizer_id: formData.organizer_id || null,
+        site_manager_id: formData.site_manager_id || null,
         budget: formData.budget,
         specification: formData.specification,
         status: formData.status,
@@ -532,6 +540,22 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                   <option value="">Не выбрана</option>
                   {venues.map(venue => (
                     <option key={venue.id} value={venue.id}>{venue.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Старший по площадке
+                </label>
+                <select
+                  value={formData.site_manager_id || ''}
+                  onChange={(e) => setFormData({ ...formData, site_manager_id: e.target.value || null })}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                >
+                  <option value="">Не назначен</option>
+                  {users.map(item => (
+                    <option key={item.id} value={item.id}>{item.full_name || item.email}</option>
                   ))}
                 </select>
               </div>
