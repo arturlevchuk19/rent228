@@ -38,6 +38,19 @@ export async function getTemplates(): Promise<Template[]> {
   return data || [];
 }
 
+export async function getTemplateItemCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('template_items')
+    .select('template_id');
+
+  if (error) throw error;
+
+  return (data || []).reduce<Record<string, number>>((counts, item) => {
+    counts[item.template_id] = (counts[item.template_id] || 0) + 1;
+    return counts;
+  }, {});
+}
+
 export async function getTemplateById(id: string): Promise<TemplateWithItems> {
   const { data: template, error: templateError } = await supabase
     .from('templates')
