@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
-import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
+import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, updateBudgetItemsExchangeRate, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -1034,23 +1034,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         budget_note: budgetNote
       });
 
-      // Обновляем только позиции, у которых действительно изменился курс.
-      // Последовательный запрос для каждой позиции блокировал интерфейс и приводил
-      // к таймауту PostgREST на больших сметах.
-      const itemsToUpdate = budgetItems.filter(
+      // Один RPC обновляет курс у всех позиций события внутри базы данных.
+      const hasExchangeRateChanges = budgetItems.some(
         (item) => Number(item.exchange_rate) !== Number(exchangeRate)
       );
-
-      if (itemsToUpdate.length > 0) {
-        const batchSize = 25;
-        for (let start = 0; start < itemsToUpdate.length; start += batchSize) {
-          const batch = itemsToUpdate.slice(start, start + batchSize);
-          await Promise.all(
-            batch.map((item) =>
-              updateBudgetItem(item.id, { exchange_rate: exchangeRate })
-            )
-          );
-        }
+      if (hasExchangeRateChanges) {
+        await updateBudgetItemsExchangeRate(eventId, exchangeRate);
       }
 
       onClose();
