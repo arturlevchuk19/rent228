@@ -2933,20 +2933,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             >
               Закрыть
             </button>
-            {!eventDetails?.specification_confirmed && (
-              <button
-                onClick={() => setShowSpecificationConfirmDialog(true)}
-                disabled={confirming}
-                className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
-              >
-                {confirming ? <>...</> : (
-                  <>
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Подтвердить спецификацию
-                  </>
-                )}
-              </button>
-            )}
             {eventDetails?.status === 'Подтверждено' && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleConfirmShipment}
@@ -3238,34 +3224,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 setAddEquipmentTarget({ categoryId: null, locationId: null });
               }}
             />
-          </div>
-        </div>
-      )}
-
-      {showSpecificationConfirmDialog && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
-              Подтвердить спецификацию
-            </h3>
-            <p className="text-sm text-gray-300 leading-relaxed">
-              После подтверждения спецификация будет доступна всем для просмотра.
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => setShowSpecificationConfirmDialog(false)}
-                className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleConfirmSpecification}
-                disabled={confirming}
-                className="flex-1 px-4 py-2 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {confirming ? '...' : 'Подтвердить'}
-              </button>
-            </div>
           </div>
         </div>
       )}
