@@ -2244,7 +2244,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           ) : (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-gray-500 uppercase tracking-wider">✓</th>
                           )}
-                          <th className="px-3 py-1.5 text-left w-12 text-[10px] text-gray-500 uppercase tracking-wider">№</th>
                           <th className="px-3 py-1.5 text-left text-[10px] text-gray-500 uppercase tracking-wider">Наименование</th>
                           <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500 uppercase tracking-wider">Кол-во</th>
                           <th className="px-3 py-1.5 text-left w-20 text-[10px] text-gray-500 uppercase tracking-wider">Ед. изм.</th>
@@ -2289,7 +2288,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 </>
                               )}
                             </td>
-                            <td className="px-3 py-1.5 text-center text-xs text-gray-500">{index + 1}</td>
                             <td className="px-3 py-1.5">
                               <div className="flex items-center gap-2">
                                 <div>
@@ -2846,7 +2844,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           ) : (
                             <th className="px-3 py-1.5 text-center w-12 text-[10px] text-orange-500">✓</th>
                           )}
-                          <th className="px-3 py-1.5 text-left w-12 text-[10px] text-gray-500 uppercase">№</th>
                           <th className="px-3 py-1.5 text-left text-[10px] text-gray-500 uppercase">Наименование</th>
                           <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500 uppercase">Кол-во</th>
                           <th className="px-3 py-1.5 text-left w-20 text-[10px] text-gray-500 uppercase">Ед. изм.</th>
@@ -2873,7 +2870,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 />
                               )}
                             </td>
-                            <td className="px-3 py-1.5 text-center text-xs text-gray-500">{index + 1}</td>
                             <td className="px-3 py-1.5">
                               <div className="text-xs text-white font-medium">{item.name}</div>
                               {item.parentName && (
