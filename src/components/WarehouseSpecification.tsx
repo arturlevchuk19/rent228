@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { type BudgetItem, type Event, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
-import { EquipmentItem, getEquipmentItems, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
+import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
 import { Location, getLocationsForEvent } from '../lib/locations';
@@ -232,7 +232,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
-  const [, setAllEquipment] = useState<EquipmentItem[]>([]);
   const [eventDetails, setEventDetails] = useState<Partial<Event> | null>(null);
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
@@ -549,7 +548,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         getCategories(),
         getCategoriesForEvent(eventId),
         getLocationsForEvent(eventId),
-        getEquipmentItems(),
         getEvent(eventId),
         getCables(eventId),
         getConnectors(eventId),
@@ -559,7 +557,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
       setCategories(mergedCategories);
       setLocations(locationsData);
-      setAllEquipment(equipmentData);
       setEventDetails(event);
       setBudgetItems(budgetData);
       setCables(cablesData);
@@ -597,6 +594,41 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       console.log('Loading warehouse specification for event:', eventId);
 
       const locationsById = new Map(locationsData.map(location => [location.id, location]));
+
+      // Предзагружаем связанные данные параллельно. Раньше запросы выполнялись
+      // последовательно внутри цикла по каждой позиции спецификации.
+      const equipmentIds = [...new Set(
+        budgetData
+          .filter(item => item.item_type === 'equipment' && item.equipment_id)
+          .map(item => item.equipment_id)
+          .filter((id): id is string => Boolean(id))
+      )];
+      const compositionIds = [...new Set(
+        budgetData
+          .filter(item => item.item_type === 'equipment' && item.equipment_id && item.equipment?.object_type !== 'physical' && !item.parent_budget_item_id)
+          .map(item => item.equipment_id)
+          .filter((id): id is string => Boolean(id))
+      )];
+      const modificationIds = [...new Set(
+        budgetData
+          .filter(item => item.item_type === 'equipment' && item.modification_id)
+          .map(item => item.modification_id)
+          .filter((id): id is string => Boolean(id))
+      )];
+      const caseLookupEntries = await Promise.all(
+        equipmentIds
+          .filter(id => budgetData.some(item => item.equipment_id === id && item.equipment?.is_component))
+          .map(async (id) => [id, await findCasesContainingComponent(id)] as const)
+      );
+      const compositionEntries = await Promise.all(
+        compositionIds.map(async (id) => [id, await getEquipmentCompositions(id)] as const)
+      );
+      const modificationComponentEntries = await Promise.all(
+        modificationIds.map(async (id) => [id, await getModificationComponents(id)] as const)
+      );
+      const caseOptionsByEquipmentId = new Map(caseLookupEntries);
+      const compositionsByEquipmentId = new Map(compositionEntries);
+      const modificationComponentsById = new Map(modificationComponentEntries);
 
       for (const item of budgetData) {
         if (item.item_type !== 'equipment') continue;
@@ -636,7 +668,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         if (!isVirtual) {
           if (item.equipment?.is_component && item.equipment_id) {
             try {
-              const caseOptions = await findCasesContainingComponent(item.equipment_id);
+              const caseOptions = caseOptionsByEquipmentId.get(item.equipment_id) || [];
               if (caseOptions.length > 0) {
                 const caseCapacityByCaseId = caseOptions.reduce<Record<string, number>>((acc, option) => {
                   acc[option.caseId] = option.componentQuantityInCase;
@@ -767,7 +799,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             // Check for composition
             if (item.equipment_id) {
               try {
-                const compositions = await getEquipmentCompositions(item.equipment_id);
+                const compositions = compositionsByEquipmentId.get(item.equipment_id) || [];
                 if (compositions.length > 0) {
                   hasExpandedChildren = true;
                 }
@@ -809,7 +841,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             // Check for modifications
             if (item.modification_id) {
               try {
-                const components = await getModificationComponents(item.modification_id);
+                const components = modificationComponentsById.get(item.modification_id) || [];
                 if (components.length > 0) {
                   hasExpandedChildren = true;
                 }
@@ -883,12 +915,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
             if (equipmentIds.length > 0) {
               try {
-                const modsMap: Record<string, EquipmentModification[]> = {};
-                for (const equipmentId of equipmentIds) {
-                  const mods = await getEquipmentModifications(equipmentId);
-                  modsMap[equipmentId] = mods;
-                }
-                setEquipmentModifications(modsMap);
+                const modificationEntries = await Promise.all(
+                  equipmentIds.map(async (equipmentId) => (
+                    [equipmentId, await getEquipmentModifications(equipmentId)] as const
+                  ))
+                );
+                setEquipmentModifications(Object.fromEntries(modificationEntries));
               } catch (error) {
                 console.error('Error pre-loading modifications:', error);
               }
