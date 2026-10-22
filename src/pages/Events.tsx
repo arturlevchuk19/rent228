@@ -134,7 +134,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const availableYears = Array.from(new Set(
     events
       .map(event => event.event_date?.slice(0, 4))
-      .filter((year): year is string => Boolean(year && /^\\d{4}$/.test(year)))
+      .filter((year): year is string => Boolean(year && /^\d{4}$/.test(year)))
   )).sort((a, b) => Number(b) - Number(a));
 
   const availableMonths = Array.from(new Set(events.map(getEventMonthTitle)))
