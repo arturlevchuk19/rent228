@@ -22,6 +22,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [showCancelled, setShowCancelled] = useState(false);
+  const [visibleEventCount, setVisibleEventCount] = useState(50);
   const monthRefs = useRef<Record<string, HTMLElement | null>>({});
   const eventRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasScrolled = useRef(false);
@@ -118,10 +119,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
     return matchesSearch && matchesType && matchesMonth && matchesCancelled;
   });
 
+  const visibleEvents = filteredEvents.slice(0, visibleEventCount);
+
   const groupsMap = new Map<string, Event[]>();
   const titlesOrder: string[] = [];
 
-  filteredEvents.forEach(event => {
+  visibleEvents.forEach(event => {
     let title = 'Дата не установлена';
     if (event.event_date) {
       const parts = event.event_date.split('-');
@@ -551,6 +554,18 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
           )}
         </div>
       </div>
+
+      {filteredEvents.length > visibleEventCount && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setVisibleEventCount((count) => count + 50)}
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm"
+          >
+            Показать ещё ({filteredEvents.length - visibleEventCount})
+          </button>
+        </div>
+      )}
     </div>
   );
 }
