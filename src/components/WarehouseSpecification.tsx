@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
-import { type BudgetItem, type Event, getEvent, confirmSpecification, confirmShipment, confirmReturn } from '../lib/events';
+import { type BudgetItem, type Event, getEvent, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
@@ -237,7 +237,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
   const [expandedOtherCategories, setExpandedOtherCategories] = useState<Record<string, boolean>>({});
-  const [confirming, setConfirming] = useState(false);
   const [confirmingShipment, setConfirmingShipment] = useState(false);
   const [confirmingReturn, setConfirmingReturn] = useState(false);
   const [equipmentModifications, setEquipmentModifications] = useState<Record<string, EquipmentModification[]>>({});
@@ -263,7 +262,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [pendingQuantityChange, setPendingQuantityChange] = useState<QuantityChangeRequest | null>(null);
   const [notification, setNotification] = useState<CustomNotification | null>(null);
   const [openNote, setOpenNote] = useState<{ budgetItemId: string; itemName: string; value: string } | null>(null);
-  const [showSpecificationConfirmDialog, setShowSpecificationConfirmDialog] = useState(false);
   const [pendingConfirmItems, setPendingConfirmItems] = useState<PendingConfirmationItem[]>([]);
   const [pendingConfirmMode, setPendingConfirmMode] = useState<'shipment' | 'return' | null>(null);
   const [addEquipmentTarget, setAddEquipmentTarget] = useState<AddEquipmentTarget>({ categoryId: null, locationId: null });
@@ -1174,21 +1172,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     } catch (error) {
       console.error('Error updating grouped connector picked status:', error);
       showNotification('Ошибка при обновлении статуса');
-    }
-  };
-
-  const handleConfirmSpecification = async () => {
-    try {
-      setConfirming(true);
-      await confirmSpecification(eventId, user?.id || '');
-      setEventDetails({ ...eventDetails, specification_confirmed: true });
-      setShowSpecificationConfirmDialog(false);
-      showNotification('Спецификация подтверждена', 'success');
-    } catch (error) {
-      console.error('Error confirming specification:', error);
-      showNotification('Ошибка при подтверждении спецификации');
-    } finally {
-      setConfirming(false);
     }
   };
 
@@ -2964,7 +2947,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </button>
             )}
-            {eventDetails?.specification_confirmed && !eventDetails?.equipment_shipped && (
+            {eventDetails?.status === 'Подтверждено' && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleConfirmShipment}
                 disabled={confirmingShipment}
