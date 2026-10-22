@@ -2933,7 +2933,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             >
               Закрыть
             </button>
-            {canEditSpecification && eventDetails?.status === 'Подтверждено' && !eventDetails?.equipment_shipped && (
+            {canEditSpecification && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleConfirmShipment}
                 disabled={confirmingShipment}
