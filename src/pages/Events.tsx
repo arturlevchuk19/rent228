@@ -284,7 +284,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
               onChange={(e) => setFilterYear(e.target.value)}
               className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
             >
-              <option value="all">Все годы</option>
+              <option value="all">Все года</option>
               {availableYears.map(year => (
                 <option key={year} value={year}>{year}</option>
               ))}
