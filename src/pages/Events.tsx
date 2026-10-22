@@ -337,7 +337,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         </div>
       )}
 
-      {canViewEventStats && (\n      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800 text-sm">
+      {canViewEventStats && (
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-gray-400">Всего:</span>
           <span className="font-bold text-white">{events.length}</span>
@@ -375,7 +376,10 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
           />
           <span className="text-gray-400 select-none">Показывать отмененные</span>
         </label>
-      </div>\n      )}\n\n      <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+      </div>
+      )}
+
+      <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-800 border-b border-gray-700">
