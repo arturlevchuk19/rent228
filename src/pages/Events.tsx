@@ -48,6 +48,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         }
       }
 
+      const nearestEventIndex = events.findIndex(isNearestEvent);
+      if (nearestEventIndex >= 0 && nearestEventIndex >= visibleEventCount) {
+        setVisibleEventCount(nearestEventIndex + 1);
+        return;
+      }
+
       const nearestEvent = events.find(isNearestEvent);
       const nearestEventElement = nearestEvent
         ? (eventRefs.current[nearestEvent.id] || eventRefs.current[nearestEvent.id + '-mobile'])
@@ -60,7 +66,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         hasScrolled.current = true;
       }
     }
-  }, [loading, events, lastCreatedEventId]);
+  }, [loading, events, lastCreatedEventId, visibleEventCount]);
 
   const loadEvents = async () => {
     try {
