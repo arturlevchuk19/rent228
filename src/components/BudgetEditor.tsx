@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
-import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
+import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, updateBudgetItemsExchangeRate, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -1034,8 +1034,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         budget_note: budgetNote
       });
 
-      for (const item of budgetItems) {
-        await updateBudgetItem(item.id, { exchange_rate: exchangeRate });
+      // Один RPC обновляет курс у всех позиций события внутри базы данных.
+      const hasExchangeRateChanges = budgetItems.some(
+        (item) => Number(item.exchange_rate) !== Number(exchangeRate)
+      );
+      if (hasExchangeRateChanges) {
+        await updateBudgetItemsExchangeRate(eventId, exchangeRate);
       }
 
       onClose();
