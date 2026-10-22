@@ -1034,8 +1034,23 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         budget_note: budgetNote
       });
 
-      for (const item of budgetItems) {
-        await updateBudgetItem(item.id, { exchange_rate: exchangeRate });
+      // Обновляем только позиции, у которых действительно изменился курс.
+      // Последовательный запрос для каждой позиции блокировал интерфейс и приводил
+      // к таймауту PostgREST на больших сметах.
+      const itemsToUpdate = budgetItems.filter(
+        (item) => Number(item.exchange_rate) !== Number(exchangeRate)
+      );
+
+      if (itemsToUpdate.length > 0) {
+        const batchSize = 25;
+        for (let start = 0; start < itemsToUpdate.length; start += batchSize) {
+          const batch = itemsToUpdate.slice(start, start + batchSize);
+          await Promise.all(
+            batch.map((item) =>
+              updateBudgetItem(item.id, { exchange_rate: exchangeRate })
+            )
+          );
+        }
       }
 
       onClose();
