@@ -23,6 +23,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [filterYear, setFilterYear] = useState<string>(() => String(new Date().getFullYear()));
   const [showCancelled, setShowCancelled] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [visibleEventCount, setVisibleEventCount] = useState(50);
   const monthRefs = useRef<Record<string, HTMLElement | null>>({});
   const eventRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -83,6 +84,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
   const canEditDelete = user?.role !== 'warehouse' && user?.role !== 'staff';
   const canSeeEventProgress = user?.role === 'admin' || user?.role === 'superuser';
+  const canViewEventStats = canSeeEventProgress;
 
   const getEventDateKey = (event: Event): string | null => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(event.event_date || '')) return null;
@@ -250,7 +252,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         )}
       </div>
 
-      <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+      <div className="hidden md:block bg-gray-900 rounded-lg border border-gray-800 p-3">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -307,7 +309,35 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800 text-sm">
+      <div className="md:hidden">
+        <button type="button" onClick={() => setShowMobileFilters(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-200">
+          <Filter className="w-4 h-4" /> Фильтр
+        </button>
+      </div>
+      {showMobileFilters && (
+        <div className="md:hidden fixed inset-0 z-50 bg-black/60 p-4" onClick={() => setShowMobileFilters(false)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 mt-16 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-semibold">Фильтры</h2>
+              <button type="button" onClick={() => setShowMobileFilters(false)} className="text-gray-400 hover:text-white">Закрыть</button>
+            </div>
+            <input type="text" placeholder="Поиск..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" />
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+              <option value="all">Все типы</option>{EVENT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+            </select>
+            <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+              <option value="all">Все года</option>{availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+            </select>
+            <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+              <option value="all">Все месяцы</option>{availableMonths.map(month => <option key={month} value={month}>{month}</option>)}
+            </select>
+            <label className="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" checked={showCancelled} onChange={(e) => setShowCancelled(e.target.checked)} className="w-4 h-4" />Показывать отмененные</label>
+            <button type="button" onClick={() => setShowMobileFilters(false)} className="w-full px-3 py-2 bg-cyan-600 text-white rounded-lg text-sm">Применить</button>
+          </div>
+        </div>
+      )}
+
+      {canViewEventStats && (\n      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-gray-400">Всего:</span>
           <span className="font-bold text-white">{events.length}</span>
@@ -345,9 +375,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
           />
           <span className="text-gray-400 select-none">Показывать отмененные</span>
         </label>
-      </div>
-
-      <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+      </div>\n      )}\n\n      <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-800 border-b border-gray-700">
