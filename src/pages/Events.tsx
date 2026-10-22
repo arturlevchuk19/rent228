@@ -48,17 +48,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         }
       }
 
-      const now = new Date();
-      const currentTitle = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-      
-      const isMobile = window.innerWidth < 768;
-      const element = isMobile 
-        ? (monthRefs.current[currentTitle + '-mobile'] || monthRefs.current[currentTitle])
-        : (monthRefs.current[currentTitle] || monthRefs.current[currentTitle + '-mobile']);
-      
-      if (element) {
+      const nearestEvent = events.find(isNearestEvent);
+      const nearestEventElement = nearestEvent
+        ? (eventRefs.current[nearestEvent.id] || eventRefs.current[nearestEvent.id + '-mobile'])
+        : null;
+
+      if (nearestEventElement) {
         setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          nearestEventElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
         hasScrolled.current = true;
       }
@@ -78,6 +75,29 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   };
 
   const canEditDelete = user?.role !== 'warehouse' && user?.role !== 'staff';
+
+  const getEventDateKey = (event: Event): string | null => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(event.event_date || '')) return null;
+    const timestamp = Date.parse(event.event_date + 'T00:00:00');
+    return Number.isNaN(timestamp) ? null : event.event_date;
+  };
+
+  const nearestEventDateKey = (() => {
+    const activeEvents = events.filter((event) => event.status !== 'Отменено');
+    const candidates = activeEvents.length > 0 ? activeEvents : events;
+    const datedEvents = candidates
+      .map((event) => ({ event, dateKey: getEventDateKey(event) }))
+      .filter((item): item is { event: Event; dateKey: string } => Boolean(item.dateKey));
+    if (datedEvents.length === 0) return null;
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const upcoming = datedEvents
+      .filter((item) => item.dateKey >= todayKey)
+      .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+    return (upcoming[0] || datedEvents.sort((a, b) => a.dateKey.localeCompare(b.dateKey))[0]).dateKey;
+  })();
+
+  const isNearestEvent = (event: Event) => getEventDateKey(event) === nearestEventDateKey;
 
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить это мероприятие?')) return;
@@ -348,7 +368,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                       <tr 
                         key={event.id} 
                         ref={el => eventRefs.current[event.id] = el}
-                        className="hover:bg-gray-800/50 transition-colors group"
+                        className={`transition-colors group ${isNearestEvent(event) ? 'bg-yellow-500/10 ring-1 ring-inset ring-yellow-500/70' : 'hover:bg-gray-800/50'}`}
                       >
                         <td className="px-4 py-2">
                           <div className="text-cyan-400 font-medium text-sm">{formatDateRange(event)}</div>
@@ -463,7 +483,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                   <div 
                     key={event.id} 
                     ref={el => eventRefs.current[event.id + '-mobile'] = el}
-                    className="p-3 space-y-2"
+                    className={`p-3 space-y-2 ${isNearestEvent(event) ? 'bg-yellow-500/10 border-l-2 border-yellow-400' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
