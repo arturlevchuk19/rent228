@@ -558,12 +558,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
       setCategories(mergedCategories);
-      setLocations(locationsData);
+      setLocations(locationsData || []);
       setEventDetails(event);
-      setBudgetItems(budgetData);
-      setCables(cablesData);
-      setConnectors(connectorsData);
-      setOtherItems(otherData);
+      setBudgetItems(budgetData || []);
+      setCables(cablesData || []);
+      setConnectors(connectorsData || []);
+      setOtherItems(otherData || []);
 
       const savedStickyNotes = localStorage.getItem(`spec_sticky_notes_${eventId}`);
       if (savedStickyNotes) {
