@@ -2921,7 +2921,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             )}
             {canEditSpecification && !eventDetails?.equipment_shipped && (
               <button
-                onClick={() => setShowResetDialog(true)
+                onClick={() => setShowResetDialog(true)}
                 className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
               >
                 Сбросить
@@ -2933,7 +2933,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             >
               Закрыть
             </button>
-            {eventDetails?.status === 'Подтверждено' && !eventDetails?.equipment_shipped && (
+            {canEditSpecification && eventDetails?.status === 'Подтверждено' && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleConfirmShipment}
                 disabled={confirmingShipment}
@@ -2948,7 +2948,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </button>
             )}
-            {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
+            {canEditSpecification && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
                 disabled={confirmingReturn}
