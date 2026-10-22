@@ -493,6 +493,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
                             <button
                               onClick={() => onSpecificationOpen?.(event.id)}
+                              disabled={event.status !== 'Подтверждено'}
                               className={`p-1 rounded transition-colors ${event.status === 'Подтверждено' ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
                               title={event.status === 'Подтверждено' ? 'Спецификация подтверждена' : 'Мероприятие не подтверждено'}
                             >
