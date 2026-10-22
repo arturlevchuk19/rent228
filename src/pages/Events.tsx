@@ -1,6 +1,4 @@
-                          {canSeeEventProgress && (
-
-                          )}import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES } from '../lib/events';
 import { useAuth } from '../contexts/authContext';
@@ -398,6 +396,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           </span>
                         </td>
                         <td className="px-4 py-2">
+                          {canSeeEventProgress && (
                           <div className="flex items-center gap-1.5">
                             <ReceiptText
                               className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
@@ -420,6 +419,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                                 <title>{event.progress_paid ? 'Оплачен' : 'Не оплачен'}</title>
                             </CreditCard>
                           </div>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-right">
                           <div className="flex items-center justify-end gap-1.5">
