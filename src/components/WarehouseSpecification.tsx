@@ -261,6 +261,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [inputDraftValues, setInputDraftValues] = useState<Record<string, string>>({});
   const [pendingQuantityChange, setPendingQuantityChange] = useState<QuantityChangeRequest | null>(null);
   const [notification, setNotification] = useState<CustomNotification | null>(null);
+  const [openNote, setOpenNote] = useState<{ budgetItemId: string; itemName: string; value: string } | null>(null);
   const [showSpecificationConfirmDialog, setShowSpecificationConfirmDialog] = useState(false);
   const [pendingConfirmItems, setPendingConfirmItems] = useState<PendingConfirmationItem[]>([]);
   const [pendingConfirmMode, setPendingConfirmMode] = useState<'shipment' | 'return' | null>(null);
@@ -2397,14 +2398,19 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                             <td className="px-3 py-1.5 text-xs text-gray-500">{item.unit}</td>
                             {!eventDetails?.equipment_shipped && (
                               <td className="px-3 py-1.5">
-                                <input
-                                  type="text"
-                                  value={item.notes}
-                                  onChange={(e) => handleNotesChange(item.budgetItemId, e.target.value)}
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenNote({
+                                    budgetItemId: item.budgetItemId,
+                                    itemName: item.name,
+                                    value: item.notes || ''
+                                  })}
                                   disabled={item.budgetItemId.includes('-kitcase-')}
-                                  className="w-full px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300 focus:outline-none focus:border-cyan-500"
-                                  placeholder="..."
-                                />
+                                  className="w-full min-h-[24px] px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300 text-left truncate hover:border-cyan-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                                  title={item.notes || 'Добавить примечание'}
+                                >
+                                  {item.notes || 'Добавить примечание'}
+                                </button>
                               </td>
                             )}
                           </tr>
@@ -3387,6 +3393,54 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             }`}
           >
             {notification.message}
+          </div>
+        </div>
+      )}
+
+      {openNote && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-xl rounded-lg border border-gray-700 bg-gray-900 p-5 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold text-white">Примечание</h3>
+                <p className="mt-1 text-xs text-gray-400">{openNote.itemName}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenNote(null)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white"
+                aria-label="Закрыть"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <textarea
+              autoFocus
+              value={openNote.value}
+              onChange={(e) => setOpenNote((note) => note ? { ...note, value: e.target.value } : note)}
+              rows={8}
+              className="w-full resize-y rounded border border-gray-700 bg-gray-800 p-3 text-sm text-gray-200 focus:border-cyan-500 focus:outline-none"
+              placeholder="Введите полное примечание..."
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOpenNote(null)}
+                className="rounded bg-gray-800 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleNotesChange(openNote.budgetItemId, openNote.value);
+                  setOpenNote(null);
+                }}
+                className="rounded bg-cyan-600 px-4 py-2 text-sm text-white hover:bg-cyan-700"
+              >
+                Сохранить
+              </button>
+            </div>
           </div>
         </div>
       )}
