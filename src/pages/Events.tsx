@@ -1,4 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+                          {canSeeEventProgress && (
+
+                          )}import React, { useEffect, useState, useRef } from 'react';
 import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
 import { getEvents, deleteEvent, Event, EVENT_TYPES } from '../lib/events';
 import { useAuth } from '../contexts/authContext';
@@ -81,6 +83,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   };
 
   const canEditDelete = user?.role !== 'warehouse' && user?.role !== 'staff';
+  const canSeeEventProgress = user?.role === 'admin' || user?.role === 'superuser';
 
   const getEventDateKey = (event: Event): string | null => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(event.event_date || '')) return null;
@@ -547,14 +550,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                     </div>
                     {(event.clients?.organization || event.venues?.name) && (
                       <div className="text-xs text-gray-400 space-y-0.5">
-                        {event.venues?.name && (
-                          <div className="truncate">{event.venues.name}</div>
-                        )}
                         {event.clients?.organization && (
                           <div className="truncate">{event.clients.organization}</div>
                         )}
                       </div>
                     )}
+                    {canSeeEventProgress && (
                     <div className="flex items-center gap-1.5">
                       <ReceiptText
                         className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
@@ -577,6 +578,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           <title>{event.progress_paid ? 'Оплачен' : 'Не оплачен'}</title>
                       </CreditCard>
                     </div>
+                    )}
                   </div>
                 ))}
               </React.Fragment>
