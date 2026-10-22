@@ -32,6 +32,10 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   }, []);
 
   useEffect(() => {
+    setVisibleEventCount(50);
+  }, [searchTerm, filterType, filterMonth, showCancelled]);
+
+  useEffect(() => {
     if (!loading && events.length > 0 && !hasScrolled.current) {
       if (lastCreatedEventId) {
         const element = eventRefs.current[lastCreatedEventId] || eventRefs.current[lastCreatedEventId + '-mobile'];
