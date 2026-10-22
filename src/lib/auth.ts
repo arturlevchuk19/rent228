@@ -129,3 +129,9 @@ export async function updateUserRole(userId: string, role: UserRole, status: str
 
   if (error) throw error;
 }
+
+export async function getActiveUsers(): Promise<User[]> {
+  const { data, error } = await supabase.from('users').select('*').eq('status', 'active').order('full_name');
+  if (error) throw error;
+  return data || [];
+}
