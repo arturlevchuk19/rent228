@@ -220,6 +220,7 @@ const buildStableCompositionItemKey = (
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
+  const canEditNotes = user?.role === 'admin' || user?.role === 'superuser';
 
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -3418,8 +3419,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               autoFocus
               value={openNote.value}
               onChange={(e) => setOpenNote((note) => note ? { ...note, value: e.target.value } : note)}
+              readOnly={!canEditNotes}
               rows={8}
-              className="w-full resize-y rounded border border-gray-700 bg-gray-800 p-3 text-sm text-gray-200 focus:border-cyan-500 focus:outline-none"
+              className="w-full resize-y rounded border border-gray-700 bg-gray-800 p-3 text-sm text-gray-200 focus:border-cyan-500 focus:outline-none read-only:cursor-default read-only:opacity-80"
               placeholder="Введите полное примечание..."
             />
             <div className="mt-4 flex justify-end gap-2">
@@ -3430,16 +3432,18 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               >
                 Отмена
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleNotesChange(openNote.budgetItemId, openNote.value);
-                  setOpenNote(null);
-                }}
-                className="rounded bg-cyan-600 px-4 py-2 text-sm text-white hover:bg-cyan-700"
-              >
-                Сохранить
-              </button>
+              {canEditNotes && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleNotesChange(openNote.budgetItemId, openNote.value);
+                    setOpenNote(null);
+                  }}
+                  className="rounded bg-cyan-600 px-4 py-2 text-sm text-white hover:bg-cyan-700"
+                >
+                  Сохранить
+                </button>
+              )}
             </div>
           </div>
         </div>
