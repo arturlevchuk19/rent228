@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Package, Plus, Pencil, Trash2, Search } from 'lucide-react';
-import { getTemplates, deleteTemplate, Template, getTemplateById } from '../lib/templates';
+import { getTemplates, deleteTemplate, Template, getTemplateItemCounts } from '../lib/templates';
 import { TemplateForm } from '../components/TemplateForm';
 
 export function Templates() {
@@ -21,15 +21,13 @@ export function Templates() {
       const data = await getTemplates();
       setTemplates(data);
 
+      // Один запрос получает количество позиций для всех шаблонов.
+      // Раньше здесь выполнялся отдельный запрос на каждый шаблон.
+      const itemCounts = await getTemplateItemCounts();
       const details: Record<string, { itemCount: number }> = {};
-      for (const template of data) {
-        try {
-          const fullTemplate = await getTemplateById(template.id);
-          details[template.id] = { itemCount: fullTemplate.items.length };
-        } catch {
-          details[template.id] = { itemCount: 0 };
-        }
-      }
+      data.forEach((template) => {
+        details[template.id] = { itemCount: itemCounts[template.id] || 0 };
+      });
       setTemplateDetails(details);
     } catch (error) {
       console.error('Error loading templates:', error);
