@@ -221,6 +221,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
   const canEditNotes = user?.role === 'admin' || user?.role === 'superuser';
+  const canEditSpecification = canEditNotes;
 
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -1630,6 +1631,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleDeleteSpecificationItem = async (budgetItemId: string) => {
+    if (!canEditSpecification) return;
     const realId = getPersistedBudgetItemId(budgetItemId);
     try {
       await deleteSpecificationBudgetItem(realId);
@@ -2190,7 +2192,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           {activeTab === 'budget' && (
             <>
               <div className="mb-3 flex justify-between items-center">
-                {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                   <button
                     onClick={() => openEquipmentSelectorForCategory(null, null)}
                     className="px-3 py-1.5 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 flex items-center gap-1.5 transition-colors"
@@ -2350,7 +2352,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 <div className="flex justify-center items-center gap-1">
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity - 1)}
-                                    disabled={item.quantity === 0}
+                                    disabled={!canEditSpecification || item.quantity === 0}
                                     className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                   >
                                     <Minus className="w-5 h-5" />
@@ -2358,12 +2360,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   <span className="text-xs text-white font-bold w-6 text-center">{item.quantity}</span>
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
+                                    disabled={!canEditSpecification}
                                     className="p-0.5 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                   >
                                     <Plus className="w-5 h-5" />
                                   </button>
                                   <button
                                     onClick={() => requestDeleteSpecificationItem(item.budgetItemId, item.name)}
+                                    disabled={!canEditSpecification}
                                     className="p-0.5 text-red-500/60 hover:text-red-400 transition-colors"
                                     title="Удалить элемент"
                                   >
@@ -2382,7 +2386,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     itemName: item.name,
                                     value: item.notes || ''
                                   })}
-                                  disabled={item.budgetItemId.includes('-kitcase-')}
+                                  disabled={!canEditNotes || item.budgetItemId.includes('-kitcase-')}
                                   className="w-full min-h-[24px] px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-[11px] text-gray-300 text-left truncate hover:border-cyan-500 focus:outline-none focus:border-cyan-500 disabled:opacity-50"
                                   title={item.notes || 'Добавить примечание'}
                                 >
