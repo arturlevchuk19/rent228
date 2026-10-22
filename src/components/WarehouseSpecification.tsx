@@ -2311,7 +2311,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     </div>
                                   )}
                                 </div>
-                                {!eventDetails?.equipment_shipped && !item.isFromComposition && hasModifications(item.budgetItemId) && (
+                                {canEditSpecification && !eventDetails?.equipment_shipped && !item.isFromComposition && hasModifications(item.budgetItemId) && (
                                   <button
                                     onClick={() => {
                                       const budgetItem = budgetItems.find(b => b.id === item.budgetItemId);
@@ -2817,13 +2817,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             <>
               <div className="mb-3 flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <button
+                  {canEditSpecification && <button
                     onClick={() => setShowEquipmentSelector(true)}
                     className="px-3 py-1.5 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1.5 transition-colors"
                   >
                     <Plus className="w-5 h-5" />
                     Добавить в добор
-                  </button>
+                  </button>}
                   <span className="text-[10px] text-gray-500">Оборудование, забытое при первоначальной загрузке</span>
                 </div>
               </div>
@@ -2919,9 +2919,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 )}
               </button>
             )}
-            {!eventDetails?.equipment_shipped && (
+            {canEditSpecification && !eventDetails?.equipment_shipped && (
               <button
-                onClick={() => setShowResetDialog(true)}
+                onClick={() => setShowResetDialog(true)
                 className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
               >
                 Сбросить
