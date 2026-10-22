@@ -221,7 +221,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
   const canEditNotes = user?.role === 'admin' || user?.role === 'superuser';
-  const canEditSpecification = canEditNotes;
 
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -235,6 +234,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
   const [eventDetails, setEventDetails] = useState<Partial<Event> | null>(null);
+  const canEditSpecification = canEditNotes || (user?.role === 'foreman' && eventDetails?.site_manager_id === user?.id);
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
   const [expandedOtherCategories, setExpandedOtherCategories] = useState<Record<string, boolean>>({});

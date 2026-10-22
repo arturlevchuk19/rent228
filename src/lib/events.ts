@@ -60,6 +60,7 @@ export interface Event {
   name: string;
   notes: string;
   created_at: string;
+  site_manager_id?: string | null;
   specification_confirmed?: boolean;
   specification_confirmed_at?: string;
   specification_confirmed_by?: string;
