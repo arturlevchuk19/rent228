@@ -77,26 +77,26 @@ export function Templates() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 min-w-0">
           <Package className="w-6 h-6 text-cyan-500" />
-          <h1 className="text-2xl font-bold text-white">Шаблоны для сметы</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white truncate">Шаблоны для сметы</h1>
         </div>
         <button
           onClick={() => {
             setEditingTemplate(null);
             setShowForm(true);
           }}
-          className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Создать
         </button>
       </div>
 
-      <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
-        <div className="relative max-w-md">
+      <div className="bg-gray-900 rounded-lg border border-gray-800 p-3 sm:p-4">
+        <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
@@ -124,7 +124,7 @@ export function Templates() {
           </button>
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {filteredTemplates.map(template => (
             <div
               key={template.id}
