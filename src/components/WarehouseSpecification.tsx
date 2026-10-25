@@ -1248,6 +1248,49 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
+  const handleResetAllSelections = async () => {
+    try {
+      const equipmentUpdates = expandedItems
+        .filter(item => !isGeneratedCompositionItemId(item.budgetItemId))
+        .map(item => updateSpecificationBudgetItemPicked(item.budgetItemId, false));
+      const returnEquipmentUpdates = expandedItems
+        .filter(item => !isGeneratedCompositionItemId(item.budgetItemId))
+        .map(item => updateSpecificationBudgetItemReturnPicked(item.budgetItemId, false));
+      const cableUpdates = cables.map(item => updateCable(item.id, { picked: false }));
+      const cableReturnUpdates = cables.map(item => updateCableReturnPicked(item.id, false));
+      const connectorUpdates = connectors.map(item => updateConnector(item.id, { picked: false }));
+      const connectorReturnUpdates = connectors.map(item => updateConnectorReturnPicked(item.id, false));
+      const otherUpdates = otherItems.map(item => updateOtherItem(item.id, { picked: false }));
+      const otherReturnUpdates = otherItems.map(item => updateOtherItemReturnPicked(item.id, false));
+
+      await Promise.all([
+        ...equipmentUpdates,
+        ...returnEquipmentUpdates,
+        ...cableUpdates,
+        ...cableReturnUpdates,
+        ...connectorUpdates,
+        ...connectorReturnUpdates,
+        ...otherUpdates,
+        ...otherReturnUpdates
+      ]);
+
+      const compositionSnapshot = readCompositionPickedSnapshot(eventId);
+      Object.keys(compositionSnapshot).forEach(key => {
+        compositionSnapshot[key] = { picked: false, return_picked: false };
+      });
+      writeCompositionPickedSnapshot(eventId, compositionSnapshot);
+
+      setExpandedItems(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
+      setCables(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
+      setConnectors(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
+      setOtherItems(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
+      showNotification('Все выделения сброшены', 'success');
+    } catch (error) {
+      console.error('Error resetting all selections:', error);
+      showNotification('Ошибка при сбросе выделений');
+    }
+  };
+
   const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
     try {
       if (isGeneratedCompositionItemId(budgetItemId)) {
@@ -2258,8 +2301,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         {orderItemsWithChildren(group.items).map((item, index) => {
                           const rowHasChildren = hasChildItems(group.items, item);
                           const rowIsCollapsed = collapsedParentItems.has(item.budgetItemId);
-                          const hideCheckbox = rowHasChildren;
-
                           if (isChildRowHidden(group.items, item)) {
                             return null;
                           }
@@ -2267,10 +2308,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           return (
                           <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-cyan-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
-                              {hideCheckbox ? (
-                                <span className="text-[10px] text-gray-600">—</span>
-                              ) : (
-                                <>
+                              <>
                                   {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                     <input
                                       type="checkbox"
@@ -2288,7 +2326,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     />
                                   )}
                                 </>
-                              )}
                             </td>
                             <td className="px-3 py-1.5">
                               <div className="flex items-center gap-2">
@@ -2920,12 +2957,20 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               </button>
             )}
             {canEditSpecification && !eventDetails?.equipment_shipped && (
-              <button
-                onClick={() => setShowResetDialog(true)}
-                className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
-              >
-                Сбросить
-              </button>
+              <>
+                <button
+                  onClick={handleResetAllSelections}
+                  className="px-3 py-1.5 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 flex items-center gap-1.5 transition-colors"
+                >
+                  Сбросить все выделения
+                </button>
+                <button
+                  onClick={() => setShowResetDialog(true)}
+                  className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
+                >
+                  Сбросить спецификацию
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
