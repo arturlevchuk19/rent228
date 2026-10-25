@@ -146,7 +146,7 @@ export function EquipmentSelector({
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none min-w-[110px]"
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none w-full sm:min-w-[110px]"
             >
               {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
