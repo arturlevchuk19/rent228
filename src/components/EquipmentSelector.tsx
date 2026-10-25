@@ -118,7 +118,7 @@ export function EquipmentSelector({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[9999] p-2 sm:p-4 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
-      <div className="bg-gray-900 border border-gray-700 w-full sm:max-w-2xl rounded-xl max-h-[calc(100dvh-1rem)] sm:max-h-[88vh] overflow-hidden flex flex-col mt-0 sm:mt-6">
+      <div className="bg-gray-900 border border-gray-700 w-full sm:max-w-2xl h-[calc(100dvh-1rem)] sm:h-auto rounded-xl max-h-[calc(100dvh-1rem)] sm:max-h-[88vh] overflow-hidden flex flex-col mt-0 sm:mt-6">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
           <h2 className="text-lg font-bold text-white">Выбрать оборудование</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
@@ -126,7 +126,7 @@ export function EquipmentSelector({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3">
           {errorMessage && (
             <div className="px-3 py-2 rounded-lg bg-red-900/40 border border-red-700 text-red-200 text-sm">
               {errorMessage}
@@ -182,7 +182,7 @@ export function EquipmentSelector({
           </div>
         </div>
 
-        <div className="border-t border-gray-700 p-4 bg-gray-800/50">
+        <div className="shrink-0 border-t border-gray-700 p-4 bg-gray-800/50">
           {selectedEquipment ? (
             <div className="space-y-3">
               {showModifications && (
