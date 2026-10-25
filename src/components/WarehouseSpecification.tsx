@@ -2322,7 +2322,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       checked={item.picked}
                                       onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                       className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
-                                      disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                      disabled={!!eventDetails?.equipment_shipped}
                                     />
                                   )}
                                 </>
@@ -2540,7 +2540,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                        disabled={!!eventDetails?.equipment_shipped}
                                       />
                                     ) : null}
                                   </td>
@@ -2667,7 +2667,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                        disabled={!!eventDetails?.equipment_shipped}
                                       />
                                     ) : null}
                                   </td>
@@ -2789,7 +2789,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleOtherPickedChange(otherId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                        disabled={!!eventDetails?.equipment_shipped}
                                       />
                                     ) : null}
                                   </td>
@@ -2907,7 +2907,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   checked={item.picked}
                                   onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                   className="w-4 h-4 cursor-pointer rounded border-orange-700 bg-gray-800 text-orange-600"
-                                  disabled={!eventDetails?.specification_confirmed || !!eventDetails?.equipment_shipped}
+                                  disabled={!!eventDetails?.equipment_shipped}
                                 />
                               )}
                             </td>
