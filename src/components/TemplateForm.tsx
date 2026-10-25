@@ -98,6 +98,39 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
     setShowEquipmentSelector(false);
   };
 
+  const handleBatchAddEquipment = async (selected: Array<{ equipment: EquipmentItem; quantity: number; modificationId?: string }>) => {
+    if (templateId) {
+      try {
+        const addedItems = await Promise.all(
+          selected.map(async ({ equipment, quantity }) => {
+            const templateItem = await addTemplateItem(templateId, equipment.id, quantity, equipment.rental_price || 0);
+            return {
+              ...equipment,
+              templateItemId: templateItem.id,
+              quantity,
+              price: templateItem.price || equipment.rental_price || 0
+            };
+          })
+        );
+        setItems(prev => [...prev, ...addedItems]);
+      } catch (error) {
+        console.error('Error adding equipment:', error);
+        alert('Ошибка добавления оборудования');
+      }
+    } else {
+      setItems(prev => [
+        ...prev,
+        ...selected.map(({ equipment, quantity }) => ({
+          ...equipment,
+          templateItemId: `new_${Date.now()}_${equipment.id}`,
+          quantity,
+          price: equipment.rental_price || 0
+        }))
+      ]);
+    }
+    setShowEquipmentSelector(false);
+  };
+
   const handleUpdateQuantity = async (index: number, newQuantity: number) => {
     const item = items[index];
     const updatedItems = [...items];
@@ -245,7 +278,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
         <div className="bg-gray-900 rounded-t-xl sm:rounded-lg border border-gray-700 w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
           <div className="flex items-center justify-between gap-3 p-3 sm:p-6 border-b border-gray-700">
             <h2 className="text-lg sm:text-xl font-bold text-white">
@@ -409,6 +442,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
       {showEquipmentSelector && (
         <EquipmentSelector
           onSelect={handleAddEquipment}
+          onBatchSelect={handleBatchAddEquipment}
           onClose={() => setShowEquipmentSelector(false)}
           selectedIds={selectedIds}
         />
