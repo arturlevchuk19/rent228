@@ -233,7 +233,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
         <div className="bg-gray-900 rounded-lg p-8 text-center">
           <div className="text-gray-400">Загрузка...</div>
         </div>
@@ -246,9 +246,9 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
   return (
     <>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-gray-900 rounded-lg border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between p-6 border-b border-gray-700">
-            <h2 className="text-xl font-bold text-white">
+        <div className="bg-gray-900 rounded-t-xl sm:rounded-lg border border-gray-700 w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between gap-3 p-3 sm:p-6 border-b border-gray-700">
+            <h2 className="text-lg sm:text-xl font-bold text-white">
               {initialTemplate ? 'Редактировать шаблон' : 'Создать шаблон'}
             </h2>
             <button
@@ -260,7 +260,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
           </div>
 
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
-            <div className="p-6 space-y-4 flex-1">
+            <div className="p-3 sm:p-6 space-y-4 flex-1">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Название шаблона *
@@ -288,14 +288,14 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
                   <label className="block text-sm font-medium text-gray-300">
                     Оборудование в шаблоне *
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowEquipmentSelector(true)}
-                    className="flex items-center gap-2 px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm transition-colors"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 sm:py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Добавить
@@ -341,7 +341,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-sm ml-7">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm ml-7">
                             <div>
                               <label className="text-xs text-gray-400">Кол-во</label>
                               <div className="flex items-center gap-1">
@@ -386,18 +386,18 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
               </div>
             </div>
 
-            <div className="flex gap-3 p-6 border-t border-gray-700 bg-gray-800/50">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 p-3 sm:p-6 border-t border-gray-700 bg-gray-800/50">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="w-full sm:flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50"
               >
                 {saving ? 'Сохранение...' : 'Сохранить'}
               </button>
