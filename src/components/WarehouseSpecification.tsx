@@ -2978,7 +2978,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             >
               Закрыть
             </button>
-            {canEditSpecification && !eventDetails?.equipment_shipped && (
+            {canEditSpecification && !eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmShipment}
                 disabled={confirmingShipment}
