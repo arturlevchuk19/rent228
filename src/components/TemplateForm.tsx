@@ -266,7 +266,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[10000] p-4">
         <div className="bg-gray-900 rounded-lg p-8 text-center">
           <div className="text-gray-400">Загрузка...</div>
         </div>
