@@ -3245,32 +3245,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       )}
 
       {showEquipmentSelector && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                {activeTab === 'extra' ? 'Добавить в добор' : 'Добавить оборудование'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowEquipmentSelector(false);
-                  setAddEquipmentTarget({ categoryId: null, locationId: null });
-                }}
-                className="p-1 hover:bg-gray-800 text-gray-400 rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <EquipmentSelector
-              onSelect={activeTab === 'extra' ? handleAddExtraEquipment : handleAddEquipment}
-              onBatchSelect={handleBatchAddEquipment}
-              onClose={() => {
-                setShowEquipmentSelector(false);
-                setAddEquipmentTarget({ categoryId: null, locationId: null });
-              }}
-            />
-          </div>
-        </div>
+        <EquipmentSelector
+          onSelect={activeTab === 'extra' ? handleAddExtraEquipment : handleAddEquipment}
+          onBatchSelect={handleBatchAddEquipment}
+          onClose={() => {
+            setShowEquipmentSelector(false);
+            setAddEquipmentTarget({ categoryId: null, locationId: null });
+          }}
+        />
       )}
 
       {showResetDialog && (
