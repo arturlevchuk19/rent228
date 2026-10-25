@@ -3013,7 +3013,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       </div>
 
       {showModificationSelector && selectedBudgetItemForMod && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]">
           <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 max-w-md w-full">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">Выбор модификации</h3>
