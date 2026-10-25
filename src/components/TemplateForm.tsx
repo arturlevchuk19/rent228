@@ -341,7 +341,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm ml-7">
+                          <div className="grid grid-cols-2 gap-2 text-sm ml-7">
                             <div>
                               <label className="text-xs text-gray-400">Кол-во</label>
                               <div className="flex items-center gap-1">
