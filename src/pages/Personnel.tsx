@@ -1,3 +1,4 @@
+import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { getPersonnel, createPersonnel, updatePersonnel, deletePersonnel, Personnel } from '../lib/personnel';
@@ -111,18 +112,18 @@ export default function PersonnelPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="hidden sm:flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="w-6 h-6 text-cyan-500" />
           <h1 className="text-2xl font-bold text-white">Персонал</h1>
         </div>
-        <button
+        <MobileHeaderContent><button
           onClick={() => openForm()}
           className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Добавить
-        </button>
+        </button></MobileHeaderContent>
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
