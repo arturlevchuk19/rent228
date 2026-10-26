@@ -1,3 +1,4 @@
+import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, DollarSign, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
@@ -154,15 +155,15 @@ export default function Payments() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="hidden sm:flex justify-between items-center">
         <h1 className="text-2xl font-bold text-white">Выплаты</h1>
-        <button
+        <MobileHeaderContent><button
           onClick={() => setShowForm(true)}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Добавить
-        </button>
+        </button></MobileHeaderContent>
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
