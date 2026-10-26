@@ -75,6 +75,12 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
       document.removeEventListener('focusin', focusOutside);
     };
   }, [pickerOpen]);
+  const moveMonth = (direction: number) => {
+    const next = new Date(year, month + direction, 1);
+    setMonth(next.getMonth());
+    setYear(next.getFullYear());
+    setPickerOpen(false);
+  };
   const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000;
   const weeks = monthWeeks(year, month);
   const count = events.filter(event => {
@@ -88,13 +94,15 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
     <header className="relative hidden shrink-0 sm:flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-cyan-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>
       <div className="flex flex-wrap items-center gap-2">
-        <MobileHeaderContent slot="title"><div ref={pickerRef} className="relative">
+        <MobileHeaderContent slot="title"><div ref={pickerRef} className="relative flex min-w-0 items-center gap-1">
           <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
             if (!pickerOpen) setPickerYear(year);
             setPickerOpen(value => !value);
-          }} className="min-w-44 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-left font-medium text-white hover:border-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500">
+          }} className="min-w-0 flex-1 truncate sm:min-w-44 rounded-lg border border-gray-700 bg-gray-900 px-2 sm:px-4 py-2 text-left text-sm sm:text-base font-medium text-white hover:border-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500">
             {months[month]} {year}
           </button>
+          <button type="button" aria-label="Предыдущий месяц" disabled={year === 100 && month === 0} onClick={() => moveMonth(-1)} className="shrink-0 rounded-lg p-1.5 text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
+          <button type="button" aria-label="Следующий месяц" disabled={year === 9999 && month === 11} onClick={() => moveMonth(1)} className="shrink-0 rounded-lg p-1.5 text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronRight className="h-5 w-5" /></button>
           {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" className="fixed left-4 right-4 top-14 z-30 mt-2 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-[#10151e] p-3 shadow-2xl">
             <div className="mb-4 flex items-center justify-between gap-3 px-1 py-2">
               <button type="button" aria-label="Предыдущий год" disabled={pickerYear <= 100} onClick={() => setPickerYear(value => value - 1)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-6 w-6" /></button>
