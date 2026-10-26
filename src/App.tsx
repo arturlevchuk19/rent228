@@ -72,7 +72,7 @@ function AppContent() {
       case 'logistics':
       case 'users':
       case 'settings':
-        return <div className="text-white"><h1 className="hidden sm:block text-3xl font-bold mb-4">{currentPage === 'logistics' ? 'Логистика' : currentPage === 'users' ? 'Пользователи' : 'Настройки'}</h1><p className="text-gray-400">В разработке...</p></div>;
+        return <div className="text-white"><h1 className="hidden text-3xl font-bold mb-4">{currentPage === 'logistics' ? 'Логистика' : currentPage === 'users' ? 'Пользователи' : 'Настройки'}</h1><p className="text-gray-400">В разработке...</p></div>;
       default: return <Dashboard />;
     }
   };
