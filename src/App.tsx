@@ -11,6 +11,7 @@ import { EventForm } from './components/EventForm';
 import { WarehouseSpecification } from './components/WarehouseSpecification';
 import { Client, Venue, Organizer, Event, getEvent } from './lib/events';
 
+const Calendar = lazy(() => import('./pages/Calendar').then(m => ({ default: m.Calendar })));
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const Equipment = lazy(() => import('./pages/Equipment').then(m => ({ default: m.Equipment })));
 const Events = lazy(() => import('./pages/Events').then(m => ({ default: m.Events })));
@@ -27,7 +28,7 @@ function PageFallback() {
 function AppContent() {
   const { user, loading } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [currentPage, setCurrentPage] = useState('events');
+  const [currentPage, setCurrentPage] = useState('calendar');
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [venueFormOpen, setVenueFormOpen] = useState(false);
   const [organizerFormOpen, setOrganizerFormOpen] = useState(false);
@@ -59,6 +60,7 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'calendar': return <Calendar key={refreshKey} onEventFormOpen={event => { setEditingEvent(event); setEventFormOpen(true); }} onSpecificationOpen={handleSpecificationOpen} />;
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
       case 'equipment': return <Equipment />;
