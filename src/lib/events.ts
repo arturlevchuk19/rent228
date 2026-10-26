@@ -201,9 +201,9 @@ export async function deleteEventType(id: string): Promise<void> {
 
 export const EVENT_STATUSES = [
   'Запрос',
-  'На рассмотрении',
   'Подтверждено',
-  'Отменено'
+  'Отменено',
+  'Выполнено'
 ] as const;
 
 export async function getEvents(): Promise<Event[]> {
