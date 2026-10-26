@@ -1,3 +1,4 @@
+import { MobileHeaderContext } from './MobileHeaderContent';
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/authContext';
 import { signOut, hasAccess } from '../lib/auth';
@@ -26,6 +27,8 @@ interface LayoutProps {
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileTitle, setMobileTitle] = useState<HTMLDivElement | null>(null);
+  const [mobileActions, setMobileActions] = useState<HTMLDivElement | null>(null);
 
   if (!user) return null;
 
@@ -70,14 +73,15 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   );
 
   return (
+    <MobileHeaderContext.Provider value={{ title: mobileTitle, actions: mobileActions }}>
     <div className="h-screen flex flex-col bg-black overflow-hidden">
       <nav className="bg-gray-900 border-b border-gray-800 flex-shrink-0 z-20">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-14">
-            <div className="flex items-center">
+          <div className="flex justify-between gap-2 h-14">
+            <div className="flex min-w-0 flex-1 items-center">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800"
+                className="lg:hidden shrink-0 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800"
               >
                 {mobileMenuOpen ? (
                   <X className="w-6 h-6" />
@@ -85,12 +89,16 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   <Menu className="w-6 h-6" />
                 )}
               </button>
-              <h1 className="text-lg font-bold text-white ml-3 lg:ml-0">
+              <h1 className="hidden sm:block text-lg font-bold text-white ml-3 lg:ml-0">
                 RentMaster
               </h1>
+              <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
+                {currentPage !== 'calendar' && <h1 className="truncate text-base font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
+              </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+              <div ref={setMobileActions} className="flex items-center gap-1 sm:hidden" />
               <div className="text-right hidden sm:block">
                 <p className="text-sm text-white leading-tight">{user.full_name}</p>
                 <p className="text-xs text-gray-400 leading-tight">{roleLabels[user.role] || user.role}</p>
@@ -158,5 +166,6 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </main>
       </div>
     </div>
+    </MobileHeaderContext.Provider>
   );
 }
