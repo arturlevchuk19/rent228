@@ -1,3 +1,4 @@
+import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useState, useEffect } from 'react';
 import { Users, Building2, CircleUser as UserCircle, Plus, Pencil, Trash2, Search, Briefcase, Calendar } from 'lucide-react';
 import { getClients, getVenues, getOrganizers, getEvents, getEventTypes, createEventType, updateEventType, deleteEventType, deleteClient, deleteVenue, deleteOrganizer, Client, Venue, Organizer, Event, EventTypeItem } from '../lib/events';
@@ -164,7 +165,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="hidden sm:flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="w-6 h-6 text-cyan-500" />
           <h1 className="text-2xl font-bold text-white">Справочники</h1>
@@ -244,7 +245,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
                 className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
-            <button
+            <MobileHeaderContent><button
               onClick={() => {
                 if (activeTab === 'clients') onClientFormOpen?.();
                 if (activeTab === 'venues') onVenueFormOpen?.();
@@ -258,7 +259,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
             >
               <Plus className="w-4 h-4" />
               Добавить
-            </button>
+            </button></MobileHeaderContent>
           </div>
 
           {activeTab === 'clients' && (
