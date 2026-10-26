@@ -148,6 +148,8 @@ export async function createEquipmentItem(item: Partial<EquipmentItem>): Promise
     .from('equipment_items')
     .insert({
       ...item,
+      // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
+      ...(item.sku !== undefined ? { sku: item.sku?.trim() || null } : {}),
       updated_at: new Date().toISOString()
     })
     .select()
@@ -162,6 +164,8 @@ export async function updateEquipmentItem(id: string, item: Partial<EquipmentIte
     .from('equipment_items')
     .update({
       ...item,
+      // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
+      ...(item.sku !== undefined ? { sku: item.sku?.trim() || null } : {}),
       updated_at: new Date().toISOString()
     })
     .eq('id', id)
