@@ -1,3 +1,4 @@
+import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState } from 'react';
 import { Package, Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { getTemplates, deleteTemplate, Template, getTemplateItemCounts } from '../lib/templates';
@@ -78,21 +79,21 @@ export function Templates() {
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="hidden gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <Package className="w-6 h-6 text-cyan-500" />
           <h1 className="text-xl sm:text-2xl font-bold text-white truncate">Шаблоны для сметы</h1>
         </div>
-        <button
+        <MobileHeaderContent><button
           onClick={() => {
             setEditingTemplate(null);
             setShowForm(true);
           }}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+          className="flex w-auto shrink-0 items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Создать
-        </button>
+        </button></MobileHeaderContent>
       </div>
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 p-3 sm:p-4">
