@@ -155,7 +155,7 @@ export default function Payments() {
 
   return (
     <div className="space-y-4">
-      <div className="hidden sm:flex justify-between items-center">
+      <div hidden>
         <h1 className="text-2xl font-bold text-white">Выплаты</h1>
         <MobileHeaderContent><button
           onClick={() => setShowForm(true)}
