@@ -91,10 +91,10 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
   }).length;
   const canEdit = user?.role !== 'warehouse' && user?.role !== 'staff';
   return <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
-    <header className="relative hidden shrink-0 sm:flex flex-wrap items-center justify-between gap-3">
+    <header hidden>
       <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-cyan-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>
       <div className="flex flex-wrap items-center gap-2">
-        <MobileHeaderContent slot="title"><div ref={pickerRef} className="relative flex min-w-0 items-center gap-1">
+        <MobileHeaderContent slot="title"><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1">
           <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
             if (!pickerOpen) setPickerYear(year);
             setPickerOpen(value => !value);
