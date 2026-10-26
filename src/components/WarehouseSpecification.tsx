@@ -541,7 +541,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
-      const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, equipmentData, event, cablesData, connectorsData, otherData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData] = await Promise.all([
         (async () => {
           await ensureWarehouseSpecificationSnapshot(eventId);
           return getSpecificationBudgetItems(eventId);
