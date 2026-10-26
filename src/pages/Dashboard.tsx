@@ -38,7 +38,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="hidden sm:block text-2xl font-bold text-white mb-1">Главная</h1>
+        <h1 className="hidden text-2xl font-bold text-white mb-1">Главная</h1>
         <p className="text-sm text-gray-400">
           Добро пожаловать, {user?.full_name}
         </p>
