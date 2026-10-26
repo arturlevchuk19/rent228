@@ -126,7 +126,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
               <div className="absolute inset-x-0 bottom-0 top-7 overflow-x-hidden overflow-y-auto overscroll-contain">
               <div className="grid min-w-0 grid-cols-7 gap-y-0.5 pb-1" style={{ gridAutoRows: 22 }}>
                 {segments.map(segment => <button key={segment.event.id} type="button" onClick={() => setSelected(segment.event)} title={`${segment.event.name || segment.event.event_type}\n${formatDate(segment.event.event_date)} — ${formatDate(segment.event.event_end_date || segment.event.event_date)}${segment.event.venues?.name ? `\n${segment.event.venues.name}` : ''}`} style={{ gridColumn: `${segment.start + 1} / ${segment.end + 2}`, gridRow: segment.lane + 1 }} className={`mx-px min-w-0 truncate px-0.5 sm:px-2 text-left text-[10px] sm:text-xs font-medium text-white hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${statuses[segment.event.status] || 'bg-blue-600'} ${segment.continuesBefore ? 'rounded-l-none' : 'rounded-l-md'} ${segment.continuesAfter ? 'rounded-r-none' : 'rounded-r-md'}`}>
-                  {segment.continuesBefore && '‹ '}{segment.event.name || segment.event.event_type || 'Мероприятие'}{segment.continuesAfter && ' ›'}
+                  {segment.continuesBefore && '‹ '}{segment.event.venues?.name || 'Место не указано'}{segment.continuesAfter && ' ›'}
                 </button>)}
               </div>
               </div>
