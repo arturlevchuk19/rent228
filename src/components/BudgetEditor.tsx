@@ -1132,7 +1132,6 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         createdDate: options?.createdDate || new Date().toISOString(),
         venueName: event.venues?.name,
         clientName: clientsList.find((client) => client.id === contractOrganizationId)?.organization || event.clients?.organization,
-        organizerName: event.organizers?.full_name,
         version: budgetVersion,
         budgetItems,
         categories: categories,
