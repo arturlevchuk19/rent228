@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { getEvents, type Event } from '../lib/events';
 import { dateFromDay, dayNumber, monthWeeks, weekSegments } from '../lib/calendar';
 import { useAuth } from '../contexts/authContext';
 
 const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const shortMonths = ['Янв.', 'Февр.', 'Март', 'Апр.', 'Май', 'Июнь', 'Июль', 'Авг.', 'Сент.', 'Окт.', 'Нояб.', 'Дек.'];
 const statuses: Record<string, string> = {
   'Запрос': 'bg-blue-600',
   'Подтверждено': 'bg-emerald-700', 'Выполнено': 'bg-gray-600 line-through'
@@ -22,6 +23,11 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
   const [today] = useState(() => new Date());
   const [month, setMonth] = useState(today.getMonth());
   const [year, setYear] = useState(today.getFullYear());
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(year);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const pickerButtonRef = useRef<HTMLButtonElement>(null);
+  const selectedMonthRef = useRef<HTMLButtonElement>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,15 +48,31 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
     document.addEventListener('keydown', close);
     return () => document.removeEventListener('keydown', close);
   }, [selected]);
-  const moveMonth = (delta: number) => {
-    const date = new Date(year, month + delta, 1);
-    setMonth(date.getMonth()); setYear(date.getFullYear());
-  };
+  useEffect(() => {
+    if (!pickerOpen) return;
+    selectedMonthRef.current?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPickerOpen(false);
+        pickerButtonRef.current?.focus();
+      }
+    };
+    const focusOutside = (event: FocusEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    document.addEventListener('focusin', focusOutside);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', escape);
+      document.removeEventListener('focusin', focusOutside);
+    };
+  }, [pickerOpen]);
   const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000;
-  const years = [...new Set([today.getFullYear(), year, ...events.flatMap(event =>
-    [event.event_date, event.event_end_date].flatMap(value => {
-      const day = dayNumber(value || ''); return day === null ? [] : [dateFromDay(day).getUTCFullYear()];
-    })), ...Array.from({ length: 11 }, (_, index) => today.getFullYear() - 5 + index)])].sort((a, b) => a - b);
   const weeks = monthWeeks(year, month);
   const count = events.filter(event => {
     const start = dayNumber(event.event_date);
@@ -60,14 +82,30 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
   }).length;
   const canEdit = user?.role !== 'warehouse' && user?.role !== 'staff';
   return <div className="space-y-4">
-    <header className="flex flex-wrap items-center justify-between gap-3">
+    <header className="relative flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-cyan-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); }} className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800">Сегодня</button>
-        <button type="button" aria-label="Предыдущий месяц" onClick={() => moveMonth(-1)} className="rounded p-2 text-gray-300 hover:bg-gray-800"><ChevronLeft className="h-5 w-5" /></button>
-        <button type="button" aria-label="Следующий месяц" onClick={() => moveMonth(1)} className="rounded p-2 text-gray-300 hover:bg-gray-800"><ChevronRight className="h-5 w-5" /></button>
-        <select aria-label="Месяц" value={month} onChange={event => setMonth(Number(event.target.value))} className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white">{months.map((name, index) => <option key={name} value={index}>{name}</option>)}</select>
-        <select aria-label="Год" value={year} onChange={event => setYear(Number(event.target.value))} className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white">{years.map(value => <option key={value}>{value}</option>)}</select>
+        <button type="button" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); setPickerOpen(false); }} className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800">Сегодня</button>
+        <div ref={pickerRef} className="static sm:relative">
+          <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
+            if (!pickerOpen) setPickerYear(year);
+            setPickerOpen(value => !value);
+          }} className="min-w-44 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-left font-medium text-white hover:border-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500">
+            {months[month]} {year}
+          </button>
+          {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-[#10151e] p-3 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between gap-3 px-1 py-2">
+              <button type="button" aria-label="Предыдущий год" disabled={pickerYear <= 100} onClick={() => setPickerYear(value => value - 1)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-6 w-6" /></button>
+              <span aria-live="polite" className="text-2xl font-semibold text-gray-100">{pickerYear}</span>
+              <button type="button" aria-label="Следующий год" disabled={pickerYear >= 9999} onClick={() => setPickerYear(value => value + 1)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronRight className="h-6 w-6" /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {shortMonths.map((name, index) => <button key={name} ref={index === month ? selectedMonthRef : undefined} type="button" aria-label={`${months[index]} ${pickerYear}`} aria-pressed={month === index && year === pickerYear} onClick={() => {
+                setMonth(index); setYear(pickerYear); setPickerOpen(false); pickerButtonRef.current?.focus();
+              }} className={`rounded-xl px-2 py-4 text-lg font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 ${month === index && year === pickerYear ? 'bg-amber-500/15 font-semibold text-amber-300' : 'text-gray-200 hover:bg-gray-800'}`}>{name}</button>)}
+            </div>
+          </div>}
+        </div>
       </div>
     </header>
     <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">{Object.entries(statuses).map(([status, color]) => <span key={status} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${color}`} />{status}</span>)}</div>
