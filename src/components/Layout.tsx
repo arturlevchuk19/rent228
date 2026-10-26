@@ -86,43 +86,40 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   return (
     <MobileHeaderContext.Provider value={{ title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions }}>
     <div className="h-dvh flex flex-col bg-black overflow-hidden">
-      <nav className="bg-gray-900 border-b border-gray-800 flex-shrink-0 z-20">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between gap-2 h-14">
-            <div className="flex min-w-0 flex-1 items-center">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden shrink-0 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800"
-              >
-                {mobileMenuOpen ? (
-                  <X className="w-6 h-6" />
-                ) : (
-                  <Menu className="w-6 h-6" />
-                )}
-              </button>
-              <span className="hidden sm:block text-lg font-bold text-white ml-3 lg:ml-0">RentMaster</span>
-              <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
-                {currentPage !== 'calendar' && <h1 className="truncate text-base sm:text-lg font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
-              </div>
+      <div className="relative z-20 flex h-14 shrink-0 border-b border-gray-800 bg-gray-900">
+        <div className="hidden w-64 shrink-0 items-center border-r border-gray-800 px-6 lg:flex">
+          <span className="text-lg font-bold text-white">RentMaster</span>
+        </div>
+        <header className="flex min-w-0 flex-1 items-center justify-between gap-2 px-4 lg:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
+            <button
+              aria-label={mobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white lg:hidden"
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+            <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
+              {currentPage !== 'calendar' && <h1 className="truncate text-base font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
             </div>
-
-            <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-              <div ref={setMobileActions} className="flex items-center gap-1 sm:hidden" />
-              <div className="text-right hidden sm:block">
-                <p className="text-sm text-white leading-tight">{user.full_name}</p>
-                <p className="text-xs text-gray-400 leading-tight">{roleLabels[user.role] || user.role}</p>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800"
-                title="Выйти"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
+            <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
+              <h1 className="truncate text-xl font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <div ref={setPageTitle} className="min-w-0 shrink-0" />
             </div>
           </div>
-        </div>
-      </nav>
+          <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+            <div ref={setMobileActions} className="flex items-center gap-1 sm:hidden" />
+            <div ref={setPageActions} className="hidden shrink-0 items-center gap-2 sm:flex" />
+            <div className="hidden text-right sm:block">
+              <p className="text-sm leading-tight text-white">{user.full_name}</p>
+              <p className="text-xs leading-tight text-gray-400">{roleLabels[user.role] || user.role}</p>
+            </div>
+            <button onClick={handleSignOut} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white" title="Выйти">
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+      </div>
 
       <div className="flex flex-1 overflow-hidden relative">
         {mobileMenuOpen && (
@@ -171,13 +168,6 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="relative z-10 hidden shrink-0 items-center justify-between gap-4 border-b border-gray-800 bg-gray-900 px-4 py-3 sm:flex lg:px-6">
-            <div className="flex min-w-0 flex-1 items-center gap-4">
-              <h1 className="truncate text-xl font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
-              <div ref={setPageTitle} className="min-w-0" />
-            </div>
-            <div ref={setPageActions} className="flex shrink-0 items-center gap-2" />
-          </header>
         <main className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
