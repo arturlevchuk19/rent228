@@ -112,7 +112,7 @@ export default function PersonnelPage() {
 
   return (
     <div className="space-y-4">
-      <div className="hidden sm:flex items-center justify-between">
+      <div hidden>
         <div className="flex items-center gap-2">
           <Users className="w-6 h-6 text-cyan-500" />
           <h1 className="text-2xl font-bold text-white">Персонал</h1>
