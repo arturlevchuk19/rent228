@@ -89,16 +89,13 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   <Menu className="w-6 h-6" />
                 )}
               </button>
-              <h1 className="hidden sm:block text-lg font-bold text-white ml-3 lg:ml-0">
-                RentMaster
-              </h1>
-              <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
-                {currentPage !== 'calendar' && <h1 className="truncate text-base font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
+              <div ref={setMobileTitle} className="min-w-0 flex-1">
+                {currentPage !== 'calendar' && <h1 className="truncate text-base sm:text-lg font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-              <div ref={setMobileActions} className="flex items-center gap-1 sm:hidden" />
+              <div ref={setMobileActions} className="flex items-center gap-1 sm:gap-2" />
               <div className="text-right hidden sm:block">
                 <p className="text-sm text-white leading-tight">{user.full_name}</p>
                 <p className="text-xs text-gray-400 leading-tight">{roleLabels[user.role] || user.role}</p>
