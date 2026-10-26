@@ -5,6 +5,7 @@ import { getEvents, deleteEvent, Event, EVENT_TYPES } from '../lib/events';
 import { useAuth } from '../contexts/authContext';
 
 interface EventsProps {
+  refreshSignal?: number;
   onEventFormOpen?: (event?: Event) => void;
   onSpecificationOpen?: (eventId: string) => void;
   lastCreatedEventId?: string | null;
@@ -15,7 +16,7 @@ const monthNames = [
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
 ];
 
-export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventId }: EventsProps) {
+export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventId, refreshSignal = 0 }: EventsProps) {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,8 +32,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const hasScrolled = useRef(false);
 
   useEffect(() => {
-    loadEvents();
-  }, []);
+    let active = true;
+    getEvents().then(data => { if (active) setEvents(data); })
+      .catch(error => { if (active) console.error('Error loading events:', error); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [refreshSignal]);
 
   useEffect(() => {
     setVisibleEventCount(50);
@@ -73,13 +78,10 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
   const loadEvents = async () => {
     try {
-      setLoading(true);
       const data = await getEvents();
       setEvents(data);
     } catch (error) {
       console.error('Error loading events:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
