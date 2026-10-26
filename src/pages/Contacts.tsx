@@ -174,60 +174,60 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, onOrganizerFormOpe
 
       <div className="bg-gray-900 rounded-lg border border-gray-800">
         <div className="border-b border-gray-800">
-          <nav className="flex">
+          <nav aria-label="Разделы справочников" className="grid min-w-0 grid-cols-2 sm:flex sm:flex-wrap">
             <button
               onClick={() => { setActiveTab('clients'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 last:col-span-2 ${
                 activeTab === 'clients'
                   ? 'border-cyan-500 text-cyan-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <Building2 className="w-4 h-4" />
+              <Building2 className="hidden sm:block w-4 h-4 shrink-0" />
               Заказчики ({clients.length})
             </button>
             <button
               onClick={() => { setActiveTab('venues'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 last:col-span-2 ${
                 activeTab === 'venues'
                   ? 'border-cyan-500 text-cyan-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <Building2 className="w-4 h-4" />
+              <Building2 className="hidden sm:block w-4 h-4 shrink-0" />
               Площадки ({venues.length})
             </button>
             <button
               onClick={() => { setActiveTab('organizers'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 last:col-span-2 ${
                 activeTab === 'organizers'
                   ? 'border-cyan-500 text-cyan-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <UserCircle className="w-4 h-4" />
+              <UserCircle className="hidden sm:block w-4 h-4 shrink-0" />
               Организаторы ({organizers.length})
             </button>
             <button
               onClick={() => { setActiveTab('works'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 last:col-span-2 ${
                 activeTab === 'works'
                   ? 'border-cyan-500 text-cyan-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <Briefcase className="w-4 h-4" />
+              <Briefcase className="hidden sm:block w-4 h-4 shrink-0" />
               Работы ({workItems.length})
             </button>
             <button
               onClick={() => { setActiveTab('events'); setSearchTerm(''); }}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 last:col-span-2 ${
                 activeTab === 'events'
                   ? 'border-cyan-500 text-cyan-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
-              <Calendar className="w-4 h-4" />
+              <Calendar className="hidden sm:block w-4 h-4 shrink-0" />
               События ({eventTypes.length})
             </button>
           </nav>
