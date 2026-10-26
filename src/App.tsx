@@ -1,3 +1,5 @@
+import { useEventPageNavigation } from './hooks/useEventPageNavigation';
+import { EventPage } from './pages/EventPage';
 import { canAccess, type AppModule } from './lib/roles';
 import { lazy, Suspense, useState } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
@@ -7,7 +9,6 @@ import { Register } from './components/Register';
 import { Layout } from './components/Layout';
 import { ClientForm } from './components/ClientForm';
 import { VenueForm } from './components/VenueForm';
-import { EventForm } from './components/EventForm';
 import { WarehouseSpecification } from './components/WarehouseSpecification';
 import { Client, Venue, Event, getEvent } from './lib/events';
 
@@ -31,14 +32,14 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState('calendar');
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [venueFormOpen, setVenueFormOpen] = useState(false);
-  const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client>();
   const [editingVenue, setEditingVenue] = useState<Venue>();
-  const [editingEvent, setEditingEvent] = useState<Event>();
   const [specificationEventId, setSpecificationEventId] = useState<string | null>(null);
   const [specificationEvent, setSpecificationEvent] = useState<Event | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastCreatedEventId, setLastCreatedEventId] = useState<string | null>(null);
+
+  const eventPage = useEventPageNavigation(!!user && canAccess(user, 'events'));
 
   if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white text-xl">Загрузка...</div>;
   if (!user) return authMode === 'login'
@@ -60,11 +61,11 @@ function AppContent() {
   const renderPage = () => {
     if (!canAccess(user, currentPage as AppModule)) return <p className="rounded-lg border border-gray-800 p-6 text-sm text-gray-400">Нет доступа к этому разделу. Выберите доступный раздел в меню или откройте свой профиль.</p>;
     switch (currentPage) {
-      case 'calendar': return <Calendar refreshSignal={refreshKey} onEventFormOpen={event => { if (canAccess(user, 'events')) { setEditingEvent(event); setEventFormOpen(true); } }} onSpecificationOpen={handleSpecificationOpen} />;
+      case 'calendar': return <Calendar refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} />;
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
       case 'equipment': return <Equipment />;
-      case 'events': return <Events refreshSignal={refreshKey} onEventFormOpen={event => { if (canAccess(user, 'events')) { setEditingEvent(event); setEventFormOpen(true); } }} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
+      case 'events': return <Events refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
       case 'payments': return <Payments />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
@@ -78,10 +79,12 @@ function AppContent() {
   };
 
   return <>
-    <Layout currentPage={currentPage} onNavigate={setCurrentPage}><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></Layout>
+    <Layout currentPage={currentPage} pageHeading={eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) setCurrentPage(page); }}>
+      <div hidden={eventPage.open} className="h-full"><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></div>
+      {eventPage.open && <EventPage event={eventPage.event} loading={eventPage.loading} error={eventPage.error} onDirtyChange={eventPage.setDirty} onBack={eventId => { if (eventPage.close() && eventId && !eventPage.event) setLastCreatedEventId(eventId); }} onSave={eventId => { eventPage.saved(eventId); handleRefresh(eventId); }} onSpecificationOpen={handleSpecificationOpen} onDeleted={() => { eventPage.setDirty(false); eventPage.close(); handleRefresh(); }} />}
+    </Layout>
     {clientFormOpen && <ClientForm client={editingClient} onClose={() => { setClientFormOpen(false); setEditingClient(undefined); }} onSave={handleRefresh} />}
     {venueFormOpen && <VenueForm venue={editingVenue} onClose={() => { setVenueFormOpen(false); setEditingVenue(undefined); }} onSave={handleRefresh} />}
-    {eventFormOpen && <EventForm event={editingEvent} onClose={eventId => { setEventFormOpen(false); setEditingEvent(undefined); if (eventId && !editingEvent) setLastCreatedEventId(eventId); }} onSave={handleRefresh} onSpecificationOpen={handleSpecificationOpen} />}
     {specificationEvent && specificationEventId && <WarehouseSpecification eventId={specificationEventId} eventName={specificationEvent.name || 'Мероприятие'} onClose={() => { setSpecificationEventId(null); setSpecificationEvent(null); handleRefresh(); }} />}
   </>;
 }

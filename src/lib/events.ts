@@ -1,3 +1,4 @@
+import type { EventProjectDetails } from './eventProject';
 import { supabase } from './supabase';
 
 export interface Venue {
@@ -32,6 +33,7 @@ export interface Client {
 }
 
 export interface Event {
+  project_details?: EventProjectDetails;
   id: string;
   event_date: string;
   event_end_date?: string;

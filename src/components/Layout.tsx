@@ -1,5 +1,5 @@
 import { MobileHeaderContext } from './MobileHeaderContent';
-import React, { useState, useSyncExternalStore } from 'react';
+import React, { useState, useSyncExternalStore, useRef, useLayoutEffect } from 'react';
 import { useAuth } from '../contexts/authContext';
 import { canAccess, ROLE_NAMES, type AppModule } from '../lib/roles';
 import { AccountDialog } from './AccountDialog';
@@ -28,10 +28,11 @@ const isMobileViewport = () => window.matchMedia('(max-width: 639px)').matches;
 interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
+  pageHeading?: string;
   onNavigate: (page: string) => void;
 }
 
-export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
+export function Layout({ children, currentPage, onNavigate, pageHeading }: LayoutProps) {
   const { user } = useAuth();
   const [accountTab, setAccountTab] = useState<'profile' | 'users' | 'roles' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -41,6 +42,13 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [pageTitle, setPageTitle] = useState<HTMLDivElement | null>(null);
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const mobile = useSyncExternalStore(subscribeToViewport, isMobileViewport, () => false);
+
+  const main = useRef<HTMLElement>(null);
+  const listScroll = useRef(0);
+  const pageOpen = !!pageHeading;
+  useLayoutEffect(() => {
+    if (main.current) main.current.scrollTop = pageOpen ? 0 : listScroll.current;
+  }, [pageOpen]);
 
   if (!user) return null;
 
@@ -68,7 +76,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   );
 
   return (
-    <MobileHeaderContext.Provider value={{ title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions }}>
+    <MobileHeaderContext.Provider value={{ active: !pageOpen, title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions }}>
     <div className="h-dvh flex flex-col bg-black overflow-hidden">
       <div className="relative z-20 flex h-14 shrink-0 border-b border-gray-800 bg-gray-900">
         <div className="hidden w-64 shrink-0 items-center border-r border-gray-800 px-6 lg:flex">
@@ -84,10 +92,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
-              {currentPage !== 'calendar' && <h1 className="truncate text-base font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
+              {(currentPage !== 'calendar' || pageOpen) && <h1 className="truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
             </div>
             <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
-              <h1 className="truncate text-xl font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <h1 className="truncate text-xl font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
               <div ref={setPageTitle} className="min-w-0 shrink-0" />
             </div>
           </div>
@@ -153,7 +161,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <main className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : 'overflow-y-auto p-4 lg:p-6'}`}>
+        <main ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
         </div>

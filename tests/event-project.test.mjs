@@ -1,0 +1,34 @@
+import fs from 'node:fs';
+import ts from 'typescript';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const require=createRequire(import.meta.url);
+const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>name==='./calendar'?load('src/lib/calendar.ts'):require(name));return exports;};
+const api=load('src/lib/eventProject.ts');
+const initial=api.normalizeProjectDetails(null);
+assert.deepEqual(api.normalizeProjectDetails({schedule:'bad',people:[null],transport:undefined}),initial);
+const project={...initial,description:'# Сцена\n**Монтаж** ==Внимание==',schedule:[{id:'one',date:'2026-10-27',title:'Демонтаж',start:'21:00',end:'03:00'}],people:[{id:'p',personnel_id:'',name:'Иван',group:'external',rate:'120.50'}]};
+assert.deepEqual(api.normalizeProjectDetails(JSON.parse(JSON.stringify(project))),project);
+assert.equal(api.validateProjectDetails(project,'2026-10-26','2026-10-29'),null);
+assert.ok(api.validateProjectDetails(project,'2026-10-28','2026-10-29'));
+assert.ok(api.validateProjectDetails({...project,schedule:[{...project.schedule[0],date:'2026-02-30'}]},'2026-10-26','2026-10-29'));
+assert.ok(api.validateProjectDetails({...project,people:[{...project.people[0],rate:'-1'}]},'2026-10-26','2026-10-29'));
+assert.ok(api.validateProjectDetails({...project,transport:[{id:'t',vehicle:'',driver:'',notes:''}]},'2026-10-26','2026-10-29'));
+assert.match(api.eventDateLabel('2026-10-26','2026-10-29'),/^26–29/);
+assert.ok(api.eventDateLabel('2026-12-31','2027-01-02').includes('2027'));
+const {renderToStaticMarkup}=require('react-dom/server');
+const {ProjectText}=load('src/components/ProjectText.tsx');
+const html=renderToStaticMarkup(ProjectText({text:'# Сцена\n<script>alert(1)</script>\n**Важно** ==Дождь=='}));
+assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('<strong'));assert.ok(html.includes('<mark'));
+const source=fs.readFileSync('src/components/EventForm.tsx','utf8');const start=source.indexOf('  const handleSubmit =');const end=source.indexOf('  const handleContractConfirm =',start);const js=ts.transpile(source.slice(start,end),{target:ts.ScriptTarget.ES2022});
+const formData={name:'Фестиваль',event_date:'2026-10-26',event_end_date:'2026-10-29',event_type:'Фестиваль',venue_id:'venue',client_id:'client',site_manager_id:'senior',budget:'legacy budget',specification:'legacy specification',status:'Подтверждено',progress_budget_done:true,progress_equipment_reserved:false,progress_project_completed:false,progress_paid:false,notes:'legacy notes'};
+async function save({projectChanged=true,fail=false,isNew=false}={}){
+ let payload;let savedId;let error;let newId;let saving;let created=0;let updated=0;
+ const mocks={canAccess:()=>true,user:{},dateParts:{day:'26',month:'10',year:'2026'},endDateParts:{day:'29',month:'10',year:'2026'},isValidDate:()=>true,formData,project,projectBaseline:{current:JSON.stringify(projectChanged?initial:project)},validateProjectDetails:api.validateProjectDetails,setSaving:v=>saving=v,setPageError:v=>error=v,setSaveMessage(){},setSavedEventId:v=>newId=v,setContractOrganizationId(){},baseline:{current:''},onDirtyChange(){},onSave:v=>savedId=v,event:isNew?undefined:{id:'event'},savedEventId:undefined,page:true,getErrorMessage:e=>e.message,alert(){throw Error('Unexpected alert')},console:{error(){}},createEvent:async body=>{created++;payload=body;return {id:'new-event'}},updateEvent:async(id,body)=>{updated++;payload=body;if(fail)throw {message:'project_details column missing'};return {id}}};
+ const run=new Function(...Object.keys(mocks),js+';return handleSubmit')(...Object.values(mocks));await run({preventDefault(){}});return {payload,savedId,error,newId,saving,created,updated};
+}
+const changed=await save();assert.deepEqual(changed.payload.project_details,project);assert.equal(changed.payload.site_manager_id,'senior');assert.equal(changed.payload.notes,'legacy notes');assert.equal(changed.payload.budget,'legacy budget');assert.equal(changed.savedId,'event');assert.equal(changed.saving,false);
+const unchanged=await save({projectChanged:false});assert.equal(Object.hasOwn(unchanged.payload,'project_details'),false);
+const failed=await save({fail:true});assert.equal(failed.savedId,undefined);assert.ok(failed.error.includes('миграцию'));assert.equal(failed.saving,false);
+const created=await save({isNew:true});assert.equal(created.created,1);assert.equal(created.updated,0);assert.equal(created.newId,'new-event');
+console.log('PASS: project data round trip, timing/date validation, overnight schedules, people/transport validation, safe rich text, full save payload, legacy fields, missing migration and create flow');

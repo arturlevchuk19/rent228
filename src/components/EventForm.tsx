@@ -1,7 +1,11 @@
+import { eventDateLabel, normalizeProjectDetails, validateProjectDetails } from '../lib/eventProject';
+import { getErrorMessage } from '../lib/errors';
+import { ProjectSection } from './ProjectSection';
+import { EventProjectBlocks } from './EventProjectBlocks';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
-import React, { useState, useEffect } from 'react';
-import { X, Calculator, Copy, Check, FileText, FileSignature } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Calculator, Copy, Check, FileText, FileSignature, ArrowLeft, CalendarDays, UserRoundCheck, MapPin, Trash2 } from 'lucide-react';
 import { BudgetEditor } from './BudgetEditor';
 import { CopyBudgetDialog } from './dialogs/CopyBudgetDialog';
 import { ContractDialog } from './dialogs/ContractDialog';
@@ -13,6 +17,8 @@ import { getActiveUsers } from '../lib/auth';
 import type { User } from '../lib/supabase';
 import {
   createEvent,
+  deleteEvent,
+  type BudgetItem,
   updateEvent,
   Event,
   getEvent,
@@ -27,6 +33,9 @@ import {
 } from '../lib/events';
 
 interface EventFormProps {
+  presentation?: 'modal' | 'page';
+  onDirtyChange?: (dirty: boolean) => void;
+  onDeleted?: () => void;
   event?: Event;
   onClose: (eventId?: string) => void;
   onSave: (eventId?: string) => void;
@@ -72,8 +81,9 @@ function isValidDate(day: string, month: string, year: string): boolean {
   return true;
 }
 
-export function EventForm({ event, onClose, onSave, onSpecificationOpen }: EventFormProps) {
+export function EventForm({ event, onClose, onSave, onSpecificationOpen, presentation = 'modal', onDirtyChange, onDeleted }: EventFormProps) {
   const { user } = useAuth();
+  const page = presentation === 'page';
   const initialDate = parseEventDate(event?.event_date || '');
 
   const [formData, setFormData] = useState<{
@@ -109,6 +119,18 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     progress_paid: event?.progress_paid || false,
     notes: event?.notes || ''
   });
+
+  const [project, setProject] = useState(() => normalizeProjectDetails(event?.project_details));
+  const projectBaseline = useRef(JSON.stringify(project));
+  const baseline = useRef(JSON.stringify({ formData, project }));
+  const dirty = JSON.stringify({ formData, project }) !== baseline.current;
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const [pageError, setPageError] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
+  const [pageBudget, setPageBudget] = useState<BudgetItem[]>([]);
+  const [budgetRefresh, setBudgetRefresh] = useState(0);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   const [dateParts, setDateParts] = useState<DateParts>(initialDate);
   const [endDateParts, setEndDateParts] = useState<DateParts>(parseEventDate(event?.event_end_date || ''));
@@ -154,9 +176,10 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   }, [endDateParts]);
 
   const checkBudgetItems = async () => {
-    if (!event?.id) return;
+    if (!effectiveEventId || (!canAccess(user, 'budgets') && !canAccess(user, 'specifications'))) return;
     try {
-      const items = await getBudgetItems(event.id);
+      const items = await getBudgetItems(effectiveEventId);
+      setPageBudget(items);
       setHasBudgetItems(items.length > 0);
     } catch (error) {
       console.error('Error checking budget items:', error);
@@ -211,7 +234,11 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
 
     try {
       setSaving(true);
+      const projectChanged = projectBaseline.current !== JSON.stringify(project);
+      const projectError = projectChanged ? validateProjectDetails(project, formData.event_date, formData.event_end_date) : null;
+      if (projectError) { setPageError(projectError); return; }
       const payload = {
+        ...(projectChanged ? { project_details: project } : {}),
         name: formData.name,
         event_date: formData.event_date,
         event_end_date: formData.event_end_date,
@@ -244,12 +271,17 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
           setContractOrganizationId(savedEvent.client_id);
         }
       }
-      // Refresh the events list without closing the form
+      baseline.current = JSON.stringify({ formData, project });
+      projectBaseline.current = JSON.stringify(project);
+      setPageError('');
+      setSaveMessage('Мероприятие сохранено.');
+      onDirtyChange?.(false);
       onSave(savedEvent.id);
     } catch (error) {
       console.error('Error saving event:', error);
-      const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
-      alert(`Ошибка при сохранении: ${message}`);
+      const message = getErrorMessage(error);
+      const display = message.includes('project_details') ? 'Для новых блоков нужно выполнить миграцию event_project_details в Supabase. Остальные данные не потеряны.' : `Ошибка при сохранении: ${message}`;
+      if (page) setPageError(display); else alert(display);
     } finally {
       setSaving(false);
     }
@@ -342,18 +374,99 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     return `${d}.${m}.${y}`;
   };
 
+  const handlePagePdf = async () => {
+    if (!effectiveEventId || !canAccess(user, 'budgets')) return;
+    if (dirty) { setPageError('Сначала сохраните изменения мероприятия, затем создайте PDF.'); return; }
+    setGeneratingPdf(true); setPageError('');
+    try {
+      const [fullEvent, items, globalCategories, eventCategories, locations, pdf] = await Promise.all([getEvent(effectiveEventId), getBudgetItems(effectiveEventId), getCategories(), getCategoriesForEvent(effectiveEventId), getLocationsForEvent(effectiveEventId), import('../lib/pdfGenerator')]);
+      await pdf.generateBudgetPDF({ eventName: fullEvent.name || fullEvent.event_type, eventDate: fullEvent.event_date, eventEndDate: fullEvent.event_end_date, venueName: fullEvent.venues?.name, clientName: fullEvent.clients?.organization, budgetItems: items, categories: [...globalCategories, ...eventCategories], locations, exchangeRate: items[0]?.exchange_rate || 1, paymentMode: 'usd', budgetDays: fullEvent.budget_days || 1, budgetTotalsMode: fullEvent.budget_totals_mode || 'combined_only', discountEnabled: fullEvent.discount_enabled, discountPercent: fullEvent.discount_percent, discount2Enabled: fullEvent.discount2_enabled, discount2Percent: fullEvent.discount2_percent, budgetNote: fullEvent.budget_note });
+    } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setGeneratingPdf(false); }
+  };
+
+  const legacyActions = (<div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                {effectiveEventId && (
+                  <button
+                    type="button"
+                    disabled={!canAccess(user, 'budgets', 1)}
+                    onClick={() => setShowBudgetEditor(true)}
+                    className={`flex items-center gap-1.5 px-2 py-1 text-white rounded transition-colors text-left leading-tight ${
+                      hasBudgetItems
+                        ? 'bg-cyan-600 hover:bg-cyan-700'
+                        : 'bg-green-600 hover:bg-green-700'
+                    }`}
+                  >
+                    <Calculator className="w-3.5 h-3.5 shrink-0" />
+                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                      {hasBudgetItems ? (
+                        <>{canAccess(user, 'budgets', 2) ? 'Редактировать' : 'Просмотреть'}<br />смету</>
+                      ) : (
+                        <>{canAccess(user, 'budgets', 2) ? 'Составить' : 'Просмотреть'}<br />смету</>
+                      )}
+                    </span>
+                  </button>
+                )}
+                {effectiveEventId && (
+                  <button
+                    type="button"
+                    disabled={!canAccess(user, 'budgets', 2)}
+                    onClick={() => setShowCopyDialog(true)}
+                    className="flex items-center gap-1.5 px-2 py-1 text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors text-left leading-tight"
+                    title="Скопировать смету из другого мероприятия"
+                  >
+                    {copySuccess ? (
+                      <Check className="w-3.5 h-3.5 shrink-0" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                      {copySuccess ? 'Скопировано!' : (
+                        <>Скопировать<br />смету</>
+                      )}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {effectiveEventId && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={!canAccess(user, 'budgets', 1)}
+                    onClick={() => setShowContractDialog(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
+                    title="Сформировать договор"
+                  >
+                    <FileSignature className="w-3.5 h-3.5" />
+                    Договор
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canAccess(user, 'specifications')}
+                    onClick={() => onSpecificationOpen?.(effectiveEventId)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
+                    title="Открыть спецификацию"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Спецификация
+                  </button>
+                </div>
+              )}
+            </div>);
+
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className={page ? 'flex min-h-64 items-center justify-center' : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50'}>
         <div className="text-white">Загрузка...</div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-3xl max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
+    <div className={page ? 'mx-auto w-full max-w-5xl pb-3' : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'}>
+      <div className={page ? 'w-full' : 'bg-gray-900 rounded-lg border border-gray-800 w-full max-w-3xl max-h-[85vh] flex flex-col'}>
+        <div className={page ? 'hidden' : 'flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0'}>
           <h2 className="text-lg font-semibold text-white">
             {effectiveEventId ? (canAccess(user, 'events', 2) ? 'Редактировать мероприятие' : 'Мероприятие') : 'Новое мероприятие'}
           </h2>
@@ -365,7 +478,44 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+        <form onSubmit={handleSubmit} className={page ? 'space-y-4' : 'flex-1 overflow-y-auto'}>
+      {page && <div className="mb-5 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button type="button" onClick={() => onClose(effectiveEventId)} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Назад</button>
+          <span className={`text-xs ${dirty ? 'text-amber-400' : 'text-gray-500'}`}>{dirty ? 'Есть несохранённые изменения' : effectiveEventId ? 'Все изменения сохранены' : 'Новое мероприятие'}</span>
+        </div>
+        <input aria-label="Название мероприятия" placeholder="Название мероприятия" value={formData.name} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, name: event.target.value })} className="event-page-title w-full min-w-0 border-0 bg-transparent py-1 text-2xl font-semibold text-white outline-none placeholder:text-gray-600 sm:text-3xl" />
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" disabled={!effectiveEventId || generatingPdf || !canAccess(user, 'budgets')} onClick={() => { void handlePagePdf(); }} className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF сметы'}</button>
+          <button type="button" disabled={!effectiveEventId || !canAccess(user, 'budgets', 2)} onClick={() => setShowCopyDialog(true)} aria-label="Копировать смету из мероприятия" className="rounded-xl border border-gray-700 bg-gray-900 p-3 text-gray-400 hover:text-cyan-400 disabled:opacity-40"><Copy className="h-5 w-5" /></button>
+          {canAccess(user, 'events', 3) && effectiveEventId && <button type="button" disabled={saving} onClick={async () => { if (!window.confirm('Удалить это мероприятие и его смету?')) return; try { setSaving(true); await deleteEvent(effectiveEventId); onDirtyChange?.(false); onDeleted?.(); } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setSaving(false); } }} aria-label="Удалить мероприятие" className="ml-auto rounded-xl border border-red-900 bg-red-950/20 p-3 text-red-400 hover:bg-red-900/30 disabled:opacity-40"><Trash2 className="h-5 w-5" /></button>}
+        </div>
+        <label className="block"><span className="sr-only">Тип мероприятия</span><select value={formData.event_type} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, event_type: event.target.value })} className="w-full rounded-xl border border-gray-800 bg-gray-900 px-4 py-3 text-center text-base text-gray-300 outline-none focus:border-cyan-600">{eventTypes.map(type => <option key={type}>{type}</option>)}</select></label>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" aria-label="Изменить даты мероприятия" onClick={() => { if (detailsRef.current) { detailsRef.current.open = true; detailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); detailsRef.current.querySelector('input')?.focus({ preventScroll: true }); } }} className="inline-flex items-center gap-2 text-left text-xs sm:text-sm text-gray-200"><CalendarDays className="h-4 w-4 shrink-0 text-gray-500" /><span className="border-b border-dashed border-gray-600 pb-0.5">{eventDateLabel(formData.event_date, formData.event_end_date)}</span></button>
+            <select aria-label="Статус мероприятия" value={formData.status} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, status: event.target.value })} className={`max-w-full rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${formData.status === 'Подтверждено' ? 'border-emerald-800 bg-emerald-900/30 text-emerald-400' : formData.status === 'Отменено' ? 'border-red-900 bg-red-900/20 text-red-400' : formData.status === 'Выполнено' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-amber-900 bg-amber-900/20 text-amber-400'}`}>{EVENT_STATUSES.map(status => <option className="bg-gray-900 text-gray-200" key={status}>{status}</option>)}</select>
+          </div>
+          <label className="flex items-center gap-2"><UserRoundCheck className="h-4 w-4 shrink-0 text-gray-500" /><span className="sr-only">Старший на площадке</span><select aria-label="Старший на площадке" value={formData.site_manager_id || ''} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, site_manager_id: event.target.value || null })} className="min-w-0 max-w-full border-0 border-b border-dashed border-gray-600 bg-transparent py-1 text-sm text-gray-300 outline-none"><option className="bg-gray-900" value="">Старший на площадке не назначен</option>{users.map(item => <option className="bg-gray-900" key={item.id} value={item.id}>{item.full_name || item.email}</option>)}</select></label>
+          <label className="block"><span className="sr-only">Заказчик</span><select aria-label="Заказчик мероприятия" value={formData.client_id || ''} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, client_id: event.target.value || null })} className="max-w-full border-0 bg-transparent py-1 text-base font-medium text-gray-200 outline-none"><option className="bg-gray-900" value="">Заказчик не выбран</option>{clients.map(client => <option className="bg-gray-900" key={client.id} value={client.id}>{client.organization || client.full_name}</option>)}</select></label>
+          <label className="flex items-center gap-2"><MapPin className="h-4 w-4 shrink-0 text-gray-500" /><span className="sr-only">Площадка</span><select aria-label="Площадка мероприятия" value={formData.venue_id || ''} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, venue_id: event.target.value || null })} className="min-w-0 max-w-full border-0 bg-transparent py-1 text-sm text-gray-400 outline-none"><option className="bg-gray-900" value="">Площадка не выбрана</option>{venues.map(venue => <option className="bg-gray-900" key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>
+        </div>
+        {pageError && <p role="alert" className="rounded-xl border border-red-900 bg-red-900/20 p-3 text-sm text-red-300">{pageError}</p>}
+        {saveMessage && <p role="status" className="text-sm text-emerald-400">{saveMessage}</p>}
+      </div>}
+          {page && <>
+            <ProjectSection title="Сметы мероприятия" count={hasBudgetItems ? 1 : 0}>
+              {effectiveEventId ? <div className="space-y-4"><p className="text-sm text-gray-300">{hasBudgetItems ? `Основная смета · позиций: ${pageBudget.length}` : 'Смета ещё не заполнена.'}</p>{legacyActions}</div> : <p className="text-sm text-gray-500">Сохраните мероприятие, чтобы составить смету.</p>}
+            </ProjectSection>
+            <ProjectSection title="Оборудование" subtitle="Из сметы + вручную" count={pageBudget.filter(item => item.item_type === 'equipment').length} actions={effectiveEventId && canAccess(user, 'specifications') ? <button type="button" aria-label="Открыть спецификацию оборудования" onClick={() => onSpecificationOpen?.(effectiveEventId)} className="rounded-lg p-2 text-gray-500 hover:text-cyan-400"><FileText className="h-4 w-4" /></button> : undefined}>
+              {!pageBudget.some(item => item.item_type === 'equipment') ? <p className="text-sm text-gray-500">Оборудование появится после заполнения сметы.</p> : <div className="divide-y divide-gray-800">{pageBudget.filter(item => item.item_type === 'equipment').map(item => <div key={item.id} className="flex justify-between gap-3 py-2 text-sm"><span className="min-w-0 break-words text-gray-300">{item.equipment?.name || item.name || 'Оборудование'}</span><span className="shrink-0 text-gray-400">{item.quantity} {item.equipment?.unit || 'шт.'}</span></div>)}</div>}
+            </ProjectSection>
+            <EventProjectBlocks value={project} onChange={setProject} editable={canAccess(user, 'events', 2)} eventId={effectiveEventId} eventDate={formData.event_date} refreshSignal={budgetRefresh} />
+          </>}
+
+          <details ref={detailsRef} open={page ? !event : true} className={page ? 'overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/70' : 'contents'}>
+            {page && <summary className="cursor-pointer px-4 py-4 text-sm font-semibold uppercase tracking-wider text-gray-400 sm:px-5">Данные мероприятия</summary>}
+
           <fieldset disabled={!canAccess(user, 'events', 2)} className="p-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -617,80 +767,13 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
               />
             </div>
           </fieldset>
+          </details>
 
-          <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                {effectiveEventId && (
-                  <button
-                    type="button"
-                    disabled={!canAccess(user, 'budgets', 1)}
-                    onClick={() => setShowBudgetEditor(true)}
-                    className={`flex items-center gap-1.5 px-2 py-1 text-white rounded transition-colors text-left leading-tight ${
-                      hasBudgetItems
-                        ? 'bg-cyan-600 hover:bg-cyan-700'
-                        : 'bg-green-600 hover:bg-green-700'
-                    }`}
-                  >
-                    <Calculator className="w-3.5 h-3.5 shrink-0" />
-                    <span className="text-[10px] font-medium uppercase tracking-wider">
-                      {hasBudgetItems ? (
-                        <>{canAccess(user, 'budgets', 2) ? 'Редактировать' : 'Просмотреть'}<br />смету</>
-                      ) : (
-                        <>{canAccess(user, 'budgets', 2) ? 'Составить' : 'Просмотреть'}<br />смету</>
-                      )}
-                    </span>
-                  </button>
-                )}
-                {effectiveEventId && (
-                  <button
-                    type="button"
-                    disabled={!canAccess(user, 'budgets', 2)}
-                    onClick={() => setShowCopyDialog(true)}
-                    className="flex items-center gap-1.5 px-2 py-1 text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors text-left leading-tight"
-                    title="Скопировать смету из другого мероприятия"
-                  >
-                    {copySuccess ? (
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5 shrink-0" />
-                    )}
-                    <span className="text-[10px] font-medium uppercase tracking-wider">
-                      {copySuccess ? 'Скопировано!' : (
-                        <>Скопировать<br />смету</>
-                      )}
-                    </span>
-                  </button>
-                )}
-              </div>
+          <div className="sticky bottom-0 z-10 rounded-xl bg-gray-900/95 px-4 py-3 border border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
+            {!page && legacyActions}
+            {page && pageError && <p role="alert" className="min-w-0 flex-1 text-xs text-red-300">{pageError}</p>}
 
-              {effectiveEventId && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={!canAccess(user, 'budgets', 1)}
-                    onClick={() => setShowContractDialog(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
-                    title="Сформировать договор"
-                  >
-                    <FileSignature className="w-3.5 h-3.5" />
-                    Договор
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canAccess(user, 'specifications')}
-                    onClick={() => onSpecificationOpen?.(effectiveEventId)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
-                    title="Открыть спецификацию"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    Спецификация
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-gray-800">
+            <div className="flex items-center justify-end gap-2 pt-3 md:ml-auto md:pt-0 border-t md:border-t-0 border-gray-800">
               <button
                 type="button"
                 onClick={() => onClose(effectiveEventId)}
@@ -717,6 +800,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
           onClose={() => {
             setShowBudgetEditor(false);
             checkBudgetItems();
+            setBudgetRefresh(value => value + 1);
           }}
         />
       )}
