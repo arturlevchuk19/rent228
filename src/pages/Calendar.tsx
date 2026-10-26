@@ -16,10 +16,11 @@ const formatDate = (value: string) => {
   return day === null ? 'Дата не указана' : dateFromDay(day).toLocaleDateString('ru-RU', { timeZone: 'UTC' });
 };
 interface CalendarProps {
+  refreshSignal?: number;
   onEventFormOpen: (event: Event) => void;
   onSpecificationOpen: (eventId: string) => void;
 }
-export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps) {
+export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal = 0 }: CalendarProps) {
   const { user } = useAuth();
   const [today] = useState(() => new Date());
   const [month, setMonth] = useState(today.getMonth());
@@ -34,15 +35,16 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<Event | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const hasLoaded = useRef(false);
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     setError('');
-    getEvents().then(data => { if (active) setEvents(data.filter(event => event.status !== 'Отменено')); })
+    getEvents().then(data => { if (active) { setEvents(data.filter(event => event.status !== 'Отменено')); hasLoaded.current = true; } })
       .catch(() => { if (active) setError('Не удалось загрузить мероприятия'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [attempt]);
+  }, [attempt, refreshSignal]);
   useEffect(() => {
     if (!selected) return;
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); };
