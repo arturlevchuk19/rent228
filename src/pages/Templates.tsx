@@ -79,7 +79,7 @@ export function Templates() {
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <div className="hidden gap-3 sm:flex sm:flex-row sm:items-center sm:justify-between">
+      <div hidden>
         <div className="flex items-center gap-2 min-w-0">
           <Package className="w-6 h-6 text-cyan-500" />
           <h1 className="text-xl sm:text-2xl font-bold text-white truncate">Шаблоны для сметы</h1>
