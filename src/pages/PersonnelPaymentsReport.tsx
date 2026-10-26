@@ -72,7 +72,7 @@ export default function PersonnelPaymentsReport() {
 
   return (
     <div className="space-y-4">
-      <div className="hidden sm:flex justify-between items-center">
+      <div hidden>
         <div className="flex items-center gap-2">
           <FileText className="w-6 h-6 text-cyan-500" />
           <h1 className="text-2xl font-bold text-white">Отчет по выплатам</h1>
