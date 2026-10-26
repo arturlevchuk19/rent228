@@ -66,7 +66,6 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
             event_type: sourceEvent.event_type,
             venue_id: sourceEvent.venue_id,
             client_id: sourceEvent.client_id,
-            organizer_id: sourceEvent.organizer_id,
             budget: sourceEvent.budget,
             specification: sourceEvent.specification,
             notes: sourceEvent.notes
@@ -142,7 +141,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
               onChange={(e) => setCopyEventData(e.target.checked)}
               className="w-4 h-4 accent-cyan-500 cursor-pointer"
             />
-            <span className="text-sm text-gray-300">Также скопировать данные мероприятия (название, тип, заказчик, площадка, организатор, примечания)</span>
+            <span className="text-sm text-gray-300">Также скопировать данные мероприятия (название, тип, заказчик, площадка, примечания)</span>
           </label>
 
           <div className="text-xs text-gray-500">
