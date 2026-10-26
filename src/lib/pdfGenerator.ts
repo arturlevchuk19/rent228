@@ -42,7 +42,6 @@ interface PDFData {
   version?: string;
   venueName?: string;
   clientName?: string;
-  organizerName?: string;
   budgetItems: BudgetItem[];
   categories: Category[];
   locations?: Location[];
@@ -599,19 +598,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     `
     : '';
 
-  // Исправленные блоки Заказчика и Организатора [cite: 63, 64]
+  // Данные заказчика
   const clientHtml = data.clientName ? `
     <div style="display: flex; flex-direction: column; min-width: 0;">
       <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Заказчик</span>
       <span style="font-size: 16px; font-weight: 600; color: #1a1a1a;">${data.clientName}</span>
     </div>` : '';
 
-  const organizerHtml = data.organizerName ? `
-    <div style="display: flex; flex-direction: column; min-width: 0;">
-      <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Организатор</span>
-      <span style="font-size: 16px; font-weight: 600; color: #1a1a1a;">${data.organizerName}</span>
-    </div>` : '';
-  const participantsCellsHtml = `${clientHtml}${organizerHtml}`;
+  const participantsCellsHtml = clientHtml;
 
   const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
