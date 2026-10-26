@@ -60,11 +60,11 @@ function AppContent() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'calendar': return <Calendar key={refreshKey} onEventFormOpen={event => { setEditingEvent(event); setEventFormOpen(true); }} onSpecificationOpen={handleSpecificationOpen} />;
+      case 'calendar': return <Calendar refreshSignal={refreshKey} onEventFormOpen={event => { setEditingEvent(event); setEventFormOpen(true); }} onSpecificationOpen={handleSpecificationOpen} />;
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
       case 'equipment': return <Equipment />;
-      case 'events': return <Events key={refreshKey} onEventFormOpen={event => { setEditingEvent(event); setEventFormOpen(true); }} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
+      case 'events': return <Events refreshSignal={refreshKey} onEventFormOpen={event => { setEditingEvent(event); setEventFormOpen(true); }} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} onOrganizerFormOpen={organizer => { setEditingOrganizer(organizer); setOrganizerFormOpen(true); }} />;
       case 'payments': return <Payments />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
@@ -82,7 +82,7 @@ function AppContent() {
     {clientFormOpen && <ClientForm client={editingClient} onClose={() => { setClientFormOpen(false); setEditingClient(undefined); }} onSave={handleRefresh} />}
     {venueFormOpen && <VenueForm venue={editingVenue} onClose={() => { setVenueFormOpen(false); setEditingVenue(undefined); }} onSave={handleRefresh} />}
     {organizerFormOpen && <OrganizerForm organizer={editingOrganizer} onClose={() => { setOrganizerFormOpen(false); setEditingOrganizer(undefined); }} onSave={handleRefresh} />}
-    {eventFormOpen && <EventForm event={editingEvent} onClose={eventId => { setEventFormOpen(false); setEditingEvent(undefined); if (eventId) setLastCreatedEventId(eventId); }} onSave={handleRefresh} onSpecificationOpen={handleSpecificationOpen} />}
+    {eventFormOpen && <EventForm event={editingEvent} onClose={eventId => { setEventFormOpen(false); setEditingEvent(undefined); if (eventId && !editingEvent) setLastCreatedEventId(eventId); }} onSave={handleRefresh} onSpecificationOpen={handleSpecificationOpen} />}
     {specificationEvent && specificationEventId && <WarehouseSpecification eventId={specificationEventId} eventName={specificationEvent.name || 'Мероприятие'} onClose={() => { setSpecificationEventId(null); setSpecificationEvent(null); handleRefresh(); }} />}
   </>;
 }
