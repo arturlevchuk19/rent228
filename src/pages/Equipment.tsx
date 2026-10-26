@@ -1,13 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Package, Plus, Pencil, Trash2, Search, Filter, Upload, Eye } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Package, Plus, Pencil, Trash2, Search, Filter, Eye } from 'lucide-react';
 import {
   getEquipmentItems,
   getEquipmentCategories,
   getEquipmentSubtypes,
   getEquipmentTypes,
   deleteEquipmentItem,
-  importEquipmentFromCSV,
-  importWorkItemsFromCSV,
   EquipmentItem
 } from '../lib/equipment';
 import { EquipmentForm } from '../components/EquipmentForm';
@@ -25,7 +23,6 @@ export function Equipment() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
-  const [importing, setImporting] = useState(false);
   const [visibleItemCount, setVisibleItemCount] = useState(50);
 
   useEffect(() => {
@@ -83,32 +80,6 @@ export function Equipment() {
     loadData();
   };
 
-  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>, type: 'equipment' | 'work') => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setImporting(true);
-      const text = await file.text();
-
-      if (type === 'equipment') {
-        const count = await importEquipmentFromCSV(text);
-        alert(`Импортировано ${count} позиций оборудования`);
-      } else {
-        const count = await importWorkItemsFromCSV(text);
-        alert(`Импортировано ${count} видов работ`);
-      }
-
-      await loadData();
-    } catch (error) {
-      console.error('Error importing CSV:', error);
-      alert('Ошибка при импорте CSV');
-    } finally {
-      setImporting(false);
-      event.target.value = '';
-    }
-  };
-
   const filteredItems = items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
@@ -135,30 +106,6 @@ export function Equipment() {
           <h1 className="text-2xl font-bold text-white">Оборудование</h1>
         </div>
         <div className="flex gap-2">
-          <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors cursor-pointer text-sm">
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">{importing ? 'Импорт...' : 'Импорт оборудования'}</span>
-            <span className="sm:hidden">Обор.</span>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => handleImportCSV(e, 'equipment')}
-              disabled={importing}
-              className="hidden"
-            />
-          </label>
-          <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors cursor-pointer text-sm">
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">{importing ? 'Импорт...' : 'Импорт работ'}</span>
-            <span className="sm:hidden">Раб.</span>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => handleImportCSV(e, 'work')}
-              disabled={importing}
-              className="hidden"
-            />
-          </label>
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
