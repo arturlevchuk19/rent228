@@ -1,3 +1,4 @@
+import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { getEvents, type Event } from '../lib/events';
@@ -82,18 +83,17 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
   }).length;
   const canEdit = user?.role !== 'warehouse' && user?.role !== 'staff';
   return <div className="space-y-4">
-    <header className="relative flex flex-wrap items-center justify-between gap-3">
+    <header className="relative hidden sm:flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-cyan-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); setPickerOpen(false); }} className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800">Сегодня</button>
-        <div ref={pickerRef} className="static sm:relative">
+        <MobileHeaderContent slot="title"><div ref={pickerRef} className="relative">
           <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
             if (!pickerOpen) setPickerYear(year);
             setPickerOpen(value => !value);
           }} className="min-w-44 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-left font-medium text-white hover:border-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500">
             {months[month]} {year}
           </button>
-          {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-[#10151e] p-3 shadow-2xl">
+          {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" className="fixed left-4 right-4 top-14 z-30 mt-2 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-[#10151e] p-3 shadow-2xl">
             <div className="mb-4 flex items-center justify-between gap-3 px-1 py-2">
               <button type="button" aria-label="Предыдущий год" disabled={pickerYear <= 100} onClick={() => setPickerYear(value => value - 1)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-6 w-6" /></button>
               <span aria-live="polite" className="text-2xl font-semibold text-gray-100">{pickerYear}</span>
@@ -105,7 +105,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
               }} className={`rounded-xl px-2 py-4 text-lg font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 ${month === index && year === pickerYear ? 'bg-amber-500/15 font-semibold text-amber-300' : 'text-gray-200 hover:bg-gray-800'}`}>{name}</button>)}
             </div>
           </div>}
-        </div>
+        </div></MobileHeaderContent>
       </div>
     </header>
     <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">{Object.entries(statuses).map(([status, color]) => <span key={status} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${color}`} />{status}</span>)}</div>
