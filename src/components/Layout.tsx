@@ -51,6 +51,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
     icon: LucideIcon;
     minRole: UserRole;
   }> = [
+    { id: 'calendar', label: 'Календарь', icon: Calendar, minRole: 'warehouse' },
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard, minRole: 'warehouse' },
     { id: 'templates', label: 'Шаблоны для сметы', icon: Package, minRole: 'admin' },
     { id: 'equipment', label: 'Оборудование', icon: Package, minRole: 'warehouse' },
