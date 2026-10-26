@@ -201,9 +201,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const getStatusColor = (status: string) => {
     const colors = {
       'Запрос': 'bg-yellow-900/30 text-yellow-400 border-yellow-600',
-      'На рассмотрении': 'bg-blue-900/30 text-blue-400 border-blue-600',
       'Подтверждено': 'bg-green-900/30 text-green-400 border-green-600',
-      'Отменено': 'bg-red-900/30 text-red-400 border-red-600'
+      'Отменено': 'bg-red-900/30 text-red-400 border-red-600',
+      'Выполнено': 'bg-gray-800 text-gray-400 border-gray-600'
     };
     return colors[status as keyof typeof colors] || colors['Запрос'];
   };
@@ -350,12 +350,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-gray-400">Рассмотрение:</span>
-          <span className="font-bold text-blue-400">
-            {events.filter(e => e.status === 'На рассмотрении').length}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
           <span className="text-gray-400">Подтверждено:</span>
           <span className="font-bold text-green-400">
             {events.filter(e => e.status === 'Подтверждено').length}
@@ -365,6 +359,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
           <span className="text-gray-400">Отменено:</span>
           <span className="font-bold text-red-400">
             {events.filter(e => e.status === 'Отменено').length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Выполнено:</span>
+          <span className="font-bold text-gray-400">
+            {events.filter(e => e.status === 'Выполнено').length}
           </span>
         </div>
         <label className="flex items-center gap-2 cursor-pointer ml-auto border-l border-gray-800 pl-6">
