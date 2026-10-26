@@ -208,20 +208,20 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose }: Eq
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+      <div className="flex flex-col bg-gray-900 rounded-lg border border-gray-800 w-full max-w-2xl max-h-[90dvh] overflow-hidden">
+        <div className="shrink-0 bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-white">
             {item ? 'Редактировать оборудование' : 'Добавить оборудование'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            className="shrink-0 p-2 text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
           {error && (
             <div className="p-3 bg-red-900/30 border border-red-600 rounded text-red-400 text-sm">
               {error}
