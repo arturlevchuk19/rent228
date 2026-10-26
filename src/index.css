@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* iOS zooms focused form controls when their text is smaller than 16px.
+   Keep touch-device fields readable, including in landscape, while allowing pinch zoom. */
+@media (max-width: 767px), (any-pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']),
+  textarea,
+  select {
+    font-size: max(16px, 1rem) !important;
+  }
+}
+
 @layer base {
   html, body {
     @apply overflow-x-hidden;
