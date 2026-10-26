@@ -1,3 +1,4 @@
+import { InlineQuantityAdd } from './InlineQuantityAdd';
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
@@ -64,6 +65,7 @@ const parseGroupId = (groupId: string): { locationId: string | null; categoryId:
 };
 
 export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps) {
+  const [quantityTarget, setQuantityTarget] = useState<string | null>(null);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [globalCategories, setGlobalCategories] = useState<Category[]>([]);
@@ -742,8 +744,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         is_extra: isExtra,
         sort_order: maxSortOrder + 1
       });
-      const updatedItems = [...budgetItems, newItem];
-      setBudgetItems(updatedItems);
+      setBudgetItems(prev => [...prev, newItem]);
       lastAddedItemRef.current = newItem.id;
 
       if (targetCategoryId || targetLocationId) {
@@ -768,9 +769,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           budgetListRef.current.scrollTop = budgetListRef.current.scrollHeight;
         }
       }, 150);
+      return true;
     } catch (error) {
       console.error('Error adding item:', error);
       alert(`Ошибка добавления: ${getErrorMessage(error)}`);
+      return false;
     }
   };
 
@@ -784,7 +787,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
 
 
-  const handleAddWorkItem = async (workItem: WorkItem, categoryId?: string) => {
+  const handleAddWorkItem = async (workItem: WorkItem, categoryId?: string, quantity: number = 1) => {
     try {
       const selectedPlacement = selectedCategoryId ? parseGroupId(selectedCategoryId) : { categoryId: null, locationId: null };
       const targetCategoryId = categoryId || selectedPlacement.categoryId || undefined;
@@ -803,7 +806,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         event_id: eventId,
         work_item_id: workItem.id,
         item_type: 'work',
-        quantity: 1,
+        quantity,
         price: 0,
         multi_day_rate_override: 0,
         exchange_rate: exchangeRate,
@@ -813,8 +816,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         is_extra: isExtra,
         sort_order: maxSortOrder + 1
       });
-      const updatedItems = [...budgetItems, newItem];
-      setBudgetItems(updatedItems);
+      setBudgetItems(prev => [...prev, newItem]);
       lastAddedItemRef.current = newItem.id;
 
       if (targetCategoryId) {
@@ -842,9 +844,11 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           budgetListRef.current.scrollTop = budgetListRef.current.scrollHeight;
         }
       }, 150);
+      return true;
     } catch (error) {
       console.error('Error adding work item:', error);
       alert(`Ошибка добавления: ${getErrorMessage(error)}`);
+      return false;
     }
   };
 
@@ -2502,9 +2506,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
               {selectedItemType === 'Оборудование' ? (
                 <div className="divide-y divide-gray-800">
                   {filteredEquipment.map(item => (
+                    <React.Fragment key={item.id}>
                     <div
-                      key={item.id}
                       onClick={() => handleEquipmentClick(item)}
+                      onContextMenu={event => { event.preventDefault(); setQuantityTarget(`equipment:${item.id}`); }}
                       className="group flex items-center justify-between px-3 py-2 hover:bg-cyan-500/5 transition-colors cursor-pointer"
                     >
                       <div className="min-w-0 flex-1">
@@ -2521,14 +2526,17 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                         </div>
                       </div>
                     </div>
+                    {quantityTarget === `equipment:${item.id}` && <InlineQuantityAdd key={`equipment:${item.id}`} name={item.name} onAdd={quantity => handleAddItem(item, quantity)} onClose={() => setQuantityTarget(current => current === `equipment:${item.id}` ? null : current)} />}
+                    </React.Fragment>
                   ))}
                 </div>
               ) : (
                 <div className="divide-y divide-gray-800">
                   {filteredWorkItems.map(item => (
+                    <React.Fragment key={item.id}>
                     <div
-                      key={item.id}
                       onClick={() => handleAddWorkItem(item)}
+                      onContextMenu={event => { event.preventDefault(); setQuantityTarget(`work:${item.id}`); }}
                       className="group flex items-center justify-between px-3 py-2 hover:bg-cyan-500/5 transition-colors cursor-pointer"
                     >
                       <div className="min-w-0 flex-1">
@@ -2539,6 +2547,8 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
                         <Plus className="w-3.5 h-3.5" />
                       </div>
                     </div>
+                    {quantityTarget === `work:${item.id}` && <InlineQuantityAdd key={`work:${item.id}`} name={item.name} onAdd={quantity => handleAddWorkItem(item, undefined, quantity)} onClose={() => setQuantityTarget(current => current === `work:${item.id}` ? null : current)} />}
+                    </React.Fragment>
                   ))}
                 </div>
               )}
