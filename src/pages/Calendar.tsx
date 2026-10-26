@@ -6,8 +6,8 @@ import { useAuth } from '../contexts/authContext';
 
 const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const statuses: Record<string, string> = {
-  'Запрос': 'bg-blue-600', 'На рассмотрении': 'bg-amber-600',
-  'Подтверждено': 'bg-emerald-700', 'Отменено': 'bg-gray-700 line-through opacity-70'
+  'Запрос': 'bg-blue-600',
+  'Подтверждено': 'bg-emerald-700', 'Выполнено': 'bg-gray-600 line-through'
 };
 const formatDate = (value: string) => {
   const day = dayNumber(value);
@@ -31,7 +31,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
     let active = true;
     setLoading(true);
     setError('');
-    getEvents().then(data => { if (active) setEvents(data); })
+    getEvents().then(data => { if (active) setEvents(data.filter(event => event.status !== 'Отменено')); })
       .catch(() => { if (active) setError('Не удалось загрузить мероприятия'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
