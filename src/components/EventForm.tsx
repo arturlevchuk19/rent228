@@ -16,12 +16,10 @@ import {
   getEvent,
   getClients,
   getVenues,
-  getOrganizers,
   getEventTypes,
   getBudgetItems,
   Client,
   Venue,
-  Organizer,
   EVENT_TYPES,
   EVENT_STATUSES
 } from '../lib/events';
@@ -83,7 +81,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     venue_id: string | null;
     site_manager_id: string | null;
     client_id: string | null;
-    organizer_id: string | null;
     budget: string;
     specification: string;
     status: string;
@@ -100,7 +97,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
     venue_id: event?.venue_id || null,
     site_manager_id: event?.site_manager_id || null,
     client_id: event?.client_id || null,
-    organizer_id: event?.organizer_id || null,
     budget: event?.budget || '',
     specification: event?.specification || '',
     status: event?.status || 'Запрос',
@@ -115,7 +111,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   const [endDateParts, setEndDateParts] = useState<DateParts>(parseEventDate(event?.event_end_date || ''));
   const [clients, setClients] = useState<Client[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
-  const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,16 +163,14 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
   const loadData = async () => {
     try {
       setLoading(true);
-      const [clientsData, venuesData, organizersData, eventTypesData, usersData] = await Promise.all([
+      const [clientsData, venuesData, eventTypesData, usersData] = await Promise.all([
         getClients(),
         getVenues(),
-        getOrganizers(),
         getEventTypes(),
         getActiveUsers()
       ]);
       setClients(clientsData);
       setVenues(venuesData);
-      setOrganizers(organizersData);
       setUsers(usersData);
       const typesFromDb = eventTypesData.map((item) => item.name).filter(Boolean);
       setEventTypes(typesFromDb.length > 0 ? typesFromDb : [...EVENT_TYPES]);
@@ -221,7 +214,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
         event_type: formData.event_type,
         venue_id: formData.venue_id || null,
         client_id: formData.client_id || null,
-        organizer_id: formData.organizer_id || null,
         site_manager_id: formData.site_manager_id || null,
         budget: formData.budget,
         specification: formData.specification,
@@ -329,7 +321,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
         event_type: eventData.event_type || prev.event_type,
         venue_id: eventData.venue_id ?? prev.venue_id,
         client_id: eventData.client_id ?? prev.client_id,
-        organizer_id: eventData.organizer_id ?? prev.organizer_id,
         budget: eventData.budget || prev.budget,
         specification: eventData.specification || prev.specification,
         notes: eventData.notes || prev.notes
@@ -560,21 +551,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">
-                  Организатор
-                </label>
-                <select
-                  value={formData.organizer_id || ''}
-                  onChange={(e) => setFormData({ ...formData, organizer_id: e.target.value || null })}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                >
-                  <option value="">Не выбран</option>
-                  {organizers.map(organizer => (
-                    <option key={organizer.id} value={organizer.id}>{organizer.full_name}</option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             <div>
