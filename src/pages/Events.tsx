@@ -1,3 +1,4 @@
+import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import React, { useEffect, useState, useRef } from 'react';
 import { Calendar, Plus, Pencil, Trash2, Search, Filter, FileText, Truck, CheckCircle, CreditCard, ClipboardCheck, ReceiptText } from 'lucide-react';
@@ -85,8 +86,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
     }
   };
 
-  const canEditDelete = user?.role !== 'warehouse' && user?.role !== 'staff';
-  const canSeeEventProgress = user?.role === 'admin' || user?.role === 'superuser';
+  const canEditDelete = canAccess(user, 'events', 2);
+  const canSeeEventProgress = canAccess(user, 'budgets');
   const canViewEventStats = canSeeEventProgress;
 
   const getEventDateKey = (event: Event): string | null => {
@@ -245,7 +246,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
           <h1 className="text-2xl font-bold text-white">Мероприятия</h1>
         </div>
         {canEditDelete && (
-          <MobileHeaderContent><button
+          <MobileHeaderContent><button disabled={!canAccess(user, 'events', 2)}
             onClick={() => onEventFormOpen?.()}
             className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
           >
@@ -432,16 +433,16 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                       <tr 
                         key={event.id} 
                         ref={el => eventRefs.current[event.id] = el}
-                        onClick={() => { if (canEditDelete) onEventFormOpen?.(event); }}
-                        tabIndex={canEditDelete ? 0 : undefined}
-                        aria-label={canEditDelete ? `Открыть мероприятие: ${event.name || event.venues?.name || event.event_type}` : undefined}
+                        onClick={() => { if (canAccess(user, 'events')) onEventFormOpen?.(event); }}
+                        tabIndex={canAccess(user, 'events') ? 0 : undefined}
+                        aria-label={canAccess(user, 'events') ? `Открыть мероприятие: ${event.name || event.venues?.name || event.event_type}` : undefined}
                         onKeyDown={keyEvent => {
-                          if (canEditDelete && keyEvent.target === keyEvent.currentTarget && (keyEvent.key === 'Enter' || keyEvent.key === ' ')) {
+                          if (canAccess(user, 'events') && keyEvent.target === keyEvent.currentTarget && (keyEvent.key === 'Enter' || keyEvent.key === ' ')) {
                             keyEvent.preventDefault();
                             onEventFormOpen?.(event);
                           }
                         }}
-                        className={`transition-colors group ${canEditDelete ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 ring-1 ring-inset ring-yellow-500/70' : 'hover:bg-gray-800/50'}`}
+                        className={`transition-colors group ${canAccess(user, 'events') ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 ring-1 ring-inset ring-yellow-500/70' : 'hover:bg-gray-800/50'}`}
                       >
                         <td className="px-4 py-2">
                           <div className="text-cyan-400 font-medium text-sm">{formatDateRange(event)}</div>
@@ -505,7 +506,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
                             <button
                               onClick={() => onSpecificationOpen?.(event.id)}
-                              disabled={event.status !== 'Подтверждено'}
+                              disabled={event.status !== 'Подтверждено' || !canAccess(user, 'specifications')}
                               className={`p-1 rounded transition-colors ${event.status === 'Подтверждено' ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
                               title={event.status === 'Подтверждено' ? 'Спецификация подтверждена' : 'Мероприятие не подтверждено'}
                             >
@@ -513,14 +514,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             </button>
                             {canEditDelete && (
                               <>
-                                <button
+                                <button disabled={!canAccess(user, 'events', 2)}
                                   onClick={() => onEventFormOpen?.(event)}
                                   className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
                                   title="Редактировать"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                <button
+                                <button disabled={!canAccess(user, 'events', 3)}
                                   onClick={() => handleDelete(event.id)}
                                   className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                                   title="Удалить"
@@ -558,16 +559,16 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                   <div 
                     key={event.id} 
                     ref={el => eventRefs.current[event.id + '-mobile'] = el}
-                        onClick={() => { if (canEditDelete) onEventFormOpen?.(event); }}
-                        tabIndex={canEditDelete ? 0 : undefined}
-                        aria-label={canEditDelete ? `Открыть мероприятие: ${event.name || event.venues?.name || event.event_type}` : undefined}
+                        onClick={() => { if (canAccess(user, 'events')) onEventFormOpen?.(event); }}
+                        tabIndex={canAccess(user, 'events') ? 0 : undefined}
+                        aria-label={canAccess(user, 'events') ? `Открыть мероприятие: ${event.name || event.venues?.name || event.event_type}` : undefined}
                         onKeyDown={keyEvent => {
-                          if (canEditDelete && keyEvent.target === keyEvent.currentTarget && (keyEvent.key === 'Enter' || keyEvent.key === ' ')) {
+                          if (canAccess(user, 'events') && keyEvent.target === keyEvent.currentTarget && (keyEvent.key === 'Enter' || keyEvent.key === ' ')) {
                             keyEvent.preventDefault();
                             onEventFormOpen?.(event);
                           }
                         }}
-                    className={`p-3 space-y-2 ${canEditDelete ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 border-l-2 border-yellow-400' : ''}`}
+                    className={`p-3 space-y-2 ${canAccess(user, 'events') ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 border-l-2 border-yellow-400' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -591,7 +592,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                         <span className="w-px h-4 bg-gray-700 mx-0.5" />
                         <button
                           onClick={() => onSpecificationOpen?.(event.id)}
-                          disabled={event.status !== 'Подтверждено'}
+                          disabled={event.status !== 'Подтверждено' || !canAccess(user, 'specifications')}
                           className={`p-1 rounded transition-colors ${event.status === 'Подтверждено' ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
                           title={event.status === 'Подтверждено' ? 'Спецификация подтверждена' : 'Мероприятие не подтверждено'}
                         >
@@ -599,14 +600,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                         </button>
                         {canEditDelete && (
                           <>
-                            <button
+                            <button disabled={!canAccess(user, 'events', 2)}
                               onClick={() => onEventFormOpen?.(event)}
                               className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
                               title="Редактировать"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
-                            <button
+                            <button disabled={!canAccess(user, 'events', 3)}
                               onClick={() => handleDelete(event.id)}
                               className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                               title="Удалить"

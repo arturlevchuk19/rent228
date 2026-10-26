@@ -1,10 +1,13 @@
+import { defaultPermissions, ROLE_NAMES, type Permissions } from './roles';
 import { supabase, UserRole, User } from './supabase';
 
 export interface AuthUser extends User {
   role: UserRole;
+  role_name?: string;
+  permissions?: Permissions;
 }
 
-const roleHierarchy: UserRole[] = ['warehouse', 'staff', 'clerk', 'admin', 'superuser'];
+const roleHierarchy: UserRole[] = ['warehouse', 'staff', 'clerk', 'foreman', 'admin', 'superuser'];
 
 export function hasAccess(user: AuthUser | null, requiredRole: UserRole): boolean {
   if (!user) return false;
@@ -116,9 +119,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     .eq('id', user.id)
     .single();
 
-  if (error || !userData) return null;
-
-  return userData as AuthUser;
+  if (error || !userData || userData.status !== 'active') return null;
+  const role = userData.role as UserRole;
+  const { data: definition } = await supabase.from('app_roles').select('name, permissions').eq('key', role).maybeSingle();
+  return { ...userData, role_name: definition?.name || ROLE_NAMES[role], permissions: definition?.permissions || defaultPermissions(role) } as AuthUser;
 }
 
 export async function updateUserRole(userId: string, role: UserRole, status: string) {

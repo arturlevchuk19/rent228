@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/authContext';
+import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState } from 'react';
 import { Package, Plus, Pencil, Trash2, Search, Filter, Eye } from 'lucide-react';
@@ -13,6 +15,7 @@ import { EquipmentForm } from '../components/EquipmentForm';
 import { EquipmentDetails } from '../components/EquipmentDetails';
 
 export function Equipment() {
+  const { user } = useAuth();
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +110,7 @@ export function Equipment() {
           <h1 className="text-2xl font-bold text-white">Оборудование</h1>
         </div>
         <div className="flex gap-2">
-          <MobileHeaderContent><button
+          <MobileHeaderContent><button disabled={!canAccess(user, 'equipment', 2)}
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
           >
@@ -238,14 +241,14 @@ export function Equipment() {
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        <button
+                        <button disabled={!canAccess(user, 'equipment', 2)}
                           onClick={() => handleEdit(item)}
                           className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
                           title="Редактировать"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button
+                        <button disabled={!canAccess(user, 'equipment', 3)}
                           onClick={() => handleDelete(item.id)}
                           className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                           title="Удалить"
@@ -275,10 +278,10 @@ export function Equipment() {
                     <button onClick={() => setViewingItem(item)} className="p-1.5 text-gray-400 hover:bg-gray-700 rounded transition-colors">
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleEdit(item)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors">
+                    <button disabled={!canAccess(user, 'equipment', 2)} onClick={() => handleEdit(item)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDelete(item.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                    <button disabled={!canAccess(user, 'equipment', 3)} onClick={() => handleDelete(item.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>

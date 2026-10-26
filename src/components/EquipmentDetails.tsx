@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/authContext';
+import { canAccess } from '../lib/roles';
 import { useState, useEffect } from 'react';
 import { X, Package, Plus, Trash2, Settings, ChevronDown, ChevronRight } from 'lucide-react';
 import {
@@ -27,6 +29,7 @@ interface EquipmentDetailsProps {
 type Tab = 'details' | 'composition' | 'modifications';
 
 export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('details');
   const [compositions, setCompositions] = useState<EquipmentComposition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -347,7 +350,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                     <p className="text-gray-400 text-sm">
                       Элементы, входящие в состав этого оборудования
                     </p>
-                    <button
+                    <button disabled={!canAccess(user, 'equipment', 2)}
                       onClick={() => setShowAddComposition(true)}
                       className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
                     >
@@ -391,7 +394,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                               <div className="text-sm text-gray-400">Количество</div>
                               <div className="text-white font-semibold">{comp.quantity}</div>
                             </div>
-                            <button
+                            <button disabled={!canAccess(user, 'equipment', 3)}
                               onClick={() => handleDeleteComposition(comp.id)}
                               className="p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                               title="Удалить"
@@ -422,7 +425,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                 <p className="text-gray-400 text-sm">
                   Создавайте предустановленные конфигурации оборудования с компонентами
                 </p>
-                <button
+                <button disabled={!canAccess(user, 'equipment', 2)}
                   onClick={() => setShowAddModification(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
                 >
@@ -438,7 +441,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         Название модификации
                       </label>
-                      <input
+                      <input disabled={!canAccess(user, 'equipment', 2)}
                         type="text"
                         value={newModificationName}
                         onChange={(e) => setNewModificationName(e.target.value)}
@@ -450,7 +453,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         Описание (необязательно)
                       </label>
-                      <textarea
+                      <textarea disabled={!canAccess(user, 'equipment', 2)}
                         value={newModificationDescription}
                         onChange={(e) => setNewModificationDescription(e.target.value)}
                         placeholder="Краткое описание модификации"
@@ -460,7 +463,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                     </div>
                   </div>
                   <div className="flex items-center justify-end gap-2 mt-4">
-                    <button
+                    <button disabled={!canAccess(user, 'equipment', 2)}
                       onClick={() => {
                         setShowAddModification(false);
                         setNewModificationName('');
@@ -472,7 +475,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                     </button>
                     <button
                       onClick={handleAddModification}
-                      disabled={loading || !newModificationName.trim()}
+                      disabled={(loading || !newModificationName.trim()) || !canAccess(user, 'equipment', 2)}
                       className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors disabled:opacity-50"
                     >
                       {loading ? 'Создание...' : 'Создать'}
@@ -526,7 +529,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                               </span>
                             )}
                           </div>
-                          <button
+                          <button disabled={!canAccess(user, 'equipment', 3)}
                             onClick={() => handleDeleteModification(mod.id)}
                             className="p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors ml-2"
                             title="Удалить модификацию"
@@ -540,7 +543,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <h4 className="text-sm font-medium text-gray-300">Компоненты модификации</h4>
-                                <button
+                                <button disabled={!canAccess(user, 'equipment', 2)}
                                   onClick={() => setShowAddComponentForMod(mod.id)}
                                   className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs transition-colors"
                                 >
@@ -584,7 +587,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                                           <div className="text-xs text-gray-400">Количество</div>
                                           <div className="text-white font-semibold text-sm">{comp.quantity}</div>
                                         </div>
-                                        <button
+                                        <button disabled={!canAccess(user, 'equipment', 3)}
                                           onClick={() => handleDeleteModificationComponent(comp.id, mod.id)}
                                           className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                                           title="Удалить"

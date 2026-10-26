@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/authContext';
+import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, DollarSign, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -25,6 +27,7 @@ interface PaymentFormData {
 }
 
 export default function Payments() {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [payments, setPayments] = useState<PaymentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,7 +160,7 @@ export default function Payments() {
     <div className="space-y-4">
       <div hidden>
         <h1 className="text-2xl font-bold text-white">Выплаты</h1>
-        <MobileHeaderContent><button
+        <MobileHeaderContent><button disabled={!canAccess(user, 'payments', 2)}
           onClick={() => setShowForm(true)}
           className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
@@ -269,14 +272,14 @@ export default function Payments() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex justify-end gap-1">
-                          <button
+                          <button disabled={!canAccess(user, 'payments', 2)}
                             onClick={() => handleEdit(payment)}
                             className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors"
                             title="Редактировать"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          <button
+                          <button disabled={!canAccess(user, 'payments', 3)}
                             onClick={() => handleDelete(payment.id)}
                             className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                             title="Удалить"
@@ -299,10 +302,10 @@ export default function Payments() {
                       {payment.event?.name && <div className="text-xs text-gray-400 truncate">{payment.event.name}</div>}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => handleEdit(payment)} className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors">
+                      <button disabled={!canAccess(user, 'payments', 2)} onClick={() => handleEdit(payment)} className="p-1.5 text-blue-400 hover:bg-blue-900/30 rounded transition-colors">
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(payment.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                      <button disabled={!canAccess(user, 'payments', 3)} onClick={() => handleDelete(payment.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>

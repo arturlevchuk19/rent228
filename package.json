@@ -14,7 +14,8 @@
     "setup:env": "node -e \"const fs = require('fs'); if (!fs.existsSync('.env')) { fs.copyFileSync('.env.example', '.env'); console.log('✓ Created .env from .env.example'); console.log('⚠ Please edit .env with your Supabase credentials'); } else { console.log('✓ .env already exists'); }\"",
     "check": "node check-environment.js",
     "db:migrate": "cd supabase && bash run-migrations.sh",
-    "db:status": "supabase db diff --schema public"
+    "db:status": "supabase db diff --schema public",
+    "test:account": "node tests/account.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

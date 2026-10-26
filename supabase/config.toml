@@ -38,3 +38,7 @@ enable_confirmations = true
 [storage]
 # The maximum file size allowed (in bytes).
 file_size_limit = "50MiB"
+
+# The handler verifies the bearer token with Supabase Auth on every request.
+[functions.account-admin]
+verify_jwt = false

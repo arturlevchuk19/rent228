@@ -1,9 +1,12 @@
+import { useAuth } from '../contexts/authContext';
+import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { getPersonnel, createPersonnel, updatePersonnel, deletePersonnel, Personnel } from '../lib/personnel';
 
 export default function PersonnelPage() {
+  const { user } = useAuth();
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Personnel | null>(null);
@@ -117,7 +120,7 @@ export default function PersonnelPage() {
           <Users className="w-6 h-6 text-cyan-500" />
           <h1 className="text-2xl font-bold text-white">Персонал</h1>
         </div>
-        <MobileHeaderContent><button
+        <MobileHeaderContent><button disabled={!canAccess(user, 'staff', 2)}
           onClick={() => openForm()}
           className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
         >
@@ -184,13 +187,13 @@ export default function PersonnelPage() {
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-1">
-                        <button
+                        <button disabled={!canAccess(user, 'staff', 2)}
                           onClick={() => openForm(person)}
                           className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button
+                        <button disabled={!canAccess(user, 'staff', 3)}
                           onClick={() => handleDelete(person.id)}
                           className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                         >
@@ -213,10 +216,10 @@ export default function PersonnelPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="text-white font-medium text-sm">{person.full_name}</div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => openForm(person)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors">
+                    <button disabled={!canAccess(user, 'staff', 2)} onClick={() => openForm(person)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDelete(person.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                    <button disabled={!canAccess(user, 'staff', 3)} onClick={() => handleDelete(person.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>

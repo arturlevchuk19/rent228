@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/authContext';
+import { canAccess } from '../lib/roles';
 import { InlineQuantityAdd } from './InlineQuantityAdd';
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
@@ -65,6 +67,7 @@ const parseGroupId = (groupId: string): { locationId: string | null; categoryId:
 };
 
 export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps) {
+  const { user } = useAuth();
   const [quantityTarget, setQuantityTarget] = useState<string | null>(null);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -2016,6 +2019,15 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
 
 
+
+  if (!loading && !canAccess(user, 'budgets', 2)) {
+    return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
+      <section className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-800 p-4"><h2 className="font-semibold text-white">Смета: {eventName}</h2><button type="button" onClick={onClose} aria-label="Закрыть" className="rounded p-2 text-gray-300"><X className="h-5 w-5" /></button></header>
+        <div className="min-h-0 overflow-y-auto p-4">{canAccess(user, 'budgets') ? <><p className="mb-3 text-xs text-gray-400">Режим просмотра</p>{budgetItems.map(item => <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 py-3 text-sm"><span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span><span className="shrink-0 text-cyan-400">{item.quantity} × {item.price}</span></div>)}<p className="mt-4 font-semibold text-white">Итого: {getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></> : <p className="text-gray-400">Нет доступа к сметам.</p>}</div>
+      </section>
+    </div>;
+  }
 
   if (loading) {
     return (

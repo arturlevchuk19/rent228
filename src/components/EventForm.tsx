@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/authContext';
+import { canAccess } from '../lib/roles';
 import React, { useState, useEffect } from 'react';
 import { X, Calculator, Copy, Check, FileText, FileSignature } from 'lucide-react';
 import { BudgetEditor } from './BudgetEditor';
@@ -71,6 +73,7 @@ function isValidDate(day: string, month: string, year: string): boolean {
 }
 
 export function EventForm({ event, onClose, onSave, onSpecificationOpen }: EventFormProps) {
+  const { user } = useAuth();
   const initialDate = parseEventDate(event?.event_date || '');
 
   const [formData, setFormData] = useState<{
@@ -187,6 +190,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canAccess(user, 'events', 2)) return;
 
     if (!isValidDate(dateParts.day, dateParts.month, dateParts.year)) {
       alert('Укажите корректную дату мероприятия');
@@ -351,7 +355,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
       <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-3xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
           <h2 className="text-lg font-semibold text-white">
-            {effectiveEventId ? 'Редактировать мероприятие' : 'Новое мероприятие'}
+            {effectiveEventId ? (canAccess(user, 'events', 2) ? 'Редактировать мероприятие' : 'Мероприятие') : 'Новое мероприятие'}
           </h2>
           <button
             onClick={() => onClose(effectiveEventId)}
@@ -362,7 +366,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-4">
+          <fieldset disabled={!canAccess(user, 'events', 2)} className="p-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
@@ -612,7 +616,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                 placeholder="Дополнительная информация..."
               />
             </div>
-          </div>
+          </fieldset>
 
           <div className="sticky bottom-0 bg-gray-900 px-4 py-3 border-t border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
             <div className="flex items-center gap-2 flex-wrap">
@@ -620,6 +624,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                 {effectiveEventId && (
                   <button
                     type="button"
+                    disabled={!canAccess(user, 'budgets', 1)}
                     onClick={() => setShowBudgetEditor(true)}
                     className={`flex items-center gap-1.5 px-2 py-1 text-white rounded transition-colors text-left leading-tight ${
                       hasBudgetItems
@@ -630,9 +635,9 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                     <Calculator className="w-3.5 h-3.5 shrink-0" />
                     <span className="text-[10px] font-medium uppercase tracking-wider">
                       {hasBudgetItems ? (
-                        <>Редактировать<br />смету</>
+                        <>{canAccess(user, 'budgets', 2) ? 'Редактировать' : 'Просмотреть'}<br />смету</>
                       ) : (
-                        <>Составить<br />смету</>
+                        <>{canAccess(user, 'budgets', 2) ? 'Составить' : 'Просмотреть'}<br />смету</>
                       )}
                     </span>
                   </button>
@@ -640,6 +645,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                 {effectiveEventId && (
                   <button
                     type="button"
+                    disabled={!canAccess(user, 'budgets', 2)}
                     onClick={() => setShowCopyDialog(true)}
                     className="flex items-center gap-1.5 px-2 py-1 text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors text-left leading-tight"
                     title="Скопировать смету из другого мероприятия"
@@ -662,6 +668,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
+                    disabled={!canAccess(user, 'budgets', 1)}
                     onClick={() => setShowContractDialog(true)}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
                     title="Сформировать договор"
@@ -671,6 +678,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
                   </button>
                   <button
                     type="button"
+                    disabled={!canAccess(user, 'specifications')}
                     onClick={() => onSpecificationOpen?.(effectiveEventId)}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
                     title="Открыть спецификацию"
@@ -692,7 +700,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen }: Event
               </button>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !canAccess(user, 'events', 2)}
                 className="px-6 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors disabled:opacity-50"
               >
                 {saving ? 'Сохранение...' : 'Сохранить'}

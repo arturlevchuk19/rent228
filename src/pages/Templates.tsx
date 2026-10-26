@@ -1,3 +1,5 @@
+import { useAuth } from '../contexts/authContext';
+import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState } from 'react';
 import { Package, Plus, Pencil, Trash2, Search } from 'lucide-react';
@@ -5,6 +7,7 @@ import { getTemplates, deleteTemplate, Template, getTemplateItemCounts } from '.
 import { TemplateForm } from '../components/TemplateForm';
 
 export function Templates() {
+  const { user } = useAuth();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -84,7 +87,7 @@ export function Templates() {
           <Package className="w-6 h-6 text-cyan-500" />
           <h1 className="text-xl sm:text-2xl font-bold text-white truncate">Шаблоны для сметы</h1>
         </div>
-        <MobileHeaderContent><button
+        <MobileHeaderContent><button disabled={!canAccess(user, 'templates', 2)}
           onClick={() => {
             setEditingTemplate(null);
             setShowForm(true);
@@ -113,7 +116,7 @@ export function Templates() {
         <div className="text-center py-8 bg-gray-900 rounded-lg border border-gray-800">
           <Package className="w-10 h-10 text-gray-600 mx-auto mb-2" />
           <p className="text-gray-400 mb-4 text-sm">Нет шаблонов для отображения</p>
-          <button
+          <button disabled={!canAccess(user, 'templates', 2)}
             onClick={() => {
               setEditingTemplate(null);
               setShowForm(true);
@@ -147,14 +150,14 @@ export function Templates() {
               </div>
 
               <div className="flex gap-2">
-                <button
+                <button disabled={!canAccess(user, 'templates', 2)}
                   onClick={() => handleEdit(template)}
                   className="flex-1 flex items-center justify-center gap-2 px-2 py-1.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   Правка
                 </button>
-                <button
+                <button disabled={!canAccess(user, 'templates', 3)}
                   onClick={() => handleDelete(template.id)}
                   className="flex items-center justify-center px-2 py-1.5 bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/40 transition-colors"
                 >

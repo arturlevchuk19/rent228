@@ -1,3 +1,4 @@
+import { canAccess } from '../lib/roles';
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { type BudgetItem, type Event, getEvent, confirmShipment, confirmReturn } from '../lib/events';
@@ -220,7 +221,6 @@ const buildStableCompositionItemKey = (
 export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
-  const canEditNotes = user?.role === 'admin' || user?.role === 'superuser';
 
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -234,7 +234,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
   const [eventDetails, setEventDetails] = useState<Partial<Event> | null>(null);
-  const canEditSpecification = canEditNotes || (user?.role === 'foreman' && eventDetails?.site_manager_id === user?.id);
+  const canEditSpecification = canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || eventDetails?.site_manager_id === user?.id);
+  const canEditNotes = canEditSpecification;
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
   const [expandedOtherCategories, setExpandedOtherCategories] = useState<Record<string, boolean>>({});
@@ -543,7 +544,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setLoading(true);
       const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData] = await Promise.all([
         (async () => {
-          await ensureWarehouseSpecificationSnapshot(eventId);
+          if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId);
           return getSpecificationBudgetItems(eventId);
         })(),
         getCategories(),
@@ -2310,7 +2311,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                             <td className="px-3 py-1.5 text-center">
                               <>
                                   {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                    <input
+                                    <input disabled={!canAccess(user, 'specifications', 2)}
                                       type="checkbox"
                                       checked={item.return_picked}
                                       onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
@@ -2322,7 +2323,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       checked={item.picked}
                                       onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                       className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
-                                      disabled={!!eventDetails?.equipment_shipped}
+                                      disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
                                     />
                                   )}
                                 </>
@@ -2389,7 +2390,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 <div className="flex justify-center items-center gap-1">
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity - 1)}
-                                    disabled={!canEditSpecification || item.quantity === 0}
+                                    disabled={(!canEditSpecification || item.quantity === 0) || !canAccess(user, 'specifications', 2)}
                                     className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                   >
                                     <Minus className="w-5 h-5" />
@@ -2397,14 +2398,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   <span className="text-xs text-white font-bold w-6 text-center">{item.quantity}</span>
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
-                                    disabled={!canEditSpecification}
+                                    disabled={(!canEditSpecification) || !canAccess(user, 'specifications', 2)}
                                     className="p-0.5 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                   >
                                     <Plus className="w-5 h-5" />
                                   </button>
                                   <button
                                     onClick={() => requestDeleteSpecificationItem(item.budgetItemId, item.name)}
-                                    disabled={!canEditSpecification}
+                                    disabled={(!canEditSpecification) || !canAccess(user, 'specifications', 3)}
                                     className="p-0.5 text-red-500/60 hover:text-red-400 transition-colors"
                                     title="Удалить элемент"
                                   >
@@ -2528,7 +2529,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 <tr key={length} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input
+                                      <input disabled={!canAccess(user, 'specifications', 2)}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleCableReturnPickedChange(cableId, e.target.checked)}
@@ -2540,7 +2541,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={!!eventDetails?.equipment_shipped}
+                                        disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
                                       />
                                     ) : null}
                                   </td>
@@ -2549,7 +2550,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input
+                                      <input disabled={!canAccess(user, 'specifications', 2)}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2574,12 +2575,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetCableQuantityFromTemplate(template.type, length, Math.max(0, quantity - 1))}
-                                          disabled={quantity === 0}
+                                          disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button
+                                        <button disabled={!canAccess(user, 'specifications', 2)}
                                           onClick={() => handleSetCableQuantityFromTemplate(template.type, length, quantity + 1)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
@@ -2655,7 +2656,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                        <input
+                                        <input disabled={!canAccess(user, 'specifications', 2)}
                                           type="checkbox"
                                           checked={returnPicked}
                                         onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
@@ -2667,7 +2668,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={!!eventDetails?.equipment_shipped}
+                                        disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
                                       />
                                     ) : null}
                                   </td>
@@ -2676,7 +2677,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input
+                                      <input disabled={!canAccess(user, 'specifications', 2)}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2701,12 +2702,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
-                                          disabled={quantity === 0}
+                                          disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button
+                                        <button disabled={!canAccess(user, 'specifications', 2)}
                                           onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, quantity + 1)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
@@ -2777,7 +2778,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input
+                                      <input disabled={!canAccess(user, 'specifications', 2)}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleOtherReturnPickedChange(otherId, e.target.checked)}
@@ -2789,7 +2790,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         checked={picked}
                                         onChange={(e) => handleOtherPickedChange(otherId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={!!eventDetails?.equipment_shipped}
+                                        disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
                                       />
                                     ) : null}
                                   </td>
@@ -2798,7 +2799,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input
+                                      <input disabled={!canAccess(user, 'specifications', 2)}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2823,12 +2824,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
-                                          disabled={quantity === 0}
+                                          disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button
+                                        <button disabled={!canAccess(user, 'specifications', 2)}
                                           onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, quantity + 1)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
@@ -2895,7 +2896,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           <tr key={`${item.budgetItemId}-${index}`} className="bg-orange-900/5 hover:bg-orange-900/15 transition-colors">
                             <td className="px-3 py-1.5 text-center">
                               {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                <input
+                                <input disabled={!canAccess(user, 'specifications', 2)}
                                   type="checkbox"
                                   checked={item.return_picked}
                                   onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
@@ -2907,7 +2908,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                   checked={item.picked}
                                   onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                   className="w-4 h-4 cursor-pointer rounded border-orange-700 bg-gray-800 text-orange-600"
-                                  disabled={!!eventDetails?.equipment_shipped}
+                                  disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
                                 />
                               )}
                             </td>
@@ -2943,7 +2944,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             {modifiedItems.size > 0 && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleSaveChanges}
-                disabled={savingChanges}
+                disabled={(savingChanges) || !canAccess(user, 'specifications', 2)}
                 className="px-3 py-1.5 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 {savingChanges ? (
@@ -2981,7 +2982,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             {canEditSpecification && !eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmShipment}
-                disabled={confirmingShipment}
+                disabled={(confirmingShipment) || !canAccess(user, 'specifications', 2)}
                 title={!allPickedForShipment ? 'Проставьте все галочки перед отгрузкой' : undefined}
                 className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -2996,7 +2997,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             {canEditSpecification && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
-                disabled={confirmingReturn}
+                disabled={(confirmingReturn) || !canAccess(user, 'specifications', 2)}
                 title={!allPickedForReturn ? 'Проставьте все галочки перед приёмкой' : undefined}
                 className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -3208,7 +3209,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                         <div className="text-xs text-white font-medium">{comp.component?.name || 'Unknown'}</div>
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <input
+                        <input disabled={!canAccess(user, 'specifications', 2)}
                           type="number"
                           value={componentQuantities[comp.id] || 0}
                           onChange={(e) => handleComponentQuantityChange(comp.id, parseInt(e.target.value) || 0)}
@@ -3233,7 +3234,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               >
                 Отмена
               </button>
-              <button
+              <button disabled={!canAccess(user, 'specifications', 2)}
                 onClick={handleSaveComponents}
                 className="flex-1 px-4 py-2 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 transition-colors"
               >
@@ -3274,7 +3275,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               </button>
               <button
                 onClick={handleResetSpecification}
-                disabled={resettingSpecification}
+                disabled={(resettingSpecification) || !canAccess(user, 'specifications', 3)}
                 className="px-3 py-1.5 text-xs bg-amber-700 text-white rounded hover:bg-amber-600 transition-colors disabled:opacity-50"
               >
                 {resettingSpecification ? 'Сброс...' : 'Да, сбросить'}
@@ -3303,7 +3304,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               >
                 Отмена
               </button>
-              <button
+              <button disabled={!canAccess(user, 'specifications', 2)}
                 onClick={applyQuantityChange}
                 className="flex-1 px-4 py-2 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 transition-colors"
               >
@@ -3324,13 +3325,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               Удалить элемент <span className="text-white font-medium">«{pendingDeleteItem.itemName}»</span> из спецификации?
             </p>
             <div className="mt-4 flex gap-2">
-              <button
+              <button disabled={!canAccess(user, 'specifications', 3)}
                 onClick={() => setPendingDeleteItem(null)}
                 className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
               >
                 Отмена
               </button>
-              <button
+              <button disabled={!canAccess(user, 'specifications', 3)}
                 onClick={async () => {
                   const target = pendingDeleteItem;
                   setPendingDeleteItem(null);
@@ -3378,7 +3379,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <textarea
+            <textarea disabled={!canAccess(user, 'specifications', 2)}
               autoFocus
               value={openNote.value}
               onChange={(e) => setOpenNote((note) => note ? { ...note, value: e.target.value } : note)}

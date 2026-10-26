@@ -23,12 +23,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      (async () => {
-        await loadUser();
-      })();
+      // Do not call Supabase while its auth-state callback holds the auth lock.
+      setTimeout(() => { void loadUser(); }, 0);
     });
 
+    const refreshOnFocus = () => { void loadUser(); };
+    window.addEventListener('focus', refreshOnFocus);
     return () => {
+      window.removeEventListener('focus', refreshOnFocus);
       subscription.unsubscribe();
     };
   }, []);

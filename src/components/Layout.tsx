@@ -1,8 +1,8 @@
 import { MobileHeaderContext } from './MobileHeaderContent';
 import React, { useState, useSyncExternalStore } from 'react';
 import { useAuth } from '../contexts/authContext';
-import { signOut, hasAccess } from '../lib/auth';
-import type { UserRole } from '../lib/supabase';
+import { canAccess, ROLE_NAMES, type AppModule } from '../lib/roles';
+import { AccountDialog } from './AccountDialog';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
@@ -11,7 +11,7 @@ import {
   Calendar,
   Users,
   Settings,
-  LogOut,
+  UserRound,
   Menu,
   X,
   Truck,
@@ -33,6 +33,7 @@ interface LayoutProps {
 
 export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { user } = useAuth();
+  const [accountTab, setAccountTab] = useState<'profile' | 'users' | 'roles' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileTitle, setMobileTitle] = useState<HTMLDivElement | null>(null);
   const [mobileActions, setMobileActions] = useState<HTMLDivElement | null>(null);
@@ -43,44 +44,27 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
   if (!user) return null;
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
-  const roleLabels: Record<string, string> = {
-    superuser: 'Суперпользователь',
-    admin: 'Администратор',
-    clerk: 'Кладовщик',
-    staff: 'Персонал',
-    warehouse: 'Кладовщик',
-  };
-
   const menuItems: Array<{
     id: string;
     label: string;
     icon: LucideIcon;
-    minRole: UserRole;
   }> = [
-    { id: 'calendar', label: 'Календарь', icon: Calendar, minRole: 'warehouse' },
-    { id: 'dashboard', label: 'Главная', icon: LayoutDashboard, minRole: 'warehouse' },
-    { id: 'templates', label: 'Шаблоны для сметы', icon: Package, minRole: 'admin' },
-    { id: 'equipment', label: 'Оборудование', icon: Package, minRole: 'warehouse' },
-    { id: 'events', label: 'Мероприятия', icon: Calendar, minRole: 'warehouse' },
-    { id: 'contacts', label: 'Справочники', icon: Users, minRole: 'admin' },
-    { id: 'logistics', label: 'Логистика', icon: Truck, minRole: 'clerk' },
-    { id: 'payments', label: 'Выплаты', icon: DollarSign, minRole: 'admin' },
-    { id: 'personnel-report', label: 'Отчет по выплатам', icon: FileText, minRole: 'admin' },
-    { id: 'staff', label: 'Персонал', icon: Users, minRole: 'admin' },
-    { id: 'users', label: 'Пользователи', icon: Users, minRole: 'admin' },
-    { id: 'settings', label: 'Настройки', icon: Settings, minRole: 'admin' },
+    { id: 'calendar', label: 'Календарь', icon: Calendar },
+    { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
+    { id: 'templates', label: 'Шаблоны для сметы', icon: Package },
+    { id: 'equipment', label: 'Оборудование', icon: Package },
+    { id: 'events', label: 'Мероприятия', icon: Calendar },
+    { id: 'contacts', label: 'Справочники', icon: Users },
+    { id: 'logistics', label: 'Логистика', icon: Truck },
+    { id: 'payments', label: 'Выплаты', icon: DollarSign },
+    { id: 'personnel-report', label: 'Отчет по выплатам', icon: FileText },
+    { id: 'staff', label: 'Персонал', icon: Users },
+    { id: 'users', label: 'Пользователи', icon: Users },
+    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   const availableMenuItems = menuItems.filter((item) =>
-    hasAccess(user, item.minRole)
+    canAccess(user, item.id as AppModule)
   );
 
   return (
@@ -112,10 +96,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
             <div ref={setPageActions} className="hidden shrink-0 items-center gap-2 sm:flex" />
             <div className="hidden text-right sm:block">
               <p className="text-sm leading-tight text-white">{user.full_name}</p>
-              <p className="text-xs leading-tight text-gray-400">{roleLabels[user.role] || user.role}</p>
+              <p className="text-xs leading-tight text-gray-400">{user.role_name || ROLE_NAMES[user.role]}</p>
             </div>
-            <button onClick={handleSignOut} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white" title="Выйти">
-              <LogOut className="h-5 w-5" />
+            <button onClick={() => setAccountTab('profile')} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-cyan-400" title="Мой профиль" aria-label="Мой профиль">
+              <UserRound className="h-5 w-5" />
             </button>
           </div>
         </header>
@@ -146,7 +130,8 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                 <button
                   key={item.id}
                   onClick={() => {
-                    onNavigate(item.id);
+                    if (item.id === 'users') setAccountTab('users');
+                    else onNavigate(item.id);
                     setMobileMenuOpen(false);
                   }}
                   className={`
@@ -174,6 +159,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
         </div>
       </div>
     </div>
+    {accountTab && <AccountDialog initialTab={accountTab} onClose={() => setAccountTab(null)} />}
     </MobileHeaderContext.Provider>
   );
 }

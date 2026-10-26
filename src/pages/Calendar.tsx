@@ -1,3 +1,4 @@
+import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -89,7 +90,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
     const end = Math.max(start, dayNumber(event.event_end_date || '') ?? start);
     return start <= Date.UTC(year, month + 1, 0) / 86400000 && end >= Date.UTC(year, month, 1) / 86400000;
   }).length;
-  const canEdit = user?.role !== 'warehouse' && user?.role !== 'staff';
+  const canEdit = canAccess(user, 'events');
   return <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
     <header hidden>
       <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-cyan-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>
@@ -150,7 +151,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
       <section role="dialog" aria-modal="true" aria-labelledby="calendar-event-title" className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-5 shadow-xl" onClick={event => event.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3"><h2 id="calendar-event-title" className="text-xl font-semibold text-white">{selected.name || selected.event_type || 'Мероприятие'}</h2><button autoFocus type="button" aria-label="Закрыть" onClick={() => setSelected(null)} className="rounded p-1 text-gray-400 hover:bg-gray-800"><X className="h-5 w-5" /></button></div>
         <div className="space-y-3 text-sm text-gray-300"><p>{formatDate(selected.event_date)}{selected.event_end_date && selected.event_end_date !== selected.event_date ? ` — ${formatDate(selected.event_end_date)}` : ''}</p><p><span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${statuses[selected.status] || 'bg-blue-600'}`} />{selected.status}</p>{selected.venues?.name && <p>Площадка: {selected.venues.name}</p>}{selected.event_type && <p>Тип: {selected.event_type}</p>}{selected.notes && <p className="whitespace-pre-wrap">{selected.notes}</p>}</div>
-        <div className="mt-5 flex flex-wrap gap-2">{canEdit && <button type="button" onClick={() => { onEventFormOpen(selected); setSelected(null); }} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm text-white hover:bg-cyan-700">Открыть мероприятие</button>}{selected.status === 'Подтверждено' && <button type="button" onClick={() => { onSpecificationOpen(selected.id); setSelected(null); }} className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-800">Спецификация</button>}</div>
+        <div className="mt-5 flex flex-wrap gap-2">{canEdit && <button type="button" onClick={() => { onEventFormOpen(selected); setSelected(null); }} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm text-white hover:bg-cyan-700">Открыть мероприятие</button>}{selected.status === 'Подтверждено' && canAccess(user, 'specifications') && <button type="button" onClick={() => { onSpecificationOpen(selected.id); setSelected(null); }} className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-800">Спецификация</button>}</div>
       </section>
     </div>}
   </div>;

@@ -1,3 +1,4 @@
+import { canAccess, type AppModule } from './lib/roles';
 import { lazy, Suspense, useState } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/authContext';
@@ -49,6 +50,7 @@ function AppContent() {
     if (!eventId) setLastCreatedEventId(null);
   };
   const handleSpecificationOpen = async (eventId: string) => {
+    if (!canAccess(user, 'specifications')) return;
     try {
       const event = await getEvent(eventId);
       if (event) { setSpecificationEvent(event); setSpecificationEventId(eventId); }
@@ -56,12 +58,13 @@ function AppContent() {
   };
 
   const renderPage = () => {
+    if (!canAccess(user, currentPage as AppModule)) return <p className="rounded-lg border border-gray-800 p-6 text-sm text-gray-400">Нет доступа к этому разделу. Выберите доступный раздел в меню или откройте свой профиль.</p>;
     switch (currentPage) {
-      case 'calendar': return <Calendar refreshSignal={refreshKey} onEventFormOpen={event => { setEditingEvent(event); setEventFormOpen(true); }} onSpecificationOpen={handleSpecificationOpen} />;
+      case 'calendar': return <Calendar refreshSignal={refreshKey} onEventFormOpen={event => { if (canAccess(user, 'events')) { setEditingEvent(event); setEventFormOpen(true); } }} onSpecificationOpen={handleSpecificationOpen} />;
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
       case 'equipment': return <Equipment />;
-      case 'events': return <Events refreshSignal={refreshKey} onEventFormOpen={event => { setEditingEvent(event); setEventFormOpen(true); }} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
+      case 'events': return <Events refreshSignal={refreshKey} onEventFormOpen={event => { if (canAccess(user, 'events')) { setEditingEvent(event); setEventFormOpen(true); } }} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
       case 'payments': return <Payments />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
