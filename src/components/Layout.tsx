@@ -1,5 +1,5 @@
 import { MobileHeaderContext } from './MobileHeaderContent';
-import React, { useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { useAuth } from '../contexts/authContext';
 import { signOut, hasAccess } from '../lib/auth';
 import type { UserRole } from '../lib/supabase';
@@ -18,6 +18,13 @@ import {
   DollarSign,
 } from 'lucide-react';
 
+const subscribeToViewport = (onChange: () => void) => {
+  const query = window.matchMedia('(max-width: 639px)');
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+};
+const isMobileViewport = () => window.matchMedia('(max-width: 639px)').matches;
+
 interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
@@ -29,6 +36,10 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileTitle, setMobileTitle] = useState<HTMLDivElement | null>(null);
   const [mobileActions, setMobileActions] = useState<HTMLDivElement | null>(null);
+
+  const [pageTitle, setPageTitle] = useState<HTMLDivElement | null>(null);
+  const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
+  const mobile = useSyncExternalStore(subscribeToViewport, isMobileViewport, () => false);
 
   if (!user) return null;
 
@@ -73,7 +84,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   );
 
   return (
-    <MobileHeaderContext.Provider value={{ title: mobileTitle, actions: mobileActions }}>
+    <MobileHeaderContext.Provider value={{ title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions }}>
     <div className="h-dvh flex flex-col bg-black overflow-hidden">
       <nav className="bg-gray-900 border-b border-gray-800 flex-shrink-0 z-20">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -89,13 +100,14 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
                   <Menu className="w-6 h-6" />
                 )}
               </button>
-              <div ref={setMobileTitle} className="min-w-0 flex-1">
+              <span className="hidden sm:block text-lg font-bold text-white ml-3 lg:ml-0">RentMaster</span>
+              <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
                 {currentPage !== 'calendar' && <h1 className="truncate text-base sm:text-lg font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-1 sm:gap-3">
-              <div ref={setMobileActions} className="flex items-center gap-1 sm:gap-2" />
+              <div ref={setMobileActions} className="flex items-center gap-1 sm:hidden" />
               <div className="text-right hidden sm:block">
                 <p className="text-sm text-white leading-tight">{user.full_name}</p>
                 <p className="text-xs text-gray-400 leading-tight">{roleLabels[user.role] || user.role}</p>
@@ -158,9 +170,18 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           </nav>
         </aside>
 
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="relative z-10 hidden shrink-0 items-center justify-between gap-4 border-b border-gray-800 bg-gray-900 px-4 py-3 sm:flex lg:px-6">
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <h1 className="truncate text-xl font-semibold text-white">{menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <div ref={setPageTitle} className="min-w-0" />
+            </div>
+            <div ref={setPageActions} className="flex shrink-0 items-center gap-2" />
+          </header>
         <main className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
+        </div>
       </div>
     </div>
     </MobileHeaderContext.Provider>
