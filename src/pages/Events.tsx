@@ -430,7 +430,16 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                       <tr 
                         key={event.id} 
                         ref={el => eventRefs.current[event.id] = el}
-                        className={`transition-colors group ${isNearestEvent(event) ? 'bg-yellow-500/10 ring-1 ring-inset ring-yellow-500/70' : 'hover:bg-gray-800/50'}`}
+                        onClick={() => { if (canEditDelete) onEventFormOpen?.(event); }}
+                        tabIndex={canEditDelete ? 0 : undefined}
+                        aria-label={canEditDelete ? `Открыть мероприятие: ${event.name || event.venues?.name || event.event_type}` : undefined}
+                        onKeyDown={keyEvent => {
+                          if (canEditDelete && keyEvent.target === keyEvent.currentTarget && (keyEvent.key === 'Enter' || keyEvent.key === ' ')) {
+                            keyEvent.preventDefault();
+                            onEventFormOpen?.(event);
+                          }
+                        }}
+                        className={`transition-colors group ${canEditDelete ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 ring-1 ring-inset ring-yellow-500/70' : 'hover:bg-gray-800/50'}`}
                       >
                         <td className="px-4 py-2">
                           <div className="text-cyan-400 font-medium text-sm">{formatDateRange(event)}</div>
@@ -476,7 +485,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           </div>
                           )}
                         </td>
-                        <td className="px-4 py-2 text-right">
+                        <td className="px-4 py-2 text-right" onClick={clickEvent => clickEvent.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1.5">
                             <span
                               title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
@@ -547,14 +556,23 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                   <div 
                     key={event.id} 
                     ref={el => eventRefs.current[event.id + '-mobile'] = el}
-                    className={`p-3 space-y-2 ${isNearestEvent(event) ? 'bg-yellow-500/10 border-l-2 border-yellow-400' : ''}`}
+                        onClick={() => { if (canEditDelete) onEventFormOpen?.(event); }}
+                        tabIndex={canEditDelete ? 0 : undefined}
+                        aria-label={canEditDelete ? `Открыть мероприятие: ${event.name || event.venues?.name || event.event_type}` : undefined}
+                        onKeyDown={keyEvent => {
+                          if (canEditDelete && keyEvent.target === keyEvent.currentTarget && (keyEvent.key === 'Enter' || keyEvent.key === ' ')) {
+                            keyEvent.preventDefault();
+                            onEventFormOpen?.(event);
+                          }
+                        }}
+                    className={`p-3 space-y-2 ${canEditDelete ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 border-l-2 border-yellow-400' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="text-white font-medium text-sm leading-tight truncate">{event.venues?.name || '-'}</div>
                         <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.name || '-'} ({event.event_type})</div>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 flex-shrink-0" onClick={clickEvent => clickEvent.stopPropagation()}>
                         <span
                           title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
                           className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
