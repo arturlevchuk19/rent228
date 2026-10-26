@@ -1,3 +1,4 @@
+import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState } from 'react';
 import { Package, Plus, Pencil, Trash2, Search, Filter, Eye } from 'lucide-react';
 import {
@@ -100,19 +101,19 @@ export function Equipment() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="hidden sm:flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Package className="w-6 h-6 text-cyan-500" />
           <h1 className="text-2xl font-bold text-white">Оборудование</h1>
         </div>
         <div className="flex gap-2">
-          <button
+          <MobileHeaderContent><button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
             Добавить
-          </button>
+          </button></MobileHeaderContent>
         </div>
       </div>
 
