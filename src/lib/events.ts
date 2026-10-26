@@ -31,17 +31,6 @@ export interface Client {
   created_at: string;
 }
 
-export interface Organizer {
-  id: string;
-  full_name: string;
-  position: string;
-  phone: string;
-  email: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Event {
   id: string;
   event_date: string;
@@ -52,7 +41,6 @@ export interface Event {
   budget: string;
   specification: string;
   status: string;
-  organizer_id: string | null;
   progress_budget_done: boolean;
   progress_equipment_reserved: boolean;
   progress_project_completed: boolean;
@@ -82,7 +70,6 @@ export interface Event {
   sticky_notes?: string;
   venues?: Venue;
   clients?: Client;
-  organizers?: Organizer;
 }
 
 export interface EventTypeItem {
@@ -221,10 +208,6 @@ export async function getEvents(): Promise<Event[]> {
         id,
         organization,
         full_name
-      ),
-      organizers (
-        id,
-        full_name
       )
     `)
     .order('event_date', { ascending: false });
@@ -239,8 +222,7 @@ export async function getEvent(id: string): Promise<Event> {
     .select(`
       *,
       venues (*),
-      clients (*),
-      organizers (*)
+      clients (*)
     `)
     .eq('id', id)
     .single();
@@ -423,54 +405,6 @@ export async function updateClient(id: string, client: Partial<Client>): Promise
 export async function deleteClient(id: string): Promise<void> {
   const { error } = await supabase
     .from('clients')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
-}
-
-export async function getOrganizers(): Promise<Organizer[]> {
-  const { data, error } = await supabase
-    .from('organizers')
-    .select('*')
-    .order('full_name');
-
-  if (error) throw error;
-  return data || [];
-}
-
-export async function createOrganizer(organizer: Partial<Organizer>): Promise<Organizer> {
-  const { data, error } = await supabase
-    .from('organizers')
-    .insert({
-      ...organizer,
-      updated_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function updateOrganizer(id: string, organizer: Partial<Organizer>): Promise<Organizer> {
-  const { data, error } = await supabase
-    .from('organizers')
-    .update({
-      ...organizer,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteOrganizer(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('organizers')
     .delete()
     .eq('id', id);
 
