@@ -74,7 +74,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
 
   return (
     <MobileHeaderContext.Provider value={{ title: mobileTitle, actions: mobileActions }}>
-    <div className="h-screen flex flex-col bg-black overflow-hidden">
+    <div className="h-dvh flex flex-col bg-black overflow-hidden">
       <nav className="bg-gray-900 border-b border-gray-800 flex-shrink-0 z-20">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between gap-2 h-14">
@@ -161,7 +161,7 @@ export function Layout({ children, currentPage, onNavigate }: LayoutProps) {
           </nav>
         </aside>
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
+        <main className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
       </div>
