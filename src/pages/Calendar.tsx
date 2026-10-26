@@ -82,8 +82,8 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
     return start <= Date.UTC(year, month + 1, 0) / 86400000 && end >= Date.UTC(year, month, 1) / 86400000;
   }).length;
   const canEdit = user?.role !== 'warehouse' && user?.role !== 'staff';
-  return <div className="space-y-4">
-    <header className="relative hidden sm:flex flex-wrap items-center justify-between gap-3">
+  return <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
+    <header className="relative hidden shrink-0 sm:flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-cyan-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>
       <div className="flex flex-wrap items-center gap-2">
         <MobileHeaderContent slot="title"><div ref={pickerRef} className="relative">
@@ -108,30 +108,33 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen }: CalendarProps
         </div></MobileHeaderContent>
       </div>
     </header>
-    <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">{Object.entries(statuses).map(([status, color]) => <span key={status} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${color}`} />{status}</span>)}</div>
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-xs text-gray-400">{Object.entries(statuses).map(([status, color]) => <span key={status} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${color}`} />{status}</span>)}</div>
+    {!loading && !error && <p className="shrink-0 text-[10px] sm:text-xs text-gray-400">{count ? `Мероприятий в этом месяце: ${count}` : 'В этом месяце мероприятий нет'}</p>}
     {loading ? <div className="py-20 text-center text-gray-400" role="status">Загрузка календаря...</div> : error ? <div role="alert" className="rounded-lg border border-red-900 p-6 text-red-300">{error}<button type="button" onClick={() => setAttempt(value => value + 1)} className="ml-3 underline">Повторить</button></div> : <>
-      <div className="overflow-x-auto rounded-xl border border-gray-700 bg-gray-900">
-        <div className="min-w-[700px]">
-          <div className="grid grid-cols-7 border-b border-gray-700">{['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day, index) => <div key={day} className={`py-3 text-center text-xs font-medium uppercase ${index > 4 ? 'text-gray-500' : 'text-gray-300'}`}>{day}</div>)}</div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="grid shrink-0 grid-cols-7 border-b border-gray-700">{['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day, index) => <div key={day} className={`py-1 sm:py-2 text-center text-[10px] sm:text-xs font-medium uppercase ${index > 4 ? 'text-gray-500' : 'text-gray-300'}`}>{day}</div>)}</div>
+          <div className="grid min-h-0 flex-1" style={{ gridTemplateRows: `repeat(${weeks.length}, minmax(0, 1fr))` }}>
           {weeks.map(week => {
             const segments = weekSegments(events, week);
-            const laneCount = Math.max(0, ...segments.map(segment => segment.lane + 1));
-            return <div key={week} className="relative border-b border-gray-700 last:border-b-0" style={{ minHeight: Math.max(118, 44 + laneCount * 29) }}>
+            return <div key={week} className="relative min-h-0 min-w-0 overflow-hidden border-b border-gray-700 last:border-b-0">
               <div className="absolute inset-0 grid grid-cols-7">{Array.from({ length: 7 }, (_, index) => {
                 const day = week + index; const date = dateFromDay(day);
                 const current = date.getUTCMonth() === month;
-                return <div key={day} className={`border-r border-gray-800 p-2 last:border-r-0 ${!current ? 'bg-black/20' : index > 4 ? 'bg-gray-950/30' : ''}`}><span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm ${day === todayDay ? 'bg-cyan-600 font-bold text-white' : current ? 'text-gray-200' : 'text-gray-600'}`}>{date.getUTCDate()}</span></div>;
+                return <div key={day} className={`border-r border-gray-800 p-0.5 sm:p-1 last:border-r-0 ${!current ? 'bg-black/20' : index > 4 ? 'bg-gray-950/30' : ''}`}><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${day === todayDay ? 'bg-cyan-600 font-bold text-white' : current ? 'text-gray-200' : 'text-gray-600'}`}>{date.getUTCDate()}</span></div>;
               })}</div>
-              <div className="relative grid grid-cols-7 gap-y-1 px-0.5 pb-3 pt-10" style={{ gridAutoRows: 25 }}>
-                {segments.map(segment => <button key={segment.event.id} type="button" onClick={() => setSelected(segment.event)} title={`${segment.event.name || segment.event.event_type}\n${formatDate(segment.event.event_date)} — ${formatDate(segment.event.event_end_date || segment.event.event_date)}${segment.event.venues?.name ? `\n${segment.event.venues.name}` : ''}`} style={{ gridColumn: `${segment.start + 1} / ${segment.end + 2}`, gridRow: segment.lane + 1 }} className={`mx-0.5 truncate px-2 text-left text-xs font-medium text-white hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${statuses[segment.event.status] || 'bg-blue-600'} ${segment.continuesBefore ? 'rounded-l-none' : 'rounded-l-md'} ${segment.continuesAfter ? 'rounded-r-none' : 'rounded-r-md'}`}>
+              <div className="absolute inset-x-0 bottom-0 top-7 overflow-x-hidden overflow-y-auto overscroll-contain">
+              <div className="grid min-w-0 grid-cols-7 gap-y-0.5 pb-1" style={{ gridAutoRows: 22 }}>
+                {segments.map(segment => <button key={segment.event.id} type="button" onClick={() => setSelected(segment.event)} title={`${segment.event.name || segment.event.event_type}\n${formatDate(segment.event.event_date)} — ${formatDate(segment.event.event_end_date || segment.event.event_date)}${segment.event.venues?.name ? `\n${segment.event.venues.name}` : ''}`} style={{ gridColumn: `${segment.start + 1} / ${segment.end + 2}`, gridRow: segment.lane + 1 }} className={`mx-px min-w-0 truncate px-0.5 sm:px-2 text-left text-[10px] sm:text-xs font-medium text-white hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${statuses[segment.event.status] || 'bg-blue-600'} ${segment.continuesBefore ? 'rounded-l-none' : 'rounded-l-md'} ${segment.continuesAfter ? 'rounded-r-none' : 'rounded-r-md'}`}>
                   {segment.continuesBefore && '‹ '}{segment.event.name || segment.event.event_type || 'Мероприятие'}{segment.continuesAfter && ' ›'}
                 </button>)}
               </div>
+              </div>
             </div>;
           })}
+          </div>
         </div>
       </div>
-      <p className="text-sm text-gray-400">{count ? `Мероприятий в этом месяце: ${count}` : 'В этом месяце мероприятий нет'}<span className="mt-1 block text-xs sm:hidden">Проведите по календарю влево или вправо для просмотра всех дней.</span></p>
     </>}
     {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setSelected(null)}>
       <section role="dialog" aria-modal="true" aria-labelledby="calendar-event-title" className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-5 shadow-xl" onClick={event => event.stopPropagation()}>
