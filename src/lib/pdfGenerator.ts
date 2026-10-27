@@ -955,9 +955,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   document.body.appendChild(container);
   await waitForRenderReady();
   const canvas = await html2canvas(container, {
-    // Scale 1 keeps large budgets responsive: scale 2 quadrupled canvas pixels and
-    // made html2canvas/Png encoding take tens of seconds for long estimates.
-    scale: 1,
+    // Double resolution keeps small text and table lines sharp in the saved PDF.
+    scale: 2,
     backgroundColor: '#ffffff',
     useCORS: true,
     logging: false,
@@ -993,8 +992,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   });
 
   const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  // JPEG is much smaller and faster to encode than a huge lossless PNG canvas.
-  pdf.addImage(canvas.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, pageWidth, renderedImageHeightMm);
+  // Lossless PNG preserves text edges and colors without JPEG artifacts.
+  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
 
   // Формируем имя файла: Дата_Площадка_Версия
   const fileNameParts: string[] = [];
