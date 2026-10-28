@@ -1,4 +1,5 @@
 import { useEventPageNavigation } from './hooks/useEventPageNavigation';
+import { usePageNavigation } from './hooks/usePageNavigation';
 import { EventPage } from './pages/EventPage';
 import { canAccess, type AppModule } from './lib/roles';
 import { lazy, Suspense, useState } from 'react';
@@ -29,7 +30,7 @@ function PageFallback() {
 function AppContent() {
   const { user, loading } = useAuth();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [currentPage, setCurrentPage] = useState('calendar');
+  const { currentPage, navigate } = usePageNavigation();
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [venueFormOpen, setVenueFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client>();
@@ -79,7 +80,7 @@ function AppContent() {
   };
 
   return <>
-    <Layout currentPage={currentPage} pageHeading={eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) setCurrentPage(page); }}>
+    <Layout currentPage={currentPage} pageHeading={eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) navigate(page); }}>
       <div hidden={eventPage.open} className="h-full"><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></div>
       {eventPage.open && <EventPage event={eventPage.event} loading={eventPage.loading} error={eventPage.error} onDirtyChange={eventPage.setDirty} onBack={eventId => { if (eventPage.close() && eventId && !eventPage.event) setLastCreatedEventId(eventId); }} onSave={eventId => { eventPage.saved(eventId); handleRefresh(eventId); }} onSpecificationOpen={handleSpecificationOpen} onDeleted={() => { eventPage.setDirty(false); eventPage.close(); handleRefresh(); }} />}
     </Layout>
