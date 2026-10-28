@@ -597,12 +597,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const isUShapeConstruction = (equipmentItem: EquipmentItem) => {
     const name = equipmentItem.name || '';
-    return name.toLowerCase().includes('п-образная конструкция') && !name.toLowerCase().includes('с системой подъема');
+    return name.toLowerCase().includes('п-образная фермовая конструкция') && !name.toLowerCase().includes('с системой подъема');
   };
 
   const isUShapeLiftingConstruction = (equipmentItem: EquipmentItem) => {
     const name = equipmentItem.name || '';
-    return name.toLowerCase().includes('п-образная конструкция с системой подъема');
+    return name.toLowerCase().includes('п-образная фермовая конструкция с системой подъема');
   };
 
   const handleEquipmentClick = async (equipmentItem: EquipmentItem) => {
