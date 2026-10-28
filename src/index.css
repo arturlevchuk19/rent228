@@ -95,11 +95,11 @@
   }
 }
 
-/* Keep the editable event heading large on touch screens without triggering input zoom. */
+/* Keep the editable event heading compact and above the mobile input zoom threshold. */
 #root input.event-page-title {
-  font-size: 1.5rem !important;
+  font-size: 1.125rem !important;
   line-height: 1.3;
 }
 @media (min-width: 640px) {
-  #root input.event-page-title { font-size: 1.875rem !important; }
+  #root input.event-page-title { font-size: 1.25rem !important; }
 }
