@@ -1,11 +1,12 @@
 import { eventDateLabel, normalizeProjectDetails, validateProjectDetails } from '../lib/eventProject';
 import { getErrorMessage } from '../lib/errors';
+import { EventInlineField } from './EventInlineField';
 import { ProjectSection } from './ProjectSection';
 import { EventProjectBlocks } from './EventProjectBlocks';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calculator, Copy, Check, FileText, FileSignature, ArrowLeft, CalendarDays, UserRoundCheck, MapPin, Trash2 } from 'lucide-react';
+import { X, Calculator, Copy, Check, FileText, FileSignature, ArrowLeft, CalendarDays, UserRoundCheck, Building2, MapPin, Trash2 } from 'lucide-react';
 import { BudgetEditor } from './BudgetEditor';
 import { CopyBudgetDialog } from './dialogs/CopyBudgetDialog';
 import { ContractDialog } from './dialogs/ContractDialog';
@@ -478,8 +479,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className={page ? 'space-y-4' : 'flex-1 overflow-y-auto'}>
-      {page && <div className="mb-4 space-y-3">
+        <form onSubmit={handleSubmit} className={page ? 'space-y-3' : 'flex-1 overflow-y-auto'}>
+      {page && <div className="mb-3 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => onClose(effectiveEventId)} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Назад</button>
           <div className="ml-auto flex items-center gap-2">
@@ -489,17 +490,17 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           </div>
         </div>
         <input aria-label="Название мероприятия" placeholder="Название мероприятия" value={formData.name} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, name: event.target.value })} className="event-page-title w-full min-w-0 border-0 bg-transparent py-1 text-lg font-semibold text-white outline-none placeholder:text-gray-600 sm:text-xl" />
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button type="button" aria-label="Изменить даты мероприятия" onClick={() => { if (detailsRef.current) { detailsRef.current.open = true; detailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); detailsRef.current.querySelector('input')?.focus({ preventScroll: true }); } }} className="inline-flex items-center gap-2 text-left text-xs sm:text-sm text-gray-200"><CalendarDays className="h-4 w-4 shrink-0 text-gray-500" /><span className="border-b border-dashed border-gray-600 pb-0.5">{eventDateLabel(formData.event_date, formData.event_end_date)}</span></button>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
             <select aria-label="Статус мероприятия" value={formData.status} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, status: event.target.value })} className={`max-w-full rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${formData.status === 'Подтверждено' ? 'border-emerald-800 bg-emerald-900/30 text-emerald-400' : formData.status === 'Отменено' ? 'border-red-900 bg-red-900/20 text-red-400' : formData.status === 'Выполнено' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-amber-900 bg-amber-900/20 text-amber-400'}`}>{EVENT_STATUSES.map(status => <option className="bg-gray-900 text-gray-200" key={status}>{status}</option>)}</select>
         <label className="min-w-0 max-w-full"><span className="sr-only">Тип мероприятия</span><select value={formData.event_type} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, event_type: event.target.value })} className="max-w-full rounded-full border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-semibold text-gray-300 outline-none focus:border-cyan-600">{eventTypes.map(type => <option key={type}>{type}</option>)}</select></label>
             </div>
           </div>
-          <label className="flex items-center gap-2"><UserRoundCheck className="h-4 w-4 shrink-0 text-gray-500" /><span className="sr-only">Старший на площадке</span><select aria-label="Старший на площадке" value={formData.site_manager_id || ''} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, site_manager_id: event.target.value || null })} className="min-w-0 max-w-full border-0 border-b border-dashed border-gray-600 bg-transparent py-1 text-sm text-gray-300 outline-none"><option className="bg-gray-900" value="">Старший на площадке не назначен</option>{users.map(item => <option className="bg-gray-900" key={item.id} value={item.id}>{item.full_name || item.email}</option>)}</select></label>
-          <label className="block"><span className="sr-only">Заказчик</span><select aria-label="Заказчик мероприятия" value={formData.client_id || ''} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, client_id: event.target.value || null })} className="max-w-full border-0 bg-transparent py-1 text-base font-medium text-gray-200 outline-none"><option className="bg-gray-900" value="">Заказчик не выбран</option>{clients.map(client => <option className="bg-gray-900" key={client.id} value={client.id}>{client.organization || client.full_name}</option>)}</select></label>
-          <label className="flex items-center gap-2"><MapPin className="h-4 w-4 shrink-0 text-gray-500" /><span className="sr-only">Площадка</span><select aria-label="Площадка мероприятия" value={formData.venue_id || ''} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, venue_id: event.target.value || null })} className="min-w-0 max-w-full border-0 bg-transparent py-1 text-sm text-gray-400 outline-none"><option className="bg-gray-900" value="">Площадка не выбрана</option>{venues.map(venue => <option className="bg-gray-900" key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>
+          <EventInlineField label="Заказчик мероприятия" icon={Building2} value={formData.client_id} placeholder="Заказчик не выбран" options={clients.map(client => ({ value: client.id, label: client.organization || client.full_name }))} disabled={!canAccess(user, 'events', 2)} onChange={value => setFormData({ ...formData, client_id: value })} />
+          <EventInlineField label="Старший на площадке" icon={UserRoundCheck} value={formData.site_manager_id} placeholder="Старший на площадке не назначен" options={users.map(item => ({ value: item.id, label: item.full_name || item.email }))} disabled={!canAccess(user, 'events', 2)} onChange={value => setFormData({ ...formData, site_manager_id: value })} />
+          <EventInlineField label="Площадка мероприятия" icon={MapPin} value={formData.venue_id} placeholder="Площадка не выбрана" options={venues.map(venue => ({ value: venue.id, label: venue.name }))} disabled={!canAccess(user, 'events', 2)} onChange={value => setFormData({ ...formData, venue_id: value })} />
         </div>
         {pageError && <p role="alert" className="rounded-xl border border-red-900 bg-red-900/20 p-3 text-sm text-red-300">{pageError}</p>}
         {saveMessage && <p role="status" className="text-sm text-emerald-400">{saveMessage}</p>}
