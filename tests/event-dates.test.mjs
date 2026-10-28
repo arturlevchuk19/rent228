@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+const code = ts.transpile(readFileSync(new URL('../src/lib/eventDates.ts', import.meta.url), 'utf8'), { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext });
+const { displayEventDate, parseEventDateInput } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+assert.equal(displayEventDate('2026-11-08'), '08.11.2026');
+assert.equal(displayEventDate(''), '');
+assert.equal(parseEventDateInput('08.11.2026'), '2026-11-08');
+assert.equal(parseEventDateInput('08112026'), '2026-11-08');
+assert.equal(parseEventDateInput(''), '');
+assert.equal(parseEventDateInput('  '), '');
+assert.equal(parseEventDateInput('29.02.2028'), '2028-02-29');
+for (const invalid of ['29.02.2027', '31.04.2026', '32.01.2026', '01.13.2026', '01.01.0000', '8.11.2026', 'abc']) assert.equal(parseEventDateInput(invalid), null, invalid);
+assert.equal(parseEventDateInput('00.11.2026'), '2026-11-00');
+assert.equal(parseEventDateInput('00.00.2026'), '2026-00-00');
+console.log('Event date input checks passed.');

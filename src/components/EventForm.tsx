@@ -1,3 +1,4 @@
+import { EventDatesDialog } from './EventDatesDialog';
 import { eventDateLabel, normalizeProjectDetails, validateProjectDetails } from '../lib/eventProject';
 import { getErrorMessage } from '../lib/errors';
 import { EventInlineField } from './EventInlineField';
@@ -131,6 +132,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const [pageBudget, setPageBudget] = useState<BudgetItem[]>([]);
   const [budgetRefresh, setBudgetRefresh] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [showDatesDialog, setShowDatesDialog] = useState(false);
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   const [dateParts, setDateParts] = useState<DateParts>(initialDate);
@@ -169,11 +171,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
 
   useEffect(() => {
     const formatted = formatEventDate(endDateParts.day, endDateParts.month, endDateParts.year);
-    // Не перезаписываем пустой датой, если конечная дата не введена
-    setFormData(prev => {
-      if (!formatted) return prev;
-      return { ...prev, event_end_date: formatted };
-    });
+    setFormData(prev => ({ ...prev, event_end_date: formatted }));
   }, [endDateParts]);
 
   const checkBudgetItems = async () => {
@@ -216,7 +214,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
     e.preventDefault();
     if (!canAccess(user, 'events', 2)) return;
 
-    if (!isValidDate(dateParts.day, dateParts.month, dateParts.year)) {
+    if (formData.event_date && !isValidDate(dateParts.day, dateParts.month, dateParts.year)) {
       alert('Укажите корректную дату мероприятия');
       return;
     }
@@ -492,7 +490,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         <input aria-label="Название мероприятия" placeholder="Название мероприятия" value={formData.name} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, name: event.target.value })} className="event-page-title w-full min-w-0 border-0 bg-transparent py-1 text-lg font-semibold text-white outline-none placeholder:text-gray-600 sm:text-xl" />
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" aria-label="Изменить даты мероприятия" onClick={() => { if (detailsRef.current) { detailsRef.current.open = true; detailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); detailsRef.current.querySelector('input')?.focus({ preventScroll: true }); } }} className="inline-flex items-center gap-2 text-left text-xs sm:text-sm text-gray-200"><CalendarDays className="h-4 w-4 shrink-0 text-gray-500" /><span className="border-b border-dashed border-gray-600 pb-0.5">{eventDateLabel(formData.event_date, formData.event_end_date)}</span></button>
+            <button type="button" aria-label="Изменить даты мероприятия" disabled={!canAccess(user, 'events', 2)} onClick={() => setShowDatesDialog(true)} className="inline-flex items-center gap-2 text-left text-xs sm:text-sm text-gray-200"><CalendarDays className="h-4 w-4 shrink-0 text-gray-500" /><span className="border-b border-dashed border-gray-600 pb-0.5">{eventDateLabel(formData.event_date, formData.event_end_date)}</span></button>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
             <select aria-label="Статус мероприятия" value={formData.status} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, status: event.target.value })} className={`max-w-full rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${formData.status === 'Подтверждено' ? 'border-emerald-800 bg-emerald-900/30 text-emerald-400' : formData.status === 'Отменено' ? 'border-red-900 bg-red-900/20 text-red-400' : formData.status === 'Выполнено' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-amber-900 bg-amber-900/20 text-amber-400'}`}>{EVENT_STATUSES.map(status => <option className="bg-gray-900 text-gray-200" key={status}>{status}</option>)}</select>
         <label className="min-w-0 max-w-full"><span className="sr-only">Тип мероприятия</span><select value={formData.event_type} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, event_type: event.target.value })} className="max-w-full rounded-full border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-semibold text-gray-300 outline-none focus:border-cyan-600">{eventTypes.map(type => <option key={type}>{type}</option>)}</select></label>
@@ -522,7 +520,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
-                  Дата <span className="text-red-400/80">*</span>
+                  Дата
                   <span className="text-gray-500 font-normal ml-1">(ДД.ММ.ГГГГ, можно 00)</span>
                 </label>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -794,6 +792,17 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           </div>
         </form>
       </div>
+
+      {showDatesDialog && canAccess(user, 'events', 2) && <EventDatesDialog
+        name={formData.name} start={formData.event_date} end={formData.event_end_date}
+        onClose={() => setShowDatesDialog(false)}
+        onApply={(start, end) => {
+          setDateParts(parseEventDate(start));
+          setEndDateParts(parseEventDate(end));
+          setFormData(previous => ({ ...previous, event_date: start, event_end_date: end }));
+          setSaveMessage('');
+        }}
+      />}
 
       {showBudgetEditor && effectiveEventId && (
         <BudgetEditor
