@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* A classic scrollbar must not narrow the event grid relative to the day grid. */
+.calendar-events-scroll {
+  scrollbar-width: none;
+}
+.calendar-events-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* iOS zooms focused form controls when their text is smaller than 16px.
    Keep touch-device fields readable, including in landscape, while allowing pinch zoom. */
 @media (max-width: 767px), (any-pointer: coarse) {
