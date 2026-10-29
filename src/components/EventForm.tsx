@@ -1,3 +1,6 @@
+import { EventBudgetsPanel } from './EventBudgetsPanel';
+import { getBudgetEvent, getEventBudgets, type EventBudget } from '../lib/eventBudgets';
+import { eventProgress } from '../lib/eventProgress';
 import { EventDatesDialog } from './EventDatesDialog';
 import { eventDateLabel, normalizeProjectDetails, validateProjectDetails } from '../lib/eventProject';
 import { getErrorMessage } from '../lib/errors';
@@ -41,7 +44,7 @@ interface EventFormProps {
   event?: Event;
   onClose: (eventId?: string) => void;
   onSave: (eventId?: string) => void;
-  onSpecificationOpen?: (eventId: string) => void;
+  onSpecificationOpen?: (eventId: string, budgetId?: string) => void;
 }
 
 interface DateParts {
@@ -129,6 +132,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const [pageError, setPageError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const [budgets, setBudgets] = useState<EventBudget[]>([]);
+  const [selectedBudgetId, setSelectedBudgetId] = useState<string>();
   const [pageBudget, setPageBudget] = useState<BudgetItem[]>([]);
   const [budgetRefresh, setBudgetRefresh] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -177,10 +182,22 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const checkBudgetItems = async () => {
     if (!effectiveEventId || (!canAccess(user, 'budgets') && !canAccess(user, 'specifications'))) return;
     try {
-      const items = await getBudgetItems(effectiveEventId);
+      const [items, documents, current] = await Promise.all([getBudgetItems(effectiveEventId), getEventBudgets(effectiveEventId), getEvent(effectiveEventId)]);
       setPageBudget(items);
-      setHasBudgetItems(items.length > 0);
+      setBudgets(documents);
+      setSelectedBudgetId(previous => documents.some(budget => budget.id === previous) ? previous : documents[0]?.id);
+      setHasBudgetItems(documents.length > 0);
+      setFormData(previous => {
+        const saved = JSON.parse(baseline.current);
+        const syncStatus = previous.status === saved.formData.status;
+        const status = syncStatus ? current.status : previous.status;
+        saved.formData.progress_budget_done = documents.length > 0;
+        if (syncStatus) { saved.formData.status = status; Object.assign(saved.formData, eventProgress(status, documents.length)); }
+        baseline.current = JSON.stringify(saved);
+        return { ...previous, status, ...eventProgress(status, documents.length) };
+      });
     } catch (error) {
+      setPageError(getErrorMessage(error));
       console.error('Error checking budget items:', error);
     }
   };
@@ -248,9 +265,9 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         budget: formData.budget,
         specification: formData.specification,
         status: formData.status,
-        progress_budget_done: formData.progress_budget_done,
-        progress_equipment_reserved: formData.progress_equipment_reserved,
-        progress_project_completed: formData.progress_project_completed,
+        progress_budget_done: budgets.length > 0,
+        progress_equipment_reserved: ['Подтверждено', 'Выполнено'].includes(formData.status),
+        progress_project_completed: formData.status === 'Выполнено',
         progress_paid: formData.progress_paid,
         notes: formData.notes
       };
@@ -292,14 +309,14 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
     setShowContractDialog(false);
 
     try {
-      const fullEvent = await getEvent(effectiveEventId);
+      const fullEvent = selectedBudgetId ? await getBudgetEvent(effectiveEventId, selectedBudgetId) : await getEvent(effectiveEventId);
       const client = clients.find((item) => item.id === payload.organizationId);
       if (!client) {
         alert('Выбранная организация не найдена');
         return;
       }
 
-      const budgetItems = await getBudgetItems(effectiveEventId);
+      const budgetItems = await getBudgetItems(effectiveEventId, selectedBudgetId);
       const totals = calcGrandTotals(budgetItems, fullEvent.budget_days || 1, fullEvent.budget_totals_mode || 'combined_only');
       
       let amount = fullEvent.budget_totals_mode === 'combined_only' ? totals.combinedTotal : totals.day1Total;
@@ -313,8 +330,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
       // Fetch locations and categories so the contract asset list is ordered the
       // same as the estimate (смета) PDF.
       const [locations, eventCategories] = await Promise.all([
-        getLocationsForEvent(effectiveEventId),
-        getCategoriesForEvent(effectiveEventId)
+        getLocationsForEvent(effectiveEventId, selectedBudgetId),
+        getCategoriesForEvent(effectiveEventId, selectedBudgetId)
       ]);
       const categories = eventCategories.length > 0 ? eventCategories : await getCategories().catch(() => []);
 
@@ -374,11 +391,11 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   };
 
   const handlePagePdf = async () => {
-    if (!effectiveEventId || !canAccess(user, 'budgets')) return;
+    if (!effectiveEventId || !selectedBudgetId || !canAccess(user, 'budgets')) return;
     if (dirty) { setPageError('Сначала сохраните изменения мероприятия, затем создайте PDF.'); return; }
     setGeneratingPdf(true); setPageError('');
     try {
-      const [fullEvent, items, globalCategories, eventCategories, locations, pdf] = await Promise.all([getEvent(effectiveEventId), getBudgetItems(effectiveEventId), getCategories(), getCategoriesForEvent(effectiveEventId), getLocationsForEvent(effectiveEventId), import('../lib/pdfGenerator')]);
+      const [fullEvent, items, globalCategories, eventCategories, locations, pdf] = await Promise.all([selectedBudgetId ? getBudgetEvent(effectiveEventId, selectedBudgetId) : getEvent(effectiveEventId), getBudgetItems(effectiveEventId, selectedBudgetId), getCategories(), getCategoriesForEvent(effectiveEventId, selectedBudgetId), getLocationsForEvent(effectiveEventId, selectedBudgetId), import('../lib/pdfGenerator')]);
       await pdf.generateBudgetPDF({ eventName: fullEvent.name || fullEvent.event_type, eventDate: fullEvent.event_date, eventEndDate: fullEvent.event_end_date, venueName: fullEvent.venues?.name, clientName: fullEvent.clients?.organization, budgetItems: items, categories: [...globalCategories, ...eventCategories], locations, exchangeRate: items[0]?.exchange_rate || 1, paymentMode: 'usd', budgetDays: fullEvent.budget_days || 1, budgetTotalsMode: fullEvent.budget_totals_mode || 'combined_only', discountEnabled: fullEvent.discount_enabled, discountPercent: fullEvent.discount_percent, discount2Enabled: fullEvent.discount2_enabled, discount2Percent: fullEvent.discount2_percent, budgetNote: fullEvent.budget_note });
     } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setGeneratingPdf(false); }
   };
@@ -443,7 +460,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                   <button
                     type="button"
                     disabled={!canAccess(user, 'specifications')}
-                    onClick={() => onSpecificationOpen?.(effectiveEventId)}
+                    onClick={() => onSpecificationOpen?.(effectiveEventId, selectedBudgetId)}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors border border-gray-700"
                     title="Открыть спецификацию"
                   >
@@ -482,7 +499,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => onClose(effectiveEventId)} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Назад</button>
           <div className="ml-auto flex items-center gap-2">
-          <button type="button" disabled={!effectiveEventId || generatingPdf || !canAccess(user, 'budgets')} onClick={() => { void handlePagePdf(); }} className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF'}</button>
+          <button type="button" disabled={!effectiveEventId || !selectedBudgetId || generatingPdf || !canAccess(user, 'budgets')} onClick={() => { void handlePagePdf(); }} className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF'}</button>
           <button type="button" disabled={!effectiveEventId || !canAccess(user, 'budgets', 2)} onClick={() => setShowCopyDialog(true)} aria-label="Копировать смету из мероприятия" className="rounded-xl border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-cyan-400 disabled:opacity-40"><Copy className="h-5 w-5" /></button>
           {canAccess(user, 'events', 3) && effectiveEventId && <button type="button" disabled={saving} onClick={async () => { if (!window.confirm('Удалить это мероприятие и его смету?')) return; try { setSaving(true); await deleteEvent(effectiveEventId); onDirtyChange?.(false); onDeleted?.(); } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setSaving(false); } }} aria-label="Удалить мероприятие" className="rounded-xl border border-red-900 bg-red-950/20 p-2 text-red-400 hover:bg-red-900/30 disabled:opacity-40"><Trash2 className="h-5 w-5" /></button>}
           </div>
@@ -492,7 +509,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" aria-label="Изменить даты мероприятия" disabled={!canAccess(user, 'events', 2)} onClick={() => setShowDatesDialog(true)} className="inline-flex items-center gap-2 text-left text-xs sm:text-sm text-gray-200"><CalendarDays className="h-4 w-4 shrink-0 text-gray-500" /><span className="border-b border-dashed border-gray-600 pb-0.5">{eventDateLabel(formData.event_date, formData.event_end_date)}</span></button>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <select aria-label="Статус мероприятия" value={formData.status} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, status: event.target.value })} className={`max-w-full rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${formData.status === 'Подтверждено' ? 'border-emerald-800 bg-emerald-900/30 text-emerald-400' : formData.status === 'Отменено' ? 'border-red-900 bg-red-900/20 text-red-400' : formData.status === 'Выполнено' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-amber-900 bg-amber-900/20 text-amber-400'}`}>{EVENT_STATUSES.map(status => <option className="bg-gray-900 text-gray-200" key={status}>{status}</option>)}</select>
+            <select aria-label="Статус мероприятия" value={formData.status} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, status: event.target.value, ...eventProgress(event.target.value, budgets.length) })} className={`max-w-full rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${formData.status === 'Подтверждено' ? 'border-emerald-800 bg-emerald-900/30 text-emerald-400' : formData.status === 'Отменено' ? 'border-red-900 bg-red-900/20 text-red-400' : formData.status === 'Выполнено' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-amber-900 bg-amber-900/20 text-amber-400'}`}>{EVENT_STATUSES.map(status => <option className="bg-gray-900 text-gray-200" key={status}>{status}</option>)}</select>
         <label className="min-w-0 max-w-full"><span className="sr-only">Тип мероприятия</span><select value={formData.event_type} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, event_type: event.target.value })} className="max-w-full rounded-full border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-semibold text-gray-300 outline-none focus:border-cyan-600">{eventTypes.map(type => <option key={type}>{type}</option>)}</select></label>
             </div>
           </div>
@@ -500,21 +517,32 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           <EventInlineField label="Старший на площадке" icon={UserRoundCheck} value={formData.site_manager_id} placeholder="Старший на площадке не назначен" options={users.map(item => ({ value: item.id, label: item.full_name || item.email }))} disabled={!canAccess(user, 'events', 2)} onChange={value => setFormData({ ...formData, site_manager_id: value })} />
           <EventInlineField label="Площадка мероприятия" icon={MapPin} value={formData.venue_id} placeholder="Площадка не выбрана" options={venues.map(venue => ({ value: venue.id, label: venue.name }))} disabled={!canAccess(user, 'events', 2)} onChange={value => setFormData({ ...formData, venue_id: value })} />
         </div>
+        <div aria-label="Прогресс проекта" className="flex flex-wrap gap-x-4 gap-y-2 pt-1 text-xs text-gray-300">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={budgets.length > 0} disabled className="h-4 w-4 accent-cyan-600" />Смета составлена</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={['Подтверждено', 'Выполнено'].includes(formData.status)} disabled={!canAccess(user, 'events', 2)} onChange={event => { const status = event.target.checked ? 'Подтверждено' : 'Запрос'; setFormData({ ...formData, status, ...eventProgress(status, budgets.length) }); }} className="h-4 w-4 accent-cyan-600" />Смета подтверждена</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={formData.status === 'Выполнено'} disabled={!canAccess(user, 'events', 2)} onChange={event => { const status = event.target.checked ? 'Выполнено' : 'Подтверждено'; setFormData({ ...formData, status, ...eventProgress(status, budgets.length) }); }} className="h-4 w-4 accent-cyan-600" />Проект выполнен</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={formData.progress_paid} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, progress_paid: event.target.checked })} className="h-4 w-4 accent-cyan-600" />Оплачен</label>
+        </div>
         {pageError && <p role="alert" className="rounded-xl border border-red-900 bg-red-900/20 p-3 text-sm text-red-300">{pageError}</p>}
         {saveMessage && <p role="status" className="text-sm text-emerald-400">{saveMessage}</p>}
       </div>}
           {page && <>
-            <ProjectSection title="Сметы мероприятия" count={hasBudgetItems ? 1 : 0}>
-              {effectiveEventId ? <div className="space-y-4"><p className="text-sm text-gray-300">{hasBudgetItems ? `Основная смета · позиций: ${pageBudget.length}` : 'Смета ещё не заполнена.'}</p>{legacyActions}</div> : <p className="text-sm text-gray-500">Сохраните мероприятие, чтобы составить смету.</p>}
+            <ProjectSection title="Сметы мероприятия" defaultOpen count={budgets.length}>
+              {budgets.length > 1 && <label className="mb-3 block text-xs text-gray-400">Смета для PDF и документов<select aria-label="Смета для документов" value={selectedBudgetId || ''} onChange={event => setSelectedBudgetId(event.target.value)} className="ml-2 max-w-full rounded-lg border border-gray-700 bg-gray-900 p-2 text-gray-200">{budgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}</select></label>}
+              <EventBudgetsPanel eventId={effectiveEventId} budgets={budgets} onChanged={checkBudgetItems} onOpen={id => { setSelectedBudgetId(id); setShowBudgetEditor(true); }} onSpecification={id => { if (effectiveEventId) onSpecificationOpen?.(effectiveEventId, id); }} />
+              <div className="mt-3">{legacyActions}</div>
             </ProjectSection>
-            <ProjectSection title="Оборудование" subtitle="Из сметы + вручную" count={pageBudget.filter(item => item.item_type === 'equipment').length} actions={effectiveEventId && canAccess(user, 'specifications') ? <button type="button" aria-label="Открыть спецификацию оборудования" onClick={() => onSpecificationOpen?.(effectiveEventId)} className="rounded-lg p-2 text-gray-500 hover:text-cyan-400"><FileText className="h-4 w-4" /></button> : undefined}>
+            <ProjectSection title="Спецификации" count={budgets.length}>
+              {!budgets.length && <p className="text-sm text-gray-500">Спецификации появятся после добавления смет.</p>}
+              {budgets.map(budget => <button key={budget.id} type="button" disabled={!canAccess(user, 'specifications')} onClick={() => { if (effectiveEventId) onSpecificationOpen?.(effectiveEventId, budget.id); }} className="mb-2 flex w-full items-center gap-2 rounded-lg border border-gray-800 p-3 text-left text-sm text-gray-300"><FileText className="h-4 w-4" />{budget.name}</button>)}
+            </ProjectSection>
+            <ProjectSection title="Оборудование" subtitle="Из сметы + вручную" count={pageBudget.filter(item => item.item_type === 'equipment').length} actions={effectiveEventId && canAccess(user, 'specifications') ? <button type="button" aria-label="Открыть спецификацию оборудования" onClick={() => onSpecificationOpen?.(effectiveEventId, selectedBudgetId)} className="rounded-lg p-2 text-gray-500 hover:text-cyan-400"><FileText className="h-4 w-4" /></button> : undefined}>
               {!pageBudget.some(item => item.item_type === 'equipment') ? <p className="text-sm text-gray-500">Оборудование появится после заполнения сметы.</p> : <div className="divide-y divide-gray-800">{pageBudget.filter(item => item.item_type === 'equipment').map(item => <div key={item.id} className="flex justify-between gap-3 py-2 text-sm"><span className="min-w-0 break-words text-gray-300">{item.equipment?.name || item.name || 'Оборудование'}</span><span className="shrink-0 text-gray-400">{item.quantity} {item.equipment?.unit || 'шт.'}</span></div>)}</div>}
             </ProjectSection>
             <EventProjectBlocks value={project} onChange={setProject} editable={canAccess(user, 'events', 2)} eventId={effectiveEventId} eventDate={formData.event_date} refreshSignal={budgetRefresh} />
           </>}
 
-          <details ref={detailsRef} open={page ? !event : true} className={page ? 'overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/70' : 'contents'}>
-            {page && <summary className="cursor-pointer px-4 py-4 text-sm font-semibold uppercase tracking-wider text-gray-400 sm:px-5">Данные мероприятия</summary>}
+          {!page && <details ref={detailsRef} open={page ? !event : true} className={page ? 'overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/70' : 'contents'}>
 
           <fieldset disabled={!canAccess(user, 'events', 2)} className="p-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -767,8 +795,9 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
               />
             </div>
           </fieldset>
-          </details>
+          </details>}
 
+          {page && <ProjectSection title="Примечания"><textarea aria-label="Примечания мероприятия" value={formData.notes} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, notes: event.target.value })} rows={3} className="w-full rounded-lg border border-gray-700 bg-gray-800 p-3 text-sm text-gray-200" /></ProjectSection>}
           <div className="sticky bottom-0 z-10 rounded-xl bg-gray-900/95 px-4 py-3 border border-gray-800 flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-2">
             {!page && legacyActions}
             {page && pageError && <p role="alert" className="min-w-0 flex-1 text-xs text-red-300">{pageError}</p>}
@@ -806,6 +835,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
 
       {showBudgetEditor && effectiveEventId && (
         <BudgetEditor
+          budgetId={selectedBudgetId}
           eventId={effectiveEventId}
           eventName={formData.name || 'Мероприятие'}
           onClose={() => {
@@ -818,6 +848,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
 
       {showCopyDialog && effectiveEventId && (
         <CopyBudgetDialog
+          currentBudgetId={selectedBudgetId}
           currentEventId={effectiveEventId}
           onClose={() => setShowCopyDialog(false)}
           onSuccess={handleCopySuccess}

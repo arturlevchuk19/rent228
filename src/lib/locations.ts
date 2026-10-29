@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
 export interface Location {
+  budget_id?: string | null;
   id: string;
   event_id: string;
   name: string;
@@ -18,11 +19,12 @@ function isMissingLocationsTable(error: unknown): boolean {
   return (error as { code?: string }).code === 'PGRST205';
 }
 
-export async function getLocationsForEvent(eventId: string): Promise<Location[]> {
+export async function getLocationsForEvent(eventId: string, budgetId?: string): Promise<Location[]> {
   const { data, error } = await supabase
     .from('locations')
     .select('*')
     .eq('event_id', eventId)
+    .or(budgetId ? `budget_id.eq.${budgetId}` : 'budget_id.is.null,budget_id.not.is.null')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
 
@@ -34,7 +36,7 @@ export async function getLocationsForEvent(eventId: string): Promise<Location[]>
   return data || [];
 }
 
-export async function createLocation(eventId: string, name: string, color: string = '#6B7280'): Promise<Location> {
+export async function createLocation(eventId: string, name: string, color: string = '#6B7280', budgetId?: string): Promise<Location> {
   const { data: lastLocation } = await supabase
     .from('locations')
     .select('sort_order')
@@ -49,6 +51,7 @@ export async function createLocation(eventId: string, name: string, color: strin
     .from('locations')
     .insert({
       event_id: eventId,
+      budget_id: budgetId,
       name,
       color,
       sort_order: sortOrder,

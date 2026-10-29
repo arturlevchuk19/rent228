@@ -35,6 +35,7 @@ function AppContent() {
   const [venueFormOpen, setVenueFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client>();
   const [editingVenue, setEditingVenue] = useState<Venue>();
+  const [specificationBudgetId, setSpecificationBudgetId] = useState<string>();
   const [specificationEventId, setSpecificationEventId] = useState<string | null>(null);
   const [specificationEvent, setSpecificationEvent] = useState<Event | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -51,11 +52,11 @@ function AppContent() {
     setRefreshKey(value => value + 1);
     if (!eventId) setLastCreatedEventId(null);
   };
-  const handleSpecificationOpen = async (eventId: string) => {
+  const handleSpecificationOpen = async (eventId: string, budgetId?: string) => {
     if (!canAccess(user, 'specifications')) return;
     try {
       const event = await getEvent(eventId);
-      if (event) { setSpecificationEvent(event); setSpecificationEventId(eventId); }
+      if (event) { setSpecificationBudgetId(budgetId); setSpecificationEvent(event); setSpecificationEventId(eventId); }
     } catch (error) { console.error('Error loading event:', error); }
   };
 
@@ -86,7 +87,7 @@ function AppContent() {
     </Layout>
     {clientFormOpen && <ClientForm client={editingClient} onClose={() => { setClientFormOpen(false); setEditingClient(undefined); }} onSave={handleRefresh} />}
     {venueFormOpen && <VenueForm venue={editingVenue} onClose={() => { setVenueFormOpen(false); setEditingVenue(undefined); }} onSave={handleRefresh} />}
-    {specificationEvent && specificationEventId && <WarehouseSpecification eventId={specificationEventId} eventName={specificationEvent.name || 'Мероприятие'} onClose={() => { setSpecificationEventId(null); setSpecificationEvent(null); handleRefresh(); }} />}
+    {specificationEvent && specificationEventId && <WarehouseSpecification key={specificationBudgetId || specificationEventId} budgetId={specificationBudgetId} eventId={specificationEventId} eventName={specificationEvent.name || 'Мероприятие'} onClose={() => { setSpecificationEventId(null); setSpecificationEvent(null); handleRefresh(); }} />}
   </>;
 }
 

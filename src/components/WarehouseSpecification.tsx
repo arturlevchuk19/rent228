@@ -1,9 +1,11 @@
+import { BudgetScope } from './BudgetScope';
+import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
 import { createQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
 import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
 import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
-import { type BudgetItem, type Event, getEvent, confirmShipment, confirmReturn } from '../lib/events';
+import { type BudgetItem, type Event } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
@@ -48,6 +50,7 @@ import { getModificationComponents } from '../lib/equipment';
 import { StickyNotePanel } from './StickyNotePanel';
 
 interface WarehouseSpecificationProps {
+  budgetId?: string;
   eventId: string;
   eventName: string;
   onClose: () => void;
@@ -185,9 +188,9 @@ const buildCompositionPickedStorageKey = (eventId: string) => `spec_composition_
 
 type CompositionPickedSnapshot = Record<string, { picked?: boolean; return_picked?: boolean }>;
 
-const readCompositionPickedSnapshot = (eventId: string): CompositionPickedSnapshot => {
+const readCompositionPickedSnapshot = (budgetId: string): CompositionPickedSnapshot => {
   try {
-    const raw = localStorage.getItem(buildCompositionPickedStorageKey(eventId));
+    const raw = localStorage.getItem(buildCompositionPickedStorageKey(budgetId));
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed as CompositionPickedSnapshot : {};
@@ -196,9 +199,9 @@ const readCompositionPickedSnapshot = (eventId: string): CompositionPickedSnapsh
   }
 };
 
-const writeCompositionPickedSnapshot = (eventId: string, snapshot: CompositionPickedSnapshot) => {
+const writeCompositionPickedSnapshot = (budgetId: string, snapshot: CompositionPickedSnapshot) => {
   try {
-    localStorage.setItem(buildCompositionPickedStorageKey(eventId), JSON.stringify(snapshot));
+    localStorage.setItem(buildCompositionPickedStorageKey(budgetId), JSON.stringify(snapshot));
   } catch {
     // ignore storage errors
   }
@@ -214,7 +217,10 @@ const buildStableCompositionItemKey = (
   childEquipmentId?: string | null
 ) => `${parentBudgetItemId}-${kind}-${sourceId}${childEquipmentId ? `-${childEquipmentId}` : ''}`;
 
-export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
+export function WarehouseSpecification(props: WarehouseSpecificationProps) {
+  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedWarehouseSpecification key={id} {...props} eventName={`${props.eventName} · ${name}`} budgetId={id} />}</BudgetScope>;
+}
+function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }: WarehouseSpecificationProps & { budgetId: string }) {
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
 
@@ -547,16 +553,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setLoading(true);
       const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData] = await Promise.all([
         (async () => {
-          if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId);
-          return getSpecificationBudgetItems(eventId);
+          if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
+          return getSpecificationBudgetItems(eventId, budgetId);
         })(),
         getCategories(),
-        getCategoriesForEvent(eventId),
-        getLocationsForEvent(eventId),
-        getEvent(eventId),
-        getCables(eventId),
-        getConnectors(eventId),
-        getOtherItems(eventId)
+        getCategoriesForEvent(eventId, budgetId),
+        getLocationsForEvent(eventId, budgetId),
+        getBudgetEvent(eventId, budgetId),
+        getCables(eventId, budgetId),
+        getConnectors(eventId, budgetId),
+        getOtherItems(eventId, budgetId)
       ]);
 
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
@@ -568,7 +574,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setConnectors(connectorsData || []);
       setOtherItems(otherData || []);
 
-      const savedStickyNotes = localStorage.getItem(`spec_sticky_notes_${eventId}`);
+      const savedStickyNotes = localStorage.getItem(`spec_sticky_notes_${budgetId}`);
       if (savedStickyNotes) {
         try {
           const parsed = JSON.parse(savedStickyNotes);
@@ -938,7 +944,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
             // Восстанавливаем отметки виртуальных субэлементов раскладного состава,
             // сохранённые до перезагрузки страницы
-            const compositionPickedSnapshot = readCompositionPickedSnapshot(eventId);
+            const compositionPickedSnapshot = readCompositionPickedSnapshot(budgetId);
             items.forEach((subItem) => {
               if (!isGeneratedCompositionItemId(subItem.budgetItemId)) return;
               const saved = compositionPickedSnapshot[subItem.budgetItemId];
@@ -1088,7 +1094,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   // Отмеченный субэлемент дополнительно помечает родителя как изменённый — при
   // сохранении изменений он будет создан в БД как обычная дочерняя позиция.
   const persistCompositionPickedState = (budgetItemId: string, patch: { picked?: boolean; return_picked?: boolean }) => {
-    const snapshot = readCompositionPickedSnapshot(eventId);
+    const snapshot = readCompositionPickedSnapshot(budgetId);
     snapshot[budgetItemId] = { ...(snapshot[budgetItemId] || {}), ...patch };
 
     // Подчищаем устаревший legacy-ключ с временным суффиксом (mod-<id>-<timestamp>),
@@ -1103,7 +1109,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       });
     }
 
-    writeCompositionPickedSnapshot(eventId, snapshot);
+    writeCompositionPickedSnapshot(budgetId, snapshot);
     setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
   };
 
@@ -1162,7 +1168,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     try {
       setConfirmingShipment(true);
-      await confirmShipment(eventId);
+      await updateBudgetSpecification(eventId, budgetId, { equipment_shipped: true, equipment_shipped_at: new Date().toISOString() });
       setEventDetails({ ...eventDetails, equipment_shipped: true });
     } catch (error) {
       console.error('Error confirming shipment:', error);
@@ -1184,7 +1190,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     try {
       setConfirmingReturn(true);
-      await confirmReturn(eventId);
+      await updateBudgetSpecification(eventId, budgetId, { equipment_returned: true, equipment_returned_at: new Date().toISOString() });
       setEventDetails({ ...eventDetails, equipment_returned: true });
     } catch (error) {
       console.error('Error confirming return:', error);
@@ -1197,10 +1203,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleResetSpecification = async () => {
     try {
       setResettingSpecification(true);
-      await resetWarehouseSpecificationSnapshot(eventId);
+      await resetWarehouseSpecificationSnapshot(eventId, budgetId);
       // При сбросе спецификации очищаем и локальные отметки субэлементов раскладного состава
       try {
-        localStorage.removeItem(buildCompositionPickedStorageKey(eventId));
+        localStorage.removeItem(buildCompositionPickedStorageKey(budgetId));
       } catch {
         // ignore storage errors
       }
@@ -1247,11 +1253,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         ...otherReturnUpdates
       ]);
 
-      const compositionSnapshot = readCompositionPickedSnapshot(eventId);
+      const compositionSnapshot = readCompositionPickedSnapshot(budgetId);
       Object.keys(compositionSnapshot).forEach(key => {
         compositionSnapshot[key] = { picked: false, return_picked: false };
       });
-      writeCompositionPickedSnapshot(eventId, compositionSnapshot);
+      writeCompositionPickedSnapshot(budgetId, compositionSnapshot);
 
       setExpandedItems(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
       setCables(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
@@ -1432,7 +1438,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleAddExtraEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
       const newItem = await createSpecificationBudgetItem({
-        event_id: eventId,
+        event_id: eventId, budget_id: budgetId,
         equipment_id: equipment.id,
         modification_id: modificationId,
         item_type: 'equipment',
@@ -1561,7 +1567,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleAddEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
       const newItem = await createSpecificationBudgetItem({
-        event_id: eventId,
+        event_id: eventId, budget_id: budgetId,
         equipment_id: equipment.id,
         modification_id: modificationId,
         item_type: 'equipment',
@@ -1703,7 +1709,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Delete existing LED case children from DB before creating new ones (prevent duplicates)
         // Always fetch fresh from DB to avoid stale cache issues
         if (caseItems.length > 0) {
-          const freshItemsForLed = await getSpecificationBudgetItems(eventId);
+          const freshItemsForLed = await getSpecificationBudgetItems(eventId, budgetId);
           const existingLedChildren = freshItemsForLed.filter(item => item.parent_budget_item_id === budgetItemId);
           for (const child of existingLedChildren) {
             try {
@@ -1718,7 +1724,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         for (const caseItem of caseItems) {
           try {
             console.log('Creating LED case with data:', {
-              event_id: eventId,
+              event_id: eventId, budget_id: budgetId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
               equipment_id: null,
@@ -1735,7 +1741,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               sort_order: 0
             });
             const newItem = await createSpecificationBudgetItem({
-              event_id: eventId,
+              event_id: eventId, budget_id: budgetId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
               equipment_id: null,
@@ -1765,7 +1771,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Replace podium child rows for parent item
         if (podiumChildItems.length > 0) {
           // Fetch from DB directly to avoid stale state
-          const freshBudgetItems = await getSpecificationBudgetItems(eventId);
+          const freshBudgetItems = await getSpecificationBudgetItems(eventId, budgetId);
           const existingPodiumChildren = freshBudgetItems.filter(item => item.parent_budget_item_id === budgetItemId);
 
           for (const child of existingPodiumChildren) {
@@ -1779,7 +1785,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           for (const childItem of podiumChildItems) {
             try {
               const newItem = await createSpecificationBudgetItem({
-                event_id: eventId,
+                event_id: eventId, budget_id: budgetId,
                 item_type: 'equipment',
                 category_id: childItem.categoryId,
                 equipment_id: null,
@@ -1829,7 +1835,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           // For other virtual items (not parent LED), create a new budget item
           try {
             const newItem = await createSpecificationBudgetItem({
-              event_id: eventId,
+              event_id: eventId, budget_id: budgetId,
               item_type: 'equipment',
               equipment_id: null,
               work_item_id: null,
@@ -1891,7 +1897,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // больше не нужны в локальном снимке — удаляем их, чтобы не переносить устаревшие значения
         const persistedVirtualIds = createdItems.map(c => c.oldId);
         if (persistedVirtualIds.length > 0) {
-          const snapshot = readCompositionPickedSnapshot(eventId);
+          const snapshot = readCompositionPickedSnapshot(budgetId);
           let snapshotChanged = false;
           for (const virtualId of persistedVirtualIds) {
             if (snapshot[virtualId] !== undefined) {
@@ -1900,7 +1906,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             }
           }
           if (snapshotChanged) {
-            writeCompositionPickedSnapshot(eventId, snapshot);
+            writeCompositionPickedSnapshot(budgetId, snapshot);
           }
         }
 
@@ -1924,7 +1930,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       await quantityQueue.current(JSON.stringify([eventId, 'cable', cableType, cableLength]), () => writeGroupedQuantity({
         rows: cablesRef.current.filter(row => row.cable_type === cableType && row.cable_length === cableLength),
         change: delta ? { delta: value } : { set: value },
-        create: quantity => createCable({ event_id: eventId, cable_type: cableType, cable_length: cableLength, quantity, notes: '', picked: false, return_picked: false }),
+        create: quantity => createCable({ event_id: eventId, budget_id: budgetId, cable_type: cableType, cable_length: cableLength, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateCable(id, { quantity }),
         commit: row => { const next = cablesRef.current.some(item => item.id === row.id) ? cablesRef.current.map(item => item.id === row.id ? row : item) : [...cablesRef.current, row]; cablesRef.current = next; setCables(next); }
       }));
@@ -1938,7 +1944,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         rows: connectorsRef.current.filter(row => isConnectorMatch(row, category, itemType)
           || (!DUPLICATE_CONNECTOR_ITEMS.has(itemType) && isLegacyConnectorMatch(row, buildConnectorScopedType(category, itemType), itemType))),
         change: delta ? { delta: value } : { set: value },
-        create: quantity => createConnector({ event_id: eventId, connector_type: category, connector_item: itemType, quantity, notes: '', picked: false, return_picked: false }),
+        create: quantity => createConnector({ event_id: eventId, budget_id: budgetId, connector_type: category, connector_item: itemType, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateConnector(id, { quantity }),
         commit: row => { const next = connectorsRef.current.some(item => item.id === row.id) ? connectorsRef.current.map(item => item.id === row.id ? row : item) : [...connectorsRef.current, row]; connectorsRef.current = next; setConnectors(next); }
       }));
@@ -1972,7 +1978,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       await quantityQueue.current(JSON.stringify([eventId, 'other', category, itemType]), () => writeGroupedQuantity({
         rows: otherItemsRef.current.filter(row => row.category === category && row.item_type === itemType),
         change: delta ? { delta: value } : { set: value },
-        create: quantity => createOtherItem({ event_id: eventId, category, item_type: itemType, quantity, notes: '', picked: false, return_picked: false }),
+        create: quantity => createOtherItem({ event_id: eventId, budget_id: budgetId, category, item_type: itemType, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateOtherItem(id, { quantity }),
         commit: row => { const next = otherItemsRef.current.some(item => item.id === row.id) ? otherItemsRef.current.map(item => item.id === row.id ? row : item) : [...otherItemsRef.current, row]; otherItemsRef.current = next; setOtherItems(next); }
       }));
@@ -2040,6 +2046,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             </button>
             <button
               onClick={onClose}
+              aria-label="Закрыть спецификацию"
               className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-white rounded transition-colors"
             >
               <X className="w-5 h-5" />
@@ -3277,7 +3284,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         onNotesChange={setStickyNotes}
         onClose={() => setShowStickyNotes(false)}
         isOpen={showStickyNotes}
-        storageKey={`spec_sticky_notes_${eventId}`}
+        storageKey={`spec_sticky_notes_${budgetId}`}
       />
     </div>
   );

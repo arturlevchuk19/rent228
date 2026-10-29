@@ -1,15 +1,17 @@
+import { getEventBudgets, createEventBudget } from '../../lib/eventBudgets';
 import { useState, useEffect, useMemo } from 'react';
 import { X, Search, Calendar, Copy, Loader2, User, MapPin } from 'lucide-react';
 import { Event, getEvents, copyBudgetFromEvent, getEvent, updateEvent } from '../../lib/events';
 
 interface CopyBudgetDialogProps {
+  currentBudgetId?: string;
   currentEventId: string;
   onClose: () => void;
   onSuccess: (eventData?: Partial<Event>) => void;
 }
 
-export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBudgetDialogProps) {
-  const [events, setEvents] = useState<Event[]>([]);
+export function CopyBudgetDialog({ currentEventId, currentBudgetId, onClose, onSuccess }: CopyBudgetDialogProps) {
+  const [events, setEvents] = useState<(Event & { copyBudgetId: string; copyBudgetName: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
@@ -24,7 +26,10 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
     try {
       setLoading(true);
       const data = await getEvents();
-      setEvents(data.filter(e => e.id !== currentEventId));
+      const sources = await Promise.all(data.map(async event => (await getEventBudgets(event.id))
+        .filter(budget => budget.id !== currentBudgetId)
+        .map(budget => ({ ...event, copyBudgetId: budget.id, copyBudgetName: budget.name }))));
+      setEvents(sources.flat());
     } catch (error) {
       console.error('Error loading events:', error);
     } finally {
@@ -46,12 +51,15 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
     });
   }, [events, searchTerm, dateFilter]);
 
-  const handleCopy = async (sourceEventId: string) => {
+  const handleCopy = async (sourceEventId: string, sourceBudgetId: string) => {
     try {
       setCopying(true);
 
+      const documents = await getEventBudgets(currentEventId);
+      const targetId = currentBudgetId || documents[0]?.id || (await createEventBudget(currentEventId, 'Основная смета', true)).id;
       // Копируем смету с категориями и локациями
       await copyBudgetFromEvent(sourceEventId, currentEventId, {
+        sourceBudgetId, targetBudgetId: targetId,
         copyCategories: true,
         copyLocations: true
       });
@@ -162,7 +170,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
             <div className="space-y-1">
               {filteredEvents.map((event) => (
                 <div
-                  key={event.id}
+                  key={event.copyBudgetId}
                   className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
@@ -171,7 +179,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                         {formatDate(event.event_date)}
                       </span>
                       <span className="text-white font-medium truncate">
-                        {event.name || event.event_type}
+                        {event.name || event.event_type} · {event.copyBudgetName}
                       </span>
                       <span className="text-xs px-2 py-0.5 bg-gray-700 rounded text-gray-300">
                         {event.event_type}
@@ -193,7 +201,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                     </div>
                   </div>
                   <button
-                    onClick={() => handleCopy(event.id)}
+                    onClick={() => handleCopy(event.id, event.copyBudgetId)}
                     disabled={copying}
                     className="ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
                   >

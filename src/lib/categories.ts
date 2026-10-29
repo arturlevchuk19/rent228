@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
 export interface Category {
+  budget_id?: string | null;
   id: string;
   name: string;
   description: string;
@@ -24,11 +25,12 @@ export async function getCategories(): Promise<Category[]> {
   return data || [];
 }
 
-export async function getCategoriesForEvent(eventId: string): Promise<Category[]> {
+export async function getCategoriesForEvent(eventId: string, budgetId?: string): Promise<Category[]> {
   const { data, error } = await supabase
     .from('categories')
     .select('*')
     .eq('event_id', eventId)
+    .or(budgetId ? `budget_id.eq.${budgetId}` : 'budget_id.is.null,budget_id.not.is.null')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
 
@@ -37,7 +39,7 @@ export async function getCategoriesForEvent(eventId: string): Promise<Category[]
   return data || [];
 }
 
-export async function createCategory(name: string, description?: string, isTemplate: boolean = false, eventId?: string): Promise<Category> {
+export async function createCategory(name: string, description?: string, isTemplate: boolean = false, eventId?: string, budgetId?: string): Promise<Category> {
   if (!eventId) {
     const { data: existingCategories } = await supabase
       .from('categories')
@@ -68,6 +70,7 @@ export async function createCategory(name: string, description?: string, isTempl
 
   if (eventId) {
     insertData.event_id = eventId;
+    if (budgetId) insertData.budget_id = budgetId;
   }
 
   const { data, error } = await supabase

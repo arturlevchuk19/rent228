@@ -1,10 +1,12 @@
+import { BudgetScope } from './BudgetScope';
+import { getBudgetEvent, updateBudgetEvent } from '../lib/eventBudgets';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { InlineQuantityAdd } from './InlineQuantityAdd';
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
-import { type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, updateBudgetItemsExchangeRate, deleteBudgetItem, getEvent, updateEvent, getClients } from '../lib/events';
+import { type Event, type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, updateBudgetItemsExchangeRate, deleteBudgetItem, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -28,6 +30,7 @@ import {
 import { StickyNotePanel } from './StickyNotePanel';
 
 interface BudgetEditorProps {
+  budgetId?: string;
   eventId: string;
   eventName: string;
   onClose: () => void;
@@ -66,7 +69,12 @@ const parseGroupId = (groupId: string): { locationId: string | null; categoryId:
   return { locationId: null, categoryId: null };
 };
 
-export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps) {
+export function BudgetEditor(props: BudgetEditorProps) {
+  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedBudgetEditor key={id} {...props} eventName={`${props.eventName} · ${name}`} budgetId={id} />}</BudgetScope>;
+}
+function ScopedBudgetEditor({ eventId, eventName, onClose, budgetId }: BudgetEditorProps & { budgetId: string }) {
+  const getEvent = (id: string) => getBudgetEvent(id, budgetId);
+  const updateEvent = (id: string, patch: Partial<Event>) => updateBudgetEvent(id, budgetId, patch);
   const { user } = useAuth();
   const [quantityTarget, setQuantityTarget] = useState<string | null>(null);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -214,23 +222,23 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   }, [budgetDays]);
 
   useEffect(() => {
-    const savedVersion = localStorage.getItem(`budget_version_${eventId}`);
+    const savedVersion = localStorage.getItem(`budget_version_${budgetId}`);
     if (savedVersion && savedVersion.trim().length > 0) {
       setBudgetVersion(savedVersion);
     } else {
       setBudgetVersion('1.0');
     }
 
-    const savedPaymentMode = localStorage.getItem(`budget_payment_mode_${eventId}`);
+    const savedPaymentMode = localStorage.getItem(`budget_payment_mode_${budgetId}`);
     if (savedPaymentMode === 'usd' || savedPaymentMode === 'byn_cash' || savedPaymentMode === 'byn_noncash') {
       setPaymentMode(savedPaymentMode);
     }
-    const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${eventId}`);
+    const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${budgetId}`);
     if (savedTotalsMode === 'combined_only' || savedTotalsMode === 'day1_plus_combined') {
       setBudgetTotalsMode(savedTotalsMode);
     }
 
-    const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+    const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${budgetId}`);
     if (savedStickyNotes) {
       try {
         const parsed = JSON.parse(savedStickyNotes);
@@ -244,21 +252,21 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
   }, [eventId]);
 
   useEffect(() => {
-    localStorage.setItem(`budget_version_${eventId}`, budgetVersion);
+    localStorage.setItem(`budget_version_${budgetId}`, budgetVersion);
   }, [eventId, budgetVersion]);
 
   useEffect(() => {
-    localStorage.setItem(`budget_payment_mode_${eventId}`, paymentMode);
+    localStorage.setItem(`budget_payment_mode_${budgetId}`, paymentMode);
   }, [eventId, paymentMode]);
 
   useEffect(() => {
-    localStorage.setItem(`budget_totals_mode_${eventId}`, budgetTotalsMode);
+    localStorage.setItem(`budget_totals_mode_${budgetId}`, budgetTotalsMode);
   }, [eventId, budgetTotalsMode]);
 
   // Save sticky notes to both localStorage and event data (server)
   useEffect(() => {
     if (stickyNotes.length > 0) {
-      localStorage.setItem(`budget_sticky_notes_${eventId}`, JSON.stringify(stickyNotes));
+      localStorage.setItem(`budget_sticky_notes_${budgetId}`, JSON.stringify(stickyNotes));
     }
   }, [stickyNotes, eventId]);
   
@@ -278,10 +286,10 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     try {
       setLoading(true);
       const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, equipmentData, workItemsData, eventData] = await Promise.all([
-        getBudgetItems(eventId),
+        getBudgetItems(eventId, budgetId),
         getCategories(),
-        getCategoriesForEvent(eventId),
-        getLocationsForEvent(eventId),
+        getCategoriesForEvent(eventId, budgetId),
+        getLocationsForEvent(eventId, budgetId),
         getEquipmentItems(),
         getWorkItems(),
         getEvent(eventId)
@@ -321,7 +329,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         setBudgetDays(Math.max(1, eventData.budget_days));
       }
       if (eventData.budget_totals_mode) {
-        const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${eventId}`);
+        const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${budgetId}`);
         if (savedTotalsMode !== 'combined_only' && savedTotalsMode !== 'day1_plus_combined') {
           setBudgetTotalsMode(eventData.budget_totals_mode);
         }
@@ -341,7 +349,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
           }
         } catch {
           // If parsing fails, try localStorage as fallback
-          const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+          const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${budgetId}`);
           if (savedStickyNotes) {
             try {
               const parsedLocal = JSON.parse(savedStickyNotes);
@@ -355,7 +363,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         }
       } else {
         // No sticky notes in event data, try localStorage
-        const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${eventId}`);
+        const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${budgetId}`);
         if (savedStickyNotes) {
           try {
             const parsed = JSON.parse(savedStickyNotes);
@@ -416,7 +424,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         templateCategory.name,
         templateCategory.description,
         false,
-        eventId
+        eventId, budgetId
       );
 
       setCategories(prev => [...prev, localCategory]);
@@ -450,7 +458,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
 
     try {
-      const category = await createCategory(nextName, EXTRA_SERVICE_DESCRIPTION_FLAG, false, eventId);
+      const category = await createCategory(nextName, EXTRA_SERVICE_DESCRIPTION_FLAG, false, eventId, budgetId);
       const groupId = buildCategoryGroupId(category.id);
       setCategories((prev) => [...prev, category]);
       setActiveCategoryIds((prev) => {
@@ -479,7 +487,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
     }
 
     try {
-      const newLocation = await createLocation(eventId, name, color);
+      const newLocation = await createLocation(eventId, name, color, budgetId);
       setLocations((prev) => [...prev, newLocation]);
       setActiveCategoryIds(prev => {
         const next = new Set(prev);
@@ -597,12 +605,12 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
   const isUShapeConstruction = (equipmentItem: EquipmentItem) => {
     const name = equipmentItem.name || '';
-    return name.toLowerCase().includes('п-образная конструкция') && !name.toLowerCase().includes('с системой подъема');
+    return name.toLowerCase().includes('п-образная фермовая конструкция') && !name.toLowerCase().includes('с системой подъема');
   };
 
   const isUShapeLiftingConstruction = (equipmentItem: EquipmentItem) => {
     const name = equipmentItem.name || '';
-    return name.toLowerCase().includes('п-образная конструкция с системой подъема');
+    return name.toLowerCase().includes('п-образная фермовая конструкция с системой подъема');
   };
 
   const handleEquipmentClick = async (equipmentItem: EquipmentItem) => {
@@ -734,6 +742,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       const newItem = await createBudgetItem({
         event_id: eventId,
+        budget_id: budgetId,
         equipment_id: equipmentItem.id,
         modification_id: modificationId || null,
         item_type: 'equipment',
@@ -807,6 +816,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       const newItem = await createBudgetItem({
         event_id: eventId,
+        budget_id: budgetId,
         work_item_id: workItem.id,
         item_type: 'work',
         quantity,
@@ -919,7 +929,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         `${sourceCategory.name} (копия)`,
         sourceCategory.description,
         false,
-        eventId
+        eventId, budgetId
       );
 
       const insertIndex = categories.findIndex(cat => cat.id === categoryId);
@@ -956,6 +966,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
       for (const item of sourceItems) {
         const payload: Partial<BudgetItem> = {
           event_id: item.event_id,
+          budget_id: budgetId,
           equipment_id: item.equipment_id ?? null,
           work_item_id: item.work_item_id ?? null,
           modification_id: item.modification_id ?? null,
@@ -1046,7 +1057,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         (item) => Number(item.exchange_rate) !== Number(exchangeRate)
       );
       if (hasExchangeRateChanges) {
-        await updateBudgetItemsExchangeRate(eventId, exchangeRate);
+        await updateBudgetItemsExchangeRate(eventId, exchangeRate, budgetId);
       }
 
       onClose();
@@ -2094,6 +2105,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
             </button>
             <button
               onClick={onClose}
+              aria-label="Закрыть смету"
               className="text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-full transition-all"
             >
               <X className="w-5 h-5" />
@@ -2889,6 +2901,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       {showTemplates && (
         <TemplatesInBudget
+          budgetId={budgetId}
           eventId={eventId}
           onClose={() => setShowTemplates(false)}
           onApply={() => { setShowTemplates(false); loadData(); }}
@@ -2897,6 +2910,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
 
       {showWarehouseSpec && (
         <WarehouseSpecification
+          budgetId={budgetId}
           eventId={eventId}
           eventName={eventName}
           onClose={() => setShowWarehouseSpec(false)}
@@ -2976,7 +2990,7 @@ export function BudgetEditor({ eventId, eventName, onClose }: BudgetEditorProps)
         onNotesChange={handleStickyNotesChange}
         onClose={() => setShowStickyNotes(false)}
         isOpen={showStickyNotes}
-        storageKey={`budget_sticky_notes_${eventId}`}
+        storageKey={`budget_sticky_notes_${budgetId}`}
       />
       <ContractDialog
         isOpen={showContractDialog}
