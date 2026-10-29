@@ -23,7 +23,7 @@ export async function createEventBudget(eventId: string, name: string, primary =
 }
 export async function renameEventBudget(id: string, name: string): Promise<void> {
   if (!name.trim()) throw new Error('Укажите название сметы');
-  const { error } = await supabase.from('event_budgets').update({ name: name.trim() }).eq('id', id); check(error);
+  const { error } = await supabase.from('event_budgets').update({ name: name.trim() }).eq('id', id).select('id').single(); check(error);
 }
 export async function deleteEventBudget(id: string): Promise<void> {
   const { error } = await supabase.from('event_budgets').delete().eq('id', id); check(error);
@@ -47,4 +47,13 @@ export async function updateBudgetEvent(eventId: string, budgetId: string, patch
 }
 export async function updateBudgetSpecification(eventId: string, budgetId: string, patch: Partial<Event>): Promise<void> {
   const { error } = await supabase.rpc('update_event_budget_specification', { p_event_id: eventId, p_budget_id: budgetId, p_patch: patch }); check(error);
+}
+
+/** Copy into a new document in one database transaction. Existing budgets are never a target. */
+export async function copyEventBudget(sourceBudgetId: string, targetEventId: string, name?: string): Promise<string> {
+  const { data, error } = await supabase.rpc('copy_event_budget', {
+    p_source_budget_id: sourceBudgetId, p_target_event_id: targetEventId, p_name: name?.trim() || null
+  });
+  if (error?.code === 'PGRST202') throw new Error('Для копирования в новую смету выполните миграцию 20261029030000_copy_event_budget.sql.');
+  check(error); return data;
 }

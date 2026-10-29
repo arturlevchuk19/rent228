@@ -1,16 +1,15 @@
-import { getEventBudgets, createEventBudget } from '../../lib/eventBudgets';
+import { getEventBudgets, copyEventBudget } from '../../lib/eventBudgets';
 import { useState, useEffect, useMemo } from 'react';
 import { X, Search, Calendar, Copy, Loader2, User, MapPin } from 'lucide-react';
-import { Event, getEvents, copyBudgetFromEvent, getEvent, updateEvent } from '../../lib/events';
+import { Event, getEvents, getEvent, updateEvent } from '../../lib/events';
 
 interface CopyBudgetDialogProps {
-  currentBudgetId?: string;
   currentEventId: string;
   onClose: () => void;
-  onSuccess: (eventData?: Partial<Event>) => void;
+  onSuccess: (eventData?: Partial<Event>, budgetId?: string) => void;
 }
 
-export function CopyBudgetDialog({ currentEventId, currentBudgetId, onClose, onSuccess }: CopyBudgetDialogProps) {
+export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBudgetDialogProps) {
   const [events, setEvents] = useState<(Event & { copyBudgetId: string; copyBudgetName: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,7 +26,6 @@ export function CopyBudgetDialog({ currentEventId, currentBudgetId, onClose, onS
       setLoading(true);
       const data = await getEvents();
       const sources = await Promise.all(data.map(async event => (await getEventBudgets(event.id))
-        .filter(budget => budget.id !== currentBudgetId)
         .map(budget => ({ ...event, copyBudgetId: budget.id, copyBudgetName: budget.name }))));
       setEvents(sources.flat());
     } catch (error) {
@@ -43,7 +41,8 @@ export function CopyBudgetDialog({ currentEventId, currentBudgetId, onClose, onS
         event.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.clients?.organization?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.venues?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        event.event_type?.toLowerCase().includes(searchTerm.toLowerCase());
+        event.event_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.copyBudgetName.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesDate = !dateFilter || event.event_date?.includes(dateFilter);
 
@@ -55,14 +54,7 @@ export function CopyBudgetDialog({ currentEventId, currentBudgetId, onClose, onS
     try {
       setCopying(true);
 
-      const documents = await getEventBudgets(currentEventId);
-      const targetId = currentBudgetId || documents[0]?.id || (await createEventBudget(currentEventId, 'Основная смета', true)).id;
-      // Копируем смету с категориями и локациями
-      await copyBudgetFromEvent(sourceEventId, currentEventId, {
-        sourceBudgetId, targetBudgetId: targetId,
-        copyCategories: true,
-        copyLocations: true
-      });
+      const newBudgetId = await copyEventBudget(sourceBudgetId, currentEventId);
 
       // Если нужно, копируем данные мероприятия
       let updatedEventData: Partial<Event> | undefined;
@@ -82,7 +74,7 @@ export function CopyBudgetDialog({ currentEventId, currentBudgetId, onClose, onS
         }
       }
 
-      onSuccess(updatedEventData);
+      onSuccess(updatedEventData, newBudgetId);
       onClose();
     } catch (error) {
       console.error('Error copying budget:', error);
@@ -108,7 +100,7 @@ export function CopyBudgetDialog({ currentEventId, currentBudgetId, onClose, onS
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <Copy className="w-5 h-5 text-cyan-400" />
-            Скопировать смету из другого мероприятия
+            Скопировать в новую смету
           </h2>
           <button
             onClick={onClose}

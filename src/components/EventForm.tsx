@@ -361,7 +361,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
     setEndDateParts(prev => ({ ...prev, [field]: numericValue }));
   };
 
-  const handleCopySuccess = (eventData?: Partial<Event>) => {
+  const handleCopySuccess = (eventData?: Partial<Event>, budgetId?: string) => {
+    if (budgetId) setSelectedBudgetId(budgetId);
     setCopySuccess(true);
     checkBudgetItems();
 
@@ -848,7 +849,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
 
       {showCopyDialog && effectiveEventId && (
         <CopyBudgetDialog
-          currentBudgetId={selectedBudgetId}
           currentEventId={effectiveEventId}
           onClose={() => setShowCopyDialog(false)}
           onSuccess={handleCopySuccess}

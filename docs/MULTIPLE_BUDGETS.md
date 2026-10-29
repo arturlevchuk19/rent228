@@ -20,3 +20,11 @@ Deploy the frontend after the database update. Without this migration the UI rep
 - `node tests/event-budgets.test.mjs`: scoped queries, exchange rates, snapshots, progress.
 - In a **new disposable database only**: run `tests/event-budgets.bootstrap.sql`, then the migration, then `tests/event-budgets.integration.sql`. The fixture creates test roles/tables; never run it on the application database.
 - Chromium check with intercepted fixture responses: mobile layout, two documents, scoped editor/specification requests, status progress, last-budget deletion and no runtime errors. No production data was read or written.
+
+## Copying and names
+
+Apply `20261029030000_copy_event_budget.sql` after the multi-budget migration. Copying always creates a new budget, including when the source belongs to the same event. Existing budgets are never used as copy targets. The source's pricing settings, item hierarchy, categories and locations are copied atomically; warehouse snapshots and shipment marks start fresh. Any error rolls the operation back.
+
+Use **Название** in a budget row to edit its name inline. Enter or the checkmark saves; Escape or the cross cancels. Renaming does not submit the event form and preserves the budget/specification identity.
+
+`tests/event-budget-copy.integration.sql` exercises copying after the disposable bootstrap and both migrations: a new document, unchanged existing records, settings and parent/child links, independent catalogs, rename, failure rollback and access restrictions.
