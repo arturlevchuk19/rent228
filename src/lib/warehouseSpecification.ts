@@ -4,6 +4,7 @@ import type { BudgetItem } from './events';
 export interface CableItem {
   id: string;
   event_id: string;
+  budget_id: string;
   cable_type: string;
   cable_length: string;
   quantity: number;
@@ -17,6 +18,7 @@ export interface CableItem {
 export interface ConnectorItem {
   id: string;
   event_id: string;
+  budget_id: string;
   connector_type: string;
   connector_item: string;
   quantity: number;
@@ -30,6 +32,7 @@ export interface ConnectorItem {
 export interface OtherItem {
   id: string;
   event_id: string;
+  budget_id: string;
   category: string;
   item_type: string;
   quantity: number;
@@ -136,11 +139,11 @@ export const OTHER_TEMPLATES: OtherTemplate[] = [
   },
   {
     category: 'Clamp',
-    items: ['Clamp Black X1', 'Clamp Black X2', 'Clamp Silver X1', 'Clamp Silver X2']
+    items: ['Clamp Black X1', 'Clamp Black X2', 'Clamp Silver X1', 'Clamp Silver X2', 'Клэмп с полуконнектором']
   },
   {
     category: 'Ремешки',
-    items: ['1м', '2м', '3м']
+    items: ['0.5м', '1м', '2м', '3м']
   },
   {
      category: 'Доски',
@@ -152,11 +155,12 @@ export const OTHER_TEMPLATES: OtherTemplate[] = [
   }
 ];
 
-export async function getCables(eventId: string): Promise<CableItem[]> {
+export async function getCables(eventId: string, budgetId: string): Promise<CableItem[]> {
   const { data, error } = await supabase
     .from('warehouse_specification_cables')
     .select('*')
     .eq('event_id', eventId)
+    .eq('budget_id', budgetId)
     .order('cable_type')
     .order('cable_length');
 
@@ -209,11 +213,12 @@ export async function deleteCable(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function getConnectors(eventId: string): Promise<ConnectorItem[]> {
+export async function getConnectors(eventId: string, budgetId: string): Promise<ConnectorItem[]> {
   const { data, error } = await supabase
     .from('warehouse_specification_connectors')
     .select('*')
     .eq('event_id', eventId)
+    .eq('budget_id', budgetId)
     .order('connector_type');
 
   if (error) throw error;
@@ -272,11 +277,12 @@ export async function deleteConnector(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function getOtherItems(eventId: string): Promise<OtherItem[]> {
+export async function getOtherItems(eventId: string, budgetId: string): Promise<OtherItem[]> {
   const { data, error } = await supabase
     .from('warehouse_specification_other')
     .select('*')
     .eq('event_id', eventId)
+    .eq('budget_id', budgetId)
     .order('category, item_type');
 
   if (error) throw error;
@@ -350,11 +356,12 @@ function isMissingSpecLocationRelation(error: unknown): boolean {
   return code === 'PGRST200' && message.includes('warehouse_specification_budget_items') && message.includes('locations');
 }
 
-export async function getSpecificationBudgetItems(eventId: string): Promise<BudgetItem[]> {
+export async function getSpecificationBudgetItems(eventId: string, budgetId: string): Promise<BudgetItem[]> {
   const query = () => supabase
     .from('warehouse_specification_budget_items')
     .select(SPEC_BUDGET_ITEM_SELECT_WITH_LOCATION)
     .eq('event_id', eventId)
+    .eq('budget_id', budgetId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
@@ -365,6 +372,7 @@ export async function getSpecificationBudgetItems(eventId: string): Promise<Budg
       .from('warehouse_specification_budget_items')
       .select(SPEC_BUDGET_ITEM_BASE_SELECT)
       .eq('event_id', eventId)
+    .eq('budget_id', budgetId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
 
@@ -426,11 +434,12 @@ export async function deleteSpecificationBudgetItem(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function ensureWarehouseSpecificationSnapshot(eventId: string): Promise<void> {
+export async function ensureWarehouseSpecificationSnapshot(eventId: string, budgetId: string): Promise<void> {
   const { count, error: countError } = await supabase
     .from('warehouse_specification_budget_items')
     .select('id', { count: 'exact', head: true })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .eq('budget_id', budgetId);
 
   if (countError) throw countError;
   if ((count || 0) > 0) return;
@@ -439,6 +448,7 @@ export async function ensureWarehouseSpecificationSnapshot(eventId: string): Pro
     .from('budget_items')
     .select('*')
     .eq('event_id', eventId)
+    .eq('budget_id', budgetId)
     .eq('item_type', 'equipment')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -455,6 +465,7 @@ export async function ensureWarehouseSpecificationSnapshot(eventId: string): Pro
       .from('warehouse_specification_budget_items')
       .insert({
         event_id: source.event_id,
+        budget_id: budgetId,
         source_budget_item_id: source.id,
         parent_budget_item_id: null,
         item_type: source.item_type,
@@ -489,6 +500,7 @@ export async function ensureWarehouseSpecificationSnapshot(eventId: string): Pro
       .from('warehouse_specification_budget_items')
       .insert({
         event_id: source.event_id,
+        budget_id: budgetId,
         source_budget_item_id: source.id,
         parent_budget_item_id: parentSpecId || null,
         item_type: source.item_type,
@@ -518,13 +530,43 @@ export async function ensureWarehouseSpecificationSnapshot(eventId: string): Pro
   }
 }
 
-export async function resetWarehouseSpecificationSnapshot(eventId: string): Promise<void> {
+export async function resetWarehouseSpecificationSnapshot(eventId: string, budgetId: string): Promise<void> {
   const { error } = await supabase
     .from('warehouse_specification_budget_items')
     .delete()
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .eq('budget_id', budgetId);
 
   if (error) throw error;
 
-  await ensureWarehouseSpecificationSnapshot(eventId);
+  await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
+}
+
+/** Save the choice atomically so a failed replacement cannot remove components. */
+export async function saveSpecificationComponentChoice(eventId: string, itemIds: string[], replacement: {
+  categoryId: string | null; locationId: string | null; name: string; sku: string;
+  quantity: number; notes: string; picked: boolean; return_picked: boolean; isExtra?: boolean;
+} | null): Promise<void> {
+  const { error } = await supabase.rpc('save_specification_component_choice', {
+    p_event_id: eventId, p_item_ids: itemIds, p_case: replacement
+  });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === 'PGRST204' || error.code === '42703') {
+      throw new Error('Для сохранения выбора выполните миграцию 20261029000000_persist_specification_component_choice.sql.');
+    }
+    throw error;
+  }
+}
+
+/** Exclude one calculated row, without deleting the real parent budget item. */
+export async function excludeSpecificationChild(eventId: string, parentId: string, childKey: string): Promise<void> {
+  const { error } = await supabase.rpc('exclude_specification_child', {
+    p_event_id: eventId, p_parent_id: parentId, p_child_key: childKey
+  });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === 'PGRST204' || error.code === '42703') {
+      throw new Error('Выполните миграцию 20261029010000_exclude_specification_children.sql для удаления дочерних элементов.');
+    }
+    throw error;
+  }
 }

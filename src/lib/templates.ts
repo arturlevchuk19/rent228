@@ -196,7 +196,8 @@ export async function reorderTemplateItems(
 export async function applyTemplateToEvent(
   templateId: string,
   eventId: string,
-  categoryName?: string
+  categoryName?: string,
+  budgetId?: string
 ): Promise<void> {
   try {
     const template = await getTemplateById(templateId);
@@ -205,7 +206,7 @@ export async function applyTemplateToEvent(
       categoryName || template.name,
       undefined,
       false,
-      eventId
+      eventId, budgetId
     );
 
     for (let i = 0; i < template.items.length; i++) {
@@ -217,6 +218,7 @@ export async function applyTemplateToEvent(
 
       await createBudgetItem({
         event_id: eventId,
+        budget_id: budgetId,
         equipment_id: item.equipment_id,
         item_type: 'equipment',
         quantity: item.quantity,

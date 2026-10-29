@@ -15,7 +15,8 @@
     "check": "node check-environment.js",
     "db:migrate": "cd supabase && bash run-migrations.sh",
     "db:status": "supabase db diff --schema public",
-    "test:account": "node tests/account.test.mjs"
+    "test:account": "node tests/account.test.mjs",
+    "test:event-project": "node tests/event-project.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

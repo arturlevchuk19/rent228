@@ -1,7 +1,11 @@
+import { BudgetScope } from './BudgetScope';
+import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
+import { createQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
+import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
-import { type BudgetItem, type Event, getEvent, confirmShipment, confirmReturn } from '../lib/events';
+import { type BudgetItem, type Event } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
@@ -23,18 +27,17 @@ import {
   createCable,
   updateCable,
   updateCableReturnPicked,
-  deleteCable,
   getConnectors,
   createConnector,
   updateConnector,
   updateConnectorReturnPicked,
-  deleteConnector,
   getOtherItems,
   createOtherItem,
   updateOtherItem,
   updateOtherItemReturnPicked,
-  deleteOtherItem,
   getSpecificationBudgetItems,
+  saveSpecificationComponentChoice,
+  excludeSpecificationChild,
   createSpecificationBudgetItem,
   updateSpecificationBudgetItem,
   updateSpecificationBudgetItemPicked,
@@ -47,6 +50,7 @@ import { getModificationComponents } from '../lib/equipment';
 import { StickyNotePanel } from './StickyNotePanel';
 
 interface WarehouseSpecificationProps {
+  budgetId?: string;
   eventId: string;
   eventName: string;
   onClose: () => void;
@@ -121,11 +125,6 @@ interface ComponentDecisionGroup {
   items: ComponentDecisionItem[];
 }
 
-interface PendingComponentCaseSelection {
-  replacedBudgetItemIds: string[];
-  replacementItem: ExpandedItem;
-}
-
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
 
 const CONNECTOR_SCOPE_DELIMITER = '::';
@@ -189,9 +188,9 @@ const buildCompositionPickedStorageKey = (eventId: string) => `spec_composition_
 
 type CompositionPickedSnapshot = Record<string, { picked?: boolean; return_picked?: boolean }>;
 
-const readCompositionPickedSnapshot = (eventId: string): CompositionPickedSnapshot => {
+const readCompositionPickedSnapshot = (budgetId: string): CompositionPickedSnapshot => {
   try {
-    const raw = localStorage.getItem(buildCompositionPickedStorageKey(eventId));
+    const raw = localStorage.getItem(buildCompositionPickedStorageKey(budgetId));
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed as CompositionPickedSnapshot : {};
@@ -200,9 +199,9 @@ const readCompositionPickedSnapshot = (eventId: string): CompositionPickedSnapsh
   }
 };
 
-const writeCompositionPickedSnapshot = (eventId: string, snapshot: CompositionPickedSnapshot) => {
+const writeCompositionPickedSnapshot = (budgetId: string, snapshot: CompositionPickedSnapshot) => {
   try {
-    localStorage.setItem(buildCompositionPickedStorageKey(eventId), JSON.stringify(snapshot));
+    localStorage.setItem(buildCompositionPickedStorageKey(budgetId), JSON.stringify(snapshot));
   } catch {
     // ignore storage errors
   }
@@ -218,7 +217,10 @@ const buildStableCompositionItemKey = (
   childEquipmentId?: string | null
 ) => `${parentBudgetItemId}-${kind}-${sourceId}${childEquipmentId ? `-${childEquipmentId}` : ''}`;
 
-export function WarehouseSpecification({ eventId, eventName, onClose }: WarehouseSpecificationProps) {
+export function WarehouseSpecification(props: WarehouseSpecificationProps) {
+  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedWarehouseSpecification key={id} {...props} eventName={`${props.eventName} · ${name}`} budgetId={id} />}</BudgetScope>;
+}
+function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }: WarehouseSpecificationProps & { budgetId: string }) {
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
 
@@ -281,7 +283,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   }>>>({});
   const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
-  const [pendingComponentCaseSelections, setPendingComponentCaseSelections] = useState<PendingComponentCaseSelection[]>([]);
+  const [savingComponentChoice, setSavingComponentChoice] = useState(false);
+  const quantityQueue = useRef(createQuantityQueue());
+  const cablesRef = useRef(cables);
+  cablesRef.current = cables;
+  const connectorsRef = useRef(connectors);
+  const otherItemsRef = useRef(otherItems);
+  connectorsRef.current = connectors;
+  otherItemsRef.current = otherItems;
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
   const [collapsedParentItems, setCollapsedParentItems] = useState<Set<string>>(new Set());
@@ -313,7 +322,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
   const isUShapeBudgetItem = (item: BudgetItem) => {
     const name = (item.equipment?.name || item.name || "").toLowerCase();
-    return name.includes("п-образная конструкция");
+    return /п-образная (фермовая )?конструкция/.test(name);
   };
 
   const isTotemBudgetItem = (item: BudgetItem) => {
@@ -544,16 +553,16 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setLoading(true);
       const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData] = await Promise.all([
         (async () => {
-          if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId);
-          return getSpecificationBudgetItems(eventId);
+          if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
+          return getSpecificationBudgetItems(eventId, budgetId);
         })(),
         getCategories(),
-        getCategoriesForEvent(eventId),
-        getLocationsForEvent(eventId),
-        getEvent(eventId),
-        getCables(eventId),
-        getConnectors(eventId),
-        getOtherItems(eventId)
+        getCategoriesForEvent(eventId, budgetId),
+        getLocationsForEvent(eventId, budgetId),
+        getBudgetEvent(eventId, budgetId),
+        getCables(eventId, budgetId),
+        getConnectors(eventId, budgetId),
+        getOtherItems(eventId, budgetId)
       ]);
 
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
@@ -565,7 +574,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setConnectors(connectorsData || []);
       setOtherItems(otherData || []);
 
-      const savedStickyNotes = localStorage.getItem(`spec_sticky_notes_${eventId}`);
+      const savedStickyNotes = localStorage.getItem(`spec_sticky_notes_${budgetId}`);
       if (savedStickyNotes) {
         try {
           const parsed = JSON.parse(savedStickyNotes);
@@ -668,7 +677,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         const isVirtual = item.equipment?.object_type === 'virtual';
 
         if (!isVirtual) {
-          if (item.equipment?.is_component && item.equipment_id) {
+          if (item.equipment?.is_component && item.equipment_id && item.component_selection !== 'separate' && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id) && !event.equipment_shipped) {
             try {
               const caseOptions = caseOptionsByEquipmentId.get(item.equipment_id) || [];
               if (caseOptions.length > 0) {
@@ -935,7 +944,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
             // Восстанавливаем отметки виртуальных субэлементов раскладного состава,
             // сохранённые до перезагрузки страницы
-            const compositionPickedSnapshot = readCompositionPickedSnapshot(eventId);
+            const compositionPickedSnapshot = readCompositionPickedSnapshot(budgetId);
             items.forEach((subItem) => {
               if (!isGeneratedCompositionItemId(subItem.budgetItemId)) return;
               const saved = compositionPickedSnapshot[subItem.budgetItemId];
@@ -944,7 +953,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               if (saved.return_picked !== undefined) subItem.return_picked = saved.return_picked;
             });
 
-            setExpandedItems(items);
+            const excludedKeys = new Set(budgetData.flatMap(item => item.excluded_child_keys || []));
+            setExpandedItems(items.filter(item => !excludedKeys.has(item.budgetItemId)));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -1056,66 +1066,35 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
 
-  const handleComponentDecisionSeparate = () => {
-    if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
-      setComponentDecisionQueue([]);
-      setActiveComponentDecisionIndex(0);
-      return;
+  const handleComponentDecision = async (selectedCase: ComponentCaseOption | null) => {
+    const group = componentDecisionQueue[activeComponentDecisionIndex];
+    if (!group || savingComponentChoice || !canEditSpecification) return;
+    setSavingComponentChoice(true);
+    try {
+      const replacement = selectedCase ? buildCaseExpandedItems(group, selectedCase)[0] : null;
+      if (selectedCase && !replacement) return;
+      await saveSpecificationComponentChoice(eventId, group.items.map(item => item.budgetItemId), replacement);
+      // Preserve unrelated edits while replacing this group's virtual rows with database IDs.
+      const changed = expandedItems.filter(item => modifiedItems.has(item.budgetItemId))
+        .map(item => ({ id: item.budgetItemId, quantity: item.quantity, notes: item.notes }));
+      showNotification('Выбор сохранён', 'success');
+      await loadData(changed);
+    } catch (error) {
+      showNotification(getErrorMessage(error));
+    } finally {
+      setSavingComponentChoice(false);
     }
-
-    setActiveComponentDecisionIndex(prev => prev + 1);
   };
 
-  const handleComponentDecisionUseCase = (selectedCase: ComponentCaseOption) => {
-    const currentGroup = componentDecisionQueue[activeComponentDecisionIndex];
-    if (!currentGroup) return;
-
-    const groupedItemIds = new Set(currentGroup.items.map(item => item.budgetItemId));
-    const modifiedBudgetItemIds = currentGroup.items.map(item => item.budgetItemId);
-    const replacementItems = buildCaseExpandedItems(currentGroup, selectedCase);
-    const replacementItem = replacementItems[0];
-
-    if (replacementItem) {
-      setPendingComponentCaseSelections(prev => {
-        const replacedIdSet = new Set(modifiedBudgetItemIds);
-        const withoutOverlaps = prev.filter(selection =>
-          selection.replacedBudgetItemIds.every(id => !replacedIdSet.has(id))
-        );
-        return [
-          ...withoutOverlaps,
-          {
-            replacedBudgetItemIds: modifiedBudgetItemIds,
-            replacementItem
-          }
-        ];
-      });
-    }
-
-    setExpandedItems(prev => {
-      const filtered = prev.filter(item => !groupedItemIds.has(item.budgetItemId));
-      return [...filtered, ...replacementItems];
-    });
-    setModifiedItems(prev => {
-      const updated = new Set(prev);
-      modifiedBudgetItemIds.forEach(id => updated.add(id));
-      return updated;
-    });
-
-    if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
-      setComponentDecisionQueue([]);
-      setActiveComponentDecisionIndex(0);
-      return;
-    }
-
-    setActiveComponentDecisionIndex(prev => prev + 1);
-  };
+  const handleComponentDecisionSeparate = () => { void handleComponentDecision(null); };
+  const handleComponentDecisionUseCase = (selectedCase: ComponentCaseOption) => { void handleComponentDecision(selectedCase); };
 
   // Сохраняет отметку виртуального субэлемента раскладного состава, чтобы она
   // не терялась после перезагрузки страницы (у таких строк пока нет своей записи в БД).
   // Отмеченный субэлемент дополнительно помечает родителя как изменённый — при
   // сохранении изменений он будет создан в БД как обычная дочерняя позиция.
   const persistCompositionPickedState = (budgetItemId: string, patch: { picked?: boolean; return_picked?: boolean }) => {
-    const snapshot = readCompositionPickedSnapshot(eventId);
+    const snapshot = readCompositionPickedSnapshot(budgetId);
     snapshot[budgetItemId] = { ...(snapshot[budgetItemId] || {}), ...patch };
 
     // Подчищаем устаревший legacy-ключ с временным суффиксом (mod-<id>-<timestamp>),
@@ -1130,7 +1109,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       });
     }
 
-    writeCompositionPickedSnapshot(eventId, snapshot);
+    writeCompositionPickedSnapshot(budgetId, snapshot);
     setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
   };
 
@@ -1189,7 +1168,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     try {
       setConfirmingShipment(true);
-      await confirmShipment(eventId);
+      await updateBudgetSpecification(eventId, budgetId, { equipment_shipped: true, equipment_shipped_at: new Date().toISOString() });
       setEventDetails({ ...eventDetails, equipment_shipped: true });
     } catch (error) {
       console.error('Error confirming shipment:', error);
@@ -1211,7 +1190,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
 
     try {
       setConfirmingReturn(true);
-      await confirmReturn(eventId);
+      await updateBudgetSpecification(eventId, budgetId, { equipment_returned: true, equipment_returned_at: new Date().toISOString() });
       setEventDetails({ ...eventDetails, equipment_returned: true });
     } catch (error) {
       console.error('Error confirming return:', error);
@@ -1224,10 +1203,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleResetSpecification = async () => {
     try {
       setResettingSpecification(true);
-      await resetWarehouseSpecificationSnapshot(eventId);
+      await resetWarehouseSpecificationSnapshot(eventId, budgetId);
       // При сбросе спецификации очищаем и локальные отметки субэлементов раскладного состава
       try {
-        localStorage.removeItem(buildCompositionPickedStorageKey(eventId));
+        localStorage.removeItem(buildCompositionPickedStorageKey(budgetId));
       } catch {
         // ignore storage errors
       }
@@ -1237,7 +1216,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setPodiumItemsWithComposition(new Set());
       setComponentDecisionQueue([]);
       setActiveComponentDecisionIndex(0);
-      setPendingComponentCaseSelections([]);
       setShowResetDialog(false);
       await loadData();
       showNotification('Спецификация сброшена до состояния сметы', 'success');
@@ -1275,11 +1253,11 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         ...otherReturnUpdates
       ]);
 
-      const compositionSnapshot = readCompositionPickedSnapshot(eventId);
+      const compositionSnapshot = readCompositionPickedSnapshot(budgetId);
       Object.keys(compositionSnapshot).forEach(key => {
         compositionSnapshot[key] = { picked: false, return_picked: false };
       });
-      writeCompositionPickedSnapshot(eventId, compositionSnapshot);
+      writeCompositionPickedSnapshot(budgetId, compositionSnapshot);
 
       setExpandedItems(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
       setCables(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
@@ -1460,7 +1438,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleAddExtraEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
       const newItem = await createSpecificationBudgetItem({
-        event_id: eventId,
+        event_id: eventId, budget_id: budgetId,
         equipment_id: equipment.id,
         modification_id: modificationId,
         item_type: 'equipment',
@@ -1589,7 +1567,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const handleAddEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
     try {
       const newItem = await createSpecificationBudgetItem({
-        event_id: eventId,
+        event_id: eventId, budget_id: budgetId,
         equipment_id: equipment.id,
         modification_id: modificationId,
         item_type: 'equipment',
@@ -1675,25 +1653,34 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleDeleteSpecificationItem = async (budgetItemId: string) => {
-    if (!canEditSpecification) return;
-    const realId = getPersistedBudgetItemId(budgetItemId);
+    if (!canEditSpecification || !canAccess(user, 'specifications', 3) || eventDetails?.equipment_shipped) return;
+    const row = expandedItems.find(item => item.budgetItemId === budgetItemId);
+    if (!row) return;
     try {
-      await deleteSpecificationBudgetItem(realId);
-      // Optimized: remove from local state instead of full reload
-      setBudgetItems(prev => prev.filter(item => item.id !== realId));
-      setExpandedItems(prev => prev.filter(item => {
-        const itemRealId = getPersistedBudgetItemId(item.budgetItemId);
-        return itemRealId !== realId;
-      }));
-      setModifiedItems(prev => {
-        const updated = new Set(prev);
-        updated.delete(realId);
-        return updated;
-      });
+      if (isGeneratedCompositionItemId(budgetItemId)) {
+        const parentId = row.parentBudgetItemId || getPersistedBudgetItemId(budgetItemId);
+        await excludeSpecificationChild(eventId, parentId, budgetItemId);
+        setBudgetItems(prev => prev.map(item => item.id === parentId
+          ? { ...item, excluded_child_keys: [...new Set([...(item.excluded_child_keys || []), budgetItemId])] }
+          : item));
+        // A generated child has no database row: never delete its parent.
+        setExpandedItems(prev => prev.filter(item => item.budgetItemId !== budgetItemId));
+      } else {
+        await deleteSpecificationBudgetItem(budgetItemId);
+        setBudgetItems(prev => prev.filter(item => item.id !== budgetItemId && item.parent_budget_item_id !== budgetItemId));
+        setExpandedItems(prev => prev.filter(item => item.budgetItemId !== budgetItemId
+          && item.parentBudgetItemId !== budgetItemId
+          && getPersistedBudgetItemId(item.budgetItemId) !== budgetItemId));
+        setModifiedItems(prev => {
+          const updated = new Set(prev);
+          updated.delete(budgetItemId);
+          return updated;
+        });
+      }
       showNotification('Элемент удалён', 'success');
     } catch (error) {
       console.error('Error deleting specification item:', error);
-      showNotification('Ошибка при удалении элемента');
+      showNotification(getErrorMessage(error));
     }
   };
 
@@ -1710,45 +1697,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       const createdItems: { oldId: string; newId: string }[] = [];
       const modifiedBudgetItemIds = new Set(modifiedItems);
 
-      for (const selection of pendingComponentCaseSelections) {
-        const { replacedBudgetItemIds, replacementItem } = selection;
-
-        for (const replacedId of replacedBudgetItemIds) {
-          try {
-            await deleteSpecificationBudgetItem(replacedId);
-            modifiedBudgetItemIds.delete(replacedId);
-          } catch (err) {
-            console.error('Error deleting replaced component item:', replacedId, err);
-            errors.push(`Удаление: ${replacementItem.name}`);
-          }
-        }
-
-        try {
-          const createdReplacement = await createSpecificationBudgetItem({
-            event_id: eventId,
-            item_type: 'equipment',
-            equipment_id: null,
-            category_id: replacementItem.categoryId,
-            location_id: replacementItem.locationId,
-            name: replacementItem.name,
-            sku: replacementItem.sku,
-            quantity: replacementItem.quantity,
-            price: 0,
-            total: 0,
-            exchange_rate: 1,
-            notes: replacementItem.notes,
-            picked: replacementItem.picked,
-            return_picked: replacementItem.return_picked,
-            is_extra: replacementItem.isExtra || false,
-            sort_order: 0
-          });
-          createdItems.push({ oldId: replacementItem.budgetItemId, newId: createdReplacement.id });
-        } catch (err) {
-          console.error('Error creating replacement case item:', replacementItem.budgetItemId, err);
-          errors.push(replacementItem.name);
-        }
-      }
-      
       for (const budgetItemId of modifiedBudgetItemIds) {
         // Check if this budget item has LED cases that need to be created
         const caseItems = expandedItems.filter(item => 
@@ -1761,7 +1709,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Delete existing LED case children from DB before creating new ones (prevent duplicates)
         // Always fetch fresh from DB to avoid stale cache issues
         if (caseItems.length > 0) {
-          const freshItemsForLed = await getSpecificationBudgetItems(eventId);
+          const freshItemsForLed = await getSpecificationBudgetItems(eventId, budgetId);
           const existingLedChildren = freshItemsForLed.filter(item => item.parent_budget_item_id === budgetItemId);
           for (const child of existingLedChildren) {
             try {
@@ -1776,7 +1724,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         for (const caseItem of caseItems) {
           try {
             console.log('Creating LED case with data:', {
-              event_id: eventId,
+              event_id: eventId, budget_id: budgetId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
               equipment_id: null,
@@ -1793,7 +1741,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               sort_order: 0
             });
             const newItem = await createSpecificationBudgetItem({
-              event_id: eventId,
+              event_id: eventId, budget_id: budgetId,
               item_type: 'equipment',
               category_id: caseItem.categoryId,
               equipment_id: null,
@@ -1823,7 +1771,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // Replace podium child rows for parent item
         if (podiumChildItems.length > 0) {
           // Fetch from DB directly to avoid stale state
-          const freshBudgetItems = await getSpecificationBudgetItems(eventId);
+          const freshBudgetItems = await getSpecificationBudgetItems(eventId, budgetId);
           const existingPodiumChildren = freshBudgetItems.filter(item => item.parent_budget_item_id === budgetItemId);
 
           for (const child of existingPodiumChildren) {
@@ -1837,7 +1785,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           for (const childItem of podiumChildItems) {
             try {
               const newItem = await createSpecificationBudgetItem({
-                event_id: eventId,
+                event_id: eventId, budget_id: budgetId,
                 item_type: 'equipment',
                 category_id: childItem.categoryId,
                 equipment_id: null,
@@ -1887,7 +1835,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
           // For other virtual items (not parent LED), create a new budget item
           try {
             const newItem = await createSpecificationBudgetItem({
-              event_id: eventId,
+              event_id: eventId, budget_id: budgetId,
               item_type: 'equipment',
               equipment_id: null,
               work_item_id: null,
@@ -1949,7 +1897,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         // больше не нужны в локальном снимке — удаляем их, чтобы не переносить устаревшие значения
         const persistedVirtualIds = createdItems.map(c => c.oldId);
         if (persistedVirtualIds.length > 0) {
-          const snapshot = readCompositionPickedSnapshot(eventId);
+          const snapshot = readCompositionPickedSnapshot(budgetId);
           let snapshotChanged = false;
           for (const virtualId of persistedVirtualIds) {
             if (snapshot[virtualId] !== undefined) {
@@ -1958,12 +1906,12 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             }
           }
           if (snapshotChanged) {
-            writeCompositionPickedSnapshot(eventId, snapshot);
+            writeCompositionPickedSnapshot(budgetId, snapshot);
           }
         }
 
         setModifiedItems(new Set());
-        setPendingComponentCaseSelections([]);
+
         showNotification('Изменения сохранены', 'success');
         // Перезагружаем данные после успешного сохранения, чтобы получить реальные ID из базы
         await loadData();
@@ -1976,93 +1924,31 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleSetCableQuantityFromTemplate = async (cableType: string, cableLength: string, newQuantity: number) => {
+  const handleSetCableQuantityFromTemplate = async (cableType: string, cableLength: string, value: number, delta = false) => {
+    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
     try {
-      const normalizedQuantity = Math.max(0, newQuantity);
-      const existingCable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
-
-      if (!existingCable && normalizedQuantity === 0) return;
-
-      if (!existingCable) {
-        const newCable = await createCable({
-          event_id: eventId,
-          cable_type: cableType,
-          cable_length: cableLength,
-          quantity: normalizedQuantity,
-          notes: '',
-          picked: false,
-          return_picked: false
-        });
-        setCables(prev => [...prev, newCable]);
-        return;
-      }
-
-      await handleCableQuantityChange(existingCable.id, normalizedQuantity);
-    } catch (error) {
-      console.error('Error setting cable quantity:', error);
-      showNotification('Ошибка при обновлении кабеля');
-    }
+      await quantityQueue.current(JSON.stringify([eventId, 'cable', cableType, cableLength]), () => writeGroupedQuantity({
+        rows: cablesRef.current.filter(row => row.cable_type === cableType && row.cable_length === cableLength),
+        change: delta ? { delta: value } : { set: value },
+        create: quantity => createCable({ event_id: eventId, budget_id: budgetId, cable_type: cableType, cable_length: cableLength, quantity, notes: '', picked: false, return_picked: false }),
+        update: (id, quantity) => updateCable(id, { quantity }),
+        commit: row => { const next = cablesRef.current.some(item => item.id === row.id) ? cablesRef.current.map(item => item.id === row.id ? row : item) : [...cablesRef.current, row]; cablesRef.current = next; setCables(next); }
+      }));
+    } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
-  const handleCableQuantityChange = async (id: string, newQuantity: number) => {
+  const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
+    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
     try {
-      if (newQuantity === 0) {
-        await deleteCable(id);
-        setCables(cables.filter(c => c.id !== id));
-      } else {
-        const updated = await updateCable(id, { quantity: newQuantity });
-        setCables(cables.map(c => c.id === updated.id ? updated : c));
-      }
-    } catch (error) {
-      console.error('Error updating cable:', error);
-      showNotification('Ошибка при обновлении кабеля');
-    }
-  };
-
-  const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, newQuantity: number) => {
-    try {
-      const normalizedQuantity = Math.max(0, newQuantity);
-      const scopedType = buildConnectorScopedType(category, itemType);
-      const existingConnector = connectors.find(c =>
-        isConnectorMatch(c, category, itemType) || isLegacyConnectorMatch(c, scopedType, itemType)
-      );
-
-      if (!existingConnector && normalizedQuantity === 0) return;
-
-      if (!existingConnector) {
-        const newConnector = await createConnector({
-          event_id: eventId,
-          connector_type: category,
-          connector_item: itemType,
-          quantity: normalizedQuantity,
-          notes: '',
-          picked: false,
-          return_picked: false
-        });
-        setConnectors(prev => [...prev, newConnector]);
-        return;
-      }
-
-      await handleConnectorQuantityChange(existingConnector.id, normalizedQuantity);
-    } catch (error) {
-      console.error('Error setting connector quantity:', error);
-      showNotification('Ошибка при обновлении коннектора');
-    }
-  };
-
-  const handleConnectorQuantityChange = async (id: string, newQuantity: number) => {
-    try {
-      if (newQuantity === 0) {
-        await deleteConnector(id);
-        setConnectors(connectors.filter(c => c.id !== id));
-      } else {
-        const updated = await updateConnector(id, { quantity: newQuantity });
-        setConnectors(connectors.map(c => c.id === updated.id ? updated : c));
-      }
-    } catch (error) {
-      console.error('Error updating connector:', error);
-      showNotification('Ошибка при обновлении коннектора');
-    }
+      await quantityQueue.current(JSON.stringify([eventId, 'connector', category, itemType]), () => writeGroupedQuantity({
+        rows: connectorsRef.current.filter(row => isConnectorMatch(row, category, itemType)
+          || (!DUPLICATE_CONNECTOR_ITEMS.has(itemType) && isLegacyConnectorMatch(row, buildConnectorScopedType(category, itemType), itemType))),
+        change: delta ? { delta: value } : { set: value },
+        create: quantity => createConnector({ event_id: eventId, budget_id: budgetId, connector_type: category, connector_item: itemType, quantity, notes: '', picked: false, return_picked: false }),
+        update: (id, quantity) => updateConnector(id, { quantity }),
+        commit: row => { const next = connectorsRef.current.some(item => item.id === row.id) ? connectorsRef.current.map(item => item.id === row.id ? row : item) : [...connectorsRef.current, row]; connectorsRef.current = next; setConnectors(next); }
+      }));
+    } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
   const toggleCableType = (type: string) => {
@@ -2086,47 +1972,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }));
   };
 
-  const handleSetOtherQuantityFromTemplate = async (category: string, itemType: string, newQuantity: number) => {
+  const handleSetOtherQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
+    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
     try {
-      const normalizedQuantity = Math.max(0, newQuantity);
-      const existingItem = otherItems.find(i => i.category === category && i.item_type === itemType);
-
-      if (!existingItem && normalizedQuantity === 0) return;
-
-      if (!existingItem) {
-        const newItem = await createOtherItem({
-          event_id: eventId,
-          category,
-          item_type: itemType,
-          quantity: normalizedQuantity,
-          notes: '',
-          picked: false,
-          return_picked: false
-        });
-        setOtherItems(prev => [...prev, newItem]);
-        return;
-      }
-
-      await handleOtherQuantityChange(existingItem.id, normalizedQuantity);
-    } catch (error) {
-      console.error('Error setting other item quantity:', error);
-      showNotification('Ошибка при обновлении предмета');
-    }
-  };
-
-  const handleOtherQuantityChange = async (id: string, newQuantity: number) => {
-    try {
-      if (newQuantity === 0) {
-        await deleteOtherItem(id);
-        setOtherItems(otherItems.filter(i => i.id !== id));
-      } else {
-        const updated = await updateOtherItem(id, { quantity: newQuantity });
-        setOtherItems(otherItems.map(i => i.id === updated.id ? updated : i));
-      }
-    } catch (error) {
-      console.error('Error updating other item:', error);
-      showNotification('Ошибка при обновлении предмета');
-    }
+      await quantityQueue.current(JSON.stringify([eventId, 'other', category, itemType]), () => writeGroupedQuantity({
+        rows: otherItemsRef.current.filter(row => row.category === category && row.item_type === itemType),
+        change: delta ? { delta: value } : { set: value },
+        create: quantity => createOtherItem({ event_id: eventId, budget_id: budgetId, category, item_type: itemType, quantity, notes: '', picked: false, return_picked: false }),
+        update: (id, quantity) => updateOtherItem(id, { quantity }),
+        commit: row => { const next = otherItemsRef.current.some(item => item.id === row.id) ? otherItemsRef.current.map(item => item.id === row.id ? row : item) : [...otherItemsRef.current, row]; otherItemsRef.current = next; setOtherItems(next); }
+      }));
+    } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
   const handleOtherPickedChange = async (id: string, picked: boolean) => {
@@ -2190,6 +2046,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             </button>
             <button
               onClick={onClose}
+              aria-label="Закрыть спецификацию"
               className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-white rounded transition-colors"
             >
               <X className="w-5 h-5" />
@@ -2516,8 +2373,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.lengths.map((length) => {
-                              const cableObj = cables.find(c => c.cable_type === template.type && c.cable_length === length);
-                              const quantity = cableObj?.quantity || 0;
+                              const cableEntries = cables.filter(c => c.cable_type === template.type && c.cable_length === length);
+                              const cableObj = cableEntries[0];
+                              const quantity = cableEntries.reduce((sum, item) => sum + item.quantity, 0);
                               const cableId = cableObj?.id;
                               const picked = cableObj?.picked || false;
                               const returnPicked = cableObj?.return_picked || false;
@@ -2557,6 +2415,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         value={cableDisplayValue}
                                         onChange={(e) => setInputDraftValues(prev => ({ ...prev, [cableDraftKey]: e.target.value }))}
                                         onBlur={(e) => {
+                                          if (inputDraftValues[cableDraftKey] === undefined) return;
                                           const val = parseInt(e.target.value, 10);
                                           handleSetCableQuantityFromTemplate(template.type, length, Number.isNaN(val) ? 0 : val);
                                           setInputDraftValues(prev => {
@@ -2574,14 +2433,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, Math.max(0, quantity - 1))}
+                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, -1, true)}
                                           disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button disabled={!canAccess(user, 'specifications', 2)}
-                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, quantity + 1)}
+                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
@@ -2684,6 +2543,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         value={connectorDisplayValue}
                                         onChange={(e) => setInputDraftValues(prev => ({ ...prev, [connectorDraftKey]: e.target.value }))}
                                         onBlur={(e) => {
+                                          if (inputDraftValues[connectorDraftKey] === undefined) return;
                                           const val = parseInt(e.target.value, 10);
                                           handleSetConnectorQuantityFromTemplate(template.category, itemType, Number.isNaN(val) ? 0 : val);
                                           setInputDraftValues(prev => {
@@ -2701,14 +2561,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, -1, true)}
                                           disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button disabled={!canAccess(user, 'specifications', 2)}
-                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, quantity + 1)}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
@@ -2765,9 +2625,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.items.map((itemType) => {
-                              const otherObj = otherItems.find(i => i.category === template.category && i.item_type === itemType);
+                              const otherEntries = otherItems.filter(i => i.category === template.category && i.item_type === itemType);
+                              const otherObj = otherEntries[0];
                               const otherId = otherObj?.id;
-                              const quantity = otherObj?.quantity || 0;
+                              const quantity = otherEntries.reduce((sum, item) => sum + item.quantity, 0);
                               const picked = otherObj?.picked || false;
                               const returnPicked = otherObj?.return_picked || false;
                               const otherDraftKey = buildOtherDraftKey(template.category, itemType);
@@ -2806,6 +2667,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         value={otherDisplayValue}
                                         onChange={(e) => setInputDraftValues(prev => ({ ...prev, [otherDraftKey]: e.target.value }))}
                                         onBlur={(e) => {
+                                          if (inputDraftValues[otherDraftKey] === undefined) return;
                                           const val = parseInt(e.target.value, 10);
                                           handleSetOtherQuantityFromTemplate(template.category, itemType, Number.isNaN(val) ? 0 : val);
                                           setInputDraftValues(prev => {
@@ -2823,14 +2685,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
+                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, -1, true)}
                                           disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button disabled={!canAccess(user, 'specifications', 2)}
-                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, quantity + 1)}
+                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
@@ -3076,7 +2938,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 Комплектующие: выбор кейса ({activeComponentDecisionIndex + 1}/{componentDecisionQueue.length})
               </h3>
               <button
-                onClick={handleComponentDecisionSeparate}
+                onClick={() => { if (!savingComponentChoice) setComponentDecisionQueue([]); }}
+                disabled={savingComponentChoice}
                 className="p-1 hover:bg-gray-800 text-gray-400 rounded"
                 title="Пропустить"
               >
@@ -3105,6 +2968,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 {componentDecisionQueue[activeComponentDecisionIndex].caseOptions.map(option => (
                   <button
                     key={option.caseId}
+                    disabled={savingComponentChoice}
                     onClick={() => handleComponentDecisionUseCase(option)}
                     className="w-full text-left px-3 py-2 bg-gray-800 border border-gray-700 rounded hover:bg-gray-700 transition-colors"
                   >
@@ -3120,6 +2984,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             <div className="px-4 py-3 border-t border-gray-800 flex justify-end">
               <button
                 onClick={handleComponentDecisionSeparate}
+                disabled={savingComponentChoice}
                 className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
               >
                 Взять отдельно
@@ -3324,6 +3189,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             <p className="text-sm text-gray-300 leading-relaxed">
               Удалить элемент <span className="text-white font-medium">«{pendingDeleteItem.itemName}»</span> из спецификации?
             </p>
+            {(isGeneratedCompositionItemId(pendingDeleteItem.budgetItemId) || expandedItems.find(item => item.budgetItemId === pendingDeleteItem.budgetItemId)?.parentBudgetItemId) && <p className="mt-2 text-xs text-gray-400">Родительский элемент и остальные дочерние элементы останутся в спецификации.</p>}
             <div className="mt-4 flex gap-2">
               <button disabled={!canAccess(user, 'specifications', 3)}
                 onClick={() => setPendingDeleteItem(null)}
@@ -3418,7 +3284,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         onNotesChange={setStickyNotes}
         onClose={() => setShowStickyNotes(false)}
         isOpen={showStickyNotes}
-        storageKey={`spec_sticky_notes_${eventId}`}
+        storageKey={`spec_sticky_notes_${budgetId}`}
       />
     </div>
   );

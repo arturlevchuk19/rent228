@@ -3,12 +3,13 @@ import { X, Package, Plus, Search } from 'lucide-react';
 import { getTemplates, getTemplateById, applyTemplateToEvent, Template } from '../lib/templates';
 
 interface TemplatesInBudgetProps {
+  budgetId: string;
   eventId: string;
   onClose: () => void;
   onApply: () => void;
 }
 
-export function TemplatesInBudget({ eventId, onClose, onApply }: TemplatesInBudgetProps) {
+export function TemplatesInBudget({ eventId, budgetId, onClose, onApply }: TemplatesInBudgetProps) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,7 +53,7 @@ export function TemplatesInBudget({ eventId, onClose, onApply }: TemplatesInBudg
   const handleConfirmApply = async (template: Template) => {
     try {
       setApplying(template.id);
-      await applyTemplateToEvent(template.id, eventId, categoryName || template.name);
+      await applyTemplateToEvent(template.id, eventId, categoryName || template.name, budgetId);
       onApply();
       onClose();
     } catch (error) {

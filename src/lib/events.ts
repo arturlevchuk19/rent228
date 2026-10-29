@@ -1,3 +1,4 @@
+import type { EventProjectDetails } from './eventProject';
 import { supabase } from './supabase';
 
 export interface Venue {
@@ -32,6 +33,7 @@ export interface Client {
 }
 
 export interface Event {
+  project_details?: EventProjectDetails;
   id: string;
   event_date: string;
   event_end_date?: string;
@@ -109,6 +111,11 @@ export interface WorkItem {
 }
 
 export interface BudgetItem {
+  budget_id?: string;
+  /** Generated child rows excluded only from this specification. */
+  excluded_child_keys?: string[];
+  /** Warehouse specification only: persisted component/case decision. */
+  component_selection?: 'separate' | 'case' | null;
   id: string;
   event_id: string;
   equipment_id?: string | null;
@@ -433,11 +440,12 @@ function isMissingBudgetLocationRelation(error: unknown): boolean {
   return code === 'PGRST200' && message.includes("budget_items") && message.includes("locations");
 }
 
-export async function getBudgetItems(eventId: string): Promise<BudgetItem[]> {
+export async function getBudgetItems(eventId: string, budgetId?: string): Promise<BudgetItem[]> {
   const query = () => supabase
     .from('budget_items')
     .select(BUDGET_ITEM_SELECT_WITH_LOCATION)
     .eq('event_id', eventId)
+    .or(budgetId ? `budget_id.eq.${budgetId}` : 'budget_id.is.null,budget_id.not.is.null')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
@@ -448,6 +456,7 @@ export async function getBudgetItems(eventId: string): Promise<BudgetItem[]> {
       .from('budget_items')
       .select(BUDGET_ITEM_BASE_SELECT)
       .eq('event_id', eventId)
+    .or(budgetId ? `budget_id.eq.${budgetId}` : 'budget_id.is.null,budget_id.not.is.null')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
 
@@ -482,7 +491,12 @@ export async function updateBudgetItem(id: string, item: Partial<BudgetItem>): P
   return data;
 }
 
-export async function updateBudgetItemsExchangeRate(eventId: string, exchangeRate: number): Promise<void> {
+export async function updateBudgetItemsExchangeRate(eventId: string, exchangeRate: number, budgetId?: string): Promise<void> {
+  if (budgetId) {
+    const { error } = await supabase.from('budget_items').update({ exchange_rate: exchangeRate }).eq('event_id', eventId).eq('budget_id', budgetId);
+    if (error) throw error;
+    return;
+  }
   const { error } = await supabase.rpc('update_budget_items_exchange_rate', {
     p_event_id: eventId,
     p_exchange_rate: exchangeRate
@@ -524,7 +538,7 @@ export async function deleteBudgetItem(id: string): Promise<void> {
 export async function copyBudgetFromEvent(
   sourceEventId: string,
   targetEventId: string,
-  options?: { copyCategories?: boolean; copyLocations?: boolean }
+  options?: { copyCategories?: boolean; copyLocations?: boolean; sourceBudgetId?: string; targetBudgetId?: string }
 ): Promise<void> {
   // Сначала копируем категории, если нужно
   const categoryIdMap: Record<string, string> = {};
@@ -534,7 +548,8 @@ export async function copyBudgetFromEvent(
     const { data: sourceCategories, error: catError } = await supabase
       .from('categories')
       .select('*')
-      .eq('event_id', sourceEventId);
+      .eq('event_id', sourceEventId)
+      .eq('budget_id', options?.sourceBudgetId || '00000000-0000-0000-0000-000000000000');
 
     if (!catError && sourceCategories && sourceCategories.length > 0) {
       const categoriesToInsert = sourceCategories.map(cat => ({
@@ -542,6 +557,7 @@ export async function copyBudgetFromEvent(
         description: cat.description,
         sort_order: cat.sort_order,
         event_id: targetEventId,
+        budget_id: options?.targetBudgetId,
         is_template: false
       }));
 
@@ -565,14 +581,16 @@ export async function copyBudgetFromEvent(
     const { data: sourceLocations, error: locError } = await supabase
       .from('locations')
       .select('*')
-      .eq('event_id', sourceEventId);
+      .eq('event_id', sourceEventId)
+      .eq('budget_id', options?.sourceBudgetId || '00000000-0000-0000-0000-000000000000');
 
     if (!locError && sourceLocations && sourceLocations.length > 0) {
       const locationsToInsert = sourceLocations.map(loc => ({
         name: loc.name,
         color: loc.color,
         sort_order: loc.sort_order,
-        event_id: targetEventId
+        event_id: targetEventId,
+        budget_id: options?.targetBudgetId
       }));
 
       const { data: newLocations, error: insertLocError } = await supabase
@@ -597,35 +615,28 @@ export async function copyBudgetFromEvent(
       *,
       equipment:equipment_items (*)
     `)
-    .eq('event_id', sourceEventId);
+    .eq('event_id', sourceEventId)
+    .eq('budget_id', options?.sourceBudgetId || '00000000-0000-0000-0000-000000000000');
 
   if (fetchError) throw fetchError;
   if (!sourceItems || sourceItems.length === 0) return;
 
-  const itemsToInsert = sourceItems.map(item => ({
-    event_id: targetEventId,
-    equipment_id: item.equipment_id,
-    work_item_id: item.work_item_id,
-    modification_id: item.modification_id,
-    parent_budget_item_id: null,
-    item_type: item.item_type,
-    quantity: item.quantity,
-    price: item.price,
-    total: item.total,
-    notes: item.notes,
-    exchange_rate: item.exchange_rate,
-    multi_day_rate_override: item.multi_day_rate_override,
-    category_id: item.category_id ? categoryIdMap[item.category_id] || null : null,
-    location_id: item.location_id ? locationIdMap[item.location_id] || null : null,
-    sort_order: item.sort_order,
-    picked: false,
-    is_extra: item.is_extra || false,
-    return_picked: false
-  }));
-
-  const { error: insertError } = await supabase
-    .from('budget_items')
-    .insert(itemsToInsert);
-
-  if (insertError) throw insertError;
+  const idMap = new Map<string, string>();
+  const orderedItems = [...sourceItems.filter(item => !item.parent_budget_item_id), ...sourceItems.filter(item => item.parent_budget_item_id)];
+  for (const item of orderedItems) {
+    const created = await createBudgetItem({
+      event_id: targetEventId, budget_id: options?.targetBudgetId,
+      equipment_id: item.equipment_id, work_item_id: item.work_item_id,
+      modification_id: item.modification_id,
+      parent_budget_item_id: item.parent_budget_item_id ? idMap.get(item.parent_budget_item_id) || null : null,
+      item_type: item.item_type, quantity: item.quantity, price: item.price, total: item.total,
+      notes: item.notes, exchange_rate: item.exchange_rate,
+      multi_day_rate_override: item.multi_day_rate_override,
+      category_id: item.category_id ? categoryIdMap[item.category_id] || item.category_id : null,
+      location_id: item.location_id ? locationIdMap[item.location_id] || item.location_id : null,
+      sort_order: item.sort_order, picked: false, return_picked: false,
+      is_extra: item.is_extra || false, name: item.name, sku: item.sku, unit: item.unit, marker_color: item.marker_color
+    });
+    idMap.set(item.id, created.id);
+  }
 }
