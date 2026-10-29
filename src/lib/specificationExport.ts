@@ -1,4 +1,5 @@
-import type { BudgetItem } from './events';
+import { getSpecificationServices } from './specificationServices';
+import { getBudgetItems, type BudgetItem } from './events';
 import { getBudgetEvent } from './eventBudgets';
 import { getEquipmentCompositions, type EquipmentComposition } from './equipmentCompositions';
 import { getModificationComponents, type ModificationComponent } from './equipment';
@@ -43,8 +44,8 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
 
 export async function loadSpecificationExport(eventId: string, budgetId: string, initialize: boolean) {
   if (initialize) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
-  const [event, items, cables, connectors, others, globalCategories, categories, locations] = await Promise.all([
-    getBudgetEvent(eventId, budgetId), getSpecificationBudgetItems(eventId, budgetId), getCables(eventId, budgetId), getConnectors(eventId, budgetId), getOtherItems(eventId, budgetId), getCategories(), getCategoriesForEvent(eventId, budgetId), getLocationsForEvent(eventId, budgetId)
+  const [event, items, cables, connectors, others, globalCategories, categories, locations, liveItems] = await Promise.all([
+    getBudgetEvent(eventId, budgetId), getSpecificationBudgetItems(eventId, budgetId), getCables(eventId, budgetId), getConnectors(eventId, budgetId), getOtherItems(eventId, budgetId), getCategories(), getCategoriesForEvent(eventId, budgetId), getLocationsForEvent(eventId, budgetId), getBudgetItems(eventId, budgetId)
   ]);
   const equipmentIds = [...new Set(items.filter(item => !item.parent_budget_item_id && item.equipment?.object_type === 'virtual' && item.equipment_id).map(item => item.equipment_id!))];
   const modificationIds = [...new Set(items.flatMap(item => item.modification_id ? [item.modification_id] : []))];
@@ -53,6 +54,7 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
     Promise.all(modificationIds.map(async id => [id, await getModificationComponents(id)] as const))
   ]);
   const rows = buildSpecificationEquipmentRows(items, new Map(compositionEntries), new Map(modificationEntries), new Map([...globalCategories, ...categories].map(row => [row.id, row.name])), new Map(locations.map(row => [row.id, row.name])));
+  rows.push(...getSpecificationServices(liveItems).map(service => ({ ...service, group: 'Дополнительные услуги', sku: '' })));
   const accessories = new Map<string, SpecificationRow>();
   const add = (group: string, name: string, quantity: number, notes: string) => {
     if (quantity <= 0) return;

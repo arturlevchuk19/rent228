@@ -5,7 +5,8 @@ import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
 import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
-import { type BudgetItem, type Event } from '../lib/events';
+import { getSpecificationServices, specificationDiffersFromBudget } from '../lib/specificationServices';
+import { getBudgetItems, type BudgetItem, type Event } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
@@ -225,6 +226,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const isWarehouseUser = isWarehouse(user);
 
   const [activeTab, setActiveTab] = useState<TabType>('budget');
+  const [liveBudgetItems, setLiveBudgetItems] = useState<BudgetItem[]>([]);
+  const [budgetSourceError, setBudgetSourceError] = useState('');
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [expandedItems, setExpandedItems] = useState<ExpandedItem[]>([]);
   const [cables, setCables] = useState<CableItem[]>([]);
@@ -551,7 +554,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
-      const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData] = await Promise.all([
+      const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData, liveItems] = await Promise.all([
         (async () => {
           if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
           return getSpecificationBudgetItems(eventId, budgetId);
@@ -562,7 +565,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         getBudgetEvent(eventId, budgetId),
         getCables(eventId, budgetId),
         getConnectors(eventId, budgetId),
-        getOtherItems(eventId, budgetId)
+        getOtherItems(eventId, budgetId),
+        getBudgetItems(eventId, budgetId).then(items => { setBudgetSourceError(''); return items; }).catch(() => { setBudgetSourceError('Не удалось проверить актуальную смету и загрузить допуслуги. Откройте спецификацию повторно.'); return null; })
       ]);
 
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
@@ -570,6 +574,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
       setLocations(locationsData || []);
       setEventDetails(event);
       setBudgetItems(budgetData || []);
+      if (liveItems) setLiveBudgetItems(liveItems);
       setCables(cablesData || []);
       setConnectors(connectorsData || []);
       setOtherItems(otherData || []);
@@ -2090,8 +2095,17 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
+          {!budgetSourceError && specificationDiffersFromBudget(liveBudgetItems, budgetItems) && <p role="status" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">Состав или количество оборудования в смете и спецификации различаются. Проверьте новые, удалённые и изменённые позиции. Спецификация хранится отдельно: ручные изменения не перезаписываются автоматически.</p>}
+
           {activeTab === 'budget' && (
             <>
+              {getSpecificationServices(liveBudgetItems).length > 0 && <section className="mb-5 rounded-xl border border-gray-700 p-3">
+                <h3 className="mb-2 text-sm font-semibold text-gray-200">Дополнительные услуги</h3>
+                <p className="mb-2 text-xs text-gray-400">Из актуальной сметы. Изменить услуги и количество можно в редакторе сметы.</p>
+                {getSpecificationServices(liveBudgetItems).map(service => <div key={service.id} className="flex min-w-0 items-start justify-between gap-3 border-t border-gray-800 py-2 text-sm"><div className="min-w-0 [overflow-wrap:anywhere] text-gray-200">{service.name}{service.notes && <p className="mt-1 whitespace-pre-wrap text-xs text-gray-400">{service.notes}</p>}</div><span className="shrink-0 text-gray-300">{service.quantity} {service.unit}</span></div>)}
+              </section>}
+
               <div className="mb-3 flex justify-between items-center">
                 {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                   <button

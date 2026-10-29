@@ -8,6 +8,7 @@ const load=(file,mocks={})=>{if(cache.has(file))return cache.get(file);const exp
 const scopeCalls=[];
 const mocks=Object.fromEntries(['./eventBudgets','./equipmentCompositions','./equipment','./categories','./locations','./warehouseSpecification'].map(name=>[name,{}]));
 Object.assign(mocks, {
+ './events':{getBudgetItems:async(event,budget)=>{scopeCalls.push(['services',event,budget]);return [{id:'service1',item_type:'work',quantity:2,work_item:{name:'Доставка',unit:'рейс'},notes:'После монтажа'}];}},
  './eventBudgets':{getBudgetEvent:async(event,budget)=>{scopeCalls.push(['event',event,budget]);return {name:'Событие'};}},
  './equipmentCompositions':{getEquipmentCompositions:async()=>[]}, './equipment':{getModificationComponents:async()=>[]},
  './categories':{getCategories:async()=>[],getCategoriesForEvent:async()=>[]}, './locations':{getLocationsForEvent:async()=>[]},
@@ -29,6 +30,15 @@ const loaded=await loadSpecificationExport('event-A','budget-B',true);
 assert.ok(scopeCalls.every(([,event,budget])=>event==='event-A'&&budget==='budget-B'));
 assert.equal(loaded.rows.find(row=>row.name==='10м').quantity,5);assert.equal(loaded.rows.find(row=>row.name==='10м').notes,'A\nB');
 assert.equal(loaded.rows.find(row=>row.name==='Сплиттер X6').quantity,4);assert.ok(loaded.rows.some(row=>row.name==='0.5м'));assert.ok(!loaded.rows.some(row=>row.name==='1м'));
+assert.deepEqual(loaded.rows.find(row=>row.name==='Доставка'),{id:'service1',group:'Дополнительные услуги',name:'Доставка',quantity:2,unit:'рейс',notes:'После монтажа',sku:''});
+const {getSpecificationServices,specificationDiffersFromBudget}=load('src/lib/specificationServices.ts');
+assert.equal(getSpecificationServices([{item_type:'work',quantity:0}]).length,0);
+const source={id:'eq1',item_type:'equipment',equipment_id:'e1',quantity:2};
+const saved={...source,id:'spec1',source_budget_item_id:'eq1'};
+assert.equal(specificationDiffersFromBudget([source],[saved]),false);
+assert.equal(specificationDiffersFromBudget([{...source,quantity:3}],[saved]),true);
+assert.equal(specificationDiffersFromBudget([source],[]),true);
+assert.equal(specificationDiffersFromBudget([],[saved]),true);
 const {buildSpecificationPdf}=load('src/lib/specificationPdf.ts');
 const pdf=buildSpecificationPdf({eventName:'Фестиваль в парке',budgetName:'Вариант 2',startDate:'2026-10-29',endDate:'2026-10-31',venue:'Лотос. Хилтон',rows:Array.from({length:180},(_,i)=>({group:i<90?'Оборудование / Главная сцена':'Прочее / Ремешки',name:'Микрофон '+(i+1),sku:'MIC-'+i,quantity:i+1,unit:'шт.',notes:'Примечание с кириллицей и длинным текстом для переноса в таблице.'}))});
 assert.ok(pdf.getNumberOfPages()>2);const bytes=Buffer.from(pdf.output('arraybuffer'));assert.ok(bytes.includes(Buffer.from('/FontFile2')),'Embed a font instead of rasterizing text');fs.mkdirSync('work/spec-pdf',{recursive:true});fs.writeFileSync('work/spec-pdf/specification-test.pdf',bytes);
