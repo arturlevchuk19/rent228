@@ -23,16 +23,16 @@ export function buildSpecificationPdf(data: SpecificationPdfData): jsPDF {
   for (const row of data.rows) { if (row.quantity <= 0) continue; const group = groups.get(row.group) || []; group.push(row); groups.set(row.group, group); }
   const body: RowInput[] = []; let number = 0;
   for (const [group, rows] of groups) {
-    body.push([{ content: group, colSpan: 6, styles: { fillColor: [229, 234, 240], fontStyle: 'bold', textColor: [25, 35, 45] } }]);
-    for (const row of rows) body.push([String(++number), row.name, row.sku || '—', String(row.quantity), row.unit, row.notes]);
+    body.push([{ content: group, colSpan: 5, styles: { fillColor: [229, 234, 240], fontStyle: 'bold', textColor: [25, 35, 45] } }]);
+    for (const row of rows) body.push([String(++number), row.name, String(row.quantity), row.unit, row.notes]);
   }
-  if (!number) body.push([{ content: 'Спецификация пуста', colSpan: 6 }]);
+  if (!number) body.push([{ content: 'Спецификация пуста', colSpan: 5 }]);
   autoTable(pdf, {
     startY: top + 3, margin: { left: 14, right: 14, top: 14, bottom: 16 },
-    head: [['№', 'Наименование', 'Артикул', 'Кол-во', 'Ед.', 'Примечание']], body, theme: 'grid', showHead: 'everyPage', rowPageBreak: 'avoid',
+    head: [['№', 'Наименование', 'Кол-во', 'Ед.', 'Примечание']], body, theme: 'grid', showHead: 'everyPage', rowPageBreak: 'avoid',
     styles: { font: 'SpecSans', fontSize: 8, cellPadding: 2, overflow: 'linebreak', textColor: [20, 25, 30], lineColor: [195, 203, 210], lineWidth: 0.15 },
     headStyles: { fontStyle: 'bold', fillColor: [30, 45, 60], textColor: [255, 255, 255] },
-    columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 59 }, 2: { cellWidth: 27 }, 3: { cellWidth: 17, halign: 'right' }, 4: { cellWidth: 12 }, 5: { cellWidth: 57 } }
+    columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 86 }, 2: { cellWidth: 17, halign: 'right' }, 3: { cellWidth: 12 }, 4: { cellWidth: 57 } }
   });
   const pages = pdf.getNumberOfPages();
   for (let page = 1; page <= pages; page++) { pdf.setPage(page); pdf.setFont('SpecSans', 'normal'); pdf.setFontSize(8); pdf.setTextColor(100); pdf.text(`Страница ${page} из ${pages}`, 196, 289, { align: 'right' }); }
