@@ -111,6 +111,8 @@ export interface WorkItem {
 }
 
 export interface BudgetItem {
+  /** Generated child rows excluded only from this specification. */
+  excluded_child_keys?: string[];
   /** Warehouse specification only: persisted component/case decision. */
   component_selection?: 'separate' | 'case' | null;
   id: string;

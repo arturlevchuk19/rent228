@@ -37,6 +37,7 @@ import {
   deleteOtherItem,
   getSpecificationBudgetItems,
   saveSpecificationComponentChoice,
+  excludeSpecificationChild,
   createSpecificationBudgetItem,
   updateSpecificationBudgetItem,
   updateSpecificationBudgetItemPicked,
@@ -941,7 +942,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
               if (saved.return_picked !== undefined) subItem.return_picked = saved.return_picked;
             });
 
-            setExpandedItems(items);
+            const excludedKeys = new Set(budgetData.flatMap(item => item.excluded_child_keys || []));
+            setExpandedItems(items.filter(item => !excludedKeys.has(item.budgetItemId)));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -1640,25 +1642,34 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   };
 
   const handleDeleteSpecificationItem = async (budgetItemId: string) => {
-    if (!canEditSpecification) return;
-    const realId = getPersistedBudgetItemId(budgetItemId);
+    if (!canEditSpecification || !canAccess(user, 'specifications', 3) || eventDetails?.equipment_shipped) return;
+    const row = expandedItems.find(item => item.budgetItemId === budgetItemId);
+    if (!row) return;
     try {
-      await deleteSpecificationBudgetItem(realId);
-      // Optimized: remove from local state instead of full reload
-      setBudgetItems(prev => prev.filter(item => item.id !== realId));
-      setExpandedItems(prev => prev.filter(item => {
-        const itemRealId = getPersistedBudgetItemId(item.budgetItemId);
-        return itemRealId !== realId;
-      }));
-      setModifiedItems(prev => {
-        const updated = new Set(prev);
-        updated.delete(realId);
-        return updated;
-      });
+      if (isGeneratedCompositionItemId(budgetItemId)) {
+        const parentId = row.parentBudgetItemId || getPersistedBudgetItemId(budgetItemId);
+        await excludeSpecificationChild(eventId, parentId, budgetItemId);
+        setBudgetItems(prev => prev.map(item => item.id === parentId
+          ? { ...item, excluded_child_keys: [...new Set([...(item.excluded_child_keys || []), budgetItemId])] }
+          : item));
+        // A generated child has no database row: never delete its parent.
+        setExpandedItems(prev => prev.filter(item => item.budgetItemId !== budgetItemId));
+      } else {
+        await deleteSpecificationBudgetItem(budgetItemId);
+        setBudgetItems(prev => prev.filter(item => item.id !== budgetItemId && item.parent_budget_item_id !== budgetItemId));
+        setExpandedItems(prev => prev.filter(item => item.budgetItemId !== budgetItemId
+          && item.parentBudgetItemId !== budgetItemId
+          && getPersistedBudgetItemId(item.budgetItemId) !== budgetItemId));
+        setModifiedItems(prev => {
+          const updated = new Set(prev);
+          updated.delete(budgetItemId);
+          return updated;
+        });
+      }
       showNotification('Элемент удалён', 'success');
     } catch (error) {
       console.error('Error deleting specification item:', error);
-      showNotification('Ошибка при удалении элемента');
+      showNotification(getErrorMessage(error));
     }
   };
 
@@ -3253,6 +3264,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             <p className="text-sm text-gray-300 leading-relaxed">
               Удалить элемент <span className="text-white font-medium">«{pendingDeleteItem.itemName}»</span> из спецификации?
             </p>
+            {(isGeneratedCompositionItemId(pendingDeleteItem.budgetItemId) || expandedItems.find(item => item.budgetItemId === pendingDeleteItem.budgetItemId)?.parentBudgetItemId) && <p className="mt-2 text-xs text-gray-400">Родительский элемент и остальные дочерние элементы останутся в спецификации.</p>}
             <div className="mt-4 flex gap-2">
               <button disabled={!canAccess(user, 'specifications', 3)}
                 onClick={() => setPendingDeleteItem(null)}

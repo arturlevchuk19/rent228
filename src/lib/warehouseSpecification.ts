@@ -544,3 +544,16 @@ export async function saveSpecificationComponentChoice(eventId: string, itemIds:
     throw error;
   }
 }
+
+/** Exclude one calculated row, without deleting the real parent budget item. */
+export async function excludeSpecificationChild(eventId: string, parentId: string, childKey: string): Promise<void> {
+  const { error } = await supabase.rpc('exclude_specification_child', {
+    p_event_id: eventId, p_parent_id: parentId, p_child_key: childKey
+  });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === 'PGRST204' || error.code === '42703') {
+      throw new Error('Выполните миграцию 20261029010000_exclude_specification_children.sql для удаления дочерних элементов.');
+    }
+    throw error;
+  }
+}
