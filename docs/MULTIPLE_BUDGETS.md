@@ -2,7 +2,7 @@
 
 The event page lists independently named budgets and one warehouse specification per budget. Existing rows, pricing settings, shipment flags, categories and locations are migrated into **Основная смета**. Existing item IDs and parent/child links are preserved.
 
-Each budget has its own items, prices, discounts, budget days, note, templates, categories, locations, export settings and warehouse snapshot. Shipment and return flags are stored per specification. Personnel assignments remain attached to their original budget item IDs. The event's people/equipment summary includes all budgets.
+Each budget has its own items, prices, discounts, budget days, note, templates, categories, locations, export settings and warehouse snapshot. Shipment and return flags are stored per specification. Personnel assignments remain attached to their original budget item IDs. The event's people summary includes all budgets; equipment is available in each budget and specification.
 
 Project progress appears directly below the venue. “Смета составлена” follows the existence of budgets, including clearing after the last deletion. Confirmation follows status Подтверждено/Выполнено; completion follows Выполнено. The confirmation and completion checkboxes change the status in reverse. Payment remains manually editable. Database triggers keep the derived flags consistent after inserts, deletions and status updates.
 

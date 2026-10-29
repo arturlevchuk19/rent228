@@ -24,7 +24,6 @@ import type { User } from '../lib/supabase';
 import {
   createEvent,
   deleteEvent,
-  type BudgetItem,
   updateEvent,
   Event,
   getEvent,
@@ -135,7 +134,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const [saveMessage, setSaveMessage] = useState('');
   const [budgets, setBudgets] = useState<EventBudget[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string>();
-  const [pageBudget, setPageBudget] = useState<BudgetItem[]>([]);
   const [budgetRefresh, setBudgetRefresh] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showDatesDialog, setShowDatesDialog] = useState(false);
@@ -184,8 +182,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const checkBudgetItems = async () => {
     if (!effectiveEventId || (!canAccess(user, 'budgets') && !canAccess(user, 'specifications'))) return;
     try {
-      const [items, documents, current] = await Promise.all([getBudgetItems(effectiveEventId), getEventBudgets(effectiveEventId), getEvent(effectiveEventId)]);
-      setPageBudget(items);
+      const [documents, current] = await Promise.all([getEventBudgets(effectiveEventId), getEvent(effectiveEventId)]);
       setBudgets(documents);
       setSelectedBudgetId(previous => documents.some(budget => budget.id === previous) ? previous : documents[0]?.id);
       setHasBudgetItems(documents.length > 0);
@@ -552,9 +549,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
             <ProjectSection title="Спецификации" count={budgets.length}>
               {!budgets.length && <p className="text-sm text-gray-500">Спецификации появятся после добавления смет.</p>}
               {budgets.map(budget => <button key={budget.id} type="button" disabled={!canAccess(user, 'specifications')} onClick={() => { if (effectiveEventId) onSpecificationOpen?.(effectiveEventId, budget.id); }} className="mb-2 flex w-full items-center gap-2 rounded-lg border border-gray-800 p-3 text-left text-sm text-gray-300"><FileText className="h-4 w-4" />{budget.name}</button>)}
-            </ProjectSection>
-            <ProjectSection title="Оборудование" subtitle="Из сметы + вручную" count={pageBudget.filter(item => item.item_type === 'equipment').length} actions={effectiveEventId && canAccess(user, 'specifications') ? <button type="button" aria-label="Открыть спецификацию оборудования" onClick={() => onSpecificationOpen?.(effectiveEventId, selectedBudgetId)} className="rounded-lg p-2 text-gray-500 hover:text-cyan-400"><FileText className="h-4 w-4" /></button> : undefined}>
-              {!pageBudget.some(item => item.item_type === 'equipment') ? <p className="text-sm text-gray-500">Оборудование появится после заполнения сметы.</p> : <div className="divide-y divide-gray-800">{pageBudget.filter(item => item.item_type === 'equipment').map(item => <div key={item.id} className="flex justify-between gap-3 py-2 text-sm"><span className="min-w-0 break-words text-gray-300">{item.equipment?.name || item.name || 'Оборудование'}</span><span className="shrink-0 text-gray-400">{item.quantity} {item.equipment?.unit || 'шт.'}</span></div>)}</div>}
             </ProjectSection>
             <EventProjectBlocks value={project} onChange={setProject} editable={canAccess(user, 'events', 2)} eventId={effectiveEventId} eventDate={formData.event_date} refreshSignal={budgetRefresh} />
           </>}
