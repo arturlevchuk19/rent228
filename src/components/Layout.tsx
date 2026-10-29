@@ -1,3 +1,4 @@
+import { InstallAppButton } from './InstallAppButton';
 import { MobileHeaderContext } from './MobileHeaderContent';
 import React, { useState, useSyncExternalStore, useRef, useLayoutEffect } from 'react';
 import { useAuth } from '../contexts/authContext';
@@ -167,6 +168,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
         </div>
       </div>
     </div>
+    {!pageOpen && currentPage === 'calendar' && <InstallAppButton />}
     {accountTab && <AccountDialog initialTab={accountTab} onClose={() => setAccountTab(null)} />}
     </MobileHeaderContext.Provider>
   );
