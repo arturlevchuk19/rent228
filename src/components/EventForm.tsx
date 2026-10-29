@@ -1,3 +1,4 @@
+import { BudgetDocumentDialog } from './BudgetDocumentDialog';
 import { EventBudgetsPanel } from './EventBudgetsPanel';
 import { getBudgetEvent, getEventBudgets, type EventBudget } from '../lib/eventBudgets';
 import { eventProgress } from '../lib/eventProgress';
@@ -138,6 +139,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const [budgetRefresh, setBudgetRefresh] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showDatesDialog, setShowDatesDialog] = useState(false);
+  const [documentPicker, setDocumentPicker] = useState<'pdf' | 'contract'>();
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   const [dateParts, setDateParts] = useState<DateParts>(initialDate);
@@ -391,14 +393,28 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
     return `${d}.${m}.${y}`;
   };
 
-  const handlePagePdf = async () => {
-    if (!effectiveEventId || !selectedBudgetId || !canAccess(user, 'budgets')) return;
+  const handlePagePdf = async (budgetId: string) => {
+    if (!effectiveEventId || !canAccess(user, 'specifications')) return;
     if (dirty) { setPageError('Сначала сохраните изменения мероприятия, затем создайте PDF.'); return; }
     setGeneratingPdf(true); setPageError('');
     try {
-      const [fullEvent, items, globalCategories, eventCategories, locations, pdf] = await Promise.all([selectedBudgetId ? getBudgetEvent(effectiveEventId, selectedBudgetId) : getEvent(effectiveEventId), getBudgetItems(effectiveEventId, selectedBudgetId), getCategories(), getCategoriesForEvent(effectiveEventId, selectedBudgetId), getLocationsForEvent(effectiveEventId, selectedBudgetId), import('../lib/pdfGenerator')]);
-      await pdf.generateBudgetPDF({ eventName: fullEvent.name || fullEvent.event_type, eventDate: fullEvent.event_date, eventEndDate: fullEvent.event_end_date, venueName: fullEvent.venues?.name, clientName: fullEvent.clients?.organization, budgetItems: items, categories: [...globalCategories, ...eventCategories], locations, exchangeRate: items[0]?.exchange_rate || 1, paymentMode: 'usd', budgetDays: fullEvent.budget_days || 1, budgetTotalsMode: fullEvent.budget_totals_mode || 'combined_only', discountEnabled: fullEvent.discount_enabled, discountPercent: fullEvent.discount_percent, discount2Enabled: fullEvent.discount2_enabled, discount2Percent: fullEvent.discount2_percent, budgetNote: fullEvent.budget_note });
+      const budget = budgets.find(item => item.id === budgetId);
+      if (!budget) throw new Error('Спецификация не найдена. Обновите список смет.');
+      const [{ loadSpecificationExport }, { saveSpecificationPdf }] = await Promise.all([import('../lib/specificationExport'), import('../lib/specificationPdf')]);
+      const initialize = canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || formData.site_manager_id === user.id);
+      const { event: saved, rows } = await loadSpecificationExport(effectiveEventId, budgetId, initialize);
+      saveSpecificationPdf({ eventName: saved.name || saved.event_type, budgetName: budget.name, startDate: saved.event_date, endDate: saved.event_end_date, venue: saved.venues?.name, rows });
     } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setGeneratingPdf(false); }
+  };
+
+  const selectDocument = (kind: 'pdf' | 'contract', id: string) => {
+    setDocumentPicker(undefined); setSelectedBudgetId(id);
+    if (kind === 'pdf') void handlePagePdf(id); else setShowContractDialog(true);
+  };
+  const requestDocument = (kind: 'pdf' | 'contract') => {
+    if (kind === 'pdf' && dirty) { setPageError('Сначала сохраните изменения мероприятия, затем создайте PDF.'); return; }
+    if (!budgets.length) { setPageError('Сначала добавьте смету.'); return; }
+    if (budgets.length === 1) selectDocument(kind, budgets[0].id); else setDocumentPicker(kind);
   };
 
   const legacyActions = (<div className="flex items-center gap-2 flex-wrap">
@@ -500,7 +516,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => onClose(effectiveEventId)} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Назад</button>
           <div className="ml-auto flex items-center gap-2">
-          <button type="button" disabled={!effectiveEventId || !selectedBudgetId || generatingPdf || !canAccess(user, 'budgets')} onClick={() => { void handlePagePdf(); }} className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF'}</button>
+          <button type="button" disabled={!effectiveEventId || !budgets.length || generatingPdf || !canAccess(user, 'specifications')} onClick={() => requestDocument('pdf')} className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF'}</button>
+          <button type="button" disabled={!effectiveEventId || !budgets.length || !canAccess(user, 'budgets')} onClick={() => requestDocument('contract')} aria-label="Договор" title="Договор" className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileSignature className="h-4 w-4" /><span className="hidden sm:inline">Договор</span></button>
           <button type="button" disabled={!effectiveEventId || !canAccess(user, 'budgets', 2)} onClick={() => setShowCopyDialog(true)} aria-label="Копировать смету из мероприятия" className="rounded-xl border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-cyan-400 disabled:opacity-40"><Copy className="h-5 w-5" /></button>
           {canAccess(user, 'events', 3) && effectiveEventId && <button type="button" disabled={saving} onClick={async () => { if (!window.confirm('Удалить это мероприятие и его смету?')) return; try { setSaving(true); await deleteEvent(effectiveEventId); onDirtyChange?.(false); onDeleted?.(); } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setSaving(false); } }} aria-label="Удалить мероприятие" className="rounded-xl border border-red-900 bg-red-950/20 p-2 text-red-400 hover:bg-red-900/30 disabled:opacity-40"><Trash2 className="h-5 w-5" /></button>}
           </div>
@@ -529,9 +546,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
       </div>}
           {page && <>
             <ProjectSection title="Сметы мероприятия" defaultOpen count={budgets.length}>
-              {budgets.length > 1 && <label className="mb-3 block text-xs text-gray-400">Смета для PDF и документов<select aria-label="Смета для документов" value={selectedBudgetId || ''} onChange={event => setSelectedBudgetId(event.target.value)} className="ml-2 max-w-full rounded-lg border border-gray-700 bg-gray-900 p-2 text-gray-200">{budgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}</select></label>}
+
               <EventBudgetsPanel eventId={effectiveEventId} budgets={budgets} onChanged={checkBudgetItems} onOpen={id => { setSelectedBudgetId(id); setShowBudgetEditor(true); }} onSpecification={id => { if (effectiveEventId) onSpecificationOpen?.(effectiveEventId, id); }} />
-              <div className="mt-3">{legacyActions}</div>
             </ProjectSection>
             <ProjectSection title="Спецификации" count={budgets.length}>
               {!budgets.length && <p className="text-sm text-gray-500">Спецификации появятся после добавления смет.</p>}
@@ -822,6 +838,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           </div>
         </form>
       </div>
+
+      {documentPicker && <BudgetDocumentDialog budgets={budgets} kind={documentPicker} onClose={() => setDocumentPicker(undefined)} onSelect={id => selectDocument(documentPicker, id)} />}
 
       {showDatesDialog && canAccess(user, 'events', 2) && <EventDatesDialog
         name={formData.name} start={formData.event_date} end={formData.event_end_date}

@@ -28,3 +28,9 @@ Apply `20261029030000_copy_event_budget.sql` after the multi-budget migration. C
 Use **Название** in a budget row to edit its name inline. Enter or the checkmark saves; Escape or the cross cancels. Renaming does not submit the event form and preserves the budget/specification identity.
 
 `tests/event-budget-copy.integration.sql` exercises copying after the disposable bootstrap and both migrations: a new document, unchanged existing records, settings and parent/child links, independent catalogs, rename, failure rollback and access restrictions.
+
+## Event-page documents
+
+The bottom legacy toolbar in the budget section is removed. The event header contains **PDF** followed by **Договор**, plus copy and delete actions. PDF exports the warehouse specification as an A4 table (equipment including calculated children and exclusions, cables, connectors and other items), with embedded Cyrillic fonts, repeated headings and numbered pages. It contains quantities/SKUs/notes rather than budget prices. One specification downloads directly; several open a name chooser. Contracts also ask for a budget when more than one exists.
+
+`node tests/specification-pdf.test.mjs` verifies composition expansion, exclusions, accessory totals, scoped loading, embedded fonts and multiple pages. Browser verification downloaded two independently scoped PDFs and confirmed the chooser, direct single-spec export and mobile layout. No additional database migration is needed for this toolbar/PDF change.

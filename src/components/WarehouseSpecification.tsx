@@ -322,7 +322,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
   const isUShapeBudgetItem = (item: BudgetItem) => {
     const name = (item.equipment?.name || item.name || "").toLowerCase();
-    return name.includes("п-образная конструкция");
+    return /п-образная (фермовая )?конструкция/.test(name);
   };
 
   const isTotemBudgetItem = (item: BudgetItem) => {
