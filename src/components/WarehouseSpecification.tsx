@@ -1,6 +1,7 @@
+import { createQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
 import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { type BudgetItem, type Event, getEvent, confirmShipment, confirmReturn } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
@@ -24,17 +25,14 @@ import {
   createCable,
   updateCable,
   updateCableReturnPicked,
-  deleteCable,
   getConnectors,
   createConnector,
   updateConnector,
   updateConnectorReturnPicked,
-  deleteConnector,
   getOtherItems,
   createOtherItem,
   updateOtherItem,
   updateOtherItemReturnPicked,
-  deleteOtherItem,
   getSpecificationBudgetItems,
   saveSpecificationComponentChoice,
   excludeSpecificationChild,
@@ -280,6 +278,13 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
   const [savingComponentChoice, setSavingComponentChoice] = useState(false);
+  const quantityQueue = useRef(createQuantityQueue());
+  const cablesRef = useRef(cables);
+  cablesRef.current = cables;
+  const connectorsRef = useRef(connectors);
+  const otherItemsRef = useRef(otherItems);
+  connectorsRef.current = connectors;
+  otherItemsRef.current = otherItems;
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
   const [collapsedParentItems, setCollapsedParentItems] = useState<Set<string>>(new Set());
@@ -1913,93 +1918,31 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }
   };
 
-  const handleSetCableQuantityFromTemplate = async (cableType: string, cableLength: string, newQuantity: number) => {
+  const handleSetCableQuantityFromTemplate = async (cableType: string, cableLength: string, value: number, delta = false) => {
+    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
     try {
-      const normalizedQuantity = Math.max(0, newQuantity);
-      const existingCable = cables.find(c => c.cable_type === cableType && c.cable_length === cableLength);
-
-      if (!existingCable && normalizedQuantity === 0) return;
-
-      if (!existingCable) {
-        const newCable = await createCable({
-          event_id: eventId,
-          cable_type: cableType,
-          cable_length: cableLength,
-          quantity: normalizedQuantity,
-          notes: '',
-          picked: false,
-          return_picked: false
-        });
-        setCables(prev => [...prev, newCable]);
-        return;
-      }
-
-      await handleCableQuantityChange(existingCable.id, normalizedQuantity);
-    } catch (error) {
-      console.error('Error setting cable quantity:', error);
-      showNotification('Ошибка при обновлении кабеля');
-    }
+      await quantityQueue.current(JSON.stringify([eventId, 'cable', cableType, cableLength]), () => writeGroupedQuantity({
+        rows: cablesRef.current.filter(row => row.cable_type === cableType && row.cable_length === cableLength),
+        change: delta ? { delta: value } : { set: value },
+        create: quantity => createCable({ event_id: eventId, cable_type: cableType, cable_length: cableLength, quantity, notes: '', picked: false, return_picked: false }),
+        update: (id, quantity) => updateCable(id, { quantity }),
+        commit: row => { const next = cablesRef.current.some(item => item.id === row.id) ? cablesRef.current.map(item => item.id === row.id ? row : item) : [...cablesRef.current, row]; cablesRef.current = next; setCables(next); }
+      }));
+    } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
-  const handleCableQuantityChange = async (id: string, newQuantity: number) => {
+  const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
+    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
     try {
-      if (newQuantity === 0) {
-        await deleteCable(id);
-        setCables(cables.filter(c => c.id !== id));
-      } else {
-        const updated = await updateCable(id, { quantity: newQuantity });
-        setCables(cables.map(c => c.id === updated.id ? updated : c));
-      }
-    } catch (error) {
-      console.error('Error updating cable:', error);
-      showNotification('Ошибка при обновлении кабеля');
-    }
-  };
-
-  const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, newQuantity: number) => {
-    try {
-      const normalizedQuantity = Math.max(0, newQuantity);
-      const scopedType = buildConnectorScopedType(category, itemType);
-      const existingConnector = connectors.find(c =>
-        isConnectorMatch(c, category, itemType) || isLegacyConnectorMatch(c, scopedType, itemType)
-      );
-
-      if (!existingConnector && normalizedQuantity === 0) return;
-
-      if (!existingConnector) {
-        const newConnector = await createConnector({
-          event_id: eventId,
-          connector_type: category,
-          connector_item: itemType,
-          quantity: normalizedQuantity,
-          notes: '',
-          picked: false,
-          return_picked: false
-        });
-        setConnectors(prev => [...prev, newConnector]);
-        return;
-      }
-
-      await handleConnectorQuantityChange(existingConnector.id, normalizedQuantity);
-    } catch (error) {
-      console.error('Error setting connector quantity:', error);
-      showNotification('Ошибка при обновлении коннектора');
-    }
-  };
-
-  const handleConnectorQuantityChange = async (id: string, newQuantity: number) => {
-    try {
-      if (newQuantity === 0) {
-        await deleteConnector(id);
-        setConnectors(connectors.filter(c => c.id !== id));
-      } else {
-        const updated = await updateConnector(id, { quantity: newQuantity });
-        setConnectors(connectors.map(c => c.id === updated.id ? updated : c));
-      }
-    } catch (error) {
-      console.error('Error updating connector:', error);
-      showNotification('Ошибка при обновлении коннектора');
-    }
+      await quantityQueue.current(JSON.stringify([eventId, 'connector', category, itemType]), () => writeGroupedQuantity({
+        rows: connectorsRef.current.filter(row => isConnectorMatch(row, category, itemType)
+          || (!DUPLICATE_CONNECTOR_ITEMS.has(itemType) && isLegacyConnectorMatch(row, buildConnectorScopedType(category, itemType), itemType))),
+        change: delta ? { delta: value } : { set: value },
+        create: quantity => createConnector({ event_id: eventId, connector_type: category, connector_item: itemType, quantity, notes: '', picked: false, return_picked: false }),
+        update: (id, quantity) => updateConnector(id, { quantity }),
+        commit: row => { const next = connectorsRef.current.some(item => item.id === row.id) ? connectorsRef.current.map(item => item.id === row.id ? row : item) : [...connectorsRef.current, row]; connectorsRef.current = next; setConnectors(next); }
+      }));
+    } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
   const toggleCableType = (type: string) => {
@@ -2023,47 +1966,17 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     }));
   };
 
-  const handleSetOtherQuantityFromTemplate = async (category: string, itemType: string, newQuantity: number) => {
+  const handleSetOtherQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
+    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
     try {
-      const normalizedQuantity = Math.max(0, newQuantity);
-      const existingItem = otherItems.find(i => i.category === category && i.item_type === itemType);
-
-      if (!existingItem && normalizedQuantity === 0) return;
-
-      if (!existingItem) {
-        const newItem = await createOtherItem({
-          event_id: eventId,
-          category,
-          item_type: itemType,
-          quantity: normalizedQuantity,
-          notes: '',
-          picked: false,
-          return_picked: false
-        });
-        setOtherItems(prev => [...prev, newItem]);
-        return;
-      }
-
-      await handleOtherQuantityChange(existingItem.id, normalizedQuantity);
-    } catch (error) {
-      console.error('Error setting other item quantity:', error);
-      showNotification('Ошибка при обновлении предмета');
-    }
-  };
-
-  const handleOtherQuantityChange = async (id: string, newQuantity: number) => {
-    try {
-      if (newQuantity === 0) {
-        await deleteOtherItem(id);
-        setOtherItems(otherItems.filter(i => i.id !== id));
-      } else {
-        const updated = await updateOtherItem(id, { quantity: newQuantity });
-        setOtherItems(otherItems.map(i => i.id === updated.id ? updated : i));
-      }
-    } catch (error) {
-      console.error('Error updating other item:', error);
-      showNotification('Ошибка при обновлении предмета');
-    }
+      await quantityQueue.current(JSON.stringify([eventId, 'other', category, itemType]), () => writeGroupedQuantity({
+        rows: otherItemsRef.current.filter(row => row.category === category && row.item_type === itemType),
+        change: delta ? { delta: value } : { set: value },
+        create: quantity => createOtherItem({ event_id: eventId, category, item_type: itemType, quantity, notes: '', picked: false, return_picked: false }),
+        update: (id, quantity) => updateOtherItem(id, { quantity }),
+        commit: row => { const next = otherItemsRef.current.some(item => item.id === row.id) ? otherItemsRef.current.map(item => item.id === row.id ? row : item) : [...otherItemsRef.current, row]; otherItemsRef.current = next; setOtherItems(next); }
+      }));
+    } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
   const handleOtherPickedChange = async (id: string, picked: boolean) => {
@@ -2453,8 +2366,9 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.lengths.map((length) => {
-                              const cableObj = cables.find(c => c.cable_type === template.type && c.cable_length === length);
-                              const quantity = cableObj?.quantity || 0;
+                              const cableEntries = cables.filter(c => c.cable_type === template.type && c.cable_length === length);
+                              const cableObj = cableEntries[0];
+                              const quantity = cableEntries.reduce((sum, item) => sum + item.quantity, 0);
                               const cableId = cableObj?.id;
                               const picked = cableObj?.picked || false;
                               const returnPicked = cableObj?.return_picked || false;
@@ -2494,6 +2408,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         value={cableDisplayValue}
                                         onChange={(e) => setInputDraftValues(prev => ({ ...prev, [cableDraftKey]: e.target.value }))}
                                         onBlur={(e) => {
+                                          if (inputDraftValues[cableDraftKey] === undefined) return;
                                           const val = parseInt(e.target.value, 10);
                                           handleSetCableQuantityFromTemplate(template.type, length, Number.isNaN(val) ? 0 : val);
                                           setInputDraftValues(prev => {
@@ -2511,14 +2426,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, Math.max(0, quantity - 1))}
+                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, -1, true)}
                                           disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button disabled={!canAccess(user, 'specifications', 2)}
-                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, quantity + 1)}
+                                          onClick={() => handleSetCableQuantityFromTemplate(template.type, length, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
@@ -2621,6 +2536,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         value={connectorDisplayValue}
                                         onChange={(e) => setInputDraftValues(prev => ({ ...prev, [connectorDraftKey]: e.target.value }))}
                                         onBlur={(e) => {
+                                          if (inputDraftValues[connectorDraftKey] === undefined) return;
                                           const val = parseInt(e.target.value, 10);
                                           handleSetConnectorQuantityFromTemplate(template.category, itemType, Number.isNaN(val) ? 0 : val);
                                           setInputDraftValues(prev => {
@@ -2638,14 +2554,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, -1, true)}
                                           disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button disabled={!canAccess(user, 'specifications', 2)}
-                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, quantity + 1)}
+                                          onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
@@ -2702,9 +2618,10 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.items.map((itemType) => {
-                              const otherObj = otherItems.find(i => i.category === template.category && i.item_type === itemType);
+                              const otherEntries = otherItems.filter(i => i.category === template.category && i.item_type === itemType);
+                              const otherObj = otherEntries[0];
                               const otherId = otherObj?.id;
-                              const quantity = otherObj?.quantity || 0;
+                              const quantity = otherEntries.reduce((sum, item) => sum + item.quantity, 0);
                               const picked = otherObj?.picked || false;
                               const returnPicked = otherObj?.return_picked || false;
                               const otherDraftKey = buildOtherDraftKey(template.category, itemType);
@@ -2743,6 +2660,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                         value={otherDisplayValue}
                                         onChange={(e) => setInputDraftValues(prev => ({ ...prev, [otherDraftKey]: e.target.value }))}
                                         onBlur={(e) => {
+                                          if (inputDraftValues[otherDraftKey] === undefined) return;
                                           const val = parseInt(e.target.value, 10);
                                           handleSetOtherQuantityFromTemplate(template.category, itemType, Number.isNaN(val) ? 0 : val);
                                           setInputDraftValues(prev => {
@@ -2760,14 +2678,14 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, Math.max(0, quantity - 1))}
+                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, -1, true)}
                                           disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
                                         <button disabled={!canAccess(user, 'specifications', 2)}
-                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, quantity + 1)}
+                                          onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
                                           <Plus className="w-5 h-5" />
