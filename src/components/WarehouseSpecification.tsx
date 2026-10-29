@@ -1,3 +1,4 @@
+import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
@@ -35,6 +36,7 @@ import {
   updateOtherItemReturnPicked,
   deleteOtherItem,
   getSpecificationBudgetItems,
+  saveSpecificationComponentChoice,
   createSpecificationBudgetItem,
   updateSpecificationBudgetItem,
   updateSpecificationBudgetItemPicked,
@@ -119,11 +121,6 @@ interface ComponentDecisionGroup {
   groupId: string;
   caseOptions: ComponentCaseOption[];
   items: ComponentDecisionItem[];
-}
-
-interface PendingComponentCaseSelection {
-  replacedBudgetItemIds: string[];
-  replacementItem: ExpandedItem;
 }
 
 type TabType = 'budget' | 'cables' | 'connectors' | 'other' | 'extra';
@@ -281,7 +278,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
   }>>>({});
   const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
-  const [pendingComponentCaseSelections, setPendingComponentCaseSelections] = useState<PendingComponentCaseSelection[]>([]);
+  const [savingComponentChoice, setSavingComponentChoice] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
   const [collapsedParentItems, setCollapsedParentItems] = useState<Set<string>>(new Set());
@@ -668,7 +665,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         const isVirtual = item.equipment?.object_type === 'virtual';
 
         if (!isVirtual) {
-          if (item.equipment?.is_component && item.equipment_id) {
+          if (item.equipment?.is_component && item.equipment_id && item.component_selection !== 'separate' && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id) && !event.equipment_shipped) {
             try {
               const caseOptions = caseOptionsByEquipmentId.get(item.equipment_id) || [];
               if (caseOptions.length > 0) {
@@ -1056,59 +1053,28 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
 
-  const handleComponentDecisionSeparate = () => {
-    if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
-      setComponentDecisionQueue([]);
-      setActiveComponentDecisionIndex(0);
-      return;
+  const handleComponentDecision = async (selectedCase: ComponentCaseOption | null) => {
+    const group = componentDecisionQueue[activeComponentDecisionIndex];
+    if (!group || savingComponentChoice || !canEditSpecification) return;
+    setSavingComponentChoice(true);
+    try {
+      const replacement = selectedCase ? buildCaseExpandedItems(group, selectedCase)[0] : null;
+      if (selectedCase && !replacement) return;
+      await saveSpecificationComponentChoice(eventId, group.items.map(item => item.budgetItemId), replacement);
+      // Preserve unrelated edits while replacing this group's virtual rows with database IDs.
+      const changed = expandedItems.filter(item => modifiedItems.has(item.budgetItemId))
+        .map(item => ({ id: item.budgetItemId, quantity: item.quantity, notes: item.notes }));
+      showNotification('Выбор сохранён', 'success');
+      await loadData(changed);
+    } catch (error) {
+      showNotification(getErrorMessage(error));
+    } finally {
+      setSavingComponentChoice(false);
     }
-
-    setActiveComponentDecisionIndex(prev => prev + 1);
   };
 
-  const handleComponentDecisionUseCase = (selectedCase: ComponentCaseOption) => {
-    const currentGroup = componentDecisionQueue[activeComponentDecisionIndex];
-    if (!currentGroup) return;
-
-    const groupedItemIds = new Set(currentGroup.items.map(item => item.budgetItemId));
-    const modifiedBudgetItemIds = currentGroup.items.map(item => item.budgetItemId);
-    const replacementItems = buildCaseExpandedItems(currentGroup, selectedCase);
-    const replacementItem = replacementItems[0];
-
-    if (replacementItem) {
-      setPendingComponentCaseSelections(prev => {
-        const replacedIdSet = new Set(modifiedBudgetItemIds);
-        const withoutOverlaps = prev.filter(selection =>
-          selection.replacedBudgetItemIds.every(id => !replacedIdSet.has(id))
-        );
-        return [
-          ...withoutOverlaps,
-          {
-            replacedBudgetItemIds: modifiedBudgetItemIds,
-            replacementItem
-          }
-        ];
-      });
-    }
-
-    setExpandedItems(prev => {
-      const filtered = prev.filter(item => !groupedItemIds.has(item.budgetItemId));
-      return [...filtered, ...replacementItems];
-    });
-    setModifiedItems(prev => {
-      const updated = new Set(prev);
-      modifiedBudgetItemIds.forEach(id => updated.add(id));
-      return updated;
-    });
-
-    if (activeComponentDecisionIndex >= componentDecisionQueue.length - 1) {
-      setComponentDecisionQueue([]);
-      setActiveComponentDecisionIndex(0);
-      return;
-    }
-
-    setActiveComponentDecisionIndex(prev => prev + 1);
-  };
+  const handleComponentDecisionSeparate = () => { void handleComponentDecision(null); };
+  const handleComponentDecisionUseCase = (selectedCase: ComponentCaseOption) => { void handleComponentDecision(selectedCase); };
 
   // Сохраняет отметку виртуального субэлемента раскладного состава, чтобы она
   // не терялась после перезагрузки страницы (у таких строк пока нет своей записи в БД).
@@ -1237,7 +1203,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       setPodiumItemsWithComposition(new Set());
       setComponentDecisionQueue([]);
       setActiveComponentDecisionIndex(0);
-      setPendingComponentCaseSelections([]);
       setShowResetDialog(false);
       await loadData();
       showNotification('Спецификация сброшена до состояния сметы', 'success');
@@ -1710,45 +1675,6 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
       const createdItems: { oldId: string; newId: string }[] = [];
       const modifiedBudgetItemIds = new Set(modifiedItems);
 
-      for (const selection of pendingComponentCaseSelections) {
-        const { replacedBudgetItemIds, replacementItem } = selection;
-
-        for (const replacedId of replacedBudgetItemIds) {
-          try {
-            await deleteSpecificationBudgetItem(replacedId);
-            modifiedBudgetItemIds.delete(replacedId);
-          } catch (err) {
-            console.error('Error deleting replaced component item:', replacedId, err);
-            errors.push(`Удаление: ${replacementItem.name}`);
-          }
-        }
-
-        try {
-          const createdReplacement = await createSpecificationBudgetItem({
-            event_id: eventId,
-            item_type: 'equipment',
-            equipment_id: null,
-            category_id: replacementItem.categoryId,
-            location_id: replacementItem.locationId,
-            name: replacementItem.name,
-            sku: replacementItem.sku,
-            quantity: replacementItem.quantity,
-            price: 0,
-            total: 0,
-            exchange_rate: 1,
-            notes: replacementItem.notes,
-            picked: replacementItem.picked,
-            return_picked: replacementItem.return_picked,
-            is_extra: replacementItem.isExtra || false,
-            sort_order: 0
-          });
-          createdItems.push({ oldId: replacementItem.budgetItemId, newId: createdReplacement.id });
-        } catch (err) {
-          console.error('Error creating replacement case item:', replacementItem.budgetItemId, err);
-          errors.push(replacementItem.name);
-        }
-      }
-      
       for (const budgetItemId of modifiedBudgetItemIds) {
         // Check if this budget item has LED cases that need to be created
         const caseItems = expandedItems.filter(item => 
@@ -1963,7 +1889,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
         }
 
         setModifiedItems(new Set());
-        setPendingComponentCaseSelections([]);
+
         showNotification('Изменения сохранены', 'success');
         // Перезагружаем данные после успешного сохранения, чтобы получить реальные ID из базы
         await loadData();
@@ -3076,7 +3002,8 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 Комплектующие: выбор кейса ({activeComponentDecisionIndex + 1}/{componentDecisionQueue.length})
               </h3>
               <button
-                onClick={handleComponentDecisionSeparate}
+                onClick={() => { if (!savingComponentChoice) setComponentDecisionQueue([]); }}
+                disabled={savingComponentChoice}
                 className="p-1 hover:bg-gray-800 text-gray-400 rounded"
                 title="Пропустить"
               >
@@ -3105,6 +3032,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
                 {componentDecisionQueue[activeComponentDecisionIndex].caseOptions.map(option => (
                   <button
                     key={option.caseId}
+                    disabled={savingComponentChoice}
                     onClick={() => handleComponentDecisionUseCase(option)}
                     className="w-full text-left px-3 py-2 bg-gray-800 border border-gray-700 rounded hover:bg-gray-700 transition-colors"
                   >
@@ -3120,6 +3048,7 @@ export function WarehouseSpecification({ eventId, eventName, onClose }: Warehous
             <div className="px-4 py-3 border-t border-gray-800 flex justify-end">
               <button
                 onClick={handleComponentDecisionSeparate}
+                disabled={savingComponentChoice}
                 className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
               >
                 Взять отдельно

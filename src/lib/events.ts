@@ -111,6 +111,8 @@ export interface WorkItem {
 }
 
 export interface BudgetItem {
+  /** Warehouse specification only: persisted component/case decision. */
+  component_selection?: 'separate' | 'case' | null;
   id: string;
   event_id: string;
   equipment_id?: string | null;

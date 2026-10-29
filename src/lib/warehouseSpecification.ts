@@ -528,3 +528,19 @@ export async function resetWarehouseSpecificationSnapshot(eventId: string): Prom
 
   await ensureWarehouseSpecificationSnapshot(eventId);
 }
+
+/** Save the choice atomically so a failed replacement cannot remove components. */
+export async function saveSpecificationComponentChoice(eventId: string, itemIds: string[], replacement: {
+  categoryId: string | null; locationId: string | null; name: string; sku: string;
+  quantity: number; notes: string; picked: boolean; return_picked: boolean; isExtra?: boolean;
+} | null): Promise<void> {
+  const { error } = await supabase.rpc('save_specification_component_choice', {
+    p_event_id: eventId, p_item_ids: itemIds, p_case: replacement
+  });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === 'PGRST204' || error.code === '42703') {
+      throw new Error('Для сохранения выбора выполните миграцию 20261029000000_persist_specification_component_choice.sql.');
+    }
+    throw error;
+  }
+}
