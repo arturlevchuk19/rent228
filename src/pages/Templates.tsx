@@ -132,9 +132,9 @@ export function Templates() {
           {filteredTemplates.map(template => (
             <div
               key={template.id}
-              className="bg-gray-900 rounded-lg border border-gray-800 p-4 hover:border-gray-700 transition-colors"
+              className="min-w-0 bg-gray-900 rounded-lg border border-gray-800 p-4 hover:border-gray-700 transition-colors"
             >
-              <h3 className="font-bold text-white text-base mb-1 truncate">{template.name}</h3>
+              <h3 className="font-bold text-white text-base mb-1 whitespace-normal [overflow-wrap:anywhere] sm:truncate">{template.name}</h3>
               {template.description && (
                 <p className="text-xs text-gray-400 mb-2 line-clamp-2 leading-tight">
                   {template.description}
