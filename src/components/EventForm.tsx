@@ -542,10 +542,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         {saveMessage && <p role="status" className="text-sm text-emerald-400">{saveMessage}</p>}
       </div>}
           {page && <>
-            <ProjectSection title="Сметы мероприятия" defaultOpen count={budgets.length}>
-
-              <EventBudgetsPanel eventId={effectiveEventId} budgets={budgets} onChanged={checkBudgetItems} onOpen={id => { setSelectedBudgetId(id); setShowBudgetEditor(true); }} onSpecification={id => { if (effectiveEventId) onSpecificationOpen?.(effectiveEventId, id); }} />
-            </ProjectSection>
+              <EventBudgetsPanel eventId={effectiveEventId} budgets={budgets} onChanged={checkBudgetItems} onOpen={id => { setSelectedBudgetId(id); setShowBudgetEditor(true); }} />
             <ProjectSection title="Спецификации" count={budgets.length}>
               {!budgets.length && <p className="text-sm text-gray-500">Спецификации появятся после добавления смет.</p>}
               {budgets.map(budget => <button key={budget.id} type="button" disabled={!canAccess(user, 'specifications')} onClick={() => { if (effectiveEventId) onSpecificationOpen?.(effectiveEventId, budget.id); }} className="mb-2 flex w-full items-center gap-2 rounded-lg border border-gray-800 p-3 text-left text-sm text-gray-300"><FileText className="h-4 w-4" />{budget.name}</button>)}
