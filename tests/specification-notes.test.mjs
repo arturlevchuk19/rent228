@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import ts from 'typescript';
+import assert from 'node:assert/strict';
+let source=fs.readFileSync('src/lib/useSpecificationNotes.ts','utf8').replace(/^import .*;$/gm,'');
+source='const { useCallback, useEffect, useRef, useState, getBudgetEvent, updateBudgetSpecification, getErrorMessage } = globalThis.notesHarness;\n'+source;
+let states,refs,effects,index,refIndex,remote,writes,fail;
+const storage=new Map();globalThis.localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+globalThis.notesHarness={useCallback:f=>f,useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return [states[i],v=>states[i]=v];},useRef:initial=>refs[refIndex++]??(refs[refIndex-1]={current:initial}),useEffect:f=>effects.push(f),getBudgetEvent:async()=>remote,updateBudgetSpecification:async(e,b,p)=>{if(fail)throw Error('offline');writes.push(p.spec_sticky_notes);},getErrorMessage:e=>e.message};
+const js=ts.transpile(source,{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext});
+const {useSpecificationNotes}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+const tick=()=>new Promise(r=>setTimeout(r,0));
+const render=(editable=true)=>{index=0;refIndex=0;return useSpecificationNotes('event','budget',editable);};
+async function mount(value,editable=true){states=[];refs=[];effects=[];remote=value;writes=[];fail=false;render(editable);effects[0]();await tick();return render(editable);}
+const legacy=[{id:'phone',content:'Телефон'}];storage.set('spec_sticky_notes_budget',JSON.stringify(legacy));
+let hook=await mount({});assert.deepEqual(hook.notes,legacy);assert.deepEqual(writes,[legacy]);
+const server=[{id:'pc',content:'Сервер'}];hook=await mount({spec_sticky_notes:server});assert.deepEqual(hook.notes,server);assert.equal(writes.length,0);
+hook.changeNotes([{id:'pc',content:'1'}]);hook.changeNotes([{id:'pc',content:'12'}]);await tick();assert.equal(writes.at(-1)[0].content,'12');assert.equal(storage.get('spec_sticky_notes_budget_pending'),undefined);
+fail=true;hook.changeNotes([{id:'pc',content:'Не потерять'}]);await tick();assert.ok(render().error);assert.ok(storage.get('spec_sticky_notes_budget_pending'));
+hook=await mount({spec_sticky_notes:server});assert.equal(hook.notes[0].content,'Не потерять');assert.equal(writes.at(-1)[0].content,'Не потерять');
+hook=await mount({spec_sticky_notes:[]});assert.equal(hook.notes[0].content,'');assert.equal(writes.length,0);
+hook=await mount({spec_sticky_notes:server},false);hook.changeNotes(legacy);await tick();assert.equal(writes.length,0);
+console.log('PASS: legacy upload, remote precedence, ordered writes, failed-save recovery, cleared notes, read-only access');

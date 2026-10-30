@@ -12,6 +12,8 @@ interface StickyNotePanelProps {
   onClose: () => void;
   isOpen: boolean;
   storageKey: string;
+  persistLocally?: boolean;
+  readOnly?: boolean;
 }
 
 const MIN_WIDTH = 250;
@@ -65,7 +67,7 @@ const getHandlePosition = (handle: ResizeHandle): React.CSSProperties => {
 
 const RESIZE_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
 
-export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storageKey }: StickyNotePanelProps) {
+export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storageKey, persistLocally = true, readOnly = false }: StickyNotePanelProps) {
   const [activeNoteId, setActiveNoteId] = useState<string>('');
   const [position, setPosition] = useState({ x: 100, y: 100 });
   const [size, setSize] = useState({ width: 400, height: 350 });
@@ -92,13 +94,13 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
     if (activeNoteId && notes.length > 0 && !notes.find(n => n.id === activeNoteId)) {
       setActiveNoteId(notes[0].id);
     }
-  }, [isOpen, notes.length, activeNoteId]);
+  }, [isOpen, notes, activeNoteId]);
 
   useEffect(() => {
-    if (notes.length > 0) {
+    if (persistLocally && notes.length > 0) {
       localStorage.setItem(storageKey, JSON.stringify(notes));
     }
-  }, [notes, storageKey]);
+  }, [notes, storageKey, persistLocally]);
 
   const activeNote = notes.find(n => n.id === activeNoteId);
 
@@ -318,7 +320,7 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
   };
 
   const handleDeleteNote = (noteId: string) => {
-    if (notes.length <= 1) return;
+    if (readOnly || notes.length <= 1) return;
     const updatedNotes = notes.filter(n => n.id !== noteId);
     onNotesChange(updatedNotes);
     if (activeNoteId === noteId) {
@@ -387,6 +389,7 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
         style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       >
         <button
+          disabled={readOnly}
           onClick={handleAddNote}
           className="w-8 h-8 mx-auto flex items-center justify-center bg-amber-400 hover:bg-amber-500 text-amber-900 rounded transition-colors mb-1"
           title="Новая заметка"
@@ -457,6 +460,7 @@ export function StickyNotePanel({ notes, onNotesChange, onClose, isOpen, storage
         <div className="flex-1 p-2 note-content-area">
           {activeNote && (
             <textarea
+              readOnly={readOnly}
               value={activeNote.content}
               onChange={(e) => handleNoteContentChange(activeNote.id, e.target.value)}
               placeholder="Введите текст заметки..."

@@ -1,5 +1,6 @@
 import { loadSpecificationContents, type SpecificationContents } from '../lib/specificationContents';
 import { cableDisplayName } from '../lib/cableNames';
+import { useSpecificationNotes } from '../lib/useSpecificationNotes';
 import { BudgetScope } from './BudgetScope';
 import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
 import { createQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
@@ -258,9 +259,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [selectedBudgetItemForMod, setSelectedBudgetItemForMod] = useState<BudgetItem | null>(null);
   const [showComponentsDialog, setShowComponentsDialog] = useState(false);
   const [showStickyNotes, setShowStickyNotes] = useState(false);
-  const [stickyNotes, setStickyNotes] = useState<{ id: string; content: string }[]>([
-    { id: `spec_note_1`, content: '' }
-  ]);
+  const { notes: stickyNotes, changeNotes, ready: notesReady, error: notesError } = useSpecificationNotes(eventId, budgetId, canEditNotes);
   const [selectedModification, setSelectedModification] = useState<EquipmentModification | null>(null);
   const [modificationComponents, setModificationComponents] = useState<ModificationComponent[]>([]);
   const [componentQuantities, setComponentQuantities] = useState<Record<string, number>>({});
@@ -654,18 +653,6 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
       setConnectors(connectorsData || []);
       setOtherItems(otherData || []);
 
-      const savedStickyNotes = localStorage.getItem(`spec_sticky_notes_${budgetId}`);
-      if (savedStickyNotes) {
-        try {
-          const parsed = JSON.parse(savedStickyNotes);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setStickyNotes(parsed);
-          }
-        } catch {
-          // use default
-        }
-      }
-      
       // Initialize empty modifications map - will load on demand
       setEquipmentModifications({});
 
@@ -2125,7 +2112,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             <button
               disabled={!confirmedProject}
               onClick={() => setShowStickyNotes(!showStickyNotes)}
-              className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-yellow-400 rounded transition-colors"
+              className={`p-1.5 hover:bg-gray-800 hover:text-yellow-400 rounded transition-colors ${stickyNotes.some(note => note.content.trim()) ? 'text-yellow-400' : 'text-gray-400'}`}
               title="Заметки"
             >
               <StickyNote className="w-5 h-5" />
@@ -3368,9 +3355,12 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         </div>
       )}
 
+      {notesError && <div role="alert" className="fixed bottom-4 left-4 z-[70] rounded bg-red-900 p-3 text-sm text-white">{notesError}</div>}
       <StickyNotePanel
         notes={stickyNotes}
-        onNotesChange={setStickyNotes}
+        onNotesChange={changeNotes}
+        readOnly={!canEditNotes || !notesReady}
+        persistLocally={false}
         onClose={() => setShowStickyNotes(false)}
         isOpen={showStickyNotes}
         storageKey={`spec_sticky_notes_${budgetId}`}

@@ -70,6 +70,7 @@ export interface Event {
   budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
   budget_note?: string;
   sticky_notes?: string;
+  spec_sticky_notes?: { id: string; content: string }[];
   venues?: Venue;
   clients?: Client;
 }
