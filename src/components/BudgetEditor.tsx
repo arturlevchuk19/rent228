@@ -830,6 +830,21 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     }
   };
 
+  const handleDeleteUncategorized = async (locationId: string | null) => {
+    const itemsToDelete = budgetItems.filter(item => !item.category_id && (item.location_id || null) === locationId);
+    try {
+      for (const item of itemsToDelete) {
+        await deleteBudgetItem(item.id);
+        setBudgetItems(current => current.filter(existing => existing.id !== item.id));
+      }
+      const groupId = locationId ? buildLocationUncategorizedGroupId(locationId) : NO_LOCATION_GROUP_ID;
+      setSelectedCategoryId(current => current === groupId ? null : current);
+      setActiveCategoryIds(current => { const next = new Set(current); next.delete(groupId); return next; });
+    } catch (error) {
+      alert(`Ошибка удаления категории: ${getErrorMessage(error)}`);
+    }
+  };
+
   const handleDeleteCategory = async (categoryId: string) => {
     try {
       const itemsToDelete = budgetItems.filter(item => item.category_id === categoryId);
@@ -2374,6 +2389,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                                 onUpdateCategoryName={() => {}}
                                 onUpdateItem={handleUpdateItem}
                                 onDeleteItem={handleDeleteItem}
+                                onDeleteCategory={() => handleDeleteUncategorized(location.id)}
                                 paymentMode={paymentMode}
                                 exchangeRate={exchangeRate}
                                 budgetDays={budgetDays}
@@ -2458,7 +2474,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         onUpdateCategoryName={() => {}}
                         onUpdateItem={handleUpdateItem}
                         onDeleteItem={handleDeleteItem}
-                        onDeleteCategory={handleDeleteCategory}
+                        onDeleteCategory={() => handleDeleteUncategorized(null)}
                         onManagePersonnel={handleOpenWorkPersonnelManager}
                         paymentMode={paymentMode}
                         exchangeRate={exchangeRate}

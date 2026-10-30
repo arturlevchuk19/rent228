@@ -362,7 +362,7 @@ export function CategoryBlock({
                 <Copy className="w-2.5 h-2.5" />
               </button>
             )}
-            {categoryId !== 'uncategorized' && onDeleteCategory && (
+            {onDeleteCategory && (
               <button
                 type="button"
                 onClick={(e) => {
