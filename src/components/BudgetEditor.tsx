@@ -103,6 +103,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEquipmentCategory, setSelectedEquipmentCategory] = useState<string>('Все');
   const [exchangeRate, setExchangeRate] = useState(3.0);
+  const [exchangeRateInput, setExchangeRateInput] = useState('3');
   const [paymentMode, setPaymentMode] = useState<'usd' | 'byn_cash' | 'byn_noncash'>('usd');
   const [workPersonnelManagerOpen, setWorkPersonnelManagerOpen] = useState(false);
   const [selectedCategoryForPersonnel, setSelectedCategoryForPersonnel] = useState<string | null>(null);
@@ -305,6 +306,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         setBudgetDays(restored.budget_days); setBudgetTotalsMode(restored.budget_totals_mode);
         setBudgetNote(restored.budget_note); setBudgetVersion(restored.budget_version);
         setPaymentMode(restored.budget_payment_mode); setExchangeRate(restored.budget_exchange_rate);
+        setExchangeRateInput(String(restored.budget_exchange_rate));
         try {
           const recoveredNotes = JSON.parse(restored.sticky_notes);
           setStickyNotes(Array.isArray(recoveredNotes) && recoveredNotes.length && recoveredNotes.every(note => note && typeof note.id === 'string' && typeof note.content === 'string') ? recoveredNotes : loadedNotes);
@@ -1925,11 +1927,18 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       <div>
         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Курс валюты</label>
         <input
-          type="number"
-          step="0.01"
+          type="text"
+          inputMode="decimal"
           aria-label="Курс валюты"
-          value={exchangeRate}
-          onChange={(e) => setExchangeRate(Math.max(0.01, Math.round((parseFloat(e.target.value) || 1) * 100) / 100))}
+          value={exchangeRateInput}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (!/^\d*([.,]\d*)?$/.test(value)) return;
+            setExchangeRateInput(value);
+            const rate = Math.round(Number(value.replace(',', '.')) * 100) / 100;
+            if (Number.isFinite(rate) && rate > 0) setExchangeRate(rate);
+          }}
+          onBlur={() => setExchangeRateInput(String(exchangeRate))}
           className="min-h-11 w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-base md:min-h-0 md:text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
         />
       </div>
@@ -2015,28 +2024,33 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           .mobile-budget-page .budget-category-header > button { min-width: 28px; min-height: 32px; }
           .mobile-budget-page .budget-category-header svg { width: 14px; height: 14px; }
           .mobile-budget-page .budget-item-row {
-            flex-wrap: wrap; gap: 8px; padding: 12px; margin: 8px 0;
+            position: relative; flex-wrap: wrap; gap: 8px; padding: 12px; margin: 8px 0;
             border: 1px solid #1f2937; border-radius: 12px; background-color: #111827;
           }
           .mobile-budget-page .budget-item-row > [draggable] { display: none; }
           .mobile-budget-page .budget-item-fields {
             order: -1; flex-basis: 100%; min-width: 0;
-            grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 12px 8px;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px 4px;
+          }
+          .mobile-budget-page .budget-item-fields-with-coefficient {
+            grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr) repeat(2, minmax(0, 1fr)) !important;
           }
           .mobile-budget-page .budget-item-fields > :first-child {
-            grid-column: 1 / -1; font-size: 15px; font-weight: 600;
+            grid-column: 1 / -1; min-height: 28px; padding-right: 88px; font-size: 15px; font-weight: 600;
           }
-          .mobile-budget-page [data-mobile-label] { flex-direction: column; gap: 4px; }
+          .mobile-budget-page [data-mobile-label] { flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; min-width: 0; gap: 4px; }
           .mobile-budget-page [data-mobile-label]::before {
             content: attr(data-mobile-label); display: block; color: #9ca3af; font-size: 10px;
           }
-          .mobile-budget-page [data-mobile-label="Сумма"] { grid-column: 2 / -1; font-size: 15px; }
-          .mobile-budget-page .budget-item-fields input { min-height: 36px; max-width: 100%; font-size: 16px; }
+          .mobile-budget-page [data-mobile-label="Сумма"] { grid-column: 1 / -1; display: flex; flex-direction: row; justify-content: flex-end; align-items: baseline; gap: 8px; padding-right: 0; white-space: nowrap; font-size: 15px; }
+          .mobile-budget-page .budget-item-fields input { min-height: 36px; max-width: 100%; text-align: center; font-size: 16px; }
           .mobile-budget-page [data-mobile-label="Количество"] button { min-height: 36px; min-width: 24px; }
           .mobile-budget-page [data-mobile-label="Ед. изм."] button { min-height: 36px; font-size: 13px; }
-          .mobile-budget-page .budget-item-row > button,
-          .mobile-budget-page .budget-item-row > div.relative > button {
-            min-height: 32px; min-width: 32px; opacity: 1;
+          .mobile-budget-page .budget-item-actions { position: absolute; top: 10px; right: 8px; gap: 0; }
+          .mobile-budget-page .budget-item-actions > button,
+          .mobile-budget-page .budget-item-actions > div,
+          .mobile-budget-page .budget-item-actions > div > button {
+            width: 28px; min-width: 28px; min-height: 28px; align-items: center; opacity: 1;
           }
         }
         /* Для Firefox */
@@ -2944,3 +2958,4 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     </main>
   );
 }
+

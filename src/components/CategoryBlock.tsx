@@ -474,7 +474,7 @@ export function CategoryBlock({
                   </div>
 
                   <div
-                    className="budget-item-fields flex-1 grid items-center gap-1 text-xs"
+                    className={`budget-item-fields flex-1 grid items-center gap-1 text-xs ${showCoefficient ? "budget-item-fields-with-coefficient" : ""}`}
                     style={{ gridTemplateColumns: tableTemplateColumns }}
                   >
                     <div className="text-gray-300 whitespace-normal break-words pr-2">
@@ -627,6 +627,7 @@ export function CategoryBlock({
                     </div>
                   </div>
 
+                  <div className="budget-item-actions flex items-center gap-1">
                   <div className="relative w-5 flex justify-center flex-shrink-0">
                     <button
                       type="button"
@@ -688,6 +689,7 @@ export function CategoryBlock({
                     <X className="w-3 h-3" />
                   </button>
                 </div>
+                  </div>
                   {/* Notes row */}
                   {isNoteEditorOpen && (
                     <div className="px-1.5 py-0.5 bg-gray-800/30 pl-4 border-b border-gray-800/30 flex items-center gap-1">
@@ -747,3 +749,4 @@ export function CategoryBlock({
     </div>
   );
 }
+
