@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { InlineQuantityAdd } from './InlineQuantityAdd';
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, FileText, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
+import { X, Plus, Save, Package, Download, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
 import { type Event, type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, updateBudgetItemsExchangeRate, deleteBudgetItem, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
@@ -70,9 +70,9 @@ const parseGroupId = (groupId: string): { locationId: string | null; categoryId:
 };
 
 export function BudgetEditor(props: BudgetEditorProps) {
-  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedBudgetEditor key={id} {...props} eventName={`${props.eventName} · ${name}`} budgetId={id} />}</BudgetScope>;
+  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedBudgetEditor key={id} {...props} eventName={`${props.eventName} · ${name}`} budgetName={name} budgetId={id} />}</BudgetScope>;
 }
-function ScopedBudgetEditor({ eventId, eventName, onClose, budgetId }: BudgetEditorProps & { budgetId: string }) {
+function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId }: BudgetEditorProps & { budgetId: string; budgetName: string }) {
   const getEvent = (id: string) => getBudgetEvent(id, budgetId);
   const updateEvent = (id: string, patch: Partial<Event>) => updateBudgetEvent(id, budgetId, patch);
   const { user } = useAuth();
@@ -2034,7 +2034,7 @@ function ScopedBudgetEditor({ eventId, eventName, onClose, budgetId }: BudgetEdi
   if (!loading && !canAccess(user, 'budgets', 2)) {
     return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
       <section className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-800 p-4"><h2 className="font-semibold text-white">Смета: {eventName}</h2><button type="button" onClick={onClose} aria-label="Закрыть" className="rounded p-2 text-gray-300"><X className="h-5 w-5" /></button></header>
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-800 p-4"><h2 className="font-semibold text-white">Смета: {budgetName}</h2><button type="button" onClick={onClose} aria-label="Закрыть" className="rounded p-2 text-gray-300"><X className="h-5 w-5" /></button></header>
         <div className="min-h-0 overflow-y-auto p-4">{canAccess(user, 'budgets') ? <><p className="mb-3 text-xs text-gray-400">Режим просмотра</p>{budgetItems.map(item => <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 py-3 text-sm"><span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span><span className="shrink-0 text-cyan-400">{item.quantity} × {item.price}</span></div>)}<p className="mt-4 font-semibold text-white">Итого: {getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></> : <p className="text-gray-400">Нет доступа к сметам.</p>}</div>
       </section>
     </div>;
@@ -2081,12 +2081,84 @@ function ScopedBudgetEditor({ eventId, eventName, onClose, budgetId }: BudgetEdi
 
       <div className="bg-gray-900 rounded-xl w-full max-w-[1600px] h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-800">
         {/* Header */}
-        <div className="px-4 py-2 border-b border-gray-800 flex justify-between items-center flex-shrink-0 bg-gray-900/50">
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <FileText className="w-4 h-4 text-cyan-400" />
-              Смета: {eventName}
+        <div className="px-4 py-2 border-b border-gray-800 flex justify-between items-start gap-3 flex-shrink-0 bg-gray-900/50">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+            <h2 className="min-w-0 text-lg font-bold text-white flex items-center gap-2 break-words">
+              Смета: {budgetName}
             </h2>
+            <div className="flex items-center gap-1.5">
+              <label htmlFor="budget-version" className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Версия</label>
+              <input
+                id="budget-version"
+                type="text"
+                value={budgetVersion}
+                onChange={(e) => setBudgetVersion(e.target.value)}
+                placeholder="1.0"
+                className="w-16 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+              />
+            </div>
+
+            <div className="relative exchange-rate-container">
+              <button
+                onClick={() => setShowExchangeRatePopover(!showExchangeRatePopover)}
+                className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-all"
+              >
+                <Settings className="w-3.5 h-3.5 text-gray-500" />
+                <span className="text-xs font-medium">{getCurrencyLabel()}</span>
+                <span className="text-[10px] text-gray-500 font-mono">({exchangeRate.toFixed(2)})</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showExchangeRatePopover ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showExchangeRatePopover && (
+                <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 p-3 min-w-[200px]">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Курс валюты</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={exchangeRate}
+                        onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
+                        className="w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Система расчёта</label>
+                      <button
+                        onClick={() => setPaymentMode('usd')}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                          paymentMode === 'usd'
+                            ? 'bg-cyan-600 text-white'
+                            : 'text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        USD
+                      </button>
+                      <button
+                        onClick={() => setPaymentMode('byn_noncash')}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                          paymentMode === 'byn_noncash'
+                            ? 'bg-cyan-600 text-white'
+                            : 'text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        BYN (безналичный)
+                      </button>
+                      <button
+                        onClick={() => setPaymentMode('byn_cash')}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                          paymentMode === 'byn_cash'
+                            ? 'bg-cyan-600 text-white'
+                            : 'text-gray-300 hover:bg-gray-700'
+                        }`}
+                      >
+                        BYN (наличный)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -2119,36 +2191,41 @@ function ScopedBudgetEditor({ eventId, eventName, onClose, budgetId }: BudgetEdi
           <div className="w-3/5 flex flex-col border-r border-gray-800 min-w-0">
             {/* Toolbar */}
             <div className="bg-gray-900/80 border-b border-gray-800 px-3 py-2 flex-shrink-0">
-              <div className="flex items-center justify-between relative category-dropdown-container">
-                <div className="flex gap-2">
+              <div className="relative category-dropdown-container">
+                <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap text-xs font-semibold sm:gap-5 sm:text-sm">
+                  <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-400" />
                   <button
+                    type="button"
                     onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-medium rounded-lg transition-all shadow-lg shadow-cyan-900/20"
+                    aria-expanded={showCategoryDropdown}
+                    aria-label="Добавить категорию"
+                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Добавить категорию
+                    Категория
                   </button>
                   <button
+                    type="button"
                     onClick={() => setShowLocationDialog(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium rounded-lg transition-all shadow-lg shadow-emerald-900/20"
+                    aria-label="Добавить локацию"
+                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                   >
-                    <MapPin className="w-3.5 h-3.5" />
-                    Добавить локацию
+                    Локация
                   </button>
                   <button
+                    type="button"
                     onClick={handleCreateExtraServiceCategory}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium rounded-lg transition-all shadow-lg shadow-violet-900/20"
+                    aria-label="Добавить дополнительную услугу"
+                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Доп услуги
+                    Доп. услуга
                   </button>
-
                   <button
+                    type="button"
                     onClick={() => setShowTemplates(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-medium rounded-lg transition-all border border-gray-700"
+                    aria-label="Добавить из шаблона"
+                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                   >
-                    <Package className="w-3.5 h-3.5" />
-                    Шаблоны
+                    Шаблон
                   </button>
                 </div>
 
@@ -2165,79 +2242,6 @@ function ScopedBudgetEditor({ eventId, eventName, onClose, budgetId }: BudgetEdi
                     ))}
                   </div>
                 )}
-
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Версия</span>
-                  <input
-                    type="text"
-                    value={budgetVersion}
-                    onChange={(e) => setBudgetVersion(e.target.value)}
-                    placeholder="1.0"
-                    className="w-16 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none"
-                  />
-                </div>
-
-                <div className="relative exchange-rate-container">
-                  <button
-                    onClick={() => setShowExchangeRatePopover(!showExchangeRatePopover)}
-                    className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-all"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-gray-500" />
-                    <span className="text-xs font-medium">{getCurrencyLabel()}</span>
-                    <span className="text-[10px] text-gray-500 font-mono">({exchangeRate.toFixed(2)})</span>
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showExchangeRatePopover ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {showExchangeRatePopover && (
-                    <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 p-3 min-w-[200px]">
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Курс валюты</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={exchangeRate}
-                            onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
-                            className="w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Система расчёта</label>
-                          <button
-                            onClick={() => setPaymentMode('usd')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                              paymentMode === 'usd'
-                                ? 'bg-cyan-600 text-white'
-                                : 'text-gray-300 hover:bg-gray-700'
-                            }`}
-                          >
-                            USD
-                          </button>
-                          <button
-                            onClick={() => setPaymentMode('byn_noncash')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                              paymentMode === 'byn_noncash'
-                                ? 'bg-cyan-600 text-white'
-                                : 'text-gray-300 hover:bg-gray-700'
-                            }`}
-                          >
-                            BYN (безналичный)
-                          </button>
-                          <button
-                            onClick={() => setPaymentMode('byn_cash')}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                              paymentMode === 'byn_cash'
-                                ? 'bg-cyan-600 text-white'
-                                : 'text-gray-300 hover:bg-gray-700'
-                            }`}
-                          >
-                            BYN (наличный)
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
