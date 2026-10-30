@@ -111,6 +111,7 @@ export interface WorkItem {
 }
 
 export interface BudgetItem {
+  source_budget_item_id?: string | null;
   budget_id?: string;
   /** Generated child rows excluded only from this specification. */
   excluded_child_keys?: string[];

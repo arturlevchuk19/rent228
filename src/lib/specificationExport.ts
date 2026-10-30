@@ -1,5 +1,5 @@
 import { cableDisplayName } from './cableNames';
-import { getSpecificationServices } from './specificationServices';
+import { budgetSpecificationPreview, specificationIsEditable } from './specificationServices';
 import { getBudgetItems, type BudgetItem } from './events';
 import { getBudgetEvent } from './eventBudgets';
 import { getEquipmentCompositions, type EquipmentComposition } from './equipmentCompositions';
@@ -11,7 +11,7 @@ import { ensureWarehouseSpecificationSnapshot, getSpecificationBudgetItems, getC
 export interface SpecificationRow {
   group: string; name: string; sku: string; quantity: number; unit: string; notes: string;
 }
-export function buildSpecificationEquipmentRows(items: BudgetItem[], compositions: Map<string, EquipmentComposition[]>, modifications: Map<string, ModificationComponent[]>, categoryNames: Map<string, string>, locationNames: Map<string, string>): SpecificationRow[] {
+export function buildSpecificationEquipmentRows(items: BudgetItem[], compositions: Map<string, EquipmentComposition[]>, modifications: Map<string, ModificationComponent[]>, categoryNames: Map<string, string>, locationNames: Map<string, string>, extraCategoryIds = new Set<string>()): SpecificationRow[] {
   const excluded = new Set(items.flatMap(item => item.excluded_child_keys || []));
   const rows: SpecificationRow[] = [];
   const add = (item: BudgetItem, key: string, name: string, sku: string, quantity: number, category: string, parent?: BudgetItem) => {
@@ -19,10 +19,13 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
     const locationId = item.location_id || parent?.location_id;
     const location = (locationId && locationNames.get(locationId)) || item.location?.name || parent?.location?.name || 'Без локации';
     const categoryId = item.category_id || parent?.category_id;
-    rows.push({ group: `${item.is_extra || parent?.is_extra ? 'Добор' : 'Оборудование'} / ${location} / ${(categoryId && categoryNames.get(categoryId)) || category || 'Прочее'}`, name, sku, quantity, unit: 'шт.', notes: item.notes || '' });
+    rows.push({ group: `${(item.is_extra && !item.source_budget_item_id) || (parent?.is_extra && !parent.source_budget_item_id) ? 'Добор' : 'Оборудование'} / ${location} / ${(categoryId && categoryNames.get(categoryId)) || category || 'Прочее'}`, name, sku, quantity, unit: 'шт.', notes: item.notes || '' });
   };
   for (const item of items) {
-    if (item.item_type !== 'equipment') continue;
+    if (item.item_type === 'work') {
+      if (item.quantity > 0 && item.category_id && extraCategoryIds.has(item.category_id)) { const before = rows.length; add(item, item.id, item.name || item.work_item?.name || 'Позиция', '', item.quantity, categoryNames.get(item.category_id) || 'Прочее'); rows.length > before && (rows[rows.length - 1].unit = item.work_item?.unit || 'усл.'); }
+      continue;
+    }
     const parent = item.parent_budget_item_id ? items.find(row => row.id === item.parent_budget_item_id) : undefined;
     if (item.parent_budget_item_id) { add(item, item.id, item.name || 'Кейс', item.sku || '', item.quantity, parent?.equipment?.category || 'Видео', parent); continue; }
     const name = item.equipment?.name || item.name || 'Без названия';
@@ -44,18 +47,21 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
 }
 
 export async function loadSpecificationExport(eventId: string, budgetId: string, initialize: boolean) {
-  if (initialize) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
-  const [event, items, cables, connectors, others, globalCategories, categories, locations, liveItems] = await Promise.all([
+  const currentEvent = await getBudgetEvent(eventId, budgetId);
+  const frozen = specificationIsEditable(currentEvent.status);
+  if (initialize && frozen) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
+  const [event, savedItems, cables, connectors, others, globalCategories, categories, locations, liveItems] = await Promise.all([
     getBudgetEvent(eventId, budgetId), getSpecificationBudgetItems(eventId, budgetId), getCables(eventId, budgetId), getConnectors(eventId, budgetId), getOtherItems(eventId, budgetId), getCategories(), getCategoriesForEvent(eventId, budgetId), getLocationsForEvent(eventId, budgetId), getBudgetItems(eventId, budgetId)
   ]);
+  const items = frozen ? savedItems : budgetSpecificationPreview(liveItems);
   const equipmentIds = [...new Set(items.filter(item => !item.parent_budget_item_id && item.equipment?.object_type === 'virtual' && item.equipment_id).map(item => item.equipment_id!))];
   const modificationIds = [...new Set(items.flatMap(item => item.modification_id ? [item.modification_id] : []))];
   const [compositionEntries, modificationEntries] = await Promise.all([
     Promise.all(equipmentIds.map(async id => [id, await getEquipmentCompositions(id)] as const)),
     Promise.all(modificationIds.map(async id => [id, await getModificationComponents(id)] as const))
   ]);
-  const rows = buildSpecificationEquipmentRows(items, new Map(compositionEntries), new Map(modificationEntries), new Map([...globalCategories, ...categories].map(row => [row.id, row.name])), new Map(locations.map(row => [row.id, row.name])));
-  rows.push(...getSpecificationServices(liveItems).map(service => ({ ...service, group: 'Дополнительные услуги', sku: '' })));
+  const rows = buildSpecificationEquipmentRows(items, new Map(compositionEntries), new Map(modificationEntries), new Map([...globalCategories, ...categories].map(row => [row.id, row.name])), new Map(locations.map(row => [row.id, row.name])), new Set([...globalCategories, ...categories].filter(row => row.description === '__extra_service__').map(row => row.id)));
+
   const accessories = new Map<string, SpecificationRow>();
   const add = (group: string, name: string, quantity: number, notes: string) => {
     if (quantity <= 0) return;

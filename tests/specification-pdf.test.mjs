@@ -9,7 +9,7 @@ const scopeCalls=[];
 const mocks=Object.fromEntries(['./eventBudgets','./equipmentCompositions','./equipment','./categories','./locations','./warehouseSpecification'].map(name=>[name,{}]));
 Object.assign(mocks, {
  './events':{getBudgetItems:async(event,budget)=>{scopeCalls.push(['services',event,budget]);return [{id:'service1',item_type:'work',quantity:2,work_item:{name:'Доставка',unit:'рейс'},notes:'После монтажа'}];}},
- './eventBudgets':{getBudgetEvent:async(event,budget)=>{scopeCalls.push(['event',event,budget]);return {name:'Событие'};}},
+ './eventBudgets':{getBudgetEvent:async(event,budget)=>{scopeCalls.push(['event',event,budget]);return {name:'Событие',status:'Подтверждено'};}},
  './equipmentCompositions':{getEquipmentCompositions:async()=>[]}, './equipment':{getModificationComponents:async()=>[]},
  './categories':{getCategories:async()=>[],getCategoriesForEvent:async()=>[]}, './locations':{getLocationsForEvent:async()=>[]},
  './warehouseSpecification':{
@@ -30,15 +30,22 @@ const loaded=await loadSpecificationExport('event-A','budget-B',true);
 assert.ok(scopeCalls.every(([,event,budget])=>event==='event-A'&&budget==='budget-B'));
 assert.equal(loaded.rows.find(row=>row.name==='10м').quantity,5);assert.equal(loaded.rows.find(row=>row.name==='10м').notes,'A\nB');
 assert.equal(loaded.rows.find(row=>row.name==='Сплиттер X6').quantity,4);assert.ok(loaded.rows.some(row=>row.name==='0.5м'));assert.ok(!loaded.rows.some(row=>row.name==='1м'));
-assert.deepEqual(loaded.rows.find(row=>row.name==='Доставка'),{id:'service1',group:'Дополнительные услуги',name:'Доставка',quantity:2,unit:'рейс',notes:'После монтажа',sku:''});
-const {getSpecificationServices,specificationDiffersFromBudget}=load('src/lib/specificationServices.ts');
-assert.equal(getSpecificationServices([{item_type:'work',quantity:0}]).length,0);
+assert.ok(!loaded.rows.some(row=>row.name==='Доставка'),'No standalone all-services block');
+const {budgetSpecificationPreview,specificationIsEditable,getSpecificationDifferences}=load('src/lib/specificationServices.ts');
+assert.equal(specificationIsEditable('Запрос'),false);
+assert.equal(specificationIsEditable('Подтверждено'),true);
 const source={id:'eq1',item_type:'equipment',equipment_id:'e1',quantity:2};
 const saved={...source,id:'spec1',source_budget_item_id:'eq1'};
-assert.equal(specificationDiffersFromBudget([source],[saved]),false);
-assert.equal(specificationDiffersFromBudget([{...source,quantity:3}],[saved]),true);
-assert.equal(specificationDiffersFromBudget([source],[]),true);
-assert.equal(specificationDiffersFromBudget([],[saved]),true);
+assert.equal(getSpecificationDifferences([source],[saved]).length,0);
+assert.equal(getSpecificationDifferences([{...source,quantity:3}],[saved])[0].kind,'update');
+assert.equal(getSpecificationDifferences([source],[])[0].kind,'add');
+assert.equal(getSpecificationDifferences([],[saved])[0].kind,'remove');
+assert.equal(budgetSpecificationPreview([{...source,picked:true}])[0].picked,false);
+assert.equal(budgetSpecificationPreview([source])[0].source_budget_item_id,'eq1');
+const extraRows=buildSpecificationEquipmentRows([{...source,category_id:'extra',is_extra:true,source_budget_item_id:'eq1',equipment:{name:'Экран'}},{id:'service',item_type:'work',category_id:'extra',quantity:2,work_item:{name:'Монтаж экрана',unit:'час'}}],new Map(),new Map(),new Map([['extra','Дополнительная сцена']]),new Map(),new Set(['extra']));
+assert.equal(extraRows.length,2);
+assert.ok(extraRows.every(row=>row.group.includes('Дополнительная сцена')&&!row.group.includes('Добор')));
+assert.equal(extraRows[1].unit,'час');
 const {buildSpecificationPdf}=load('src/lib/specificationPdf.ts');
 const pdf=buildSpecificationPdf({eventName:'Фестиваль в парке',budgetName:'Вариант 2',startDate:'2026-10-29',endDate:'2026-10-31',venue:'Лотос. Хилтон',rows:Array.from({length:180},(_,i)=>({group:i<90?'Оборудование / Главная сцена':'Прочее / Ремешки',name:'Микрофон '+(i+1),sku:'MIC-'+i,quantity:i+1,unit:'шт.',notes:'Примечание с кириллицей и длинным текстом для переноса в таблице.'}))});
 assert.ok(pdf.getNumberOfPages()>2);const bytes=Buffer.from(pdf.output('arraybuffer'));assert.ok(bytes.includes(Buffer.from('/FontFile2')),'Embed a font instead of rasterizing text');fs.mkdirSync('work/spec-pdf',{recursive:true});fs.writeFileSync('work/spec-pdf/specification-test.pdf',bytes);

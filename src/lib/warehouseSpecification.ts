@@ -449,7 +449,6 @@ export async function ensureWarehouseSpecificationSnapshot(eventId: string, budg
     .select('*')
     .eq('event_id', eventId)
     .eq('budget_id', budgetId)
-    .eq('item_type', 'equipment')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 

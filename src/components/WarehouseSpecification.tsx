@@ -6,7 +6,7 @@ import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
 import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
-import { getSpecificationServices, specificationDiffersFromBudget } from '../lib/specificationServices';
+import { budgetSpecificationPreview, specificationIsEditable, isBudgetSpecificationItem, getSpecificationDifferences } from '../lib/specificationServices';
 import { getBudgetItems, type BudgetItem, type Event } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
 import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
@@ -228,6 +228,9 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [liveBudgetItems, setLiveBudgetItems] = useState<BudgetItem[]>([]);
+  const [showBudgetChanges, setShowBudgetChanges] = useState(false);
+  const [selectedChanges, setSelectedChanges] = useState<Set<string>>(new Set());
+  const [applyingChanges, setApplyingChanges] = useState(false);
   const [budgetSourceError, setBudgetSourceError] = useState('');
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [expandedItems, setExpandedItems] = useState<ExpandedItem[]>([]);
@@ -240,7 +243,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [initialLoading, setInitialLoading] = useState(true);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
   const [eventDetails, setEventDetails] = useState<Partial<Event> | null>(null);
-  const canEditSpecification = canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || eventDetails?.site_manager_id === user?.id);
+  const confirmedProject = specificationIsEditable(eventDetails?.status);
+  const canEditSpecification = confirmedProject && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || eventDetails?.site_manager_id === user?.id);
   const canEditNotes = canEditSpecification;
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
@@ -552,11 +556,72 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     loadData();
   }, [eventId]);
 
+  useEffect(() => {
+    if (!eventDetails) return;
+    let active = true;
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing || document.visibilityState === 'hidden') return;
+      refreshing = true;
+      try {
+        const [latest, current] = await Promise.all([getBudgetItems(eventId, budgetId), getBudgetEvent(eventId, budgetId)]);
+        if (!active) return;
+        if (current.status !== eventDetails.status) await loadData();
+        else if (JSON.stringify(latest) !== JSON.stringify(liveBudgetItems)) {
+          if (specificationIsEditable(current.status)) setLiveBudgetItems(latest);
+          else await loadData();
+        }
+      } catch { if (active) setBudgetSourceError('Не удалось обновить смету. Проверьте соединение и откройте спецификацию повторно.'); }
+      finally { refreshing = false; }
+    };
+    const timer = window.setInterval(() => void refresh(), 30000);
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, [eventId, budgetId, eventDetails?.status, liveBudgetItems]);
+
+  const extraCategoryIds = new Set(categories.filter(category => category.description === '__extra_service__').map(category => category.id));
+  const differences = getSpecificationDifferences(liveBudgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)), budgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)));
+  const applyBudgetChanges = async () => {
+    if (!canEditSpecification || applyingChanges || eventDetails?.equipment_shipped || modifiedItems.size) return;
+    setApplyingChanges(true);
+    try {
+      const [latest, current] = await Promise.all([getBudgetItems(eventId, budgetId), getBudgetEvent(eventId, budgetId)]);
+      if (!specificationIsEditable(current.status) || current.equipment_shipped || JSON.stringify(latest) !== JSON.stringify(liveBudgetItems)) {
+        setShowBudgetChanges(false);
+        throw new Error('Смета или состояние мероприятия изменились. Проверьте обновлённое сравнение.');
+      }
+      const idMap = new Map(budgetItems.flatMap(item => item.source_budget_item_id ? [[item.source_budget_item_id, item.id] as const] : []));
+      const selected = differences.filter(row => selectedChanges.has(row.sourceId));
+      const additions = selected.filter(row => row.kind === 'add');
+      while (additions.length) {
+        const index = additions.findIndex(row => !row.source?.parent_budget_item_id || idMap.has(row.source.parent_budget_item_id));
+        if (index < 0) throw new Error('Сначала выберите добавление родительской позиции.');
+        const change = additions.splice(index, 1)[0];
+        const source = change.source!;
+        const created = await createSpecificationBudgetItem({ event_id: eventId, budget_id: budgetId, source_budget_item_id: source.id, item_type: source.item_type, equipment_id: source.equipment_id, work_item_id: source.work_item_id, modification_id: source.modification_id, parent_budget_item_id: source.parent_budget_item_id ? idMap.get(source.parent_budget_item_id) : null, category_id: source.category_id, location_id: source.location_id, name: source.name, sku: source.sku, quantity: source.quantity, price: source.price, total: source.total, notes: source.notes, sort_order: source.sort_order, is_extra: source.is_extra, picked: false, return_picked: false });
+        idMap.set(source.id, created.id);
+      }
+      for (const change of selected.filter(row => row.kind === 'update')) {
+        const source = change.source!;
+        await updateSpecificationBudgetItem(change.saved!.id, { quantity: source.quantity, equipment_id: source.equipment_id, work_item_id: source.work_item_id, modification_id: source.modification_id, category_id: source.category_id, location_id: source.location_id, name: source.name, picked: false, return_picked: false });
+      }
+      for (const change of selected.filter(row => row.kind === 'remove')) {
+        if (!canAccess(user, 'specifications', 3)) throw new Error('Нет права удаления позиций.');
+        await deleteSpecificationBudgetItem(change.saved!.id);
+      }
+      setShowBudgetChanges(false);
+      await loadData();
+    } catch (error) { showNotification(getErrorMessage(error) + ' Уже применённые позиции сохранены; откройте сравнение повторно.'); await loadData(); }
+    finally { setApplyingChanges(false); }
+  };
+
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
       const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData, liveItems] = await Promise.all([
         (async () => {
+          const current = await getBudgetEvent(eventId, budgetId);
+          if (!specificationIsEditable(current.status)) return budgetSpecificationPreview(await getBudgetItems(eventId, budgetId));
           if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
           return getSpecificationBudgetItems(eventId, budgetId);
         })(),
@@ -567,7 +632,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         getCables(eventId, budgetId),
         getConnectors(eventId, budgetId),
         getOtherItems(eventId, budgetId),
-        getBudgetItems(eventId, budgetId).then(items => { setBudgetSourceError(''); return items; }).catch(() => { setBudgetSourceError('Не удалось проверить актуальную смету и загрузить допуслуги. Откройте спецификацию повторно.'); return null; })
+        getBudgetItems(eventId, budgetId).then(items => { setBudgetSourceError(''); return items; }).catch(() => { setBudgetSourceError('Не удалось проверить актуальную смету. Откройте спецификацию повторно.'); return null; })
       ]);
 
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
@@ -648,7 +713,11 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
       const modificationComponentsById = new Map(modificationComponentEntries);
 
       for (const item of budgetData) {
-        if (item.item_type !== 'equipment') continue;
+        if (item.item_type === 'work') {
+          if (mergedCategories.find(category => category.id === item.category_id)?.description !== '__extra_service__') continue;
+          items.push({ budgetItemId: item.id, categoryId: item.category_id || null, locationId: item.location_id || null, locationName: locationsById.get(item.location_id || '')?.name || 'Без локации', name: item.name || item.work_item?.name || 'Позиция', sku: '', quantity: item.quantity, unit: item.work_item?.unit || 'усл.', category: mergedCategories.find(category => category.id === item.category_id)?.name || 'Прочее', notes: item.notes || '', picked: item.picked || false, return_picked: item.return_picked || false, isFromComposition: false, isExtra: false });
+          continue;
+        }
         const itemLocationId = item.location_id || null;
         const itemLocation = itemLocationId ? locationsById.get(itemLocationId) : null;
         const itemLocationName = itemLocation?.name || item.location?.name || 'Без локации';
@@ -674,7 +743,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             picked: item.picked || false,
             return_picked: item.return_picked || false,
             isFromComposition: true,
-            isExtra: item.is_extra || false,
+            isExtra: !!item.is_extra && !item.source_budget_item_id,
             parentName: parentItem?.equipment?.name || parentItem?.name
           });
           continue;
@@ -683,7 +752,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         const isVirtual = item.equipment?.object_type === 'virtual';
 
         if (!isVirtual) {
-          if (item.equipment?.is_component && item.equipment_id && item.component_selection !== 'separate' && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id) && !event.equipment_shipped) {
+          if (item.equipment?.is_component && item.equipment_id && item.component_selection !== 'separate' && specificationIsEditable(event.status) && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id) && !event.equipment_shipped) {
             try {
               const caseOptions = caseOptionsByEquipmentId.get(item.equipment_id) || [];
               if (caseOptions.length > 0) {
@@ -708,7 +777,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                   locationName: itemLocationName,
                   picked: item.picked || false,
                   return_picked: item.return_picked || false,
-                  isExtra: item.is_extra || false,
+                  isExtra: !!item.is_extra && !item.source_budget_item_id,
                   caseCapacityByCaseId
                 };
 
@@ -747,7 +816,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             picked: item.picked || false,
             return_picked: item.return_picked || false,
             isFromComposition: !!isSavedVirtualItem,
-            isExtra: item.is_extra || false,
+            isExtra: !!item.is_extra && !item.source_budget_item_id,
           });
         } else {
           // Virtual item - check if it's an LED screen
@@ -767,7 +836,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               picked: item.picked || false,
               return_picked: item.return_picked || false,
               isFromComposition: false,
-              isExtra: item.is_extra || false,
+              isExtra: !!item.is_extra && !item.source_budget_item_id,
             });
 
             // Кейсы для LED экранов добавляются только после нажатия "Сохранить" в LedSpecificationPanel
@@ -786,7 +855,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               picked: item.picked || false,
               return_picked: item.return_picked || false,
               isFromComposition: false,
-              isExtra: item.is_extra || false,
+              isExtra: !!item.is_extra && !item.source_budget_item_id,
             });
 
             // Для подиумов не подгружаем дефолтную composition автоматически.
@@ -807,7 +876,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               picked: item.picked || false,
               return_picked: item.return_picked || false,
               isFromComposition: false,
-              isExtra: item.is_extra || false,
+              isExtra: !!item.is_extra && !item.source_budget_item_id,
             });
           } else {
             // Non-LED virtual item - expand it into its components
@@ -837,7 +906,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                     picked: item.picked || false,
                     return_picked: item.return_picked || false,
                     isFromComposition: true,
-                    isExtra: item.is_extra || false,
+                    isExtra: !!item.is_extra && !item.source_budget_item_id,
                     parentName: item.equipment?.name
                   });
                   (compositionPartsMap[item.id] = compositionPartsMap[item.id] || []).push({
@@ -879,7 +948,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                     picked: item.picked || false,
                     return_picked: item.return_picked || false,
                     isFromComposition: true,
-                    isExtra: item.is_extra || false,
+                    isExtra: !!item.is_extra && !item.source_budget_item_id,
                     parentName: item.equipment?.name
                   });
                   (compositionPartsMap[item.id] = compositionPartsMap[item.id] || []).push({
@@ -913,7 +982,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 picked: item.picked || false,
                 return_picked: item.return_picked || false,
                 isFromComposition: false,
-                isExtra: item.is_extra || false,
+                isExtra: !!item.is_extra && !item.source_budget_item_id,
               });
             }
             }
@@ -2014,6 +2083,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4">
       <div className="relative bg-gray-900 border border-gray-800 md:rounded-lg shadow-xl w-full md:w-[95vw] md:max-w-[1400px] h-full md:h-auto md:max-h-[90vh] flex flex-col">
+        {showBudgetChanges && <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-3"><div role="dialog" aria-modal="true" aria-label="Изменения сметы" className="max-h-full w-full max-w-xl overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4"><h3 className="font-semibold text-white">Сравнение со сметой</h3><p className="my-3 text-sm text-gray-400">Выберите позиции для переноса. Изменение заменит количество и состав выбранной строки и сбросит её отметки сборки. Удаление также удалит её дочерние строки. Остальные позиции, примечания и кабели сохраняются.</p>{differences.map(change => <label key={change.sourceId} className="flex items-start gap-2 border-t border-gray-800 py-3 text-sm text-gray-200"><input type="checkbox" checked={selectedChanges.has(change.sourceId)} disabled={applyingChanges || (change.kind === 'remove' && !canAccess(user, 'specifications', 3))} onChange={event => setSelectedChanges(previous => { const next = new Set(previous); if (event.target.checked) next.add(change.sourceId); else next.delete(change.sourceId); return next; })}/><span className="min-w-0 break-words">{change.kind === 'add' ? 'Добавить' : change.kind === 'remove' ? 'Удалить' : 'Обновить'}: {change.name}{change.source && change.saved && ` (${change.saved.quantity} → ${change.source.quantity})`}</span></label>)}{modifiedItems.size > 0 && <p className="text-sm text-amber-400">Сначала сохраните ручные изменения спецификации.</p>}<div className="mt-3 flex justify-end gap-2"><button type="button" disabled={applyingChanges} onClick={() => setShowBudgetChanges(false)} className="p-2 text-gray-400">Закрыть</button><button type="button" disabled={applyingChanges || !selectedChanges.size || modifiedItems.size > 0} onClick={() => void applyBudgetChanges()} className="rounded-lg bg-cyan-600 p-2 text-white disabled:opacity-40">Применить выбранное</button></div></div></div>}
         {loading && (
           <div className="absolute top-3 right-14 z-20 rounded-md border border-cyan-700/50 bg-gray-900/90 px-2 py-1 text-[11px] text-cyan-300">
             Обновление...
@@ -2044,6 +2114,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
           </div>
           <div className="flex items-center gap-2">
             <button
+              disabled={!confirmedProject}
               onClick={() => setShowStickyNotes(!showStickyNotes)}
               className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-yellow-400 rounded transition-colors"
               title="Заметки"
@@ -2097,16 +2168,10 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
-          {!budgetSourceError && specificationDiffersFromBudget(liveBudgetItems, budgetItems) && <p role="status" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">Состав или количество оборудования в смете и спецификации различаются. Проверьте новые, удалённые и изменённые позиции. Спецификация хранится отдельно: ручные изменения не перезаписываются автоматически.</p>}
-
+          {!confirmedProject && <p className="mb-4 rounded-lg border border-cyan-800 p-3 text-sm text-cyan-300">До подтверждения мероприятия спецификация показывает актуальную смету. Ручное редактирование станет доступно после подтверждения.</p>}
+          {confirmedProject && differences.length > 0 && <div className="mb-4 rounded-lg border border-amber-700 p-3 text-sm text-amber-300">Смета и спецификация различаются: {differences.length} позиций. Ручные правки не перезаписываются автоматически.{canEditSpecification && !eventDetails?.equipment_shipped && <button type="button" onClick={() => { setSelectedChanges(new Set(differences.filter(row => row.kind === 'add').map(row => row.sourceId))); setShowBudgetChanges(true); }} className="mt-2 block rounded-lg bg-gray-800 px-3 py-2 text-cyan-400">Сравнить со сметой</button>}</div>}
           {activeTab === 'budget' && (
             <>
-              {getSpecificationServices(liveBudgetItems).length > 0 && <section className="mb-5 rounded-xl border border-gray-700 p-3">
-                <h3 className="mb-2 text-sm font-semibold text-gray-200">Дополнительные услуги</h3>
-                <p className="mb-2 text-xs text-gray-400">Из актуальной сметы. Изменить услуги и количество можно в редакторе сметы.</p>
-                {getSpecificationServices(liveBudgetItems).map(service => <div key={service.id} className="flex min-w-0 items-start justify-between gap-3 border-t border-gray-800 py-2 text-sm"><div className="min-w-0 [overflow-wrap:anywhere] text-gray-200">{service.name}{service.notes && <p className="mt-1 whitespace-pre-wrap text-xs text-gray-400">{service.notes}</p>}</div><span className="shrink-0 text-gray-300">{service.quantity} {service.unit}</span></div>)}
-              </section>}
-
               <div className="mb-3 flex justify-between items-center">
                 {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                   <button
@@ -2142,7 +2207,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                           <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                             {group.categoryName}
                           </h4>
-                          {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                          {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                             <button
                               onClick={() => openEquipmentSelectorForCategory(group.categoryId, locationGroup.locationId)}
                               className="p-0.5 text-cyan-500 hover:text-cyan-300 transition-colors"
@@ -2183,7 +2248,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                             <td className="px-3 py-1.5 text-center">
                               <>
                                   {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                    <input disabled={!canAccess(user, 'specifications', 2)}
+                                    <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                       type="checkbox"
                                       checked={item.return_picked}
                                       onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
@@ -2195,7 +2260,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       checked={item.picked}
                                       onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                       className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-offset-gray-900"
-                                      disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
+                                      disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                     />
                                   )}
                                 </>
@@ -2262,7 +2327,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <div className="flex justify-center items-center gap-1">
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity - 1)}
-                                    disabled={(!canEditSpecification || item.quantity === 0) || !canAccess(user, 'specifications', 2)}
+                                    disabled={(!canEditSpecification || item.quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                     className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                   >
                                     <Minus className="w-5 h-5" />
@@ -2270,14 +2335,14 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                   <span className="text-xs text-white font-bold w-6 text-center">{item.quantity}</span>
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
-                                    disabled={(!canEditSpecification) || !canAccess(user, 'specifications', 2)}
+                                    disabled={(!canEditSpecification) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                     className="p-0.5 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                   >
                                     <Plus className="w-5 h-5" />
                                   </button>
                                   <button
                                     onClick={() => requestDeleteSpecificationItem(item.budgetItemId, item.name)}
-                                    disabled={(!canEditSpecification) || !canAccess(user, 'specifications', 3)}
+                                    disabled={(!canEditSpecification) || (!confirmedProject || !canAccess(user, 'specifications', 3))}
                                     className="p-0.5 text-red-500/60 hover:text-red-400 transition-colors"
                                     title="Удалить элемент"
                                   >
@@ -2381,7 +2446,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               )}
                               <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Длина</th>
                               <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500">Кол-во</th>
-                              {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                              {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                                 <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
                               )}
                             </tr>
@@ -2402,7 +2467,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <tr key={length} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input disabled={!canAccess(user, 'specifications', 2)}
+                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleCableReturnPickedChange(cableId, e.target.checked)}
@@ -2414,7 +2479,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                         checked={picked}
                                         onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
+                                        disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                       />
                                     ) : null}
                                   </td>
@@ -2423,7 +2488,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input disabled={!canAccess(user, 'specifications', 2)}
+                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2444,17 +2509,17 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       />
                                     )}
                                   </td>
-                                  {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                                  {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetCableQuantityFromTemplate(template.type, length, -1, true)}
-                                          disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
+                                          disabled={(quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button disabled={!canAccess(user, 'specifications', 2)}
+                                        <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                           onClick={() => handleSetCableQuantityFromTemplate(template.type, length, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
@@ -2505,7 +2570,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               )}
                               <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Тип</th>
                               <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500">Кол-во</th>
-                              {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                              {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                                 <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
                               )}
                             </tr>
@@ -2530,7 +2595,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                        <input disabled={!canAccess(user, 'specifications', 2)}
+                                        <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                           type="checkbox"
                                           checked={returnPicked}
                                         onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
@@ -2542,7 +2607,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                         checked={picked}
                                         onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
+                                        disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                       />
                                     ) : null}
                                   </td>
@@ -2551,7 +2616,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input disabled={!canAccess(user, 'specifications', 2)}
+                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2572,17 +2637,17 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       />
                                     )}
                                   </td>
-                                  {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                                  {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, -1, true)}
-                                          disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
+                                          disabled={(quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button disabled={!canAccess(user, 'specifications', 2)}
+                                        <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                           onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
@@ -2633,7 +2698,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               )}
                               <th className="px-3 py-1.5 text-left text-[10px] text-gray-500">Предмет</th>
                               <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500">Кол-во</th>
-                              {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                              {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                                 <th className="px-3 py-1.5 text-center w-20 text-[10px] text-gray-500"></th>
                               )}
                             </tr>
@@ -2654,7 +2719,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input disabled={!canAccess(user, 'specifications', 2)}
+                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleOtherReturnPickedChange(otherId, e.target.checked)}
@@ -2666,7 +2731,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                         checked={picked}
                                         onChange={(e) => handleOtherPickedChange(otherId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-cyan-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
+                                        disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                       />
                                     ) : null}
                                   </td>
@@ -2675,7 +2740,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input disabled={!canAccess(user, 'specifications', 2)}
+                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2696,17 +2761,17 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       />
                                     )}
                                   </td>
-                                  {!isWarehouseUser && !eventDetails?.equipment_shipped && (
+                                  {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, -1, true)}
-                                          disabled={(quantity === 0) || !canAccess(user, 'specifications', 2)}
+                                          disabled={(quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button disabled={!canAccess(user, 'specifications', 2)}
+                                        <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                           onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-cyan-500/50 hover:text-cyan-400 transition-colors"
                                         >
@@ -2773,7 +2838,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                           <tr key={`${item.budgetItemId}-${index}`} className="bg-orange-900/5 hover:bg-orange-900/15 transition-colors">
                             <td className="px-3 py-1.5 text-center">
                               {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                <input disabled={!canAccess(user, 'specifications', 2)}
+                                <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                                   type="checkbox"
                                   checked={item.return_picked}
                                   onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
@@ -2785,7 +2850,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                   checked={item.picked}
                                   onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                   className="w-4 h-4 cursor-pointer rounded border-orange-700 bg-gray-800 text-orange-600"
-                                  disabled={(!!eventDetails?.equipment_shipped) || !canAccess(user, 'specifications', 2)}
+                                  disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                                 />
                               )}
                             </td>
@@ -2821,7 +2886,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             {modifiedItems.size > 0 && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleSaveChanges}
-                disabled={(savingChanges) || !canAccess(user, 'specifications', 2)}
+                disabled={(savingChanges) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 className="px-3 py-1.5 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 {savingChanges ? (
@@ -2859,7 +2924,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             {canEditSpecification && !eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmShipment}
-                disabled={(confirmingShipment) || !canAccess(user, 'specifications', 2)}
+                disabled={(confirmingShipment) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForShipment ? 'Проставьте все галочки перед отгрузкой' : undefined}
                 className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -2874,7 +2939,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             {canEditSpecification && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
-                disabled={(confirmingReturn) || !canAccess(user, 'specifications', 2)}
+                disabled={(confirmingReturn) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForReturn ? 'Проставьте все галочки перед приёмкой' : undefined}
                 className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -3089,7 +3154,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                         <div className="text-xs text-white font-medium">{comp.component?.name || 'Unknown'}</div>
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <input disabled={!canAccess(user, 'specifications', 2)}
+                        <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                           type="number"
                           value={componentQuantities[comp.id] || 0}
                           onChange={(e) => handleComponentQuantityChange(comp.id, parseInt(e.target.value) || 0)}
@@ -3114,7 +3179,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               >
                 Отмена
               </button>
-              <button disabled={!canAccess(user, 'specifications', 2)}
+              <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                 onClick={handleSaveComponents}
                 className="flex-1 px-4 py-2 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 transition-colors"
               >
@@ -3155,7 +3220,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               </button>
               <button
                 onClick={handleResetSpecification}
-                disabled={(resettingSpecification) || !canAccess(user, 'specifications', 3)}
+                disabled={(resettingSpecification) || (!confirmedProject || !canAccess(user, 'specifications', 3))}
                 className="px-3 py-1.5 text-xs bg-amber-700 text-white rounded hover:bg-amber-600 transition-colors disabled:opacity-50"
               >
                 {resettingSpecification ? 'Сброс...' : 'Да, сбросить'}
@@ -3184,7 +3249,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               >
                 Отмена
               </button>
-              <button disabled={!canAccess(user, 'specifications', 2)}
+              <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
                 onClick={applyQuantityChange}
                 className="flex-1 px-4 py-2 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 transition-colors"
               >
@@ -3206,13 +3271,13 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             </p>
             {(isGeneratedCompositionItemId(pendingDeleteItem.budgetItemId) || expandedItems.find(item => item.budgetItemId === pendingDeleteItem.budgetItemId)?.parentBudgetItemId) && <p className="mt-2 text-xs text-gray-400">Родительский элемент и остальные дочерние элементы останутся в спецификации.</p>}
             <div className="mt-4 flex gap-2">
-              <button disabled={!canAccess(user, 'specifications', 3)}
+              <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 3))}
                 onClick={() => setPendingDeleteItem(null)}
                 className="flex-1 px-4 py-2 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors"
               >
                 Отмена
               </button>
-              <button disabled={!canAccess(user, 'specifications', 3)}
+              <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 3))}
                 onClick={async () => {
                   const target = pendingDeleteItem;
                   setPendingDeleteItem(null);
@@ -3260,7 +3325,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <textarea disabled={!canAccess(user, 'specifications', 2)}
+            <textarea disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
               autoFocus
               value={openNote.value}
               onChange={(e) => setOpenNote((note) => note ? { ...note, value: e.target.value } : note)}
