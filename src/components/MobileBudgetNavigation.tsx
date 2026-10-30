@@ -15,17 +15,7 @@ export function MobileBudgetNavigation({ name, tab, onTabChange, count, onBack, 
       <h1 className="min-w-0 flex-1 break-words text-lg font-semibold text-white">Смета: {name}</h1>
       <button type="button" onClick={onSettings} aria-label="Настройки сметы" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-300 active:bg-gray-800"><Settings className="h-5 w-5" /></button>
     </header>
-    <div className="category-dropdown-container relative px-3">
-      <div aria-label="Добавление в смету" className="flex items-center gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden whitespace-nowrap py-2 text-sm font-semibold text-gray-200">
-        <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-white" />
-        <button type="button" onClick={onCategory} className="min-h-11 active:text-cyan-400">Категория</button>
-        <button type="button" onClick={onLocation} className="min-h-11 active:text-cyan-400">Зона</button>
-        <button type="button" onClick={onService} className="min-h-11 active:text-cyan-400">Доп. услуга</button>
-        <button type="button" onClick={onTemplate} className="min-h-11 active:text-cyan-400">Шаблон</button>
-      </div>
-      {categoryMenu}
-    </div>
-    <nav aria-label="Разделы сметы" className="mx-3 mb-3 flex gap-1 rounded-2xl bg-gray-800 p-1">
+    <nav aria-label="Разделы сметы" className="mx-3 mt-3 mb-3 flex gap-1 rounded-2xl bg-gray-800 p-1">
       {([
         { id: 'equipment', label: 'Оборудование', icon: Package },
         { id: 'personnel', label: 'Персонал и доставка', icon: Users },
@@ -39,6 +29,18 @@ export function MobileBudgetNavigation({ name, tab, onTabChange, count, onBack, 
         <span className="max-w-full break-words">{label}</span>
       </button>)}
     </nav>
+    {tab === 'estimate' && (
+      <div className="category-dropdown-container relative px-3">
+      <div aria-label="Добавление в смету" className="flex items-center gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden whitespace-nowrap py-2 text-sm font-semibold text-gray-200">
+        <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-white" />
+        <button type="button" onClick={onCategory} className="min-h-11 active:text-cyan-400">Категория</button>
+        <button type="button" onClick={onLocation} className="min-h-11 active:text-cyan-400">Зона</button>
+        <button type="button" onClick={onService} className="min-h-11 active:text-cyan-400">Доп. услуга</button>
+        <button type="button" onClick={onTemplate} className="min-h-11 active:text-cyan-400">Шаблон</button>
+      </div>
+      {categoryMenu}
+    </div>
+    )}
   </div>;
 }
 
