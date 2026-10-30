@@ -96,7 +96,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     setMobileTab(tab);
     setQuantityTarget(null);
     setMobileCatalogExpanded(true);
-    if (tab !== 'estimate') setSelectedItemType(tab === 'equipment' ? 'Оборудование' : 'Работа');
+    if (tab === 'equipment' || tab === 'personnel') setSelectedItemType(tab === 'equipment' ? 'Оборудование' : 'Работа');
   };
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEquipmentCategory, setSelectedEquipmentCategory] = useState<string>('Все');
@@ -2252,14 +2252,13 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         <MobileBudgetNavigation
           name={budgetName} tab={mobileTab} onTabChange={changeMobileTab} count={budgetItems.length}
           onBack={handleCloseWithCheck} onSettings={() => setShowMobileSettings(true)}
-          onAddRow={() => { changeMobileTab(mobileTab === 'personnel' ? 'personnel' : 'equipment'); window.requestAnimationFrame(() => catalogSearchRef.current?.focus()); }}
           onCategory={() => setShowCategoryDropdown(!showCategoryDropdown)}
           onLocation={() => setShowLocationDialog(true)} onService={handleCreateExtraServiceCategory}
           onTemplate={() => setShowTemplates(true)} categoryMenu={categoryMenu}
         />
 
         {/* Main content */}
-        <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className={`${mobileTab === 'total' ? 'hidden' : 'flex'} flex-1 min-h-0 overflow-hidden md:flex`}>
           {/* Left column */}
           <div className={`${mobileTab === 'estimate' ? 'flex' : 'hidden'} w-full min-w-0 flex-col md:flex md:w-3/5 md:border-r md:border-gray-800`}>
             {/* Toolbar */}
@@ -2557,7 +2556,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           </div>
 
           {/* Right column */}
-          <div className={`${mobileTab !== 'estimate' ? 'flex' : 'hidden'} w-full min-w-0 flex-col md:flex md:w-2/5 md:bg-gray-900/30`}>
+          <div className={`${mobileTab === 'equipment' || mobileTab === 'personnel' ? 'flex' : 'hidden'} w-full min-w-0 flex-col md:flex md:w-2/5 md:bg-gray-900/30`}>
             <div className="p-3 border-b border-gray-800 space-y-2 flex-shrink-0">
               <input
                 type="text"
@@ -2655,13 +2654,13 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           </div>
         </div>
 
-        {mobileTab !== 'estimate' && <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-800 bg-gray-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+        {(mobileTab === 'equipment' || mobileTab === 'personnel') && <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-800 bg-gray-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
           <div><p className="text-xs text-gray-400">Итого</p><p className="font-semibold text-white">{getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></div>
           <button type="button" onClick={() => changeMobileTab('estimate')} className="min-h-11 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white">К смете · {budgetItems.length}</button>
         </div>}
 
         {/* Footer */}
-        <div className={`${mobileTab === 'estimate' ? 'flex' : 'hidden'} max-h-[38dvh] shrink-0 flex-col gap-3 overflow-y-auto border-t border-gray-800 bg-gray-900 px-4 py-3 md:flex md:max-h-none lg:flex-row lg:items-center lg:justify-between`}>
+        <div className={`${mobileTab === 'total' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t border-gray-800 bg-gray-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:flex md:flex-none md:shrink-0 md:max-h-none md:pb-3 lg:flex-row lg:items-center lg:justify-between`}>
           <div className="flex min-w-0 flex-col items-start gap-4 md:flex-row md:items-center md:gap-6">
             <div className="flex flex-col">
               <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итоговая сумма</span>
