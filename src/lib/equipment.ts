@@ -143,6 +143,17 @@ export async function getEquipmentItems(): Promise<EquipmentItem[]> {
   return data || [];
 }
 
+export async function getEquipmentPage(options: { offset: number; limit: number; search: string; category: string; type: string }) {
+  let query = supabase.from('equipment_items').select('*', { count: 'exact' });
+  if (options.search.trim()) query = query.ilike('name', `%${options.search.trim().replace(/[\\%_]/g, '\\$&')}%`);
+  if (options.category !== 'all') query = query.eq('category', options.category);
+  if (options.type !== 'all') query = query.eq('type', options.type);
+  // Stable order keeps page boundaries intact when a name or category is edited.
+  const { data, count, error } = await query.order('created_at', { ascending: false }).order('id').range(options.offset, options.offset + options.limit - 1);
+  if (error) throw error;
+  return { items: (data || []) as EquipmentItem[], total: count || 0 };
+}
+
 export async function createEquipmentItem(item: Partial<EquipmentItem>): Promise<EquipmentItem> {
   const { data, error } = await supabase
     .from('equipment_items')

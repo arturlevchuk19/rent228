@@ -86,9 +86,10 @@ interface EquipmentFormProps {
   types: string[];
   subtypes: string[];
   onClose: () => void;
+  onSaved?: (item: EquipmentItem) => void;
 }
 
-export function EquipmentForm({ item, categories, types, subtypes, onClose }: EquipmentFormProps) {
+export function EquipmentForm({ item, categories, types, subtypes, onClose, onSaved }: EquipmentFormProps) {
   const [loading, setLoading] = useState(false);
   const [showTypeDialog, setShowTypeDialog] = useState(false);
   const [showSubtypeDialog, setShowSubtypeDialog] = useState(false);
@@ -146,11 +147,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose }: Eq
     };
 
     try {
-      if (item) {
-        await updateEquipmentItem(item.id, submitData);
-      } else {
-        await createEquipmentItem(submitData);
-      }
+      const saved = item ? await updateEquipmentItem(item.id, submitData) : await createEquipmentItem(submitData);
+      onSaved?.(saved);
       onClose();
     } catch (err) {
       setError(getErrorMessage(err) || 'Ошибка при сохранении');

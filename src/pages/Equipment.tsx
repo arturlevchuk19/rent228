@@ -1,10 +1,10 @@
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Package, Plus, Pencil, Trash2, Search, Filter, Eye } from 'lucide-react';
 import {
-  getEquipmentItems,
+  getEquipmentPage,
   getEquipmentCategories,
   getEquipmentSubtypes,
   getEquipmentTypes,
@@ -27,42 +27,71 @@ export function Equipment() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
-  const [visibleItemCount, setVisibleItemCount] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
+  const sentinel = useRef<HTMLDivElement>(null);
+  const offset = useRef(0);
+  const generation = useRef(0);
+  const fetching = useRef(false);
+  const pageSize = window.matchMedia('(max-width: 767px)').matches ? 12 : 30;
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    Promise.all([getEquipmentCategories(), getEquipmentTypes(), getEquipmentSubtypes()]).then(([cats, types, subtypes]) => {
+      if (!active) return;
+      setCategories(cats); setTypesDirectory(types); setSubtypesDirectory(subtypes);
+    }).catch(() => { if (active) setError('Не удалось загрузить справочники оборудования.'); });
+    return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    setVisibleItemCount(50);
-  }, [searchTerm, filterCategory, filterType]);
-
-  const loadData = async () => {
+  const loadPage = useCallback(async (reset: boolean, requestGeneration: number) => {
+    if (!reset && fetching.current) return;
+    fetching.current = true;
+    setError('');
+    if (reset) setLoading(true); else setLoadingMore(true);
     try {
-      setLoading(true);
-      const [itemsData, categoriesData, typesData, subtypesData] = await Promise.all([
-        getEquipmentItems(),
-        getEquipmentCategories(),
-        getEquipmentTypes(),
-        getEquipmentSubtypes()
-      ]);
-      setItems(itemsData);
-      setCategories(categoriesData);
-      setTypesDirectory(typesData);
-      setSubtypesDirectory(subtypesData);
-    } catch (error) {
-      console.error('Error loading equipment:', error);
+      const result = await getEquipmentPage({ offset: reset ? 0 : offset.current, limit: pageSize, search: searchTerm, category: filterCategory, type: filterType });
+      if (generation.current !== requestGeneration) return;
+      offset.current = (reset ? 0 : offset.current) + result.items.length;
+      setTotal(result.total);
+      setItems(previous => reset ? result.items : [...previous, ...result.items.filter(item => !previous.some(row => row.id === item.id))]);
+    } catch (caught) {
+      if (generation.current === requestGeneration) setError(caught instanceof Error ? caught.message : 'Не удалось загрузить оборудование.');
     } finally {
-      setLoading(false);
+      if (generation.current === requestGeneration) { fetching.current = false; setLoading(false); setLoadingMore(false); }
     }
-  };
+  }, [searchTerm, filterCategory, filterType, pageSize]);
+
+  useEffect(() => {
+    const requestGeneration = ++generation.current;
+    offset.current = 0;
+    fetching.current = false;
+    setLoadingMore(false);
+    setError('');
+    setLoading(true);
+    const timer = window.setTimeout(() => void loadPage(true, requestGeneration), 250);
+    return () => { window.clearTimeout(timer); generation.current++; };
+  }, [loadPage]);
+
+  useEffect(() => {
+    const element = sentinel.current;
+    if (!element || loading || loadingMore || error || items.length >= total || showForm) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) void loadPage(false, generation.current);
+    }, { rootMargin: '160px 0px' });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [loading, loadingMore, error, items.length, total, showForm, loadPage]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить это оборудование?')) return;
 
     try {
       await deleteEquipmentItem(id);
-      await loadData();
+      setItems(previous => previous.filter(item => item.id !== id));
+      offset.current = Math.max(0, offset.current - 1);
+      setTotal(previous => Math.max(0, previous - 1));
     } catch (error) {
       console.error('Error deleting equipment:', error);
       let errorMessage = 'Ошибка при удалении оборудования';
@@ -81,26 +110,22 @@ export function Equipment() {
   const handleFormClose = () => {
     setShowForm(false);
     setEditingItem(null);
-    loadData();
+
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
-    const matchesType = filterType === 'all' || item.type === filterType;
-    return matchesSearch && matchesCategory && matchesType;
-  });
-
-  const types = [...new Set(items.map(item => item.type).filter(Boolean))];
-  const visibleItems = filteredItems.slice(0, visibleItemCount);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400">Загрузка...</div>
-      </div>
-    );
-  }
+  const filteredItems = items;
+  const types = typesDirectory;
+  const visibleItems = items;
+  const handleSaved = (saved: EquipmentItem) => {
+    if (editingItem) {
+      setItems(previous => previous.map(item => item.id === saved.id ? saved : item));
+    } else {
+      const matches = (!searchTerm.trim() || saved.name.toLowerCase().includes(searchTerm.trim().toLowerCase())) && (filterCategory === 'all' || saved.category === filterCategory) && (filterType === 'all' || saved.type === filterType);
+      if (matches) { setItems(previous => [saved, ...previous]); offset.current++; setTotal(previous => previous + 1); }
+    }
+    setCategories(previous => previous.includes(saved.category) ? previous : [...previous, saved.category]);
+    setTypesDirectory(previous => previous.includes(saved.type) ? previous : [...previous, saved.type]);
+  };
 
   return (
     <div className="space-y-4">
@@ -165,13 +190,13 @@ export function Equipment() {
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800 text-sm">
         <div className="flex items-center gap-2">
-          <span className="text-gray-400">Всего единиц:</span>
+          <span className="text-gray-400">Единиц загружено:</span>
           <span className="font-bold text-white">
             {items.reduce((sum, item) => sum + item.quantity, 0)}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-gray-400">Позиций:</span>
+          <span className="text-gray-400">Позиций загружено:</span>
           <span className="font-bold text-cyan-400">{items.length}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -180,7 +205,7 @@ export function Equipment() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-gray-400">Найдено:</span>
-          <span className="font-bold text-yellow-400">{filteredItems.length}</span>
+          <span className="font-bold text-yellow-400">{total}</span>
         </div>
       </div>
 
@@ -207,7 +232,7 @@ export function Equipment() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {filteredItems.length === 0 ? (
+              {filteredItems.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-gray-500 text-sm">
                     Оборудование не найдено
@@ -264,10 +289,10 @@ export function Equipment() {
           </table>
         </div>
         <div className="md:hidden divide-y divide-gray-800">
-          {filteredItems.length === 0 ? (
+          {filteredItems.length === 0 && !loading ? (
             <div className="px-4 py-8 text-center text-gray-500 text-sm">Оборудование не найдено</div>
           ) : (
-            filteredItems.map((item) => (
+            visibleItems.map((item) => (
               <div key={item.id} className="p-3 space-y-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -303,17 +328,9 @@ export function Equipment() {
         </div>
       </div>
 
-      {filteredItems.length > visibleItemCount && (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={() => setVisibleItemCount((count) => count + 50)}
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm"
-          >
-            Показать ещё ({filteredItems.length - visibleItemCount})
-          </button>
-        </div>
-      )}
+      {loading && <p role="status" className="py-3 text-center text-sm text-gray-400">Загрузка...</p>}
+      {error && <div role="alert" className="text-center text-sm text-red-400">{error}<button type="button" onClick={() => void loadPage(offset.current === 0, generation.current)} className="ml-2 text-cyan-400">Повторить</button></div>}
+      {!error && !loading && items.length < total && <div ref={sentinel} className="h-10 text-center text-sm text-gray-400" role="status">{loadingMore ? 'Загрузка...' : 'Прокрутите для загрузки'}</div>}
 
       {showForm && (
             <EquipmentForm
@@ -321,6 +338,7 @@ export function Equipment() {
               categories={categories}
               types={typesDirectory}
               subtypes={subtypesDirectory}
+              onSaved={handleSaved}
               onClose={handleFormClose}
             />
       )}
