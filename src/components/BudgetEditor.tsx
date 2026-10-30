@@ -2017,10 +2017,12 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           .mobile-budget-page .budget-items-heading { display: none; }
           .mobile-budget-page .budget-category-header {
             min-height: 52px; gap: 8px; padding: 8px; margin: 8px 0;
-            border: 1px solid #374151; border-radius: 12px; flex-wrap: wrap;
+            border: 1px solid #374151; border-radius: 12px; flex-wrap: nowrap; gap: 4px;
           }
           .mobile-budget-page .budget-category-header > [draggable] { display: none; }
-          .mobile-budget-page .budget-category-header h3 { min-width: 80px; font-size: 14px; }
+          .mobile-budget-page .budget-category-header h3 { min-width: 0; font-size: 14px; }
+          .mobile-budget-page .budget-category-header > :not(h3) { flex-shrink: 0; }
+          .mobile-budget-page .budget-category-header > div:last-child { white-space: nowrap; }
           .mobile-budget-page .budget-category-header > button { min-width: 28px; min-height: 32px; }
           .mobile-budget-page .budget-category-header svg { width: 14px; height: 14px; }
           .mobile-budget-page .budget-item-row {
@@ -2148,9 +2150,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           onTemplate={() => setShowTemplates(true)} categoryMenu={categoryMenu}
         />
 
-        <div role={autosave.error ? 'alert' : 'status'} aria-live="polite" className={`shrink-0 px-4 py-1.5 text-xs ${autosave.error ? 'bg-red-950 text-red-200' : 'text-gray-500'}`}>
-          {autosave.error ? <>Не удалось сохранить изменения: {autosave.error}. Автосохранение повторится после восстановления соединения. <button type="button" onClick={() => { void autosave.flush().catch(() => {}); }} className="ml-1 underline">Повторить</button></> : autosave.status === 'saving' ? 'Сохранение…' : 'Изменения сохраняются автоматически'}
-        </div>
+        {(autosave.error || autosave.status === 'saving') && <div role={autosave.error ? 'alert' : 'status'} aria-live="polite" className={`shrink-0 px-4 py-1.5 text-xs ${autosave.error ? 'bg-red-950 text-red-200' : 'text-gray-500'}`}>
+          {autosave.error ? <>Не удалось сохранить изменения: {autosave.error}. Автосохранение повторится после восстановления соединения. <button type="button" onClick={() => { void autosave.flush().catch(() => {}); }} className="ml-1 underline">Повторить</button></> : 'Сохранение…'}
+        </div>}
 
         {/* Main content */}
         <div className={`${mobileTab === 'total' ? 'hidden' : 'flex'} flex-1 min-h-0 overflow-hidden md:flex`}>
@@ -2357,7 +2359,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   })}
 
                   <div
-                    className={'border-2 border-dashed rounded-xl p-2 transition-all duration-200' + (draggedItem ? ' border-cyan-500/50 bg-cyan-500/5' : ' border-gray-700/30 hover:border-gray-600')}
+                    className={'rounded-xl transition-all duration-200' + (draggedItem ? ' ring-2 ring-cyan-500/50 bg-cyan-500/5' : '')}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -2366,9 +2368,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     }}
                     onDrop={(e) => handleDrop(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
                   >
-                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wider px-2 py-1 mb-1">
-                      Основная область
-                    </div>
                   {categories.filter(cat => cat.is_template !== true).map(category => {
                     const categoryGroupId = buildCategoryGroupId(category.id, null);
                     const categoryItems = groupedItems[categoryGroupId] || [];
