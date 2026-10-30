@@ -1,3 +1,4 @@
+import { cableDisplayName } from '../lib/cableNames';
 import { BudgetScope } from './BudgetScope';
 import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
 import { createQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
@@ -2360,7 +2361,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                       onClick={() => toggleCableType(template.type)}
                       className="w-full flex items-center justify-between px-3 py-2 bg-gray-800/50 hover:bg-gray-800 transition-colors"
                     >
-                      <h3 className="text-xs font-bold text-white uppercase tracking-wider">{template.type}</h3>
+                      <h3 className="text-xs font-bold text-white uppercase tracking-wider">{cableDisplayName(template.type)}</h3>
                       {expandedCableTypes[template.type] ? (
                         <ChevronDown className="w-4 h-4 text-gray-500" />
                       ) : (

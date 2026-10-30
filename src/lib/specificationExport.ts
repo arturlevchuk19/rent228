@@ -1,3 +1,4 @@
+import { cableDisplayName } from './cableNames';
 import { getSpecificationServices } from './specificationServices';
 import { getBudgetItems, type BudgetItem } from './events';
 import { getBudgetEvent } from './eventBudgets';
@@ -62,7 +63,7 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
     if (previous) { previous.quantity += quantity; if (notes && !previous.notes.split('\n').includes(notes)) previous.notes = [previous.notes, notes].filter(Boolean).join('\n'); }
     else accessories.set(key, { group, name, quantity, notes, unit: 'шт.', sku: '' });
   };
-  cables.forEach(row => add(`Кабели / ${row.cable_type}`, row.cable_length, row.quantity, row.notes));
+  cables.forEach(row => add(`Кабели / ${cableDisplayName(row.cable_type)}`, row.cable_length, row.quantity, row.notes));
   connectors.forEach(row => {
     const [category, ...legacyName] = row.connector_type.split('::');
     add(`Коннекторы / ${category}`, row.connector_item || legacyName.join('::') || row.connector_type, row.quantity, row.notes);
