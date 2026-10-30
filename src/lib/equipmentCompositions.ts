@@ -5,6 +5,7 @@ export interface EquipmentComposition {
   parent_id: string;
   child_id: string;
   quantity: number;
+  child_unit?: string;
   child_name: string;
   child_sku: string;
   child_category: string;
@@ -29,6 +30,7 @@ export interface EquipmentModule {
 
 /** `equipment_items` row joined as the composition child. */
 interface CompositionChildEquipment {
+  unit?: string;
   name: string;
   sku: string;
   category: string;
@@ -80,6 +82,7 @@ export async function getEquipmentCompositions(parentId: string, filterForLedMod
       created_at,
       child:equipment_items!equipment_compositions_child_id_fkey (
         name,
+        unit,
         sku,
         category,
         type,
@@ -100,6 +103,7 @@ export async function getEquipmentCompositions(parentId: string, filterForLedMod
     parent_id: item.parent_id,
     child_id: item.child_id,
     quantity: item.quantity,
+    child_unit: item.child.unit,
     child_name: item.child.name,
     child_sku: item.child.sku,
     child_category: item.child.category,

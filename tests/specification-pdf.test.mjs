@@ -47,6 +47,8 @@ const extraRows=buildSpecificationEquipmentRows([{...source,category_id:'extra',
 assert.equal(extraRows.length,2);
 assert.ok(extraRows.every(row=>row.group.includes('Дополнительная сцена')&&!row.group.includes('Добор')));
 assert.equal(extraRows[1].unit,'час');
+const truss=buildSpecificationEquipmentRows([{id:'truss',item_type:'equipment',quantity:12,equipment:{name:'Фермовая Конструкция K4-290',unit:'м'}}],new Map(),new Map(),new Map(),new Map());
+assert.equal(truss[0].unit,'м');assert.equal(truss[0].quantity,12);
 const {buildSpecificationPdf}=load('src/lib/specificationPdf.ts');
 const pdf=buildSpecificationPdf({eventName:'Фестиваль в парке',budgetName:'Вариант 2',startDate:'2026-10-29',endDate:'2026-10-31',venue:'Лотос. Хилтон',rows:Array.from({length:180},(_,i)=>({group:i<90?'Оборудование / Главная сцена':'Прочее / Ремешки',name:'Микрофон '+(i+1),sku:'MIC-'+i,quantity:i+1,unit:'шт.',notes:'Примечание с кириллицей и длинным текстом для переноса в таблице.'}))});
 assert.ok(pdf.getNumberOfPages()>2);const bytes=Buffer.from(pdf.output('arraybuffer'));assert.ok(bytes.includes(Buffer.from('/FontFile2')),'Embed a font instead of rasterizing text');fs.mkdirSync('work/spec-pdf',{recursive:true});fs.writeFileSync('work/spec-pdf/specification-test.pdf',bytes);

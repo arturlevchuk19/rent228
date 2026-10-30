@@ -14,12 +14,12 @@ export interface SpecificationRow {
 export function buildSpecificationEquipmentRows(items: BudgetItem[], compositions: Map<string, EquipmentComposition[]>, modifications: Map<string, ModificationComponent[]>, categoryNames: Map<string, string>, locationNames: Map<string, string>, extraCategoryIds = new Set<string>()): SpecificationRow[] {
   const excluded = new Set(items.flatMap(item => item.excluded_child_keys || []));
   const rows: SpecificationRow[] = [];
-  const add = (item: BudgetItem, key: string, name: string, sku: string, quantity: number, category: string, parent?: BudgetItem) => {
+  const add = (item: BudgetItem, key: string, name: string, sku: string, quantity: number, category: string, parent?: BudgetItem, unit = 'шт.') => {
     if (excluded.has(key) || quantity <= 0) return;
     const locationId = item.location_id || parent?.location_id;
     const location = (locationId && locationNames.get(locationId)) || item.location?.name || parent?.location?.name || 'Без локации';
     const categoryId = item.category_id || parent?.category_id;
-    rows.push({ group: `${(item.is_extra && !item.source_budget_item_id) || (parent?.is_extra && !parent.source_budget_item_id) ? 'Добор' : 'Оборудование'} / ${location} / ${(categoryId && categoryNames.get(categoryId)) || category || 'Прочее'}`, name, sku, quantity, unit: 'шт.', notes: item.notes || '' });
+    rows.push({ group: `${(item.is_extra && !item.source_budget_item_id) || (parent?.is_extra && !parent.source_budget_item_id) ? 'Добор' : 'Оборудование'} / ${location} / ${(categoryId && categoryNames.get(categoryId)) || category || 'Прочее'}`, name, sku, quantity, unit, notes: item.notes || '' });
   };
   for (const item of items) {
     if (item.item_type === 'work') {
@@ -35,13 +35,13 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
       const parts = item.equipment_id ? compositions.get(item.equipment_id) || [] : [];
       const mods = item.modification_id ? modifications.get(item.modification_id) || [] : [];
       if (parts.length || mods.length) {
-        for (const part of parts) add(item, `${item.id}-comp-${part.id}${part.child_id ? `-${part.child_id}` : ''}`, part.child_name || 'Без названия', part.child_sku || '', item.quantity * part.quantity, part.child_category);
-        for (const part of mods) add(item, `${item.id}-mod-${part.id}${part.component_equipment_id ? `-${part.component_equipment_id}` : ''}`, part.component?.name || 'Без названия', part.component?.sku || '', item.quantity * part.quantity, part.component?.category || 'Прочее');
+        for (const part of parts) add(item, `${item.id}-comp-${part.id}${part.child_id ? `-${part.child_id}` : ''}`, part.child_name || 'Без названия', part.child_sku || '', item.quantity * part.quantity, part.child_category, undefined, part.child_unit || 'шт.');
+        for (const part of mods) add(item, `${item.id}-mod-${part.id}${part.component_equipment_id ? `-${part.component_equipment_id}` : ''}`, part.component?.name || 'Без названия', part.component?.sku || '', item.quantity * part.quantity, part.component?.category || 'Прочее', undefined, part.component?.unit || 'шт.');
         continue;
       }
     }
     const podium = lower.includes('сценический подиум') || lower.includes('ступенька из сценических подиумов');
-    add(item, item.id, podium ? item.name || name : name, item.equipment?.sku || item.sku || '', item.quantity, item.equipment?.category || 'Прочее');
+    add(item, item.id, podium ? item.name || name : name, item.equipment?.sku || item.sku || '', item.quantity, item.equipment?.category || 'Прочее', undefined, item.unit || item.equipment?.unit || 'шт.');
   }
   return rows;
 }
