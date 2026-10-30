@@ -241,6 +241,7 @@ export function CategoryBlock({
       onDragOver={(e) => onDragOver?.(e, dragTarget)}
       onDrop={(e) => onDrop?.(e, dragTarget)}
       data-budget-drop-group={JSON.stringify(dragTarget)}
+      data-budget-selected={isSelected}
     >
       {/* Category header - compact, sticky */}
       <div

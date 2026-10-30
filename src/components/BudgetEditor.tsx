@@ -2047,6 +2047,11 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         }
         @media (max-width: 767px) {
           .mobile-budget-page .budget-items-heading { display: none; }
+          .mobile-budget-page [data-budget-selected="true"] > .budget-category-header,
+          .mobile-budget-page [data-budget-selected="true"] > .budget-location-header {
+            outline: 2px solid #fcd34d; outline-offset: -2px; border-radius: 12px;
+            box-shadow: 0 0 0 1px #f59e0b33;
+          }
           .mobile-budget-page .budget-category-header {
             min-height: 52px; gap: 8px; padding: 8px; margin: 8px 0;
             border: 1px solid #374151; border-radius: 12px; flex-wrap: nowrap; gap: 4px;
@@ -2274,13 +2279,14 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     return (
                       <div
                         key={location.id}
+                        data-budget-selected={selectedCategoryId === locationGroupId}
                         data-budget-drop-group={JSON.stringify({ type: 'location', id: location.id, locationId: location.id })}
                         className={`transition-all duration-200 rounded-xl border border-emerald-900/30 ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`}
                         onDragOver={(e) => handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })}
                         onDrop={(e) => handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}
                       >
                         <div
-                          className="w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2"
+                          className="budget-location-header w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2"
                           style={{ backgroundColor: location.color || '#14532d' }}
                           onDragOver={(e) => {
                             if (!draggedLocationId) return;
@@ -2294,7 +2300,10 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                           <button
                             type="button"
                             className="flex-1 flex items-center gap-2 text-left"
-                            onClick={() => setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }))}
+                            onClick={() => {
+                              setSelectedCategoryId(locationGroupId);
+                              setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }));
+                            }}
                           >
                             <div
                               draggable
