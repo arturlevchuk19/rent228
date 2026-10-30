@@ -2031,7 +2031,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           .mobile-budget-page .budget-item-fields,
           .mobile-budget-page .budget-item-fields-with-coefficient {
             order: -1; flex-basis: 100%; min-width: 0;
-            grid-template-columns: minmax(72px, 1.1fr) minmax(32px, .55fr) minmax(48px, .85fr) minmax(0, 1.5fr) !important;
+            grid-template-columns: minmax(72px, 1.1fr) minmax(32px, .55fr) minmax(64px, 1fr) minmax(0, 1.5fr) !important;
             gap: 8px 4px;
           }
           .mobile-budget-page .budget-item-fields > :first-child {
@@ -2043,13 +2043,17 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           .mobile-budget-page [data-mobile-label]::before { display: none; }
           .mobile-budget-page [data-mobile-label="Количество"] { grid-column: 1; grid-row: 2; }
           .mobile-budget-page [data-mobile-label="Ед. изм."] { grid-column: 2; grid-row: 2; }
-          .mobile-budget-page [data-mobile-label="Цена"] { grid-column: 3; grid-row: 2; }
+          .mobile-budget-page [data-mobile-label="Цена"] { grid-column: 3; grid-row: 2; gap: 2px; }
+          .mobile-budget-page [data-mobile-label="Цена"]::before {
+            content: '×'; display: block; color: #9ca3af; font-size: 16px;
+          }
+          .mobile-budget-page [data-mobile-label="Цена"] input { min-width: 0; flex-shrink: 1; }
           .mobile-budget-page [data-mobile-label="Сумма"] {
             grid-column: 4; grid-row: 2; justify-content: flex-end; gap: 4px;
             padding-right: 0; white-space: nowrap; font-size: 14px;
           }
           .mobile-budget-page [data-mobile-label="Сумма"]::before {
-            content: '×'; display: block; margin-right: auto; color: #9ca3af; font-size: 16px;
+            content: '='; display: block; margin-right: auto; color: #9ca3af; font-size: 16px;
           }
           .mobile-budget-page [data-mobile-label="Коэф."] {
             grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; gap: 8px;
