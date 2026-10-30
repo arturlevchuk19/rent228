@@ -2066,10 +2066,10 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           }
           .mobile-budget-page .budget-item-fields > :first-child { padding-left: 20px; }
           .mobile-budget-page .budget-mobile-navigation {
-            max-height: 360px; overflow: hidden; opacity: 1;
+            position: relative; z-index: 30; max-height: 360px; overflow: visible; opacity: 1;
             transition: max-height 220ms ease, opacity 180ms ease;
           }
-          .mobile-budget-page.budget-is-dragging .budget-mobile-navigation { max-height: 0; opacity: 0; pointer-events: none; }
+          .mobile-budget-page.budget-is-dragging .budget-mobile-navigation { max-height: 0; overflow: hidden; opacity: 0; pointer-events: none; }
           .mobile-budget-page.budget-is-dragging { user-select: none; }
           @media (prefers-reduced-motion: reduce) {
             .mobile-budget-page .budget-mobile-navigation { transition: none; }
