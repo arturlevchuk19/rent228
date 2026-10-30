@@ -5,7 +5,7 @@ export interface EventBudget {
   id: string; event_id: string; name: string; is_primary: boolean;
   settings: Partial<Event>; specification_state: Partial<Event>; created_at: string;
 }
-const settingsKeys = ['discount_enabled','discount_percent','discount2_enabled','discount2_percent','budget_days','budget_totals_mode','budget_note','sticky_notes'];
+const settingsKeys = ['discount_enabled','discount_percent','discount2_enabled','discount2_percent','budget_days','budget_totals_mode','budget_note','sticky_notes','budget_version','budget_payment_mode','budget_exchange_rate'];
 function check(error: { code?: string; message?: string } | null) {
   if (!error) return;
   if (['42P01','PGRST205','42703','PGRST204'].includes(error.code || '')) throw new Error('Для нескольких смет выполните миграцию 20261029020000_event_budgets.sql.');

@@ -1,3 +1,5 @@
+import { flushSync } from 'react-dom';
+import { useBudgetAutosave } from '../lib/useBudgetAutosave';
 import { MobileBudgetNavigation, MobileBudgetSettings, type MobileBudgetTab } from './MobileBudgetNavigation';
 import { BudgetScope } from './BudgetScope';
 import { getBudgetEvent, updateBudgetEvent } from '../lib/eventBudgets';
@@ -5,9 +7,9 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { InlineQuantityAdd } from './InlineQuantityAdd';
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Save, Package, Download, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
+import { X, Plus, Package, Download, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
-import { type Event, type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, updateBudgetItemsExchangeRate, deleteBudgetItem, getClients } from '../lib/events';
+import { type Event, type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
 import { WorkItem, getWorkItems } from '../lib/personnel';
 import { Category, createCategory, getCategories, getCategoriesForEvent, updateCategory } from '../lib/categories';
@@ -36,6 +38,8 @@ interface BudgetEditorProps {
   eventName: string;
   onClose: () => void;
 }
+
+type BudgetAutoSettings = Required<Pick<Event, 'discount_enabled' | 'discount_percent' | 'discount2_enabled' | 'discount2_percent' | 'budget_days' | 'budget_totals_mode' | 'budget_note' | 'budget_version' | 'budget_payment_mode' | 'budget_exchange_rate' | 'sticky_notes'>>;
 
 interface GroupedItemsByLocation {
   [locationCategoryKey: string]: BudgetItem[];
@@ -75,7 +79,6 @@ export function BudgetEditor(props: BudgetEditorProps) {
 }
 function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId }: BudgetEditorProps & { budgetId: string; budgetName: string }) {
   const getEvent = (id: string) => getBudgetEvent(id, budgetId);
-  const updateEvent = (id: string, patch: Partial<Event>) => updateBudgetEvent(id, budgetId, patch);
   const { user } = useAuth();
   const [quantityTarget, setQuantityTarget] = useState<string | null>(null);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
@@ -85,7 +88,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [selectedItemType, setSelectedItemType] = useState<string>('Оборудование');
   const [mobileTab, setMobileTab] = useState<MobileBudgetTab>('estimate');
@@ -167,18 +169,25 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     { id: `budget_note_1`, content: '' }
   ]);
   const [showExtraTotal, setShowExtraTotal] = useState(false);
-  const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
-  const [pendingCloseAction, setPendingCloseAction] = useState<(() => void) | null>(null);
-
-  // Store original event data to detect changes
-  const [originalEventData, setOriginalEventData] = useState<{
-    discount_enabled?: boolean;
-    discount_percent?: number;
-    budget_days?: number;
-    budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
-    budget_note?: string;
-    sticky_notes?: string;
-  } | null>(null);
+  const [initialSettings, setInitialSettings] = useState<BudgetAutoSettings | null>(null);
+  const settingsLoaded = useRef(false);
+  const closing = useRef(false);
+  const pendingItemWrites = useRef(new Set<Promise<void>>());
+  const settingsSnapshot: BudgetAutoSettings = {
+    discount_enabled: discountEnabled, discount_percent: discountPercent,
+    discount2_enabled: discount2Enabled, discount2_percent: discount2Percent,
+    budget_days: budgetDays, budget_totals_mode: budgetTotalsMode, budget_note: budgetNote,
+    budget_version: budgetVersion, budget_payment_mode: paymentMode, budget_exchange_rate: exchangeRate,
+    sticky_notes: JSON.stringify(stickyNotes),
+  };
+  const autosave = useBudgetAutosave(`budget_autosave_${budgetId}`, settingsSnapshot, initialSettings,
+    !loading && canAccess(user, 'budgets', 2), async patch => {
+      await updateBudgetEvent(eventId, budgetId, patch);
+      if (patch.budget_exchange_rate !== undefined) {
+        const rate = patch.budget_exchange_rate;
+        setBudgetItems(current => current.map(item => ({ ...item, exchange_rate: rate })));
+      }
+    });
 
   const budgetListRef = useRef<HTMLDivElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -232,66 +241,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     setBudgetDaysInput(String(budgetDays));
   }, [budgetDays]);
 
-  useEffect(() => {
-    const savedVersion = localStorage.getItem(`budget_version_${budgetId}`);
-    if (savedVersion && savedVersion.trim().length > 0) {
-      setBudgetVersion(savedVersion);
-    } else {
-      setBudgetVersion('1.0');
-    }
-
-    const savedPaymentMode = localStorage.getItem(`budget_payment_mode_${budgetId}`);
-    if (savedPaymentMode === 'usd' || savedPaymentMode === 'byn_cash' || savedPaymentMode === 'byn_noncash') {
-      setPaymentMode(savedPaymentMode);
-    }
-    const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${budgetId}`);
-    if (savedTotalsMode === 'combined_only' || savedTotalsMode === 'day1_plus_combined') {
-      setBudgetTotalsMode(savedTotalsMode);
-    }
-
-    const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${budgetId}`);
-    if (savedStickyNotes) {
-      try {
-        const parsed = JSON.parse(savedStickyNotes);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setStickyNotes(parsed);
-        }
-      } catch {
-        // use default
-      }
-    }
-  }, [eventId]);
-
-  useEffect(() => {
-    localStorage.setItem(`budget_version_${budgetId}`, budgetVersion);
-  }, [eventId, budgetVersion]);
-
-  useEffect(() => {
-    localStorage.setItem(`budget_payment_mode_${budgetId}`, paymentMode);
-  }, [eventId, paymentMode]);
-
-  useEffect(() => {
-    localStorage.setItem(`budget_totals_mode_${budgetId}`, budgetTotalsMode);
-  }, [eventId, budgetTotalsMode]);
-
-  // Save sticky notes to both localStorage and event data (server)
-  useEffect(() => {
-    if (stickyNotes.length > 0) {
-      localStorage.setItem(`budget_sticky_notes_${budgetId}`, JSON.stringify(stickyNotes));
-    }
-  }, [stickyNotes, eventId]);
-  
-  const handleStickyNotesChange = async (newNotes: { id: string; content: string }[]) => {
-    setStickyNotes(newNotes);
-    // Also save to server via event update
-    try {
-      await updateEvent(eventId, {
-        sticky_notes: JSON.stringify(newNotes)
-      });
-    } catch (error) {
-      console.error('Error saving sticky notes to server:', error);
-    }
-  };
+  const handleStickyNotesChange = (newNotes: { id: string; content: string }[]) => setStickyNotes(newNotes);
 
   const loadData = async () => {
     try {
@@ -312,93 +262,58 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       setEquipment(equipmentData);
       setWorkItems(workItemsData);
 
-      if (budgetData.length > 0 && budgetData[0].exchange_rate) {
-        setExchangeRate(budgetData[0].exchange_rate);
-      }
-
-      // Load discount settings from event
-      const loadedDiscountEnabled = eventData.discount_enabled !== undefined
-        ? Boolean(eventData.discount_enabled)
-        : false;
-      if (eventData.discount_enabled !== undefined) {
-        setDiscountEnabled(loadedDiscountEnabled);
-      }
-      if (eventData.discount_percent !== undefined) {
-        setDiscountPercent(eventData.discount_percent);
-        setDiscountPercentInput(eventData.discount_percent.toString());
-      }
-      // Скидка организатора независима от скидки клиенту: загружаем как есть.
-      const loadedDiscount2Enabled = Boolean(eventData.discount2_enabled);
-      if (eventData.discount2_enabled !== undefined) {
-        setDiscount2Enabled(loadedDiscount2Enabled);
-      }
-      if (eventData.discount2_percent !== undefined) {
-        setDiscount2Percent(loadedDiscount2Enabled ? eventData.discount2_percent : 0);
-        setDiscount2PercentInput((loadedDiscount2Enabled ? eventData.discount2_percent : 0).toString());
-      }
-      if (eventData.budget_days !== undefined && eventData.budget_days !== null) {
-        setBudgetDays(Math.max(1, eventData.budget_days));
-      }
-      if (eventData.budget_totals_mode) {
-        const savedTotalsMode = localStorage.getItem(`budget_totals_mode_${budgetId}`);
-        if (savedTotalsMode !== 'combined_only' && savedTotalsMode !== 'day1_plus_combined') {
-          setBudgetTotalsMode(eventData.budget_totals_mode);
-        }
-      }
-      if (eventData.budget_note !== undefined && eventData.budget_note !== null) {
-        setBudgetNote(eventData.budget_note);
-      } else {
-        setBudgetNote('');
-      }
-      
-      // Load sticky notes from event data first, then fallback to localStorage
-      if (eventData.sticky_notes !== undefined && eventData.sticky_notes !== null && eventData.sticky_notes.trim() !== '') {
+      if (!settingsLoaded.current) {
+        const cached = (prefix: string) => {
+          try { return localStorage.getItem(`${prefix}_${budgetId}`); } catch { return null; }
+        };
+        const localMode = cached('budget_payment_mode');
+        let loadedNotes = [{ id: 'budget_note_1', content: '' }];
         try {
-          const parsed = JSON.parse(eventData.sticky_notes);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setStickyNotes(parsed);
-          }
-        } catch {
-          // If parsing fails, try localStorage as fallback
-          const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${budgetId}`);
-          if (savedStickyNotes) {
-            try {
-              const parsedLocal = JSON.parse(savedStickyNotes);
-              if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
-                setStickyNotes(parsedLocal);
-              }
-            } catch {
-              // use default
-            }
-          }
-        }
-      } else {
-        // No sticky notes in event data, try localStorage
-        const savedStickyNotes = localStorage.getItem(`budget_sticky_notes_${budgetId}`);
-        if (savedStickyNotes) {
+          const notes = JSON.parse(eventData.sticky_notes || cached('budget_sticky_notes') || 'null');
+          if (Array.isArray(notes) && notes.length && notes.every(note => typeof note.id === 'string' && typeof note.content === 'string')) loadedNotes = notes;
+        } catch { /* Start with an empty note if legacy storage is invalid. */ }
+        const loaded: BudgetAutoSettings = {
+          discount_enabled: Boolean(eventData.discount_enabled),
+          discount_percent: eventData.discount_percent ?? 0,
+          discount2_enabled: Boolean(eventData.discount2_enabled),
+          discount2_percent: eventData.discount2_percent ?? 0,
+          budget_days: Math.max(1, eventData.budget_days || 1),
+          budget_totals_mode: eventData.budget_totals_mode || 'combined_only',
+          budget_note: eventData.budget_note || '',
+          budget_version: eventData.budget_version ?? cached('budget_version') ?? '1.0',
+          budget_payment_mode: eventData.budget_payment_mode ?? (localMode === 'byn_cash' || localMode === 'byn_noncash' ? localMode : 'usd'),
+          budget_exchange_rate: eventData.budget_exchange_rate || budgetData[0]?.exchange_rate || 3,
+          sticky_notes: JSON.stringify(loadedNotes),
+        };
+        let restored = loaded;
+        if (canAccess(user, 'budgets', 2)) {
           try {
-            const parsed = JSON.parse(savedStickyNotes);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setStickyNotes(parsed);
+            const pending = JSON.parse(cached('budget_autosave') || 'null');
+            if (pending && !Array.isArray(pending) && Object.entries(pending).every(([key, value]) =>
+                key in loaded && typeof value === typeof loaded[key as keyof BudgetAutoSettings])) {
+              const recovered = { ...loaded, ...pending };
+              if (recovered.budget_days >= 1 && recovered.budget_exchange_rate > 0 &&
+                  ['usd', 'byn_cash', 'byn_noncash'].includes(recovered.budget_payment_mode) &&
+                  ['combined_only', 'day1_plus_combined'].includes(recovered.budget_totals_mode)) restored = recovered;
             }
-          } catch {
-            // use default
-          }
+          } catch { /* No pending edits to recover. */ }
         }
+        setDiscountEnabled(restored.discount_enabled);
+        setDiscountPercent(restored.discount_percent); setDiscountPercentInput(String(restored.discount_percent));
+        setDiscount2Enabled(restored.discount2_enabled);
+        setDiscount2Percent(restored.discount2_percent); setDiscount2PercentInput(String(restored.discount2_percent));
+        setBudgetDays(restored.budget_days); setBudgetTotalsMode(restored.budget_totals_mode);
+        setBudgetNote(restored.budget_note); setBudgetVersion(restored.budget_version);
+        setPaymentMode(restored.budget_payment_mode); setExchangeRate(restored.budget_exchange_rate);
+        try {
+          const recoveredNotes = JSON.parse(restored.sticky_notes);
+          setStickyNotes(Array.isArray(recoveredNotes) && recoveredNotes.length && recoveredNotes.every(note => note && typeof note.id === 'string' && typeof note.content === 'string') ? recoveredNotes : loadedNotes);
+        } catch { setStickyNotes(loadedNotes); }
+        setInitialSettings(loaded);
+        settingsLoaded.current = true;
       }
-      
       setIsBudgetConfirmed(Boolean(eventData.progress_equipment_reserved));
-      setContractOrganizationId((current) => current || eventData.client_id || '');
-
-      // Store original event data for change detection
-      setOriginalEventData({
-        discount_enabled: eventData.discount_enabled,
-        discount_percent: eventData.discount_percent,
-        budget_days: eventData.budget_days,
-        budget_totals_mode: eventData.budget_totals_mode,
-        budget_note: eventData.budget_note,
-        sticky_notes: eventData.sticky_notes
-      });
+      setContractOrganizationId(current => current || eventData.client_id || '');
 
       const initialExpanded: Record<string, boolean> = {};
       const initialActive = new Set<string>();
@@ -876,16 +791,19 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     }
   };
 
-  const handleUpdateItem = async (itemId: string, updates: Partial<BudgetItem>) => {
-    try {
-      const updatedItem = await updateBudgetItem(itemId, updates);
-      setBudgetItems(budgetItems.map(item =>
-        item.id === itemId ? { ...item, ...updatedItem } : item
-      ));
-    } catch (error) {
-      console.error('Error updating item:', error);
-      alert(`Ошибка обновления: ${getErrorMessage(error)}`);
-    }
+  const handleUpdateItem = (itemId: string, updates: Partial<BudgetItem>) => {
+    const operation = (async () => {
+      try {
+        const updatedItem = await updateBudgetItem(itemId, updates);
+        setBudgetItems(current => current.map(item => item.id === itemId ? { ...item, ...updatedItem } : item));
+      } catch (error) {
+        console.error('Error updating item:', error);
+        alert(`Ошибка обновления: ${getErrorMessage(error)}`);
+      }
+    })();
+    pendingItemWrites.current.add(operation);
+    void operation.finally(() => pendingItemWrites.current.delete(operation));
+    return operation;
   };
 
   const handleOpenWorkPersonnelManager = (categoryId: string) => {
@@ -1047,75 +965,16 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     }
   };
 
-  const handleSave = async () => {
+  const handleClose = async () => {
+    if (closing.current) return;
+    closing.current = true;
     try {
-      setSaving(true);
-
-      // Save discount settings to event
-      await updateEvent(eventId, {
-        discount_enabled: discountEnabled,
-        discount_percent: discountPercent,
-        // Скидка организатора сохраняется независимо от скидки клиенту.
-        discount2_enabled: discount2Enabled,
-        discount2_percent: discount2Enabled ? discount2Percent : 0,
-        budget_days: budgetDays,
-        budget_totals_mode: budgetTotalsMode,
-        budget_note: budgetNote
-      });
-
-      // Один RPC обновляет курс у всех позиций события внутри базы данных.
-      const hasExchangeRateChanges = budgetItems.some(
-        (item) => Number(item.exchange_rate) !== Number(exchangeRate)
-      );
-      if (hasExchangeRateChanges) {
-        await updateBudgetItemsExchangeRate(eventId, exchangeRate, budgetId);
-      }
-
+      // Commit a focused price/days field before flushing its latest React state.
+      flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+      await Promise.all([autosave.flush(), ...pendingItemWrites.current]);
       onClose();
-    } catch (error) {
-      console.error('Error saving budget:', error);
-      alert(`Ошибка сохранения: ${getErrorMessage(error)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Check if there are unsaved changes in the form
-  const hasUnsavedChanges = (): boolean => {
-    if (!originalEventData) return false;
-    
-    // Check discount settings
-    if (discountEnabled !== originalEventData.discount_enabled) return true;
-    if (discountPercent !== originalEventData.discount_percent) return true;
-    if (budgetDays !== originalEventData.budget_days) return true;
-    if (budgetTotalsMode !== originalEventData.budget_totals_mode) return true;
-    if (budgetNote !== originalEventData.budget_note) return true;
-    if (JSON.stringify(stickyNotes) !== originalEventData.sticky_notes) return true;
-    
-    return false;
-  };
-
-  // Handle close with unsaved changes check
-  const handleCloseWithCheck = () => {
-    if (hasUnsavedChanges()) {
-      setPendingCloseAction(() => onClose);
-      setShowUnsavedChangesDialog(true);
-    } else {
-      onClose();
-    }
-  };
-
-  const confirmCloseWithoutSaving = () => {
-    setShowUnsavedChangesDialog(false);
-    if (pendingCloseAction) {
-      pendingCloseAction();
-      setPendingCloseAction(null);
-    }
-  };
-
-  const cancelCloseAndStay = () => {
-    setShowUnsavedChangesDialog(false);
-    setPendingCloseAction(null);
+    } catch { /* The persistent autosave error explains why the editor stays open. */ }
+    finally { closing.current = false; }
   };
 
   const handleExportPDF = async (options?: { createdDate?: string; contractEquipmentTypeRP?: string }) => {
@@ -2070,7 +1929,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           step="0.01"
           aria-label="Курс валюты"
           value={exchangeRate}
-          onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
+          onChange={(e) => setExchangeRate(Math.max(0.01, Math.round((parseFloat(e.target.value) || 1) * 100) / 100))}
           className="min-h-11 w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-base md:min-h-0 md:text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
         />
       </div>
@@ -2240,7 +2099,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
               <StickyNote className="w-5 h-5" />
             </button>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Закрыть смету"
               className="text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-full transition-all"
             >
@@ -2251,11 +2110,15 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
         <MobileBudgetNavigation
           name={budgetName} tab={mobileTab} onTabChange={changeMobileTab} count={budgetItems.length}
-          onBack={handleCloseWithCheck} onSettings={() => setShowMobileSettings(true)}
+          onBack={handleClose} onSettings={() => setShowMobileSettings(true)}
           onCategory={() => setShowCategoryDropdown(!showCategoryDropdown)}
           onLocation={() => setShowLocationDialog(true)} onService={handleCreateExtraServiceCategory}
           onTemplate={() => setShowTemplates(true)} categoryMenu={categoryMenu}
         />
+
+        <div role={autosave.error ? 'alert' : 'status'} aria-live="polite" className={`shrink-0 px-4 py-1.5 text-xs ${autosave.error ? 'bg-red-950 text-red-200' : 'text-gray-500'}`}>
+          {autosave.error ? <>Не удалось сохранить изменения: {autosave.error}. Автосохранение повторится после восстановления соединения. <button type="button" onClick={() => { void autosave.flush().catch(() => {}); }} className="ml-1 underline">Повторить</button></> : autosave.status === 'saving' ? 'Сохранение…' : 'Изменения сохраняются автоматически'}
+        </div>
 
         {/* Main content */}
         <div className={`${mobileTab === 'total' ? 'hidden' : 'flex'} flex-1 min-h-0 overflow-hidden md:flex`}>
@@ -2849,6 +2712,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     value={budgetDaysInput}
                     onChange={(e) => {
                       setBudgetDaysInput(e.target.value);
+                      const next = parseInt(e.target.value, 10);
+                      if (Number.isFinite(next) && next >= 1) setBudgetDays(next);
                     }}
                     onBlur={() => {
                       const nextValue = parseInt(budgetDaysInput, 10);
@@ -2907,21 +2772,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
               <Download className="w-3.5 h-3.5" />
               <span className="text-xs font-medium">PDF</span>
             </button>
-            <div className="w-px h-6 bg-gray-800 mx-1"></div>
-            <button
-              onClick={handleCloseWithCheck}
-              className="px-4 py-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors"
-            >
-              Отмена
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-5 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-all shadow-lg shadow-green-900/20 disabled:opacity-50"
-            >
-              <Save className="w-3.5 h-3.5" />
-              {saving ? 'Сохранение...' : 'Сохранить'}
-            </button>
+
           </div>
         </div>
       </div>
@@ -3090,45 +2941,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         onClose={() => setShowContractDialog(false)}
         onConfirm={handleContractConfirm}
       />
-      {/* Unsaved Changes Warning Dialog */}
-      {showUnsavedChangesDialog && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4"
-          onClick={(e) => e.target === e.currentTarget && cancelCloseAndStay()}
-        >
-          <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
-              <h3 className="text-base font-bold text-white">Несохранённые изменения</h3>
-              <button
-                onClick={cancelCloseAndStay}
-                className="text-gray-500 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-5">
-              <p className="text-sm text-gray-300">
-                У вас есть несохранённые изменения в форме (количество дней, форма оплаты, версия сметы и т.п.). 
-                Вы уверены, что хотите закрыть форму без сохранения?
-              </p>
-            </div>
-            <div className="px-5 py-3 border-t border-gray-800 flex justify-end gap-3">
-              <button
-                onClick={cancelCloseAndStay}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={confirmCloseWithoutSaving}
-                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
-              >
-                Закрыть без сохранения
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
