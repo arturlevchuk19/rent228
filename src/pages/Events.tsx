@@ -506,9 +506,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
                             <button
                               onClick={() => onSpecificationOpen?.(event.id)}
-                              disabled={event.status !== 'Подтверждено' || !canAccess(user, 'specifications')}
-                              className={`p-1 rounded transition-colors ${event.status === 'Подтверждено' ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
-                              title={event.status === 'Подтверждено' ? 'Спецификация подтверждена' : 'Мероприятие не подтверждено'}
+                              disabled={!['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
+                              className={`p-1 rounded transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
+                              title={['Подтверждено', 'Выполнено'].includes(event.status) ? 'Открыть спецификацию' : 'Мероприятие не подтверждено'}
                             >
                               <FileText className="w-3.5 h-3.5" />
                             </button>
@@ -592,9 +592,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                         <span className="w-px h-4 bg-gray-700 mx-0.5" />
                         <button
                           onClick={() => onSpecificationOpen?.(event.id)}
-                          disabled={event.status !== 'Подтверждено' || !canAccess(user, 'specifications')}
-                          className={`p-1 rounded transition-colors ${event.status === 'Подтверждено' ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
-                          title={event.status === 'Подтверждено' ? 'Спецификация подтверждена' : 'Мероприятие не подтверждено'}
+                          disabled={!['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
+                          className={`p-1 rounded transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
+                          title={['Подтверждено', 'Выполнено'].includes(event.status) ? 'Открыть спецификацию' : 'Мероприятие не подтверждено'}
                         >
                           <FileText className="w-4 h-4" />
                         </button>
