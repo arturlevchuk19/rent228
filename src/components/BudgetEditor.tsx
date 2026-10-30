@@ -1,3 +1,4 @@
+import { useCatalogLongPress } from '../lib/useCatalogLongPress';
 import { useBudgetTouchDrag } from '../lib/useBudgetTouchDrag';
 import { flushSync } from 'react-dom';
 import { useBudgetAutosave } from '../lib/useBudgetAutosave';
@@ -82,6 +83,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const getEvent = (id: string) => getBudgetEvent(id, budgetId);
   const { user } = useAuth();
   const [quantityTarget, setQuantityTarget] = useState<string | null>(null);
+  const catalogLongPress = useCatalogLongPress(setQuantityTarget);
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [globalCategories, setGlobalCategories] = useState<Category[]>([]);
@@ -2529,9 +2531,10 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   {filteredEquipment.map(item => (
                     <React.Fragment key={item.id}>
                     <div
+                      {...catalogLongPress(`equipment:${item.id}`)}
                       onClick={() => handleEquipmentClick(item)}
                       onContextMenu={event => { event.preventDefault(); setQuantityTarget(`equipment:${item.id}`); }}
-                      className="group flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
+                      className="group touch-pan-y select-none [-webkit-touch-callout:none] flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -2556,9 +2559,10 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   {filteredWorkItems.map(item => (
                     <React.Fragment key={item.id}>
                     <div
+                      {...catalogLongPress(`work:${item.id}`)}
                       onClick={() => handleAddWorkItem(item)}
                       onContextMenu={event => { event.preventDefault(); setQuantityTarget(`work:${item.id}`); }}
-                      className="group flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
+                      className="group touch-pan-y select-none [-webkit-touch-callout:none] flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-base font-semibold text-gray-200 break-words group-hover:text-white md:truncate md:text-xs md:font-medium">{item.name}</p>

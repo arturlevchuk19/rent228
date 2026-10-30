@@ -40,7 +40,7 @@ export function InlineQuantityAdd({ name, onAdd, onClose }: InlineQuantityAddPro
   };
   return <form className="space-y-1 bg-gray-800/60 px-3 pb-3 pt-1" onSubmit={event => { event.preventDefault(); void commit(); }}>
     <label className="flex items-center gap-2 text-xs text-gray-300">
-      Количество
+      Укажите кол-во
       <input autoFocus type="number" inputMode="decimal" step="any" min="0" aria-label={`Количество: ${name}`} value={value} disabled={saving} placeholder="Введите количество" onChange={event => { setValue(event.target.value); setError(''); }} onBlur={() => { void commit(); }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancel(); }
       }} className="min-w-0 flex-1 rounded border border-gray-600 bg-gray-900 px-2 py-1.5 text-white focus:border-cyan-500 focus:outline-none" />
