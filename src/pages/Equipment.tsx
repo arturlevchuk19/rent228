@@ -188,27 +188,6 @@ export function Equipment() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Единиц загружено:</span>
-          <span className="font-bold text-white">
-            {items.reduce((sum, item) => sum + item.quantity, 0)}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Позиций загружено:</span>
-          <span className="font-bold text-cyan-400">{items.length}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Категорий:</span>
-          <span className="font-bold text-green-400">{categories.length}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Найдено:</span>
-          <span className="font-bold text-yellow-400">{total}</span>
-        </div>
-      </div>
-
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
