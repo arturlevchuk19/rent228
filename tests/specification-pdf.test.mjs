@@ -47,6 +47,10 @@ const extraRows=buildSpecificationEquipmentRows([{...source,category_id:'extra',
 assert.equal(extraRows.length,2);
 assert.ok(extraRows.every(row=>row.group.includes('Дополнительная сцена')&&!row.group.includes('Добор')));
 assert.equal(extraRows[1].unit,'час');
+const {withBudgetUnits}=load('src/lib/specificationUnits.ts');
+const oldSnapshot=withBudgetUnits([{id:'saved-truss',source_budget_item_id:'source-truss',item_type:'equipment',quantity:12,equipment:{name:'K4-290',unit:'шт.'}}],[{id:'source-truss',item_type:'equipment',unit:'м',quantity:12,equipment:{unit:'шт.'}}]);
+assert.equal(oldSnapshot[0].unit,'м');
+assert.equal(buildSpecificationEquipmentRows(oldSnapshot,new Map(),new Map(),new Map(),new Map())[0].unit,'м');
 const truss=buildSpecificationEquipmentRows([{id:'truss',item_type:'equipment',quantity:12,equipment:{name:'Фермовая Конструкция K4-290',unit:'м'}}],new Map(),new Map(),new Map(),new Map());
 assert.equal(truss[0].unit,'м');assert.equal(truss[0].quantity,12);
 const {buildSpecificationPdf}=load('src/lib/specificationPdf.ts');

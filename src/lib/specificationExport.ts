@@ -1,3 +1,4 @@
+import { withBudgetUnits } from './specificationUnits';
 import { cableDisplayName } from './cableNames';
 import { budgetSpecificationPreview, specificationIsEditable } from './specificationServices';
 import { getBudgetItems, type BudgetItem } from './events';
@@ -23,7 +24,7 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
   };
   for (const item of items) {
     if (item.item_type === 'work') {
-      if (item.quantity > 0 && item.category_id && extraCategoryIds.has(item.category_id)) { const before = rows.length; add(item, item.id, item.name || item.work_item?.name || 'Позиция', '', item.quantity, categoryNames.get(item.category_id) || 'Прочее'); rows.length > before && (rows[rows.length - 1].unit = item.work_item?.unit || 'усл.'); }
+      if (item.quantity > 0 && item.category_id && extraCategoryIds.has(item.category_id)) { const before = rows.length; add(item, item.id, item.name || item.work_item?.name || 'Позиция', '', item.quantity, categoryNames.get(item.category_id) || 'Прочее'); rows.length > before && (rows[rows.length - 1].unit = item.unit || item.work_item?.unit || 'усл.'); }
       continue;
     }
     const parent = item.parent_budget_item_id ? items.find(row => row.id === item.parent_budget_item_id) : undefined;
@@ -53,7 +54,7 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
   const [event, savedItems, cables, connectors, others, globalCategories, categories, locations, liveItems] = await Promise.all([
     getBudgetEvent(eventId, budgetId), getSpecificationBudgetItems(eventId, budgetId), getCables(eventId, budgetId), getConnectors(eventId, budgetId), getOtherItems(eventId, budgetId), getCategories(), getCategoriesForEvent(eventId, budgetId), getLocationsForEvent(eventId, budgetId), getBudgetItems(eventId, budgetId)
   ]);
-  const items = frozen ? savedItems : budgetSpecificationPreview(liveItems);
+  const items = withBudgetUnits(frozen ? savedItems : budgetSpecificationPreview(liveItems), liveItems);
   const equipmentIds = [...new Set(items.filter(item => !item.parent_budget_item_id && item.equipment?.object_type === 'virtual' && item.equipment_id).map(item => item.equipment_id!))];
   const modificationIds = [...new Set(items.flatMap(item => item.modification_id ? [item.modification_id] : []))];
   const [compositionEntries, modificationEntries] = await Promise.all([

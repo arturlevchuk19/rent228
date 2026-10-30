@@ -1,3 +1,4 @@
+import { withBudgetUnits } from '../lib/specificationUnits';
 import { loadSpecificationContents, type SpecificationContents } from '../lib/specificationContents';
 import { cableDisplayName } from '../lib/cableNames';
 import { useSpecificationNotes } from '../lib/useSpecificationNotes';
@@ -622,7 +623,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
-      const [budgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData, liveItems] = await Promise.all([
+      const [rawBudgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData, liveItems] = await Promise.all([
         (async () => {
           const current = await getBudgetEvent(eventId, budgetId);
           if (!specificationIsEditable(current.status)) return budgetSpecificationPreview(await getBudgetItems(eventId, budgetId));
@@ -639,6 +640,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         getBudgetItems(eventId, budgetId).then(items => { setBudgetSourceError(''); return items; }).catch(() => { setBudgetSourceError('Не удалось проверить актуальную смету. Откройте спецификацию повторно.'); return null; })
       ]);
 
+      const budgetData = withBudgetUnits(rawBudgetData, liveItems || []);
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
       if (liveItems) {
         try { setComparisonContents(await loadSpecificationContents(liveItems, budgetData)); }
@@ -711,7 +713,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
       for (const item of budgetData) {
         if (item.item_type === 'work') {
           if (mergedCategories.find(category => category.id === item.category_id)?.description !== '__extra_service__') continue;
-          items.push({ budgetItemId: item.id, categoryId: item.category_id || null, locationId: item.location_id || null, locationName: locationsById.get(item.location_id || '')?.name || 'Без локации', name: item.name || item.work_item?.name || 'Позиция', sku: '', quantity: item.quantity, unit: item.work_item?.unit || 'усл.', category: mergedCategories.find(category => category.id === item.category_id)?.name || 'Прочее', notes: item.notes || '', picked: item.picked || false, return_picked: item.return_picked || false, isFromComposition: false, isExtra: false });
+          items.push({ budgetItemId: item.id, categoryId: item.category_id || null, locationId: item.location_id || null, locationName: locationsById.get(item.location_id || '')?.name || 'Без локации', name: item.name || item.work_item?.name || 'Позиция', sku: '', quantity: item.quantity, unit: item.unit || item.work_item?.unit || 'усл.', category: mergedCategories.find(category => category.id === item.category_id)?.name || 'Прочее', notes: item.notes || '', picked: item.picked || false, return_picked: item.return_picked || false, isFromComposition: false, isExtra: false });
           continue;
         }
         const itemLocationId = item.location_id || null;
