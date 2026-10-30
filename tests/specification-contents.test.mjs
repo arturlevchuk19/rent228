@@ -25,3 +25,9 @@ const same=[eq('speaker-source','speaker',4)];
 assert.deepEqual(compare(same,[eq('saved','speaker',4,{source_budget_item_id:'speaker-source'})]),[]);
 assert.equal(compare(same,[eq('saved','speaker',2,{source_budget_item_id:'speaker-source'})])[0].kind,'update');
 console.log('PASS: equivalent cases, nested cases, mixed contents, legacy identity, real shortage/surplus, location boundaries, unknown case safety and normal linked rows.');
+
+const surplus = compare(budget,[eq('hidden-case','case',3,{name:'CASE DI-BOX 1'})]);
+assert.ok(surplus.some(row => row.name.includes('speaker: лишнее 2')));
+assert.ok(surplus.every(row => !row.name.includes('CASE DI-BOX 1')), 'Hidden parent must not be reported as the mismatched visible item');
+assert.deepEqual(compare([], [eq('excluded-case','case',1,{excluded_child_keys:['excluded-case-comp-a-speaker','excluded-case-comp-b-stand']})]), [], 'Excluded components must not generate warnings');
+console.log('PASS: hidden parent warning identifies actual surplus components; exclusions remain respected');

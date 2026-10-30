@@ -28,6 +28,18 @@ export function getSpecificationDifferences(budget: BudgetItem[], specification:
   const unresolvedCase = [...actual.keys()].some(key => key.includes('unknown:specification:'));
   if ([...balance.values()].every(value => Math.abs(value) < epsilon)) return [];
   const filtered: SpecificationDifference[] = [];
+  // Virtual kit parents are not necessarily displayed in the specification.
+  // Report the actual components with a remaining shortage/surplus instead.
+  const manualName = (parts: { key: string; quantity: number; name: string }[], fallback: string) => {
+    const names = new Map<string, string>();
+    for (const part of parts) {
+      const difference = balance.get(part.key) || 0;
+      if (Math.abs(difference) < epsilon) continue;
+      if (part.key.includes('unknown:')) continue;
+      names.set(part.key, `${part.name}: ${difference > 0 ? 'не хватает' : 'лишнее'} ${Number(Math.abs(difference).toFixed(8))}`);
+    }
+    return names.size ? [...names.values()].join('; ') : fallback;
+  };
   for (const change of [...result].sort((a, b) => (a.kind === 'update' ? 0 : 1) - (b.kind === 'update' ? 0 : 1))) {
     const delta = new Map<string, number>();
     if (change.source) for (const part of contents.get(contentRowKey('budget', change.source.id)) || []) delta.set(part.key, (delta.get(part.key) || 0) + part.quantity);
@@ -35,13 +47,17 @@ export function getSpecificationDifferences(budget: BudgetItem[], specification:
     if (![...delta].some(([key, value]) => Math.abs(value) > epsilon && value * (balance.get(key) || 0) > epsilon)) continue;
     // Partly covered kits must be adjusted manually, never re-added in full.
     const safe = !unresolvedCase && [...delta].every(([key, value]) => Math.abs(value) < epsilon || (value * (balance.get(key) || 0) > 0 && Math.abs(value) <= Math.abs(balance.get(key) || 0) + epsilon));
-    filtered.push({ ...change, requiresManual: !safe });
+    const parts = [
+      ...(change.source ? contents.get(contentRowKey('budget', change.source.id)) || [] : []),
+      ...(change.saved ? contents.get(contentRowKey('specification', change.saved.id)) || [] : []),
+    ];
+    filtered.push({ ...change, name: safe ? change.name : manualName(parts, change.name), requiresManual: !safe });
     if (safe) for (const [key, value] of delta) balance.set(key, (balance.get(key) || 0) - value);
   }
   for (const row of specification) {
     if (filtered.some(change => change.saved?.id === row.id)) continue;
     const parts = contents.get(contentRowKey('specification', row.id)) || [];
-    if (parts.some(part => (balance.get(part.key) || 0) < -epsilon)) filtered.push({ sourceId: `content:${row.id}`, name: row.name || row.equipment?.name || 'Комплект', kind: 'update', saved: row, requiresManual: true });
+    if (parts.some(part => (balance.get(part.key) || 0) < -epsilon)) filtered.push({ sourceId: `content:${row.id}`, name: manualName(parts, row.name || row.equipment?.name || 'Комплект'), kind: 'update', saved: row, requiresManual: true });
   }
   return filtered;
 }
