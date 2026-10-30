@@ -2193,7 +2193,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             <div className="bg-gray-900/80 border-b border-gray-800 px-3 py-2 flex-shrink-0">
               <div className="relative category-dropdown-container">
                 <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap text-xs font-semibold sm:gap-5 sm:text-sm">
-                  <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-400" />
+                  <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-white" />
                   <button
                     type="button"
                     onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
