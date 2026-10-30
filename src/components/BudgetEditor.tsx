@@ -2028,23 +2028,37 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             border: 1px solid #1f2937; border-radius: 12px; background-color: #111827;
           }
           .mobile-budget-page .budget-item-row > [draggable] { display: none; }
-          .mobile-budget-page .budget-item-fields {
-            order: -1; flex-basis: 100%; min-width: 0;
-            grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px 4px;
-          }
+          .mobile-budget-page .budget-item-fields,
           .mobile-budget-page .budget-item-fields-with-coefficient {
-            grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr) repeat(2, minmax(0, 1fr)) !important;
+            order: -1; flex-basis: 100%; min-width: 0;
+            grid-template-columns: minmax(72px, 1.1fr) minmax(32px, .55fr) minmax(48px, .85fr) minmax(0, 1.5fr) !important;
+            gap: 8px 4px;
           }
           .mobile-budget-page .budget-item-fields > :first-child {
             grid-column: 1 / -1; min-height: 28px; padding-right: 88px; font-size: 15px; font-weight: 600;
           }
-          .mobile-budget-page [data-mobile-label] { flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; min-width: 0; gap: 4px; }
-          .mobile-budget-page [data-mobile-label]::before {
+          .mobile-budget-page [data-mobile-label] {
+            display: flex; align-items: center; justify-content: center; text-align: center; min-width: 0;
+          }
+          .mobile-budget-page [data-mobile-label]::before { display: none; }
+          .mobile-budget-page [data-mobile-label="Количество"] { grid-column: 1; grid-row: 2; }
+          .mobile-budget-page [data-mobile-label="Ед. изм."] { grid-column: 2; grid-row: 2; }
+          .mobile-budget-page [data-mobile-label="Цена"] { grid-column: 3; grid-row: 2; }
+          .mobile-budget-page [data-mobile-label="Сумма"] {
+            grid-column: 4; grid-row: 2; justify-content: flex-end; gap: 4px;
+            padding-right: 0; white-space: nowrap; font-size: 14px;
+          }
+          .mobile-budget-page [data-mobile-label="Сумма"]::before {
+            content: '×'; display: block; margin-right: auto; color: #9ca3af; font-size: 16px;
+          }
+          .mobile-budget-page [data-mobile-label="Коэф."] {
+            grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; gap: 8px;
+          }
+          .mobile-budget-page [data-mobile-label="Коэф."]::before {
             content: attr(data-mobile-label); display: block; color: #9ca3af; font-size: 10px;
           }
-          .mobile-budget-page [data-mobile-label="Сумма"] { grid-column: 1 / -1; display: flex; flex-direction: row; justify-content: flex-end; align-items: baseline; gap: 8px; padding-right: 0; white-space: nowrap; font-size: 15px; }
           .mobile-budget-page .budget-item-fields input { min-height: 36px; max-width: 100%; text-align: center; font-size: 16px; }
-          .mobile-budget-page [data-mobile-label="Количество"] button { min-height: 36px; min-width: 24px; }
+          .mobile-budget-page [data-mobile-label="Количество"] button { min-height: 36px; min-width: 20px; }
           .mobile-budget-page [data-mobile-label="Ед. изм."] button { min-height: 36px; font-size: 13px; }
           .mobile-budget-page .budget-item-actions { position: absolute; top: 10px; right: 8px; gap: 0; }
           .mobile-budget-page .budget-item-actions > button,
