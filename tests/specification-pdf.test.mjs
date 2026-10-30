@@ -8,6 +8,7 @@ const load=(file,mocks={})=>{if(cache.has(file))return cache.get(file);const exp
 const scopeCalls=[];
 const mocks=Object.fromEntries(['./eventBudgets','./equipmentCompositions','./equipment','./categories','./locations','./warehouseSpecification'].map(name=>[name,{}]));
 Object.assign(mocks, {
+ './supabase':{supabase:{}},
  './events':{getBudgetItems:async(event,budget)=>{scopeCalls.push(['services',event,budget]);return [{id:'service1',item_type:'work',quantity:2,work_item:{name:'Доставка',unit:'рейс'},notes:'После монтажа'}];}},
  './eventBudgets':{getBudgetEvent:async(event,budget)=>{scopeCalls.push(['event',event,budget]);return {name:'Событие',status:'Подтверждено'};}},
  './equipmentCompositions':{getEquipmentCompositions:async()=>[]}, './equipment':{getModificationComponents:async()=>[]},
