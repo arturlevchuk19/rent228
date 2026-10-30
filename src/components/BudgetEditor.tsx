@@ -1,3 +1,4 @@
+import { useBudgetTouchDrag } from '../lib/useBudgetTouchDrag';
 import { flushSync } from 'react-dom';
 import { useBudgetAutosave } from '../lib/useBudgetAutosave';
 import { MobileBudgetNavigation, MobileBudgetSettings, type MobileBudgetTab } from './MobileBudgetNavigation';
@@ -1310,8 +1311,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   };
 
   const handleTouchItemDrop = async (targetItemId: string | null, targetGroup: BudgetDragTarget | null) => {
-    if (!draggedItem || draggedItem.type !== 'item') return;
-    if (targetItemId && targetItemId !== draggedItem.id) {
+    if (!draggedItem) return;
+    if (draggedItem.type === 'item' && targetItemId === draggedItem.id) return;
+    if (draggedItem.type === 'item' && targetItemId && targetItemId !== draggedItem.id) {
       await handleDropOnItem({ preventDefault: () => {}, stopPropagation: () => {} } as React.DragEvent, targetItemId);
       return;
     }
@@ -1323,6 +1325,19 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     setDragOverItemId(null);
     setDragOverTarget(null);
   };
+
+  const cancelBudgetDrag = () => {
+    setDraggedItem(null);
+    setDragOverItemId(null);
+    setDragOverTarget(null);
+  };
+  useBudgetTouchDrag(budgetListRef, {
+    enabled: !loading && canAccess(user, 'budgets', 2),
+    onStart: setDraggedItem,
+    onDrop: handleTouchItemDrop,
+    onCancel: cancelBudgetDrag,
+    onError: error => alert(`Ошибка перемещения: ${getErrorMessage(error)}`),
+  });
 
   const isDeliveryWork = (item: BudgetItem): boolean => {
     if (item.item_type !== 'work') return false;
@@ -1992,7 +2007,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   );
 
   return (
-    <main aria-label={`Смета: ${budgetName}`} className="mobile-budget-page fixed inset-0 z-[60] flex h-[100dvh] items-center justify-center bg-gray-950 md:bg-black/60 md:p-4 md:backdrop-blur-sm">
+    <main aria-label={`Смета: ${budgetName}`} onDragEnd={cancelBudgetDrag} className={`mobile-budget-page ${draggedItem ? 'budget-is-dragging' : ''} fixed inset-0 z-[60] flex h-[100dvh] items-center justify-center bg-gray-950 md:bg-black/60 md:p-4 md:backdrop-blur-sm`}>
       <style>{`
         .custom-scrollbar {
           scrollbar-gutter: stable;
@@ -2019,7 +2034,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             min-height: 52px; gap: 8px; padding: 8px; margin: 8px 0;
             border: 1px solid #374151; border-radius: 12px; flex-wrap: nowrap; gap: 4px;
           }
-          .mobile-budget-page .budget-category-header > [draggable] { display: none; }
+          .mobile-budget-page [data-budget-drag-type] { touch-action: none; user-select: none; -webkit-user-select: none; opacity: 1; display: flex; align-items: center; justify-content: center; min-width: 24px; min-height: 32px; }
           .mobile-budget-page .budget-category-header h3 { min-width: 0; font-size: 14px; }
           .mobile-budget-page .budget-category-header > :not(h3) { flex-shrink: 0; }
           .mobile-budget-page .budget-category-header > div:last-child { white-space: nowrap; }
@@ -2029,7 +2044,19 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             position: relative; flex-wrap: wrap; gap: 8px; padding: 12px; margin: 8px 0;
             border: 1px solid #1f2937; border-radius: 12px; background-color: #111827;
           }
-          .mobile-budget-page .budget-item-row > [draggable] { display: none; }
+          .mobile-budget-page .budget-item-row > [draggable] {
+            position: absolute; left: 4px; top: 10px; width: 24px;
+          }
+          .mobile-budget-page .budget-item-fields > :first-child { padding-left: 20px; }
+          .mobile-budget-page .budget-mobile-navigation {
+            max-height: 360px; overflow: hidden; opacity: 1;
+            transition: max-height 220ms ease, opacity 180ms ease;
+          }
+          .mobile-budget-page.budget-is-dragging .budget-mobile-navigation { max-height: 0; opacity: 0; pointer-events: none; }
+          .mobile-budget-page.budget-is-dragging { user-select: none; }
+          @media (prefers-reduced-motion: reduce) {
+            .mobile-budget-page .budget-mobile-navigation { transition: none; }
+          }
           .mobile-budget-page .budget-item-fields,
           .mobile-budget-page .budget-item-fields-with-coefficient {
             order: -1; flex-basis: 100%; min-width: 0;
@@ -2072,6 +2099,13 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           .mobile-budget-page .budget-item-actions > div > button {
             width: 28px; min-width: 28px; min-height: 28px; align-items: center; opacity: 1;
           }
+        }
+        .budget-touch-target { outline: 2px solid #22d3ee; outline-offset: -2px; background-color: #164e6333; }
+        .budget-touch-ghost {
+          position: fixed; z-index: 1000; pointer-events: none; max-width: 220px;
+          padding: 8px 12px; border: 1px solid #22d3ee; border-radius: 10px;
+          background: #111827; color: #e5e7eb; font-size: 13px;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 8px 24px #0008;
         }
         /* Для Firefox */
         .custom-scrollbar {
@@ -2142,6 +2176,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           </div>
         </div>
 
+        <div className="budget-mobile-navigation shrink-0">
         <MobileBudgetNavigation
           name={budgetName} tab={mobileTab} onTabChange={changeMobileTab} count={budgetItems.length}
           onBack={handleClose} onSettings={() => setShowMobileSettings(true)}
@@ -2149,6 +2184,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           onLocation={() => setShowLocationDialog(true)} onService={handleCreateExtraServiceCategory}
           onTemplate={() => setShowTemplates(true)} categoryMenu={categoryMenu}
         />
+        </div>
 
         {(autosave.error || autosave.status === 'saving') && <div role={autosave.error ? 'alert' : 'status'} aria-live="polite" className={`shrink-0 px-4 py-1.5 text-xs ${autosave.error ? 'bg-red-950 text-red-200' : 'text-gray-500'}`}>
           {autosave.error ? <>Не удалось сохранить изменения: {autosave.error}. Автосохранение повторится после восстановления соединения. <button type="button" onClick={() => { void autosave.flush().catch(() => {}); }} className="ml-1 underline">Повторить</button></> : 'Сохранение…'}
@@ -2221,6 +2257,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     return (
                       <div
                         key={location.id}
+                        data-budget-drop-group={JSON.stringify({ type: 'location', id: location.id, locationId: location.id })}
                         className={`transition-all duration-200 rounded-xl border border-emerald-900/30 ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`}
                         onDragOver={(e) => handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })}
                         onDrop={(e) => handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}
@@ -2316,8 +2353,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                                     onDrop={handleDrop}
                                     onDragOverItem={handleDragOverItem}
                                     onDropOnItem={handleDropOnItem}
-                                    onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
-                                    onTouchItemDrop={handleTouchItemDrop}
                                     dragOverItemId={dragOverItemId}
                                   />
                                 </div>
@@ -2346,8 +2381,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                                 onDrop={handleDrop}
                                 onDragOverItem={handleDragOverItem}
                                 onDropOnItem={handleDropOnItem}
-                                onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
-                                onTouchItemDrop={handleTouchItemDrop}
                                 dragOverItemId={dragOverItemId}
                               />
                             )}
@@ -2359,6 +2392,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   })}
 
                   <div
+                    data-budget-drop-group={JSON.stringify({ type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
                     className={'rounded-xl transition-all duration-200' + (draggedItem ? ' ring-2 ring-cyan-500/50 bg-cyan-500/5' : '')}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -2401,8 +2435,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                           onDrop={handleDrop}
                           onDragOverItem={handleDragOverItem}
                           onDropOnItem={handleDropOnItem}
-                          onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
-                          onTouchItemDrop={handleTouchItemDrop}
                           dragOverItemId={dragOverItemId}
                           categoryRef={(el) => { categoryRefs.current[category.id] = el; }}
                         />
@@ -2435,8 +2467,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         onDrop={(e) => handleDrop(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
                         onDragOverItem={handleDragOverItem}
                         onDropOnItem={handleDropOnItem}
-                        onTouchItemDragStart={(itemId) => setDraggedItem({ type: 'item', id: itemId })}
-                        onTouchItemDrop={handleTouchItemDrop}
                         dragOverItemId={dragOverItemId}
                       />
                     </div>
@@ -2975,4 +3005,5 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     </main>
   );
 }
+
 

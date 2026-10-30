@@ -37,8 +37,6 @@ interface CategoryBlockProps {
   onDragOverItem?: (e: React.DragEvent, itemId: string) => void;
   onDropOnItem?: (e: React.DragEvent, targetItemId: string) => void;
   dragOverItemId?: string | null;
-  onTouchItemDragStart?: (itemId: string) => void;
-  onTouchItemDrop?: (targetItemId: string | null, targetGroup: BudgetDragTarget | null) => void;
   categoryRef?: (el: HTMLDivElement | null) => void;
   headerStyle?: React.CSSProperties;
   headerClassName?: string;
@@ -71,8 +69,6 @@ export function CategoryBlock({
   onDragOverItem,
   onDropOnItem,
   dragOverItemId,
-  onTouchItemDragStart,
-  onTouchItemDrop,
   categoryRef,
   headerStyle,
   headerClassName
@@ -257,6 +253,10 @@ export function CategoryBlock({
         {categoryId !== 'uncategorized' && (
           <div
             draggable
+            data-budget-drag-type="category"
+            data-budget-drag-id={categoryId}
+            data-budget-drag-label={categoryName}
+            title="Перетащить категорию"
             onDragStart={(e) => {
               e.stopPropagation();
               onDragStart?.(e, 'category', categoryId);
@@ -443,32 +443,16 @@ export function CategoryBlock({
                   >
                   <div
                     draggable
+                    data-budget-drag-type="item"
+                    data-budget-drag-id={item.id}
+                    data-budget-drag-label={item.equipment?.name || item.work_item?.name || 'Без названия'}
+                    title="Перетащить позицию"
                     onDragStart={(e) => {
                       e.stopPropagation();
                       onDragStart?.(e, 'item', item.id);
                     }}
                     className="w-3 text-gray-600 hover:text-gray-400 cursor-move opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 flex justify-center"
-                    onTouchStart={(e) => {
-                      e.stopPropagation();
-                      onTouchItemDragStart?.(item.id);
-                    }}
-                    onTouchEnd={(e) => {
-                      const touch = e.changedTouches[0];
-                      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
-                      const targetItemEl = targetEl?.closest('[data-budget-item-id]') as HTMLElement | null;
-                      const targetGroupEl = targetEl?.closest('[data-budget-drop-group]') as HTMLElement | null;
-                      const targetItemId = targetItemEl?.dataset.budgetItemId || null;
-                      const targetGroupRaw = targetGroupEl?.dataset.budgetDropGroup || null;
-                      let targetGroup: BudgetDragTarget | null = null;
-                      if (targetGroupRaw) {
-                        try {
-                          targetGroup = JSON.parse(targetGroupRaw) as BudgetDragTarget;
-                        } catch {
-                          targetGroup = null;
-                        }
-                      }
-                      onTouchItemDrop?.(targetItemId, targetGroup);
-                    }}
+
                   >
                     <GripVertical className="w-3 h-3" />
                   </div>
@@ -749,4 +733,5 @@ export function CategoryBlock({
     </div>
   );
 }
+
 
