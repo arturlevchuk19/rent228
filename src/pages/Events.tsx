@@ -88,7 +88,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
   const canEditDelete = canAccess(user, 'events', 2);
   const canSeeEventProgress = canAccess(user, 'budgets');
-  const canViewEventStats = canSeeEventProgress;
 
   const getEventDateKey = (event: Event): string | null => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(event.event_date || '')) return null;
@@ -311,6 +310,15 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             </select>
           </div>
         </div>
+        <label className="flex items-center gap-2 cursor-pointer mt-3 text-sm">
+          <input
+            type="checkbox"
+            checked={showCancelled}
+            onChange={(e) => setShowCancelled(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
+          />
+          <span className="text-gray-400 select-none">Показывать отмененные</span>
+        </label>
       </div>
 
       <div className="md:hidden">
@@ -339,48 +347,6 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             <button type="button" onClick={() => setShowMobileFilters(false)} className="w-full px-3 py-2 bg-cyan-600 text-white rounded-lg text-sm">Применить</button>
           </div>
         </div>
-      )}
-
-      {canViewEventStats && (
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 bg-gray-900/50 rounded-lg border border-gray-800 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Всего:</span>
-          <span className="font-bold text-white">{events.length}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Запросы:</span>
-          <span className="font-bold text-yellow-400">
-            {events.filter(e => e.status === 'Запрос').length}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Подтверждено:</span>
-          <span className="font-bold text-green-400">
-            {events.filter(e => e.status === 'Подтверждено').length}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Отменено:</span>
-          <span className="font-bold text-red-400">
-            {events.filter(e => e.status === 'Отменено').length}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Выполнено:</span>
-          <span className="font-bold text-gray-400">
-            {events.filter(e => e.status === 'Выполнено').length}
-          </span>
-        </div>
-        <label className="flex items-center gap-2 cursor-pointer ml-auto border-l border-gray-800 pl-6">
-          <input
-            type="checkbox"
-            checked={showCancelled}
-            onChange={(e) => setShowCancelled(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
-          />
-          <span className="text-gray-400 select-none">Показывать отмененные</span>
-        </label>
-      </div>
       )}
 
       <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
