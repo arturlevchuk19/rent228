@@ -1,3 +1,4 @@
+import { PageErrorBoundary } from './components/PageErrorBoundary';
 import { useEventPageNavigation } from './hooks/useEventPageNavigation';
 import { usePageNavigation } from './hooks/usePageNavigation';
 import { EventPage } from './pages/EventPage';
@@ -82,7 +83,7 @@ function AppContent() {
 
   return <>
     <Layout currentPage={currentPage} pageHeading={eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) navigate(page); }}>
-      <div hidden={eventPage.open} className="h-full"><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></div>
+      <div hidden={eventPage.open} className="h-full"><PageErrorBoundary key={currentPage}><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></PageErrorBoundary></div>
       {eventPage.open && <EventPage event={eventPage.event} loading={eventPage.loading} error={eventPage.error} onDirtyChange={eventPage.setDirty} onBack={eventId => { if (eventPage.close() && eventId && !eventPage.event) setLastCreatedEventId(eventId); }} onSave={eventId => { eventPage.saved(eventId); handleRefresh(eventId); }} onSpecificationOpen={handleSpecificationOpen} onDeleted={() => { eventPage.setDirty(false); eventPage.close(); handleRefresh(); }} />}
     </Layout>
     {clientFormOpen && <ClientForm client={editingClient} onClose={() => { setClientFormOpen(false); setEditingClient(undefined); }} onSave={handleRefresh} />}
