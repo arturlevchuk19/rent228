@@ -249,7 +249,7 @@ export function CategoryBlock({
       {/* Category header - compact, sticky */}
       <div
         style={headerStyle}
-        className={`flex items-center gap-1 px-1.5 py-1 transition-colors cursor-pointer sticky top-0 z-10 ${
+        className={`budget-category-header flex items-center gap-1 px-1.5 py-1 transition-colors cursor-pointer sticky top-0 z-10 ${
           isSelected ? 'bg-cyan-900/20' : 'bg-gray-900 hover:bg-gray-800'
         } ${headerClassName || ''}`}
         onClick={onSelect}
@@ -274,6 +274,7 @@ export function CategoryBlock({
             e.stopPropagation();
             onToggleExpand();
           }}
+          aria-label={`${isExpanded ? 'Свернуть' : 'Развернуть'} категорию ${categoryName}`}
           className="text-gray-500 hover:text-gray-400 transition-colors"
         >
           {isExpanded ? (
@@ -399,7 +400,7 @@ export function CategoryBlock({
       {isExpanded && items.length > 0 && (
         <div>
           {/* Table header */}
-          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
+          <div className="budget-items-heading flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
             <div className="w-3"></div>
             <div
               className="flex-1 grid items-center gap-1"
@@ -437,7 +438,7 @@ export function CategoryBlock({
                   }}
                 >
                   <div
-                    className={`flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}
+                    className={`budget-item-row flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}
                     style={item.marker_color ? { backgroundColor: `${item.marker_color}40` } : undefined}
                   >
                   <div
@@ -473,14 +474,14 @@ export function CategoryBlock({
                   </div>
 
                   <div
-                    className="flex-1 grid items-center gap-1 text-xs"
+                    className="budget-item-fields flex-1 grid items-center gap-1 text-xs"
                     style={{ gridTemplateColumns: tableTemplateColumns }}
                   >
                     <div className="text-gray-300 whitespace-normal break-words pr-2">
                       {item.equipment?.name || item.work_item?.name || 'Без названия'}
                     </div>
 
-                    <div className="relative flex justify-center">
+                    <div data-mobile-label="Ед. изм." className="relative flex justify-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -515,7 +516,7 @@ export function CategoryBlock({
                       )}
                     </div>
 
-                    <div className="flex justify-center">
+                    <div data-mobile-label="Количество" className="flex justify-center">
                       <div className="flex items-center justify-center">
                         <button
                           onClick={() => onUpdateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
@@ -526,6 +527,7 @@ export function CategoryBlock({
                         <input
                           type="text"
                           inputMode="numeric"
+                          aria-label={`Количество: ${item.equipment?.name || item.work_item?.name || 'Позиция'}`}
                           value={draftValues[item.id + '_quantity'] ?? String(item.quantity)}
                           onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_quantity']: e.target.value }))}
                           onBlur={(e) => {
@@ -545,10 +547,11 @@ export function CategoryBlock({
                       </div>
                     </div>
 
-                    <div className="flex justify-end">
+                    <div data-mobile-label="Цена" className="flex justify-end">
                       <input
                         type="text"
                         inputMode="decimal"
+                        aria-label={`Цена: ${item.equipment?.name || item.work_item?.name || 'Позиция'}`}
                         value={draftValues[item.id + '_price'] ?? String(editablePrice)}
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
                         onBlur={(e) => {
@@ -585,7 +588,7 @@ export function CategoryBlock({
                     </div>
 
                     {showCoefficient && (
-                      <div className="flex justify-center">
+                      <div data-mobile-label="Коэф." className="flex justify-center">
                         <input
                           type="text"
                           inputMode="decimal"
@@ -610,7 +613,7 @@ export function CategoryBlock({
                       </div>
                     )}
 
-                    <div className="text-right text-cyan-400 font-medium text-xs pr-2">
+                    <div data-mobile-label="Сумма" className="text-right text-cyan-400 font-medium text-xs pr-2">
                       {(() => {
                         switch (paymentMode) {
                           case 'byn_cash':

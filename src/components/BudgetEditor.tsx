@@ -1,3 +1,4 @@
+import { MobileBudgetNavigation, MobileBudgetSettings, type MobileBudgetTab } from './MobileBudgetNavigation';
 import { BudgetScope } from './BudgetScope';
 import { getBudgetEvent, updateBudgetEvent } from '../lib/eventBudgets';
 import { useAuth } from '../contexts/authContext';
@@ -87,6 +88,16 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [saving, setSaving] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [selectedItemType, setSelectedItemType] = useState<string>('Оборудование');
+  const [mobileTab, setMobileTab] = useState<MobileBudgetTab>('estimate');
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
+  const [mobileCatalogExpanded, setMobileCatalogExpanded] = useState(true);
+  const catalogSearchRef = useRef<HTMLInputElement>(null);
+  const changeMobileTab = (tab: MobileBudgetTab) => {
+    setMobileTab(tab);
+    setQuantityTarget(null);
+    setMobileCatalogExpanded(true);
+    if (tab !== 'estimate') setSelectedItemType(tab === 'equipment' ? 'Оборудование' : 'Работа');
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEquipmentCategory, setSelectedEquipmentCategory] = useState<string>('Все');
   const [exchangeRate, setExchangeRate] = useState(3.0);
@@ -2032,8 +2043,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
 
   if (!loading && !canAccess(user, 'budgets', 2)) {
-    return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
-      <section className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900">
+    return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950 md:bg-black/70 md:p-3">
+      <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-gray-900 md:h-auto md:max-h-[90dvh] md:max-w-4xl md:rounded-xl md:border md:border-gray-700">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-800 p-4"><h2 className="font-semibold text-white">Смета: {budgetName}</h2><button type="button" onClick={onClose} aria-label="Закрыть" className="rounded p-2 text-gray-300"><X className="h-5 w-5" /></button></header>
         <div className="min-h-0 overflow-y-auto p-4">{canAccess(user, 'budgets') ? <><p className="mb-3 text-xs text-gray-400">Режим просмотра</p>{budgetItems.map(item => <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 py-3 text-sm"><span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span><span className="shrink-0 text-cyan-400">{item.quantity} × {item.price}</span></div>)}<p className="mt-4 font-semibold text-white">Итого: {getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></> : <p className="text-gray-400">Нет доступа к сметам.</p>}</div>
       </section>
@@ -2050,8 +2061,70 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     );
   }
 
+  const currencySettings = (
+    <div className="space-y-3">
+      <div>
+        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Курс валюты</label>
+        <input
+          type="number"
+          step="0.01"
+          aria-label="Курс валюты"
+          value={exchangeRate}
+          onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
+          className="min-h-11 w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-base md:min-h-0 md:text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Система расчёта</label>
+        <button
+          onClick={() => setPaymentMode('usd')}
+          className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
+            paymentMode === 'usd'
+              ? 'bg-cyan-600 text-white'
+              : 'text-gray-300 hover:bg-gray-700'
+          }`}
+        >
+          USD
+        </button>
+        <button
+          onClick={() => setPaymentMode('byn_noncash')}
+          className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
+            paymentMode === 'byn_noncash'
+              ? 'bg-cyan-600 text-white'
+              : 'text-gray-300 hover:bg-gray-700'
+          }`}
+        >
+          BYN (безналичный)
+        </button>
+        <button
+          onClick={() => setPaymentMode('byn_cash')}
+          className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
+            paymentMode === 'byn_cash'
+              ? 'bg-cyan-600 text-white'
+              : 'text-gray-300 hover:bg-gray-700'
+          }`}
+        >
+          BYN (наличный)
+        </button>
+      </div>
+    </div>
+  );
+  const categoryMenu = showCategoryDropdown && (
+    <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar p-0.5">
+      {globalCategories.map(category => (
+        <button
+          key={category.id}
+          onClick={() => handleSelectCategory(category)}
+          className="min-h-11 w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors rounded-lg md:min-h-0 md:text-xs"
+        >
+          {category.name}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <main aria-label={`Смета: ${budgetName}`} className="mobile-budget-page fixed inset-0 z-[60] flex h-[100dvh] items-center justify-center bg-gray-950 md:bg-black/60 md:p-4 md:backdrop-blur-sm">
       <style>{`
         .custom-scrollbar {
           scrollbar-gutter: stable;
@@ -2072,6 +2145,41 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #4b5563;
         }
+        @media (max-width: 767px) {
+          .mobile-budget-page .budget-items-heading { display: none; }
+          .mobile-budget-page .budget-category-header {
+            min-height: 52px; gap: 8px; padding: 8px; margin: 8px 0;
+            border: 1px solid #374151; border-radius: 12px; flex-wrap: wrap;
+          }
+          .mobile-budget-page .budget-category-header > [draggable] { display: none; }
+          .mobile-budget-page .budget-category-header h3 { min-width: 80px; font-size: 14px; }
+          .mobile-budget-page .budget-category-header > button { min-width: 28px; min-height: 32px; }
+          .mobile-budget-page .budget-category-header svg { width: 14px; height: 14px; }
+          .mobile-budget-page .budget-item-row {
+            flex-wrap: wrap; gap: 8px; padding: 12px; margin: 8px 0;
+            border: 1px solid #1f2937; border-radius: 12px; background-color: #111827;
+          }
+          .mobile-budget-page .budget-item-row > [draggable] { display: none; }
+          .mobile-budget-page .budget-item-fields {
+            order: -1; flex-basis: 100%; min-width: 0;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 12px 8px;
+          }
+          .mobile-budget-page .budget-item-fields > :first-child {
+            grid-column: 1 / -1; font-size: 15px; font-weight: 600;
+          }
+          .mobile-budget-page [data-mobile-label] { flex-direction: column; gap: 4px; }
+          .mobile-budget-page [data-mobile-label]::before {
+            content: attr(data-mobile-label); display: block; color: #9ca3af; font-size: 10px;
+          }
+          .mobile-budget-page [data-mobile-label="Сумма"] { grid-column: 2 / -1; font-size: 15px; }
+          .mobile-budget-page .budget-item-fields input { min-height: 36px; max-width: 100%; font-size: 16px; }
+          .mobile-budget-page [data-mobile-label="Количество"] button { min-height: 36px; min-width: 24px; }
+          .mobile-budget-page [data-mobile-label="Ед. изм."] button { min-height: 36px; font-size: 13px; }
+          .mobile-budget-page .budget-item-row > button,
+          .mobile-budget-page .budget-item-row > div.relative > button {
+            min-height: 32px; min-width: 32px; opacity: 1;
+          }
+        }
         /* Для Firefox */
         .custom-scrollbar {
           scrollbar-width: thin;
@@ -2079,9 +2187,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         }
       `}</style>
 
-      <div className="bg-gray-900 rounded-xl w-full max-w-[1600px] h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-800">
+      <div className="flex h-full w-full flex-col overflow-hidden bg-gray-950 md:h-[90vh] md:max-w-[1600px] md:rounded-xl md:border md:border-gray-800 md:bg-gray-900 md:shadow-2xl">
         {/* Header */}
-        <div className="px-4 py-2 border-b border-gray-800 flex justify-between items-start gap-3 flex-shrink-0 bg-gray-900/50">
+        <div className="hidden px-4 py-2 border-b border-gray-800 md:flex justify-between items-start gap-3 flex-shrink-0 bg-gray-900/50">
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
             <h2 className="min-w-0 text-lg font-bold text-white flex items-center gap-2 break-words">
               Смета: {budgetName}
@@ -2111,51 +2219,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
               {showExchangeRatePopover && (
                 <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 p-3 min-w-[200px]">
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Курс валюты</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={exchangeRate}
-                        onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1)}
-                        className="w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Система расчёта</label>
-                      <button
-                        onClick={() => setPaymentMode('usd')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                          paymentMode === 'usd'
-                            ? 'bg-cyan-600 text-white'
-                            : 'text-gray-300 hover:bg-gray-700'
-                        }`}
-                      >
-                        USD
-                      </button>
-                      <button
-                        onClick={() => setPaymentMode('byn_noncash')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                          paymentMode === 'byn_noncash'
-                            ? 'bg-cyan-600 text-white'
-                            : 'text-gray-300 hover:bg-gray-700'
-                        }`}
-                      >
-                        BYN (безналичный)
-                      </button>
-                      <button
-                        onClick={() => setPaymentMode('byn_cash')}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                          paymentMode === 'byn_cash'
-                            ? 'bg-cyan-600 text-white'
-                            : 'text-gray-300 hover:bg-gray-700'
-                        }`}
-                      >
-                        BYN (наличный)
-                      </button>
-                    </div>
-                  </div>
+                  {currencySettings}
                 </div>
               )}
             </div>
@@ -2185,12 +2249,21 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           </div>
         </div>
 
+        <MobileBudgetNavigation
+          name={budgetName} tab={mobileTab} onTabChange={changeMobileTab} count={budgetItems.length}
+          onBack={handleCloseWithCheck} onSettings={() => setShowMobileSettings(true)}
+          onAddRow={() => { changeMobileTab(mobileTab === 'personnel' ? 'personnel' : 'equipment'); window.requestAnimationFrame(() => catalogSearchRef.current?.focus()); }}
+          onCategory={() => setShowCategoryDropdown(!showCategoryDropdown)}
+          onLocation={() => setShowLocationDialog(true)} onService={handleCreateExtraServiceCategory}
+          onTemplate={() => setShowTemplates(true)} categoryMenu={categoryMenu}
+        />
+
         {/* Main content */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* Left column */}
-          <div className="w-3/5 flex flex-col border-r border-gray-800 min-w-0">
+          <div className={`${mobileTab === 'estimate' ? 'flex' : 'hidden'} w-full min-w-0 flex-col md:flex md:w-3/5 md:border-r md:border-gray-800`}>
             {/* Toolbar */}
-            <div className="bg-gray-900/80 border-b border-gray-800 px-3 py-2 flex-shrink-0">
+            <div className="hidden bg-gray-900/80 border-b border-gray-800 px-3 py-2 flex-shrink-0 md:block">
               <div className="relative category-dropdown-container">
                 <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap text-xs font-semibold sm:gap-5 sm:text-sm">
                   <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-white" />
@@ -2229,19 +2302,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   </button>
                 </div>
 
-                {showCategoryDropdown && (
-                  <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar p-0.5">
-                    {globalCategories.map(category => (
-                      <button
-                        key={category.id}
-                        onClick={() => handleSelectCategory(category)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors rounded-lg"
-                      >
-                        {category.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {categoryMenu}
+
               </div>
             </div>
 
@@ -2495,16 +2557,18 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           </div>
 
           {/* Right column */}
-          <div className="w-2/5 flex flex-col bg-gray-900/30 min-w-0">
+          <div className={`${mobileTab !== 'estimate' ? 'flex' : 'hidden'} w-full min-w-0 flex-col md:flex md:w-2/5 md:bg-gray-900/30`}>
             <div className="p-3 border-b border-gray-800 space-y-2 flex-shrink-0">
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                ref={catalogSearchRef}
+                aria-label="Поиск позиций для добавления в смету"
                 placeholder="Поиск по названию или категории..."
                 className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
               />
-              <div className="flex bg-gray-800 p-0.5 rounded-lg">
+              <div className="hidden bg-gray-800 p-0.5 rounded-lg md:flex">
                 <button
                   onClick={() => setSelectedItemType('Оборудование')}
                   className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${selectedItemType === 'Оборудование' ? 'bg-gray-700 text-cyan-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
@@ -2529,26 +2593,33 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-3 pb-3 md:px-0 md:pb-0">
+              <button type="button" aria-expanded={mobileCatalogExpanded} onClick={() => setMobileCatalogExpanded(!mobileCatalogExpanded)} className="mb-3 flex min-h-12 w-full items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-400/10 px-3 text-left text-sm font-bold uppercase text-gray-200 md:hidden">
+                <ChevronDown className={`h-4 w-4 text-amber-300 transition-transform ${mobileCatalogExpanded ? '' : '-rotate-90'}`} />
+                {selectedItemType === 'Оборудование' ? 'Склад' : 'Персонал и доставка'}
+                <span className="rounded-full bg-gray-700/70 px-2 text-xs text-gray-400">{selectedItemType === 'Оборудование' ? filteredEquipment.length : filteredWorkItems.length}</span>
+              </button>
+              <div className={`${mobileCatalogExpanded ? '' : 'hidden'} md:block`}>
+              {(selectedItemType === 'Оборудование' ? filteredEquipment : filteredWorkItems).length === 0 && <p className="px-3 py-8 text-center text-sm text-gray-500">Позиции не найдены. Попробуйте изменить поиск.</p>}
               {selectedItemType === 'Оборудование' ? (
-                <div className="divide-y divide-gray-800">
+                <div className="space-y-3 md:space-y-0 md:divide-y md:divide-gray-800">
                   {filteredEquipment.map(item => (
                     <React.Fragment key={item.id}>
                     <div
                       onClick={() => handleEquipmentClick(item)}
                       onContextMenu={event => { event.preventDefault(); setQuantityTarget(`equipment:${item.id}`); }}
-                      className="group flex items-center justify-between px-3 py-2 hover:bg-cyan-500/5 transition-colors cursor-pointer"
+                      className="group flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium text-gray-200 truncate group-hover:text-white">{item.name}</p>
+                          <p className="text-base font-semibold text-gray-200 break-words group-hover:text-white md:truncate md:text-xs md:font-medium">{item.name}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 ml-3">
                         <div className="text-right">
                           <p className="text-xs font-mono text-cyan-500 font-bold">${item.rental_price}</p>
                         </div>
-                        <div className="p-1 bg-gray-800 rounded-md group-hover:bg-cyan-600 group-hover:text-white text-gray-500 transition-all">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors group-hover:bg-cyan-600 group-hover:text-white md:h-auto md:w-auto md:p-1 md:text-gray-500">
                           <Plus className="w-3.5 h-3.5" />
                         </div>
                       </div>
@@ -2558,19 +2629,19 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   ))}
                 </div>
               ) : (
-                <div className="divide-y divide-gray-800">
+                <div className="space-y-3 md:space-y-0 md:divide-y md:divide-gray-800">
                   {filteredWorkItems.map(item => (
                     <React.Fragment key={item.id}>
                     <div
                       onClick={() => handleAddWorkItem(item)}
                       onContextMenu={event => { event.preventDefault(); setQuantityTarget(`work:${item.id}`); }}
-                      className="group flex items-center justify-between px-3 py-2 hover:bg-cyan-500/5 transition-colors cursor-pointer"
+                      className="group flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-gray-200 truncate group-hover:text-white">{item.name}</p>
-                        <p className="text-[10px] text-gray-500">Ед. измерения: {item.unit}</p>
+                        <p className="text-base font-semibold text-gray-200 break-words group-hover:text-white md:truncate md:text-xs md:font-medium">{item.name}</p>
+                        <p className="mt-1 text-sm text-gray-500 md:mt-0 md:text-[10px]">Ед. измерения: {item.unit}</p>
                       </div>
-                      <div className="p-1 bg-gray-800 rounded-md group-hover:bg-cyan-600 group-hover:text-white text-gray-500 transition-all">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors group-hover:bg-cyan-600 group-hover:text-white md:h-auto md:w-auto md:p-1 md:text-gray-500">
                         <Plus className="w-3.5 h-3.5" />
                       </div>
                     </div>
@@ -2579,13 +2650,19 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   ))}
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
 
+        {mobileTab !== 'estimate' && <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-800 bg-gray-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+          <div><p className="text-xs text-gray-400">Итого</p><p className="font-semibold text-white">{getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></div>
+          <button type="button" onClick={() => changeMobileTab('estimate')} className="min-h-11 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white">К смете · {budgetItems.length}</button>
+        </div>}
+
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-gray-800 bg-gray-900 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between flex-shrink-0">
-          <div className="flex items-center gap-6 min-w-0">
+        <div className={`${mobileTab === 'estimate' ? 'flex' : 'hidden'} max-h-[38dvh] shrink-0 flex-col gap-3 overflow-y-auto border-t border-gray-800 bg-gray-900 px-4 py-3 md:flex md:max-h-none lg:flex-row lg:items-center lg:justify-between`}>
+          <div className="flex min-w-0 flex-col items-start gap-4 md:flex-row md:items-center md:gap-6">
             <div className="flex flex-col">
               <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итоговая сумма</span>
               <span className="text-xl font-black text-white">
@@ -2649,7 +2726,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
               )}
             </div>
 
-            <div className="flex items-start gap-6">
+            <div className="flex w-full flex-wrap items-start gap-4 md:w-auto md:gap-6">
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -2822,7 +2899,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap lg:flex-nowrap lg:justify-end">
+          <div className="order-first flex items-center gap-2 flex-wrap md:order-none lg:flex-nowrap lg:justify-end">
             <button
               onClick={() => handleExportPDF()}
               disabled={generatingPDF || budgetItems.length === 0}
@@ -2851,6 +2928,17 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       </div>
 
       {/* Modals */}
+      {showMobileSettings && <MobileBudgetSettings onClose={() => setShowMobileSettings(false)}>
+        <label className="block text-sm font-medium text-gray-300">Версия сметы
+          <input type="text" value={budgetVersion} onChange={event => setBudgetVersion(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-gray-700 bg-gray-800 px-3 text-base text-white" />
+        </label>
+        {currencySettings}
+        <div className="flex flex-wrap gap-3 border-t border-gray-800 pt-4">
+          <button type="button" onClick={() => { setShowMobileSettings(false); setShowBudgetNoteDialog(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Примечание</button>
+          <button type="button" onClick={() => { setShowMobileSettings(false); setShowStickyNotes(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Заметки</button>
+        </div>
+      </MobileBudgetSettings>}
+
       {showBudgetNoteDialog && (
         <div
           className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[70] p-0 sm:p-4"
@@ -3042,6 +3130,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
