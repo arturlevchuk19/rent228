@@ -1,0 +1,23 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+const budgetA={id:'first',name:'Первая'},budgetB={id:'last',name:'Последняя'};
+let seeds,index,copied=[],opened=[],choice=null,list=[budgetA,budgetB],alerts=[];
+const source=fs.readFileSync('src/components/dialogs/CopyBudgetDialog.tsx','utf8');
+const exports={};
+new Function('exports','require',ts.transpile(source,{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>{
+ if(name==='react')return {useState:()=>[seeds[index++],()=>{}],useEffect:()=>{},useMemo:fn=>fn()};
+ if(name==='react/jsx-runtime')return {jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})};
+ if(name.includes('eventBudgets'))return {copyEventBudget:async id=>{copied.push(id);return 'new-budget';}};
+ return {};
+});
+const event={id:'project',name:'Проект',event_date:'2026-11-03',sourceBudgets:[budgetA,budgetB]};
+const render=selection=>{index=0;seeds=[[event],selection,'',false,'','',false,false];return exports.CopyBudgetDialog({currentEventId:'target',onClose:()=>{},onSuccess:()=>{}});};
+const nodes=node=>Array.isArray(node)?node.flatMap(nodes):node&&typeof node==='object'?[node,...nodes(node.props?.children)]:[];
+let tree=nodes(render({}));assert.equal(tree.filter(n=>n.type==='select').length,1);let button=tree.find(n=>n.type==='button'&&n.props.children?.includes?.('Копировать'));assert.equal(button.props.disabled,true,'Multiple estimates require explicit choice');
+tree=nodes(render({project:'first'}));button=tree.find(n=>n.type==='button'&&n.props.children?.includes?.('Копировать'));assert.equal(button.props.disabled,false);await button.props.onClick();assert.deepEqual(copied,['first'],'Copy exactly the chosen estimate, never the newest');
+event.sourceBudgets=[budgetA];tree=nodes(render({}));assert.equal(tree.filter(n=>n.type==='select').length,0);await tree.find(n=>n.type==='button'&&n.props.children?.includes?.('Копировать')).props.onClick();assert.equal(copied.at(-1),'first');
+const eventsSource=fs.readFileSync('src/pages/Events.tsx','utf8');const ast=ts.createSourceFile('Events.tsx',eventsSource,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let handler;function visit(n){if(ts.isVariableDeclaration(n)&&n.name.getText(ast)==='openSpecification')handler=n.initializer.getText(ast);ts.forEachChild(n,visit);}visit(ast);assert(handler);
+const js=ts.transpile('const openSpecification = '+handler+';',{target:ts.ScriptTarget.ES2022});
+const request={current:false};
+const open=new Function('specificationRequest','canAccess','user','setLoadingSpecifications','getEventBudgets','onSpecificationOpen','setSpecificationChoice','alert','getErrorMessage',js+';return openSpecification;')(request,()=>true,{},()=>{},async()=>list,(...args)=>opened.push(args),value=>{choice=value;},message=>alerts.push(message),error=>String(error));
+await open('project');assert.equal(opened.length,0);assert.deepEqual(choice,{eventId:'project',budgets:[budgetA,budgetB]});list=[budgetA];await open('project');assert.deepEqual(opened,[['project','first']]);list=[];await open('empty');assert.equal(opened.length,1);assert.equal(alerts.length,1);assert.equal(request.current,false);
+console.log('PASS: explicit copy choice, chosen ID, single estimate, multiple specification chooser, single specification direct open and empty project');

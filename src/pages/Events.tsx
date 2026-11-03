@@ -1,3 +1,6 @@
+import { BudgetDocumentDialog } from '../components/BudgetDocumentDialog';
+import { getEventBudgets, type EventBudget } from '../lib/eventBudgets';
+import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import React, { useEffect, useState, useRef } from 'react';
@@ -8,7 +11,7 @@ import { useAuth } from '../contexts/authContext';
 interface EventsProps {
   refreshSignal?: number;
   onEventFormOpen?: (event?: Event) => void;
-  onSpecificationOpen?: (eventId: string) => void;
+  onSpecificationOpen?: (eventId: string, budgetId?: string) => void;
   lastCreatedEventId?: string | null;
 }
 
@@ -19,6 +22,21 @@ const monthNames = [
 
 export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventId, refreshSignal = 0 }: EventsProps) {
   const { user } = useAuth();
+  const [specificationChoice, setSpecificationChoice] = useState<{ eventId: string; budgets: EventBudget[] } | null>(null);
+  const [loadingSpecifications, setLoadingSpecifications] = useState(false);
+  const specificationRequest = useRef(false);
+  const openSpecification = async (eventId: string) => {
+    if (specificationRequest.current || !canAccess(user, 'specifications')) return;
+    specificationRequest.current = true;
+    setLoadingSpecifications(true);
+    try {
+      const budgets = await getEventBudgets(eventId);
+      if (budgets.length === 1) onSpecificationOpen?.(eventId, budgets[0].id);
+      else if (budgets.length > 1) setSpecificationChoice({ eventId, budgets });
+      else alert('В мероприятии пока нет смет и спецификаций.');
+    } catch (error) { alert(`Не удалось загрузить спецификации: ${getErrorMessage(error)}`); }
+    finally { specificationRequest.current = false; setLoadingSpecifications(false); }
+  };
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -471,8 +489,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             </span>
                             <span className="w-px h-3.5 bg-gray-700 mx-0.5" />
                             <button
-                              onClick={() => onSpecificationOpen?.(event.id)}
-                              disabled={!['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
+                              onClick={() => { void openSpecification(event.id); }}
+                              disabled={loadingSpecifications || !['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
                               className={`p-1 rounded transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
                               title={['Подтверждено', 'Выполнено'].includes(event.status) ? 'Открыть спецификацию' : 'Мероприятие не подтверждено'}
                             >
@@ -557,8 +575,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                         </span>
                         <span className="w-px h-4 bg-gray-700 mx-0.5" />
                         <button
-                          onClick={() => onSpecificationOpen?.(event.id)}
-                          disabled={!['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
+                          onClick={() => { void openSpecification(event.id); }}
+                          disabled={loadingSpecifications || !['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
                           className={`p-1 rounded transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
                           title={['Подтверждено', 'Выполнено'].includes(event.status) ? 'Открыть спецификацию' : 'Мероприятие не подтверждено'}
                         >
@@ -640,6 +658,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
           </button>
         </div>
       )}
+      {loadingSpecifications && <div role="status" className="fixed bottom-4 right-4 z-50 rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-sm text-gray-200">Загрузка спецификаций…</div>}
+      {specificationChoice && <BudgetDocumentDialog budgets={specificationChoice.budgets} kind="specification" onClose={() => setSpecificationChoice(null)} onSelect={budgetId => { const eventId = specificationChoice.eventId; setSpecificationChoice(null); onSpecificationOpen?.(eventId, budgetId); }} />}
     </div>
   );
 }

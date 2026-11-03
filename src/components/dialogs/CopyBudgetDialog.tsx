@@ -1,4 +1,4 @@
-import { getEventBudgets, copyEventBudget } from '../../lib/eventBudgets';
+import { getEventBudgets, copyEventBudget, type EventBudget } from '../../lib/eventBudgets';
 import { useState, useEffect, useMemo } from 'react';
 import { X, Search, Calendar, Copy, Loader2, User, MapPin } from 'lucide-react';
 import { Event, getEvents, getEvent, updateEvent } from '../../lib/events';
@@ -10,7 +10,9 @@ interface CopyBudgetDialogProps {
 }
 
 export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBudgetDialogProps) {
-  const [events, setEvents] = useState<(Event & { copyBudgetId: string; copyBudgetName: string })[]>([]);
+  const [events, setEvents] = useState<(Event & { sourceBudgets: EventBudget[] })[]>([]);
+  const [selectedBudgets, setSelectedBudgets] = useState<Record<string, string>>({});
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
@@ -25,11 +27,11 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
     try {
       setLoading(true);
       const data = await getEvents();
-      const sources = await Promise.all(data.map(async event => (await getEventBudgets(event.id))
-        .map(budget => ({ ...event, copyBudgetId: budget.id, copyBudgetName: budget.name }))));
-      setEvents(sources.flat());
+      const sources = await Promise.all(data.map(async event => ({ ...event, sourceBudgets: await getEventBudgets(event.id) })));
+      setEvents(sources.filter(event => event.sourceBudgets.length > 0));
     } catch (error) {
       console.error('Error loading events:', error);
+      setLoadError('Не удалось загрузить список смет. Закройте окно и повторите попытку.');
     } finally {
       setLoading(false);
     }
@@ -42,7 +44,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
         event.clients?.organization?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.venues?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.event_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        event.copyBudgetName.toLowerCase().includes(searchTerm.toLowerCase());
+        event.sourceBudgets.some(budget => budget.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesDate = !dateFilter || event.event_date?.includes(dateFilter);
 
@@ -52,6 +54,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
 
   const handleCopy = async (sourceEventId: string, sourceBudgetId: string) => {
     try {
+      if (copying || !sourceBudgetId) return;
       setCopying(true);
 
       const newBudgetId = await copyEventBudget(sourceBudgetId, currentEventId);
@@ -150,7 +153,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-          {loading ? (
+          {loadError ? <p role="alert" className="p-3 text-sm text-red-400">{loadError}</p> : loading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
             </div>
@@ -162,16 +165,16 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
             <div className="space-y-1">
               {filteredEvents.map((event) => (
                 <div
-                  key={event.copyBudgetId}
-                  className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
+                  key={event.id}
+                  className="flex flex-wrap items-center justify-between gap-2 p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
                 >
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="text-cyan-400 text-sm font-medium whitespace-nowrap">
                         {formatDate(event.event_date)}
                       </span>
                       <span className="text-white font-medium truncate">
-                        {event.name || event.event_type} · {event.copyBudgetName}
+                        {event.name || event.event_type}
                       </span>
                       <span className="text-xs px-2 py-0.5 bg-gray-700 rounded text-gray-300">
                         {event.event_type}
@@ -192,9 +195,19 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleCopy(event.id, event.copyBudgetId)}
+                  {event.sourceBudgets.length > 1 ? <select
+                    aria-label={`Смета для копирования из ${event.name || event.event_type}`}
+                    value={selectedBudgets[event.id] || ''}
                     disabled={copying}
+                    onChange={change => setSelectedBudgets(current => ({ ...current, [event.id]: change.target.value }))}
+                    className="mt-2 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-900 px-2 py-2 text-sm text-white sm:mt-0 sm:w-56"
+                  >
+                    <option value="" disabled>Выберите смету</option>
+                    {event.sourceBudgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}
+                  </select> : <span className="mt-2 text-sm text-gray-300 sm:mt-0">{event.sourceBudgets[0].name}</span>}
+                  <button
+                    onClick={() => handleCopy(event.id, event.sourceBudgets.length === 1 ? event.sourceBudgets[0].id : selectedBudgets[event.id])}
+                    disabled={copying || (event.sourceBudgets.length > 1 && !selectedBudgets[event.id])}
                     className="ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
                     {copying ? (
