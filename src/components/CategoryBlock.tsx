@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, Copy, MessageSquarePlus, Highlighter } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { EQUIPMENT_UNITS } from '../lib/equipment';
@@ -22,7 +22,7 @@ interface CategoryBlockProps {
   onToggleExpand: () => void;
   onSelect?: () => void;
   onUpdateCategoryName: (newName: string) => void;
-  onUpdateItem: (itemId: string, updates: Partial<BudgetItem>) => void;
+  onUpdateItem: (itemId: string, updates: Partial<BudgetItem>) => Promise<boolean>;
   onDeleteItem: (itemId: string) => void;
   onDeleteCategory?: (categoryId: string) => void;
   onDuplicateCategory?: (categoryId: string) => void;
@@ -76,6 +76,29 @@ export function CategoryBlock({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(categoryName);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+  const [savingNotes, setSavingNotes] = useState<Record<string, boolean>>({});
+  const [noteErrors, setNoteErrors] = useState<Record<string, boolean>>({});
+  const noteWrites = useRef(new Set<string>());
+  const saveNote = async (item: BudgetItem, value: string, close = false) => {
+    if (noteWrites.current.has(item.id)) return;
+    const key = item.id + '_notes';
+    noteWrites.current.add(item.id);
+    setDraftValues(current => ({ ...current, [key]: value }));
+    setSavingNotes(current => ({ ...current, [item.id]: true }));
+    setNoteErrors(current => ({ ...current, [item.id]: false }));
+    try {
+      if (await onUpdateItem(item.id, { notes: value })) {
+        setDraftValues(current => { const next = { ...current }; if (next[key] === value) delete next[key]; return next; });
+        if (close) setNoteEditorsOpen(current => ({ ...current, [item.id]: false }));
+      } else setNoteErrors(current => ({ ...current, [item.id]: true }));
+    } catch {
+      setNoteErrors(current => ({ ...current, [item.id]: true }));
+    } finally {
+      noteWrites.current.delete(item.id);
+      setSavingNotes(current => ({ ...current, [item.id]: false }));
+    }
+  };
+
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
   const [openUnitDropdownId, setOpenUnitDropdownId] = useState<string | null>(null);
   const [openMarkerDropdownId, setOpenMarkerDropdownId] = useState<string | null>(null);
@@ -682,33 +705,25 @@ export function CategoryBlock({
                         type="text"
                         value={draftValues[item.id + '_notes'] ?? item.notes ?? ''}
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_notes']: e.target.value }))}
+                        disabled={savingNotes[item.id]}
                         onBlur={(e) => {
-                          onUpdateItem(item.id, { notes: e.target.value });
-                          setDraftValues(prev => {
-                            const copy = { ...prev };
-                            delete copy[item.id + '_notes'];
-                            return copy;
-                          });
+                          if (draftValues[item.id + '_notes'] !== undefined) void saveNote(item, e.target.value);
                         }}
                         placeholder="Примечание"
                         className="flex-1 bg-transparent text-[9px] text-gray-500 placeholder-gray-600 focus:outline-none focus:text-gray-300"
                       />
                       <button
                         type="button"
-                        onClick={() => {
-                          onUpdateItem(item.id, { notes: '' });
-                          setDraftValues(prev => {
-                            const copy = { ...prev };
-                            delete copy[item.id + '_notes'];
-                            return copy;
-                          });
-                          setNoteEditorsOpen(prev => ({ ...prev, [item.id]: false }));
-                        }}
+                        disabled={savingNotes[item.id]}
+                        onPointerDown={event => event.preventDefault()}
+                        onClick={() => { void saveNote(item, '', true); }}
                         className="text-red-500/60 hover:text-red-400"
                         title="Удалить примечание"
                       >
                         <X className="w-3 h-3" />
                       </button>
+                      {savingNotes[item.id] && <span role="status" className="text-[10px] text-gray-400">Сохранение…</span>}
+                      {noteErrors[item.id] && <span role="alert" className="text-xs text-amber-300">Примечание не сохранено. Текст оставлен в поле. <button type="button" onPointerDown={event => event.preventDefault()} onClick={() => { void saveNote(item, draftValues[item.id + '_notes'] ?? item.notes ?? ''); }} className="underline">Повторить</button></span>}
                     </div>
                   )}
                 </div>

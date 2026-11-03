@@ -1,0 +1,21 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+const category=fs.readFileSync('src/components/CategoryBlock.tsx','utf8');
+for(const path of ['src/components/CategoryBlock.tsx','src/components/BudgetEditor.tsx','src/lib/retryBudgetUpdate.ts']) {const r=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX},reportDiagnostics:true});assert(!r.diagnostics.some(d=>d.category===ts.DiagnosticCategory.Error),path);}
+let helper=ts.transpile(fs.readFileSync('src/lib/retryBudgetUpdate.ts','utf8'),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022});let exports={};new Function('exports','require',helper)(exports,()=>({getErrorMessage:e=>e.message||String(e)}));
+let calls=0;assert.equal(await exports.retryBudgetUpdate(async()=>{if(++calls===1)throw new TypeError('Load failed');return 'saved';},async()=>{}),'saved');assert.equal(calls,2);
+calls=0;await assert.rejects(exports.retryBudgetUpdate(async()=>{calls++;throw Error('permission denied');},async()=>{}));assert.equal(calls,1,'Permission errors must not retry');
+calls=0;await assert.rejects(exports.retryBudgetUpdate(async()=>{calls++;throw {message:'TypeError: Load failed'};},async()=>{}));assert.equal(calls,2,'Permanent offline must terminate');
+const ast=ts.createSourceFile('CategoryBlock.tsx',category,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);let note;
+function visit(n){if(ts.isVariableDeclaration(n)&&n.name.getText(ast)==='saveNote')note=n.initializer.getText(ast);ts.forEachChild(n,visit);}visit(ast);assert(note);
+let drafts={},saving={},errors={},editors={one:true},writes=0,ok=false,reject=false,release;
+const setter=name=>fn=>{if(name==='drafts')drafts=fn(drafts);if(name==='saving')saving=fn(saving);if(name==='errors')errors=fn(errors);if(name==='editors')editors=fn(editors);};
+const js=ts.transpile('const saveNote = '+note+';',{target:ts.ScriptTarget.ES2022});
+const saveNote=new Function('noteWrites','setDraftValues','setSavingNotes','setNoteErrors','setNoteEditorsOpen','onUpdateItem',js+';return saveNote;')({current:new Set()},setter('drafts'),setter('saving'),setter('errors'),setter('editors'),async()=>{writes++;if(release)await release;if(reject)throw Error('offline');return ok;});
+const item={id:'one',notes:'old'};
+await saveNote(item,'new text');assert.equal(drafts.one_notes,'new text');assert.equal(errors.one,true);assert.equal(saving.one,false);
+ok=true;await saveNote(item,drafts.one_notes);assert.equal(drafts.one_notes,undefined);assert.equal(errors.one,false);
+ok=false;await saveNote(item,'',true);assert.equal(drafts.one_notes,'');assert.equal(editors.one,true,'Failed deletion must leave editor open');
+ok=true;await saveNote(item,'',true);assert.equal(editors.one,false);
+reject=true;await saveNote(item,'preserved');assert.equal(drafts.one_notes,'preserved');assert.equal(errors.one,true);reject=false;
+release=new Promise(r=>{globalThis.finish=r;});const first=saveNote(item,'serial');const count=writes;await saveNote(item,'duplicate');assert.equal(writes,count);globalThis.finish();await first;
+console.log('PASS: transient retry, no retry for permissions, bounded offline retry, draft preserved on failure, retry success, failed/successful deletion, thrown errors and duplicate-save protection; TSX syntax OK');

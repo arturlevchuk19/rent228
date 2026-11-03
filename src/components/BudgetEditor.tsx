@@ -1,3 +1,4 @@
+import { retryBudgetUpdate, isBudgetNetworkError } from '../lib/retryBudgetUpdate';
 import { useCatalogLongPress } from '../lib/useCatalogLongPress';
 import { useBudgetTouchDrag } from '../lib/useBudgetTouchDrag';
 import { flushSync } from 'react-dom';
@@ -176,7 +177,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [initialSettings, setInitialSettings] = useState<BudgetAutoSettings | null>(null);
   const settingsLoaded = useRef(false);
   const closing = useRef(false);
-  const pendingItemWrites = useRef(new Set<Promise<void>>());
+  const pendingItemWrites = useRef(new Set<Promise<boolean>>());
+  const failedItemUpdates = useRef(new Set<string>());
   const settingsSnapshot: BudgetAutoSettings = {
     discount_enabled: discountEnabled, discount_percent: discountPercent,
     discount2_enabled: discount2Enabled, discount2_percent: discount2Percent,
@@ -799,11 +801,15 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const handleUpdateItem = (itemId: string, updates: Partial<BudgetItem>) => {
     const operation = (async () => {
       try {
-        const updatedItem = await updateBudgetItem(itemId, updates);
+        const updatedItem = await retryBudgetUpdate(() => updateBudgetItem(itemId, updates));
         setBudgetItems(current => current.map(item => item.id === itemId ? { ...item, ...updatedItem } : item));
+        for (const key of Object.keys(updates)) failedItemUpdates.current.delete(`${itemId}:${key}`);
+        return true;
       } catch (error) {
         console.error('Error updating item:', error);
-        alert(`Ошибка обновления: ${getErrorMessage(error)}`);
+        for (const key of Object.keys(updates)) failedItemUpdates.current.add(`${itemId}:${key}`);
+        if (!('notes' in updates)) alert(isBudgetNetworkError(error) ? 'Не удалось сохранить изменение: нет связи с сервером. Повторите попытку.' : `Ошибка обновления: ${getErrorMessage(error)}`);
+        return false;
       }
     })();
     pendingItemWrites.current.add(operation);
@@ -992,6 +998,10 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       // Commit a focused price/days field before flushing its latest React state.
       flushSync(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
       await Promise.all([autosave.flush(), ...pendingItemWrites.current]);
+      if (failedItemUpdates.current.size) {
+        alert('Есть несохранённые изменения позиций. Повторите сохранение перед закрытием сметы.');
+        return;
+      }
       onClose();
     } catch { /* The persistent autosave error explains why the editor stays open. */ }
     finally { closing.current = false; }
