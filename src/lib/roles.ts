@@ -36,6 +36,7 @@ export function defaultPermissions(role: UserRole): Permissions {
   if (role === 'clerk' || role === 'foreman') {
     for (const key of ['events', 'equipment', 'budgets', 'logistics'] as AppModule[]) permissions[key] = 2;
   }
+  if (role === 'staff') permissions.dashboard = 0;
   if (role === 'foreman' || role === 'warehouse') permissions.specifications = 2;
   return permissions;
 }
@@ -44,6 +45,7 @@ export interface PermissionUser { id: string; role: UserRole; status: UserStatus
 export function canAccess(user: PermissionUser | null, module: AppModule, level: AccessLevel = 1): boolean {
   if (!user || user.status !== 'active') return false;
   if (user.role === 'superuser') return true;
+  if (user.role === 'staff' && module === 'dashboard') return false;
   return (user.permissions ?? defaultPermissions(user.role))[module] >= level;
 }
 export function canManageUser(actor: PermissionUser | null, target: { id: string; role: UserRole }): boolean {
