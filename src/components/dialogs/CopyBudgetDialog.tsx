@@ -46,7 +46,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
         event.event_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.sourceBudgets.some(budget => budget.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchesDate = !dateFilter || event.event_date?.includes(dateFilter);
+      const matchesDate = !dateFilter || event.event_date?.slice(0, 10).split('-').reverse().join('.').includes(dateFilter);
 
       return matchesSearch && matchesDate;
     });
@@ -129,9 +129,14 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="text"
-                placeholder="Фильтр по дате (YYYY-MM-DD)"
+                placeholder="Фильтр по дате (дд.мм.гггг)"
+                aria-label="Дата мероприятия в формате дд.мм.гггг"
+                inputMode="numeric"
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+                  setDateFilter(digits.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2}\.\d{2})(\d)/, '$1.$2'));
+                }}
                 className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
