@@ -24,7 +24,7 @@ import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
 import { generateContractDocx } from '../lib/contractGenerator';
-import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
+import { ceilCurrencyUnit, calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
 import {
   UShapeUnifiedDialog,
   LedSizeDialog,
@@ -1378,7 +1378,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
   const calculateBYNCash = (amountUSD: number): number => {
     const baseAmount = amountUSD * exchangeRate;
-    return Math.ceil(baseAmount);
+    return ceilCurrencyUnit(baseAmount);
   };
 
   const calculateBYNNonCash = (amountUSD: number, item?: BudgetItem): number => {
@@ -1389,7 +1389,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     } else {
       withBankRate = baseAmount / 0.8;
     }
-    return Math.ceil(withBankRate);
+    return ceilCurrencyUnit(withBankRate);
   };
 
   const equipmentCategories = ['Все', ...Array.from(new Set(equipment.map(item => item.category)))];

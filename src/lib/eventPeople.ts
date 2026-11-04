@@ -1,7 +1,7 @@
 import type { Personnel, WorkItem } from './personnel';
 import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
-import { calcCombinedTotal } from './budgetPricing';
+import { ceilCurrencyUnit, calcCombinedTotal } from './budgetPricing';
 import type { ProjectPerson } from './eventProject';
 
 export interface PeopleWork { id: string; name: string; }
@@ -35,10 +35,10 @@ export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number)
 export function budgetWorkAmountBYN(item: BudgetItem, settings: Partial<Event>): number {
   const rate = settings.budget_exchange_rate || item.exchange_rate || 3;
   const unitUSD = settings.budget_totals_mode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, settings.budget_days || 1) : item.price;
-  if (settings.budget_payment_mode === 'byn_cash') return moneyRound(Math.ceil(unitUSD * rate) * item.quantity);
+  if (settings.budget_payment_mode === 'byn_cash') return moneyRound(ceilCurrencyUnit(unitUSD * rate) * item.quantity);
   if (settings.budget_payment_mode === 'byn_noncash') {
     const delivery = /доставка оборудования|доставка персонала/i.test(item.work_item?.name || item.name || '');
-    return moneyRound(Math.ceil(delivery ? unitUSD * rate / 0.8 : unitUSD * rate * 1.67) * item.quantity);
+    return moneyRound(ceilCurrencyUnit(delivery ? unitUSD * rate / 0.8 : unitUSD * rate * 1.67) * item.quantity);
   }
   return moneyRound(unitUSD * item.quantity * rate);
 }

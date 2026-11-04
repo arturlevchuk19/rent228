@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { calcCombinedTotal, calcDay1Total } from './budgetPricing';
+import { ceilCurrencyUnit, calcCombinedTotal, calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
 interface BudgetItem {
@@ -294,7 +294,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const baseAmount = usdPrice * data.exchangeRate;
     switch (paymentMode) {
       case 'byn_cash':
-        return round ? Math.ceil(baseAmount) : baseAmount;
+        return round ? ceilCurrencyUnit(baseAmount) : baseAmount;
       case 'byn_noncash': {
         let withBankRate: number;
         if (item && item.work_item && isWorkNonDelivery(item)) {
@@ -302,7 +302,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         } else {
           withBankRate = baseAmount / 0.8;
         }
-        return round ? Math.ceil(withBankRate) : withBankRate;
+        return round ? ceilCurrencyUnit(withBankRate) : withBankRate;
       }
       default:
         return usdPrice;
@@ -364,7 +364,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         // Use rounded values for display
         const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
-        const displayTotalDay1BYN = calculatePrice(usdTotalDay1, item, true);
+        const displayTotalDay1BYN = displayUnitPriceBYNDay1 * qty;
 
         const usdUnitPriceCombined = calcCombinedTotal(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
@@ -615,7 +615,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       budgetDays,
       item.multi_day_rate_override
     );
-    const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+    const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
     return sum + unitPriceBYNCombined * qty;
   }, 0);
 
@@ -659,7 +659,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         budgetDays,
         item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
   const grandTotalDiscountEligibleCombined = mainBudgetItems
@@ -671,7 +671,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         budgetDays,
         item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
   const grandTotalConsumablesCombined = mainBudgetItems
@@ -683,7 +683,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         budgetDays,
         item.multi_day_rate_override
       );
-      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, false);
+      const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
       return sum + unitPriceBYNCombined * qty;
     }, 0);
   const editorDay1Total = data.totalDay1FromEditor ?? roundGrandTotalForPaymentMode(grandTotalDay1);
@@ -782,7 +782,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     ? extraBudgetItems.reduce((sum, item) => {
         const qty = item.quantity || 0;
         const usdPriceDay1 = item.price || 0;
-        const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, false);
+        const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
         return sum + unitPriceBYNDay1 * qty;
       }, 0)
     : 0;
@@ -795,7 +795,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           budgetDays,
           item.multi_day_rate_override
         );
-        const unitPriceBYNCombined = calculatePrice(usdPriceCombined, item, false);
+        const unitPriceBYNCombined = calculatePrice(usdPriceCombined, item, true);
         return sum + unitPriceBYNCombined * qty;
       }, 0)
     : 0;

@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, Copy, MessageSquarePlus, Highlighter } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { EQUIPMENT_UNITS } from '../lib/equipment';
-import { calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
+import { ceilCurrencyUnit, calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
 
 export interface BudgetDragTarget {
   type: 'category' | 'location' | 'uncategorized';
@@ -133,7 +133,7 @@ export function CategoryBlock({
 
   const convertUSDtoBYNCashPrice = (priceUSD: number): number => {
     const baseAmount = priceUSD * exchangeRate;
-    return Math.ceil(baseAmount);
+    return ceilCurrencyUnit(baseAmount);
   };
 
 
@@ -145,7 +145,7 @@ export function CategoryBlock({
     } else {
       withBankRate = baseAmount / 0.8;
     }
-    return Math.ceil(withBankRate);
+    return ceilCurrencyUnit(withBankRate);
   };
 
 

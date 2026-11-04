@@ -2,6 +2,13 @@ import type { BudgetItem } from './events';
 
 type TotalsMode = 'combined_only' | 'day1_plus_combined';
 
+/** Do not turn floating-point noise just above a whole BYN into another BYN. */
+export const ceilCurrencyUnit = (value: number): number => {
+  const nearest = Math.round(value);
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(value)) * 8;
+  return Math.abs(value - nearest) <= tolerance ? nearest : Math.ceil(value);
+};
+
 export const calcDay1Total = (item: Pick<BudgetItem, 'price' | 'quantity'>): number => {
   return item.price * item.quantity;
 };
