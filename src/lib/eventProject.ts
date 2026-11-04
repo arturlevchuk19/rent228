@@ -5,6 +5,7 @@ export interface ProjectPerson { id: string; personnel_id: string; name: string;
 export interface ProjectTransport { id: string; vehicle: string; driver: string; notes: string; }
 export interface EventProjectDetails {
   description: string; schedule: ScheduleEntry[]; people: ProjectPerson[]; transport: ProjectTransport[];
+  people_budget_id?: string; people_works?: { id: string; name: string }[];
   sound: string; light: string; media: string; io: string;
 }
 export const newProjectId = () => crypto.randomUUID();
@@ -13,6 +14,8 @@ const records = (value: unknown): Record<string, unknown>[] => Array.isArray(val
 export function normalizeProjectDetails(value: unknown): EventProjectDetails {
   const data = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   return {
+    ...(typeof data.people_budget_id === 'string' ? { people_budget_id: data.people_budget_id } : {}),
+    ...(Array.isArray(data.people_works) ? { people_works: records(data.people_works).map(row => ({ id: text(row.id), name: text(row.name) })).filter(row => row.id && row.name.trim()) } : {}),
     description: text(data.description), sound: text(data.sound), light: text(data.light), media: text(data.media), io: text(data.io),
     schedule: records(data.schedule).map((row, index) => ({ id: text(row.id) || `schedule-${index}`, date: text(row.date), title: text(row.title), start: text(row.start), end: text(row.end) })),
     people: records(data.people).map((row, index) => ({ id: text(row.id) || `person-${index}`, personnel_id: text(row.personnel_id), name: text(row.name), group: row.group === 'freelance' || row.group === 'external' ? row.group : 'team', rate: text(row.rate), ...(typeof row.work_id === 'string' ? { work_id: row.work_id } : {}), ...(typeof row.work_name === 'string' ? { work_name: row.work_name } : {}), ...(typeof row.hours === 'string' ? { hours: row.hours } : {}) })),

@@ -1,7 +1,10 @@
+import { getEventBudgets, type EventBudget } from '../lib/eventBudgets';
+import { getBudgetItems, type BudgetItem } from '../lib/events';
+import { documentPeopleWorks } from '../lib/eventPeople';
 import { EventPeoplePanel } from './EventPeoplePanel';
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Truck } from 'lucide-react';
-import { getPersonnel, getWorkItems, type WorkItem, type Personnel } from '../lib/personnel';
+import { getPersonnel, type Personnel } from '../lib/personnel';
 import { supabase } from '../lib/supabase';
 import { newProjectId, type EventProjectDetails } from '../lib/eventProject';
 import { dayNumber } from '../lib/calendar';
@@ -15,13 +18,16 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
   eventId?: string; eventDate: string; refreshSignal?: number;
 }) {
   const [personnel, setPersonnel] = useState<Personnel[]>([]);
-  const [works, setWorks] = useState<WorkItem[]>([]);
+  const [peopleBudgets, setPeopleBudgets] = useState<EventBudget[]>([]);
+  const [peopleBudgetItems, setPeopleBudgetItems] = useState<BudgetItem[]>([]);
+  const [budgetWorksError, setBudgetWorksError] = useState('');
+  const [loadingBudgetWorks, setLoadingBudgetWorks] = useState(false);
   const [directoryError, setDirectoryError] = useState('');
   const [assigned, setAssigned] = useState<Personnel[]>([]);
   const [peopleError, setPeopleError] = useState('');
   useEffect(() => {
     let active = true;
-    Promise.all([getPersonnel(), getWorkItems()]).then(([people, jobs]) => { if (active) { setPersonnel(people); setWorks(jobs); setDirectoryError(''); } }).catch(() => { if (active) setDirectoryError('Не удалось загрузить справочники сотрудников и работ. Обновите страницу.'); });
+    getPersonnel().then(people => { if (active) { setPersonnel(people); setDirectoryError(''); } }).catch(() => { if (active) setDirectoryError('Не удалось загрузить справочник сотрудников. Обновите страницу.'); });
     return () => { active = false; };
   }, []);
   useEffect(() => {
@@ -37,6 +43,19 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
     });
     return () => { active = false; };
   }, [eventId, refreshSignal]);
+  useEffect(() => {
+    let active = true;
+    setPeopleBudgets([]); setPeopleBudgetItems([]); setBudgetWorksError('');
+    if (!eventId) return;
+    setLoadingBudgetWorks(true);
+    Promise.all([getEventBudgets(eventId), getBudgetItems(eventId)]).then(([documents, items]) => {
+      if (active) { setPeopleBudgets(documents); setPeopleBudgetItems(items); }
+    }).catch(() => { if (active) setBudgetWorksError('Не удалось загрузить работы и суммы из сметы.'); })
+      .finally(() => { if (active) setLoadingBudgetWorks(false); });
+    return () => { active = false; };
+  }, [eventId, refreshSignal]);
+  const peopleBudget = peopleBudgets.find(budget => budget.id === value.people_budget_id) || peopleBudgets.find(budget => budget.is_primary) || peopleBudgets[0];
+  const works = peopleBudget ? documentPeopleWorks(peopleBudgetItems, peopleBudget) : [];
   const update = <K extends keyof EventProjectDetails>(key: K, data: EventProjectDetails[K]) => onChange({ ...value, [key]: data });
   const textEditor = (key: 'description' | 'sound' | 'light' | 'media' | 'io') => <div className="space-y-2"><textarea aria-label={key === 'description' ? 'Описание мероприятия' : `Заметки: ${key}`} rows={8} maxLength={30000} value={value[key]} onChange={event => update(key, event.target.value)} className={`${input} resize-y`} /><p className="text-xs text-gray-500"># Заголовок · **жирный текст** · - список · ==выделение==. Изменения сохраняются кнопкой «Сохранить».</p></div>;
   const days = [...new Set(value.schedule.map(row => row.date))].sort();
@@ -48,7 +67,7 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
       })}</div>}
     </ProjectSection>
     <ProjectSection title="Описание" defaultOpen editable={editable} editor={textEditor('description')}><ProjectText text={value.description} empty="Описание мероприятия пока не добавлено." /></ProjectSection>
-    <EventPeoplePanel people={value.people} personnel={personnel} assigned={assigned} works={works} editable={editable} error={peopleError || directoryError} onChange={people => update('people', people)} />
+    <EventPeoplePanel people={value.people} personnel={personnel} assigned={assigned} works={works} editable={editable} error={peopleError || directoryError || budgetWorksError} onChange={people => update('people', people)} budgets={peopleBudgets} selectedBudgetId={peopleBudget?.id || ''} onBudgetChange={id => update('people_budget_id', id)} customWorks={value.people_works || []} onCustomWorksChange={rows => update('people_works', rows)} loadingWorks={loadingBudgetWorks} />
     <ProjectSection title="Транспорт" count={value.transport.length} editable={editable} editor={<div className="space-y-3">{value.transport.map((row, index) => <div key={row.id} className="min-w-0 space-y-2 rounded-xl border border-gray-800 p-3"><div className="flex gap-2"><input aria-label={`Транспорт ${index + 1}`} value={row.vehicle} placeholder="Автомобиль, номер" onChange={event => update('transport', value.transport.map(item => item.id === row.id ? { ...item, vehicle: event.target.value } : item))} className={input} /><button type="button" aria-label={`Удалить транспорт ${index + 1}`} onClick={() => update('transport', value.transport.filter(item => item.id !== row.id))} className="p-2 text-red-400"><Trash2 className="h-4 w-4" /></button></div><input aria-label={`Водитель ${index + 1}`} value={row.driver} placeholder="Водитель" onChange={event => update('transport', value.transport.map(item => item.id === row.id ? { ...item, driver: event.target.value } : item))} className={input} /><textarea aria-label={`Примечания к транспорту ${index + 1}`} value={row.notes} placeholder="Маршрут, время подачи, примечания" onChange={event => update('transport', value.transport.map(item => item.id === row.id ? { ...item, notes: event.target.value } : item))} className={input} /></div>)}<button type="button" onClick={() => update('transport', [...value.transport, { id: newProjectId(), vehicle: '', driver: '', notes: '' }])} className={addClass}><Plus className="h-4 w-4" />Добавить транспорт</button></div>}>
       {!value.transport.length ? <p className="text-sm text-gray-500">Транспорт пока не указан.</p> : <div className="space-y-3">{value.transport.map(row => <div key={row.id} className="flex gap-3 text-sm"><Truck className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" /><div className="min-w-0"><p className="break-words text-gray-200">{row.vehicle}</p>{row.driver && <p className="text-xs text-gray-400">{row.driver}</p>}{row.notes && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-gray-500">{row.notes}</p>}</div></div>)}</div>}
     </ProjectSection>

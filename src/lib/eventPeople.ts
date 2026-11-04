@@ -1,4 +1,7 @@
 import type { Personnel, WorkItem } from './personnel';
+import type { EventBudget } from './eventBudgets';
+import type { BudgetItem, Event } from './events';
+import { calcCombinedTotal } from './budgetPricing';
 import type { ProjectPerson } from './eventProject';
 
 export interface PeopleWork { id: string; name: string; }
@@ -16,4 +19,55 @@ export function addWorkPeople(current: ProjectPerson[], selected: Personnel[], w
     group: person.employment_type === 'freelance' ? 'freelance' as const : 'team' as const,
     work_id: work.id, work_name: work.name, rate: peopleWorkRate(person, work.name), hours: '',
   }))];
+}
+
+export interface BudgetPeopleWork extends PeopleWork { budgetAmount: number; }
+export const moneyRound = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+export function personWorkAmount(person: Pick<ProjectPerson, 'rate' | 'hours'>): number {
+  const rate = Number((person.rate || '').replace(',', '.')), hours = Number((person.hours || '').replace(',', '.'));
+  return Number.isFinite(rate) && Number.isFinite(hours) && rate >= 0 && hours >= 0 ? moneyRound(rate * hours) : 0;
+}
+export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number) {
+  const amount = moneyRound(people.reduce((sum, person) => sum + personWorkAmount(person), 0));
+  return { amount, budgetAmount, difference: moneyRound(budgetAmount - amount) };
+}
+/** Use the same per-unit rounding and displayed period as the estimate editor. */
+export function budgetWorkAmountBYN(item: BudgetItem, settings: Partial<Event>): number {
+  const rate = settings.budget_exchange_rate || item.exchange_rate || 3;
+  const unitUSD = settings.budget_totals_mode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, settings.budget_days || 1) : item.price;
+  if (settings.budget_payment_mode === 'byn_cash') return moneyRound(Math.ceil(unitUSD * rate) * item.quantity);
+  if (settings.budget_payment_mode === 'byn_noncash') {
+    const delivery = /доставка оборудования|доставка персонала/i.test(item.work_item?.name || item.name || '');
+    return moneyRound(Math.ceil(delivery ? unitUSD * rate / 0.8 : unitUSD * rate * 1.67) * item.quantity);
+  }
+  return moneyRound(unitUSD * item.quantity * rate);
+}
+export function budgetPeopleWorks(items: BudgetItem[], settings: Partial<Event>): BudgetPeopleWork[] {
+  const totals = new Map<string, BudgetPeopleWork>();
+  const add = (id: string, name: string, amount: number) => {
+    const key = normalized(name);
+    const previous = totals.get(key);
+    totals.set(key, { id: previous?.id || id, name: previous?.name || name, budgetAmount: moneyRound((previous?.budgetAmount || 0) + amount) });
+  };
+  let combined = 0;
+  for (const item of items) {
+    if (item.item_type !== 'work') continue;
+    const name = (item.work_item?.name || item.name || 'Работа').trim();
+    const amount = budgetWorkAmountBYN(item, settings);
+    if (/^монтаж\s*(?:\/|\\|и|[-–—])\s*демонтаж$/i.test(name)) combined += amount;
+    else add(item.work_item_id || item.id, name, amount);
+  }
+  if (combined) {
+    const installation = moneyRound(combined * 0.6);
+    add('default-work-0', 'Монтаж', installation);
+    add('default-work-1', 'Демонтаж', moneyRound(combined - installation));
+  } else if (items.some(item => item.item_type === 'work' && /^монтаж\s*(?:\/|\\|и|[-–—])\s*демонтаж$/i.test((item.work_item?.name || item.name || '').trim()))) {
+    add('default-work-0', 'Монтаж', 0); add('default-work-1', 'Демонтаж', 0);
+  }
+  const priority = (name: string) => normalized(name) === 'монтаж' ? 0 : normalized(name) === 'демонтаж' ? 1 : 2;
+  return [...totals.values()].sort((a, b) => priority(a.name) - priority(b.name) || a.name.localeCompare(b.name, 'ru'));
+}
+
+export function documentPeopleWorks(items: BudgetItem[], budget: Pick<EventBudget, 'id' | 'is_primary' | 'settings'>): BudgetPeopleWork[] {
+  return budgetPeopleWorks(items.filter(item => item.budget_id === budget.id || (!item.budget_id && budget.is_primary)), budget.settings);
 }
