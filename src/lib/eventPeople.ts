@@ -11,7 +11,7 @@ export function orderedPeopleWorks(works: WorkItem[]): PeopleWork[] {
   return [...first, ...works.filter(work => !first.some(row => row.id === work.id)).sort((a, b) => a.name.localeCompare(b.name, 'ru'))];
 }
 export function peopleWorkRate(person: Personnel, workName: string): string {
-  return String(/склад/i.test(workName) ? person.warehouse_rate ?? 0 : person.installation_rate ?? 0);
+  return String(/склад|загрузка|разгрузка/i.test(workName) ? person.warehouse_rate ?? 0 : person.installation_rate ?? 0);
 }
 export function addWorkPeople(current: ProjectPerson[], selected: Personnel[], work: PeopleWork, id: () => string): ProjectPerson[] {
   return [...current, ...selected.filter(person => !current.some(row => row.personnel_id === person.id && (row.work_id === work.id || (!row.work_id && row.work_name === work.name)))).map(person => ({
@@ -77,4 +77,27 @@ export function rateForWorkAmount(amount: number, hours: string | undefined): st
   const count = Number((hours || '').replace(',', '.'));
   if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(count) || count <= 0) return null;
   return String(amount / count);
+}
+
+export function peopleWorkPriority(name: string): number {
+  const order = ['загрузка', 'монтаж', 'демонтаж', 'разгрузка'];
+  const index = order.indexOf(normalized(name));
+  return index < 0 ? order.length : index;
+}
+/** Operational jobs have no estimate allowance unless explicitly quoted. */
+export function withLoadingWorks(works: BudgetPeopleWork[]): BudgetPeopleWork[] {
+  const result = [...works];
+  if (works.some(work => normalized(work.name) === 'монтаж') && !works.some(work => normalized(work.name) === 'загрузка')) result.push({ id: 'operational-loading', name: 'Загрузка', budgetAmount: 0 });
+  if (works.some(work => normalized(work.name) === 'демонтаж') && !works.some(work => normalized(work.name) === 'разгрузка')) result.push({ id: 'operational-unloading', name: 'Разгрузка', budgetAmount: 0 });
+  return result.sort((a, b) => peopleWorkPriority(a.name) - peopleWorkPriority(b.name) || a.name.localeCompare(b.name, 'ru'));
+}
+export function copyPeopleToWork(current: ProjectPerson[], source: ProjectPerson[], target: PeopleWork, id: () => string): ProjectPerson[] {
+  const result = [...current];
+  for (const person of source) {
+    const exists = result.some(row => (row.work_id === target.id || normalized(row.work_name || '') === normalized(target.name)) &&
+      (person.personnel_id ? row.personnel_id === person.personnel_id : !row.personnel_id && normalized(row.name) === normalized(person.name)));
+    if (exists) continue;
+    result.push({ ...person, id: id(), work_id: target.id, work_name: target.name });
+  }
+  return result;
 }

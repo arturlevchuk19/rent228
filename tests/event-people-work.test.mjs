@@ -33,3 +33,8 @@ currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',rate:'10'}:
 tree=nodes(render());const amountInput=tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван');assert(amountInput);assert.equal(amountInput.props.disabled,false);amountInput.props.onChange({target:{value:'100'}});assert.equal(currentRows[0].hours,'3');assert.equal(peopleAPI.personWorkAmount(currentRows[0]),100);assert(Math.abs(Number(currentRows[0].rate)-100/3)<1e-10);
 currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'0'}:row);tree=nodes(render());assert.equal(tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван').props.disabled,true);
 console.log('PASS: directory selection, manual total updates hourly rate with division precision and zero-hour protection');
+
+// Copy employees through the actual per-work button and target dialog.
+currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',rate:'10'}:row);states[0]=false;
+tree=nodes(render());tree.find(n=>n.type==='button'&&n.props['aria-label']==='Скопировать людей из работы Монтаж').props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Демонтаж'&&n.props['aria-expanded']===undefined).props.onClick();assert.equal(currentRows.filter(row=>row.work_name==='Демонтаж').length,2);assert(currentRows.find(row=>row.work_name==='Демонтаж'&&row.name==='Иван').hours==='3');
+console.log('PASS: per-work copy button opens target selection and copies employees');

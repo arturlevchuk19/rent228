@@ -21,3 +21,11 @@ console.log('PASS: estimate-only work list, 60/40 split and cent preservation, d
 
 assert.equal(rateForWorkAmount(100,'3'),String(100/3));assert.equal(personWorkAmount({rate:rateForWorkAmount(100,'3'),hours:'3'}),100);assert.equal(rateForWorkAmount(100,'0'),null);assert.equal(rateForWorkAmount(100,''),null);assert.equal(rateForWorkAmount(-10,'2'),null);assert.equal(rateForWorkAmount(0,'2'),'0');assert.equal(rateForWorkAmount(25,'2,5'),'10');
 console.log('PASS: manual total conversion, non-divisible amounts, zero/empty hours, negative totals and decimal hours');
+
+const {withLoadingWorks,copyPeopleToWork,peopleWorkPriority}=load('src/lib/eventPeople.ts');
+let operational=withLoadingWorks([{id:'inst',name:'Монтаж',budgetAmount:60},{id:'dem',name:'Демонтаж',budgetAmount:40}]);assert.deepEqual(operational.map(x=>x.name),['Загрузка','Монтаж','Демонтаж','Разгрузка']);assert.equal(operational.reduce((sum,x)=>sum+x.budgetAmount,0),100);assert.equal(withLoadingWorks(operational).length,4,'Do not duplicate loading jobs');assert.deepEqual(withLoadingWorks([]),[]);
+assert.equal(peopleWorkPriority('Разгрузка'),3);
+const original={id:'source-person',personnel_id:'p',name:'Иван',group:'team',rate:'12',hours:'5',work_id:'inst',work_name:'Монтаж'};const already={...original,id:'target-person',work_id:'dem',work_name:'Демонтаж',rate:'99'};let serial=0;
+let copied=copyPeopleToWork([original],[original],{id:'dem',name:'Демонтаж'},()=>String(++serial));assert.equal(copied.length,2);assert.deepEqual([copied[1].rate,copied[1].hours],['12','5']);assert.notEqual(copied[1].id,original.id);assert.equal(original.work_id,'inst');assert.equal(copyPeopleToWork([original,already],[original],{id:'dem',name:'Демонтаж'},()=>String(++serial)).length,2);assert.equal(already.rate,'99');
+const manual={...original,id:'manual',personnel_id:'',name:'Пётр'};copied=copyPeopleToWork([manual],[manual],{id:'dem',name:'Демонтаж'},()=>String(++serial));assert.equal(copyPeopleToWork(copied,[manual],{id:'dem',name:'Демонтаж'},()=>String(++serial)).length,2,'Deduplicate manually entered people by name');
+console.log('PASS: loading/unloading order and zero budget allowances; copying preserves source/rates/hours with new IDs and prevents directory/manual duplicates');

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Trash2, X, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, X, ArrowLeft, Copy } from 'lucide-react';
 import type { Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
 import { newProjectId, type ProjectPerson } from '../lib/eventProject';
-import { addWorkPeople, peopleWorkRate, personWorkAmount, peopleWorkBalance, rateForWorkAmount, type BudgetPeopleWork, type PeopleWork } from '../lib/eventPeople';
+import { addWorkPeople, peopleWorkRate, personWorkAmount, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork } from '../lib/eventPeople';
 import { ProjectSection } from './ProjectSection';
 
 const input = 'w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-cyan-500';
@@ -25,7 +25,8 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   const [expanded, setExpanded] = useState(new Set<string>());
   const [newWorkId, setNewWorkId] = useState('');
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
-  const workOptions = [...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: 0 }))];
+  const [copySource, setCopySource] = useState<string | null>(null);
+  const workOptions = withLoadingWorks([...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: 0 }))]);
   const groups = new Map<string, { name: string; rows: ProjectPerson[]; budgetAmount: number; inBudget: boolean }>();
   for (const option of workOptions) groups.set(option.id, { name: option.name, rows: [], budgetAmount: option.budgetAmount || 0, inBudget: works.some(row => row.id === option.id) });
   for (const person of people) {
@@ -35,8 +36,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     group.rows.push(person); groups.set(key, group);
   }
   const orderedGroups = [...groups].sort((a, b) => {
-    const priority = (name: string) => name.toLowerCase() === 'монтаж' ? 0 : name.toLowerCase() === 'демонтаж' ? 1 : 2;
-    return priority(a[1].name) - priority(b[1].name) || a[1].name.localeCompare(b[1].name, 'ru');
+    return peopleWorkPriority(a[1].name) - peopleWorkPriority(b[1].name) || a[1].name.localeCompare(b[1].name, 'ru');
   });
   const automatic = assigned.filter(person => !people.some(row => row.personnel_id === person.id));
   const patch = (id: string, updates: Partial<ProjectPerson>) => onChange(people.map(person => person.id === id ? { ...person, ...updates } : person));
@@ -62,10 +62,13 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     <div className="space-y-3">{orderedGroups.map(([key, group]) => {
       const totals = peopleWorkBalance(group.rows, group.budgetAmount);
       return <div key={key} className="overflow-hidden rounded-xl border border-gray-800">
-        <button type="button" aria-expanded={expanded.has(key)} onClick={() => setExpanded(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; })} className="flex w-full flex-wrap items-center justify-between gap-2 bg-gray-800/60 px-3 py-3 text-left text-sm font-semibold text-gray-200">
+        <div className="flex items-stretch bg-gray-800/60">
+        <button type="button" aria-expanded={expanded.has(key)} onClick={() => setExpanded(current => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); return next; })} className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 px-3 py-3 text-left text-sm font-semibold text-gray-200">
           <span className="min-w-0">{group.name} · {group.rows.length}{!group.inBudget && <span className="ml-2 text-[10px] font-normal text-gray-500">Вне выбранной сметы</span>}</span>
           <span className="ml-auto flex flex-wrap items-center justify-end gap-1 text-xs tabular-nums"><span>{money(totals.amount)} / {loadingWorks ? '…' : money(totals.budgetAmount)} BYN</span>{!loadingWorks && <span className={totals.difference > 0 ? 'text-emerald-400' : totals.difference < 0 ? 'text-red-400' : 'text-gray-400'}>({totals.difference > 0 ? '+' : ''}{money(totals.difference)})</span>}<span aria-hidden="true" className="ml-1">{expanded.has(key) ? '▴' : '▾'}</span></span>
         </button>
+        {editable && <button type="button" aria-label={`Скопировать людей из работы ${group.name}`} title="Скопировать людей в другую работу" disabled={!group.rows.length || orderedGroups.length < 2} onClick={() => setCopySource(key)} className="shrink-0 px-3 text-cyan-400 hover:bg-gray-700/50 disabled:opacity-30"><Copy className="h-4 w-4" /></button>}
+        </div>
         {expanded.has(key) && <div className="space-y-3 p-3">{group.rows.map(person => <div key={person.id} className="grid gap-3 rounded-lg border border-gray-800 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_auto]">
           <label className="min-w-0 space-y-1 text-xs text-gray-400">ФИО<select disabled={!editable} value={person.personnel_id} onChange={event => {
             const next = personnel.find(row => row.id === event.target.value);
@@ -94,6 +97,13 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     })}</div>
     {!orderedGroups.length && !automatic.length && !loadingWorks && <p className="text-sm text-gray-500">В смете нет работ. Добавьте свою работу через кнопку «Добавить».</p>}
     {!!automatic.length && <div className="mt-4 space-y-2"><h4 className="text-xs text-gray-500">Назначения из сметы</h4>{automatic.map(person => <p key={person.id} className="text-sm text-gray-300">{person.full_name} <span className="text-xs text-gray-500">{person.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</span></p>)}</div>}
+    {editable && copySource && groups.has(copySource) && <PeoplePicker title={`Копировать людей: ${groups.get(copySource)!.name}`} onClose={() => setCopySource(null)}>
+      <p className="mb-4 text-sm text-gray-400">Выберите работу, куда скопировать людей. Ставки и часы копируются вместе с ФИО. Уже добавленные участники не дублируются.</p>
+      <div className="space-y-2">{orderedGroups.filter(([key]) => key !== copySource).map(([key, group]) => <button type="button" key={key} onClick={() => {
+        onChange(copyPeopleToWork(people, groups.get(copySource)!.rows, { id: key, name: group.name }, newProjectId));
+        setExpanded(current => new Set(current).add(key)); setCopySource(null);
+      }} className="flex w-full items-center gap-2 rounded-xl border border-gray-700 px-4 py-3 text-left text-sm text-gray-200 hover:border-cyan-600"><Copy className="h-4 w-4 text-cyan-400" />{group.name}</button>)}</div>
+    </PeoplePicker>}
     {editable && adding && <PeoplePicker onClose={() => setAdding(false)} title={work ? work.name : 'Выберите работу'}>
       {work ? <>
         <button type="button" onClick={() => { setWork(null); setSelected(new Set()); setSearch(''); }} className="mb-3 inline-flex items-center gap-2 text-sm text-cyan-400"><ArrowLeft className="h-4 w-4" />К списку работ</button>
