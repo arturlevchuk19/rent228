@@ -7,6 +7,8 @@ import { getErrorMessage } from '../lib/errors';
 /** Legacy entry points resolve one budget before mounting any editor or specification. */
 export function BudgetScope({ eventId, budgetId, onClose, children }: { eventId: string; budgetId?: string; onClose: () => void; children: (id: string, name: string) => ReactNode }) {
   const { user } = useAuth();
+  const userId = user?.id;
+  const canCreateBudget = canAccess(user, 'budgets', 2);
   const [resolved, setResolved] = useState<{ id: string; name: string }>();
   const [error, setError] = useState('');
   useEffect(() => {
@@ -14,7 +16,7 @@ export function BudgetScope({ eventId, budgetId, onClose, children }: { eventId:
     setResolved(undefined); setError('');
     void (async () => {
       const budgets = await getEventBudgets(eventId);
-      const primary = budgetId ? budgets.find(budget => budget.id === budgetId) : budgets[0] || (canAccess(user, 'budgets', 2) ? await createEventBudget(eventId, 'Основная смета', true) : undefined);
+      const primary = budgetId ? budgets.find(budget => budget.id === budgetId) : budgets[0] || (canCreateBudget ? await createEventBudget(eventId, 'Основная смета', true) : undefined);
       if (primary?.is_primary) {
         // Migrate local preferences of the previous single-budget editor once.
         try {
@@ -27,7 +29,9 @@ export function BudgetScope({ eventId, budgetId, onClose, children }: { eventId:
       if (active) { if (primary) setResolved({ id: primary.id, name: primary.name }); else setError('У мероприятия пока нет смет.'); }
     })().catch(caught => { if (active) setError(getErrorMessage(caught)); });
     return () => { active = false; };
-  }, [eventId, budgetId, user]);
+  // Auth refreshes on window focus return a new user object for the same account.
+  // Only a different account, budget or effective permission needs resolution.
+  }, [eventId, budgetId, userId, canCreateBudget]);
   if (!resolved) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><p role={error ? 'alert' : 'status'} className="rounded-xl border border-gray-700 bg-gray-900 p-5 text-gray-300">{error || 'Загрузка сметы...'}<button type="button" onClick={onClose} className="ml-3 text-cyan-400">Закрыть</button></p></div>;
   return children(resolved.id, resolved.name);
 }
