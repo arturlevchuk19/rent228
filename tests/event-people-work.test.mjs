@@ -1,5 +1,5 @@
 import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
-const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,()=>({dayNumber:()=>null}));return exports;};
+const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):({dayNumber:()=>null}));return exports;};
 const peopleAPI=load('src/lib/eventPeople.ts');
 const {orderedPeopleWorks,peopleWorkRate,addWorkPeople}=peopleAPI;
 const works=[{id:'warehouse',name:'Работа на складе'},{id:'other',name:'Звукорежиссёр'},{id:'dem',name:'Демонтаж'},{id:'inst',name:'Монтаж'}];

@@ -36,3 +36,16 @@ export const calcGrandTotals = (
 
   return { day1Total, combinedTotal, totalForMode };
 };
+
+/** Monetary price shown to the user, before multiplying by quantity. */
+export const roundBudgetPrice = (value: number): number => Math.round((value + Number.EPSILON * Math.max(1, Math.abs(value))) * 100) / 100;
+export const budgetLineAmount = (displayedUnitPrice: number, quantity: number): number => roundBudgetPrice(roundBudgetPrice(displayedUnitPrice) * quantity);
+/** Keep hidden USD precision until AFTER currency conversion. */
+export const calcCombinedUnitPrice = (item: Pick<BudgetItem, 'price' | 'quantity' | 'multi_day_rate_override'>, days: number, rateOverride?: number | null): number => calcCombinedTotal({ ...item, quantity: 1 }, days, rateOverride);
+export const calcDisplayedDay1Total = (item: Pick<BudgetItem, 'price' | 'quantity'>): number => budgetLineAmount(item.price, item.quantity);
+export const calcDisplayedCombinedTotal = (item: Pick<BudgetItem, 'price' | 'quantity' | 'multi_day_rate_override'>, days: number, rateOverride?: number | null): number => budgetLineAmount(calcCombinedUnitPrice(item, days, rateOverride), item.quantity);
+export const calcDisplayedGrandTotals = (items: Array<Pick<BudgetItem, 'price' | 'quantity' | 'multi_day_rate_override'>>, days: number, mode: TotalsMode) => {
+  const day1Total = roundBudgetPrice(items.reduce((sum, item) => sum + calcDisplayedDay1Total(item), 0));
+  const combinedTotal = roundBudgetPrice(items.reduce((sum, item) => sum + calcDisplayedCombinedTotal(item, days), 0));
+  return { day1Total, combinedTotal, totalForMode: mode === 'combined_only' ? combinedTotal : day1Total };
+};

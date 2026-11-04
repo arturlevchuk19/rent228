@@ -24,7 +24,7 @@ import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
 import { generateContractDocx } from '../lib/contractGenerator';
-import { ceilCurrencyUnit, calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
+import { roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
 import {
   UShapeUnifiedDialog,
   LedSizeDialog,
@@ -1459,63 +1459,63 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const nonWorkTotalsUSD = calcGrandTotals(nonWorkItems, budgetDays, budgetTotalsMode);
   const workTotalsUSD = calcGrandTotals(workItems2, budgetDays, budgetTotalsMode);
 
-  const totalDay1BYNCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNCash(item.price) * item.quantity, 0);
+  const totalDay1BYNCash = mainBudgetItems.reduce((sum, item) => sum + budgetLineAmount(calculateBYNCash(item.price), item.quantity), 0);
   const totalCombinedBYNCash = mainBudgetItems.reduce((sum, item) => {
-    const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNCash(priceNDays) * item.quantity;
+    const priceNDays = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNCash(priceNDays), item.quantity);
   }, 0);
-  const totalDay1BYNNonCash = mainBudgetItems.reduce((sum, item) => sum + calculateBYNNonCash(item.price, item) * item.quantity, 0);
+  const totalDay1BYNNonCash = mainBudgetItems.reduce((sum, item) => sum + budgetLineAmount(calculateBYNNonCash(item.price, item), item.quantity), 0);
   const totalCombinedBYNNonCash = mainBudgetItems.reduce((sum, item) => {
-    const priceNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNNonCash(priceNDays, item) * item.quantity;
+    const priceNDays = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNNonCash(priceNDays, item), item.quantity);
   }, 0);
 
   const nonWorkTotalBYNCashForMode = nonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
-    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + budgetLineAmount(calculateBYNCash(usdUnitPrice), item.quantity);
   }, 0);
   const nonWorkTotalBYNNonCashForMode = nonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
-    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
   const workTotalBYNCashForMode = workItems2.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
-    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + budgetLineAmount(calculateBYNCash(usdUnitPrice), item.quantity);
   }, 0);
   const workTotalBYNNonCashForMode = workItems2.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays) : item.price;
-    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
   const nonWorkTotalBYNCashCombined = nonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+    const usdUnitPrice = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNCash(usdUnitPrice), item.quantity);
   }, 0);
   const nonWorkTotalBYNNonCashCombined = nonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+    const usdUnitPrice = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
   const workTotalBYNCashCombined = workItems2.reduce((sum, item) => {
-    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+    const usdUnitPrice = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNCash(usdUnitPrice), item.quantity);
   }, 0);
   const workTotalBYNNonCashCombined = workItems2.reduce((sum, item) => {
-    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+    const usdUnitPrice = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
 
   const discountEligibleTotalsUSD = calcGrandTotals(discountEligibleNonWorkItems, budgetDays, budgetTotalsMode);
   const discountEligibleTotalBYNCashCombined = discountEligibleNonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNCash(usdUnitPrice) * item.quantity;
+    const usdUnitPrice = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNCash(usdUnitPrice), item.quantity);
   }, 0);
   const discountEligibleTotalBYNNonCashCombined = discountEligibleNonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
-    return sum + calculateBYNNonCash(usdUnitPrice, item) * item.quantity;
+    const usdUnitPrice = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
+    return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
   const discountEligibleTotalBYNCashDay1 = discountEligibleNonWorkItems.reduce(
-    (sum, item) => sum + calculateBYNCash(item.price) * item.quantity, 0);
+    (sum, item) => sum + budgetLineAmount(calculateBYNCash(item.price), item.quantity), 0);
   const discountEligibleTotalBYNNonCashDay1 = discountEligibleNonWorkItems.reduce(
-    (sum, item) => sum + calculateBYNNonCash(item.price, item) * item.quantity, 0);
+    (sum, item) => sum + budgetLineAmount(calculateBYNNonCash(item.price, item), item.quantity), 0);
 
   // Суммы по текущему режиму итогов (combined_only / day1_plus_combined).
   // ВАЖНО: в режиме «Итого за 1дн и Nдн» при нескольких днях базой скидки является
@@ -1713,15 +1713,10 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     setDiscountPercentInput(String(percent1));
   };
 
-  const normalizeGrandTotalForPaymentMode = (value: number) => {
-    if (paymentMode === 'usd') {
-      return Math.round(value * 100) / 100;
-    }
-    return Math.floor(value);
-  };
+  const normalizeGrandTotalForPaymentMode = roundBudgetPrice;
 
-  const roundDownToNearestFive = (value: number): number => {
-    return Math.floor(value / 5) * 5;
+  const roundBudgetTotal = (value: number): number => {
+    return roundBudgetPrice(value);
   };
 
   const calculateCategoryTotalForPaymentMode = (items: BudgetItem[], mode: 'day1' | 'combined') => {
@@ -1729,16 +1724,16 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       case 'byn_cash':
         return items.reduce((sum, item) => {
           const unitPriceUSD = mode === 'combined'
-            ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays)
+            ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays)
             : item.price;
-          return sum + calculateBYNCash(unitPriceUSD) * item.quantity;
+          return sum + budgetLineAmount(calculateBYNCash(unitPriceUSD), item.quantity);
         }, 0);
       case 'byn_noncash':
         return items.reduce((sum, item) => {
           const unitPriceUSD = mode === 'combined'
-            ? calcCombinedTotal({ ...item, quantity: 1 }, budgetDays)
+            ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays)
             : item.price;
-          return sum + calculateBYNNonCash(unitPriceUSD, item) * item.quantity;
+          return sum + budgetLineAmount(calculateBYNNonCash(unitPriceUSD, item), item.quantity);
         }, 0);
       default:
         return items.reduce(
@@ -1828,9 +1823,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       ? getDiscountedTotal('combined')!
       : getCombinedTotalForPaymentMode();
 
-    // Apply round down to nearest 5 for consistency with main totals
-    const grandTotalWithExtrasDay1 = roundDownToNearestFive(baseTotalDay1 + extraTotalDay1);
-    const grandTotalWithExtrasCombined = roundDownToNearestFive(baseTotalCombined + extraTotalCombined);
+    // Preserve the sum of displayed line amounts to cents.
+    const grandTotalWithExtrasDay1 = roundBudgetTotal(baseTotalDay1 + extraTotalDay1);
+    const grandTotalWithExtrasCombined = roundBudgetTotal(baseTotalCombined + extraTotalCombined);
 
     // Return based on current mode
     if (budgetTotalsMode === 'combined_only') {
@@ -1850,7 +1845,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     const baseTotal = getDiscountedTotal('day1') !== null
       ? getDiscountedTotal('day1')!
       : getDay1TotalForPaymentMode();
-    return roundDownToNearestFive(baseTotal + extraTotal);
+    return roundBudgetTotal(baseTotal + extraTotal);
   };
 
   const getTotalWithExtraCombined = () => {
@@ -1862,7 +1857,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     const baseTotal = getDiscountedTotal('combined') !== null
       ? getDiscountedTotal('combined')!
       : getCombinedTotalForPaymentMode();
-    return roundDownToNearestFive(baseTotal + extraTotal);
+    return roundBudgetTotal(baseTotal + extraTotal);
   };
 
   const getDiscountedTotalWithExtraDay1 = () => {
@@ -1872,7 +1867,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
       : 0;
     const baseTotal = getDiscountedTotal('day1')!;
-    return roundDownToNearestFive(baseTotal + extraTotal);
+    return roundBudgetTotal(baseTotal + extraTotal);
   };
 
   const getDiscountedTotalWithExtraCombined = () => {
@@ -1882,7 +1877,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
       : 0;
     const baseTotal = getDiscountedTotal('combined')!;
-    return roundDownToNearestFive(baseTotal + extraTotal);
+    return roundBudgetTotal(baseTotal + extraTotal);
   };
 
   const getCurrencyLabel = () => {

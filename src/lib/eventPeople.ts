@@ -1,7 +1,7 @@
 import type { Personnel, WorkItem } from './personnel';
 import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
-import { ceilCurrencyUnit, calcCombinedTotal } from './budgetPricing';
+import { budgetLineAmount, roundBudgetPrice, ceilCurrencyUnit, calcCombinedTotal } from './budgetPricing';
 import type { ProjectPerson } from './eventProject';
 
 export interface PeopleWork { id: string; name: string; }
@@ -22,7 +22,7 @@ export function addWorkPeople(current: ProjectPerson[], selected: Personnel[], w
 }
 
 export interface BudgetPeopleWork extends PeopleWork { budgetAmount: number; }
-export const moneyRound = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+export const moneyRound = roundBudgetPrice;
 export function personWorkAmount(person: Pick<ProjectPerson, 'rate' | 'hours'>): number {
   const rate = Number((person.rate || '').replace(',', '.')), hours = Number((person.hours || '').replace(',', '.'));
   return Number.isFinite(rate) && Number.isFinite(hours) && rate >= 0 && hours >= 0 ? moneyRound(rate * hours) : 0;
@@ -40,7 +40,7 @@ export function budgetWorkAmountBYN(item: BudgetItem, settings: Partial<Event>):
     const delivery = /доставка оборудования|доставка персонала/i.test(item.work_item?.name || item.name || '');
     return moneyRound(ceilCurrencyUnit(delivery ? unitUSD * rate / 0.8 : unitUSD * rate * 1.67) * item.quantity);
   }
-  return moneyRound(unitUSD * item.quantity * rate);
+  return moneyRound(budgetLineAmount(unitUSD, item.quantity) * rate);
 }
 export function budgetPeopleWorks(items: BudgetItem[], settings: Partial<Event>): BudgetPeopleWork[] {
   const totals = new Map<string, BudgetPeopleWork>();

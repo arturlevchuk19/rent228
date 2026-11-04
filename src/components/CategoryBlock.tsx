@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, Copy, MessageSquarePlus, Highlighter } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { EQUIPMENT_UNITS } from '../lib/equipment';
-import { ceilCurrencyUnit, calcCombinedTotal, calcDay1Total, calcGrandTotals } from '../lib/budgetPricing';
+import { roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
 
 export interface BudgetDragTarget {
   type: 'category' | 'location' | 'uncategorized';
@@ -184,7 +184,7 @@ export function CategoryBlock({
     }
 
     const displayedPrice = getDisplayedPrice(item);
-    return displayedPrice * item.quantity;
+    return budgetLineAmount(displayedPrice, item.quantity);
   };
 
   const getDisplayedPriceUSD = (item: BudgetItem) => {
@@ -207,7 +207,7 @@ export function CategoryBlock({
       case 'byn_noncash':
         return convertUSDtoBYNNonCashPrice(usdPrice, item);
       default:
-        return usdPrice;
+        return roundBudgetPrice(usdPrice);
     }
   };
 
@@ -235,7 +235,7 @@ export function CategoryBlock({
       const unitPriceBYN = paymentMode === 'byn_cash'
         ? convertUSDtoBYNCashPrice(unitPriceUSD)
         : convertUSDtoBYNNonCashPrice(unitPriceUSD, item);
-      return sum + unitPriceBYN * item.quantity;
+      return sum + budgetLineAmount(unitPriceBYN, item.quantity);
     }, 0);
   })();
 
@@ -245,11 +245,11 @@ export function CategoryBlock({
     }
 
     return items.reduce((sum, item) => {
-      const unitPriceUSDForNDays = calcCombinedTotal({ ...item, quantity: 1 }, budgetDays);
+      const unitPriceUSDForNDays = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
       const unitPriceBYN = paymentMode === 'byn_cash'
         ? convertUSDtoBYNCashPrice(unitPriceUSDForNDays)
         : convertUSDtoBYNNonCashPrice(unitPriceUSDForNDays, item);
-      return sum + unitPriceBYN * item.quantity;
+      return sum + budgetLineAmount(unitPriceBYN, item.quantity);
     }, 0);
   })();
 

@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { ceilCurrencyUnit, calcCombinedTotal, calcDay1Total } from './budgetPricing';
+import { roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
 interface BudgetItem {
@@ -305,16 +305,16 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         return round ? ceilCurrencyUnit(withBankRate) : withBankRate;
       }
       default:
-        return usdPrice;
+        return roundBudgetPrice(usdPrice);
     }
   };
 
   const roundGrandTotalForPaymentMode = (value: number): number => {
-    return Math.floor(value);
+    return roundBudgetPrice(value);
   };
 
-  const roundDownToNearestFive = (value: number): number => {
-    return Math.floor(value / 5) * 5;
+  const roundBudgetTotal = (value: number): number => {
+    return roundBudgetPrice(value);
   };
 
   let grandTotalWorkDay1 = 0;
@@ -364,15 +364,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         // Use rounded values for display
         const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
-        const displayTotalDay1BYN = displayUnitPriceBYNDay1 * qty;
+        const displayTotalDay1BYN = budgetLineAmount(displayUnitPriceBYNDay1, qty);
 
-        const usdUnitPriceCombined = calcCombinedTotal(
+        const usdUnitPriceCombined = calcCombinedUnitPrice(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
           budgetDays,
           item.multi_day_rate_override
         );
         const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
-        const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+        const displayTotalCombinedBYN = budgetLineAmount(displayUnitPriceBYNCombined, qty);
 
         const rowTotalDisplay = isCombinedOnlyMode ? displayTotalCombinedBYN : displayTotalDay1BYN;
         const rowPriceDisplay = isCombinedOnlyMode ? displayUnitPriceBYNCombined : displayUnitPriceBYNDay1;
@@ -519,7 +519,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           
           // Calculate price with multi-day coefficient for extra services
           const usdPriceDay1 = item.price || 0;
-          const usdPriceCombined = calcCombinedTotal(
+          const usdPriceCombined = calcCombinedUnitPrice(
             { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
             budgetDays,
             item.multi_day_rate_override
@@ -532,9 +532,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             ? displayUnitPriceBYNCombined
             : displayUnitPriceBYNDay1;
           
-          const displayTotalBYN = displayUnitPriceBYN * qty;
-          const displayTotalDay1BYN = displayUnitPriceBYNDay1 * qty;
-          const displayTotalCombinedBYN = displayUnitPriceBYNCombined * qty;
+          const displayTotalBYN = budgetLineAmount(displayUnitPriceBYN, qty);
+          const displayTotalDay1BYN = budgetLineAmount(displayUnitPriceBYNDay1, qty);
+          const displayTotalCombinedBYN = budgetLineAmount(displayUnitPriceBYNCombined, qty);
           
           categoryTotalDay1 += paymentMode === 'usd' ? calcDay1Total(item) : displayTotalDay1BYN;
           categoryTotalCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
@@ -610,13 +610,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
-    const usdUnitPriceCombined = calcCombinedTotal(
+    const usdUnitPriceCombined = calcCombinedUnitPrice(
       { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
       budgetDays,
       item.multi_day_rate_override
     );
     const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
-    return sum + unitPriceBYNCombined * qty;
+    return sum + budgetLineAmount(unitPriceBYNCombined, qty);
   }, 0);
 
   const discountPercentRaw = data.discountPercent || 0;
@@ -641,55 +641,55 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
       const unitPriceBYN = calculatePrice(item.price || 0, item, true);
-      return sum + unitPriceBYN * qty;
+      return sum + budgetLineAmount(unitPriceBYN, qty);
     }, 0);
   const grandTotalConsumablesDay1 = mainBudgetItems
     .filter((item) => isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
       const unitPriceBYN = calculatePrice(item.price || 0, item, true);
-      return sum + unitPriceBYN * qty;
+      return sum + budgetLineAmount(unitPriceBYN, qty);
     }, 0);
   const grandTotalWorkCombined = mainBudgetItems
     .filter((item) => !!item.work_item)
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedTotal(
+      const usdUnitPriceCombined = calcCombinedUnitPrice(
         { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
         item.multi_day_rate_override
       );
       const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
-      return sum + unitPriceBYNCombined * qty;
+      return sum + budgetLineAmount(unitPriceBYNCombined, qty);
     }, 0);
   const grandTotalDiscountEligibleCombined = mainBudgetItems
     .filter((item) => !item.work_item && !isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedTotal(
+      const usdUnitPriceCombined = calcCombinedUnitPrice(
         { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
         item.multi_day_rate_override
       );
       const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
-      return sum + unitPriceBYNCombined * qty;
+      return sum + budgetLineAmount(unitPriceBYNCombined, qty);
     }, 0);
   const grandTotalConsumablesCombined = mainBudgetItems
     .filter((item) => isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedTotal(
+      const usdUnitPriceCombined = calcCombinedUnitPrice(
         { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
         budgetDays,
         item.multi_day_rate_override
       );
       const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
-      return sum + unitPriceBYNCombined * qty;
+      return sum + budgetLineAmount(unitPriceBYNCombined, qty);
     }, 0);
   const editorDay1Total = data.totalDay1FromEditor ?? roundGrandTotalForPaymentMode(grandTotalDay1);
   const editorCombinedTotal = data.totalCombinedFromEditor ?? roundGrandTotalForPaymentMode(grandTotalCombined);
-  const pdfDay1Total = roundDownToNearestFive(editorDay1Total);
-  const pdfCombinedTotal = roundDownToNearestFive(editorCombinedTotal);
+  const pdfDay1Total = roundBudgetTotal(editorDay1Total);
+  const pdfCombinedTotal = roundBudgetTotal(editorCombinedTotal);
 
   // Строки итогов со скидками для PDF. Скидки применяются только к оборудованию
   // (расходники и работа не скидываются).
@@ -700,7 +700,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     ? grandTotalConsumablesCombined + grandTotalWorkCombined
     : grandTotalConsumablesDay1 + grandTotalWorkDay1;
   const fallbackRound = (value: number) =>
-    data.paymentMode === 'usd' ? Math.round(value * 100) / 100 : Math.floor(value);
+    roundBudgetPrice(value);
 
   // Итоговые суммы со скидками: если редактор передал готовую сумму — берём её как есть,
   // иначе пересчитываем из базовых сумм. Промежуточный итог «после скидки клиента»
@@ -715,8 +715,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     ? (data.discountedTotalLevel1FromEditor
         ?? (hasSecondDiscountRow ? editorFinalTotal / discount2Multiplier : editorFinalTotal))
     : 0;
-  const level1Display = roundDownToNearestFive(level1Raw);
-  const level2Display = hasSecondDiscountRow ? roundDownToNearestFive(editorFinalTotal) : 0;
+  const level1Display = roundBudgetTotal(level1Raw);
+  const level2Display = hasSecondDiscountRow ? roundBudgetTotal(editorFinalTotal) : 0;
 
   // Общий шаблон итоговых строк («Итого со скидкой на оборудование …%» и
   // «Итого с дополнительными услугами …»): метка всегда выводится в одну строку —
@@ -771,7 +771,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           makeDiscountRowHtml(discount2LabelHtml, level2Display, true)
         : makeDiscountRowHtml(
             singleDiscountLabelHtml,
-            roundDownToNearestFive(editorFinalTotal),
+            roundBudgetTotal(editorFinalTotal),
             !hasFirstDiscount
           ))
     : '';
@@ -783,20 +783,20 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const qty = item.quantity || 0;
         const usdPriceDay1 = item.price || 0;
         const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
-        return sum + unitPriceBYNDay1 * qty;
+        return sum + budgetLineAmount(unitPriceBYNDay1, qty);
       }, 0)
     : 0;
     
   const extraTotalCombined = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
         const qty = item.quantity || 0;        const usdPriceDay1 = item.price || 0;
-        const usdPriceCombined = calcCombinedTotal(
+        const usdPriceCombined = calcCombinedUnitPrice(
           { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
           budgetDays,
           item.multi_day_rate_override
         );
         const unitPriceBYNCombined = calculatePrice(usdPriceCombined, item, true);
-        return sum + unitPriceBYNCombined * qty;
+        return sum + budgetLineAmount(unitPriceBYNCombined, qty);
       }, 0)
     : 0;
     
@@ -830,27 +830,27 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     if (!hasAppliedDiscount) return period === 'combined' ? mainTotalCombined : mainTotalDay1;
     const manualAppliesToPeriod = (period === 'combined') === isCombinedOnlyMode;
     if (manualAppliesToPeriod && data.discountedTotalFromEditor !== undefined) {
-      return roundDownToNearestFive(data.discountedTotalFromEditor);
+      return roundBudgetTotal(data.discountedTotalFromEditor);
     }
     const level1 = period === 'combined' ? level1Combined : level1Day1;
     const final = period === 'combined' ? finalCombined : finalDay1;
     // Без второй строки скидок печатается только итог со скидкой клиента —
     // промежуточный уровень (без множителя организатора).
-    return roundDownToNearestFive(hasSecondDiscountRow ? final : level1);
+    return roundBudgetTotal(hasSecondDiscountRow ? final : level1);
   };
 
   const discountedTotalDay1 = discountedTotalForPeriod('day1');
   const discountedTotalCombined = discountedTotalForPeriod('combined');
 
   // Total with extras for each mode: discounted main total + extra services
-  // Apply round down to nearest 5 for consistency with main totals
+  // Preserve the sum of displayed line amounts to cents.
   const grandTotalWithExtrasDay1 = data.totalWithExtraFromEditor !== undefined && !isCombinedOnlyMode
-    ? roundDownToNearestFive(data.totalWithExtraFromEditor)
-    : roundDownToNearestFive(discountedTotalDay1 + extraTotalDay1);
+    ? roundBudgetTotal(data.totalWithExtraFromEditor)
+    : roundBudgetTotal(discountedTotalDay1 + extraTotalDay1);
     
   const grandTotalWithExtrasCombined = data.totalWithExtraFromEditor !== undefined && isCombinedOnlyMode
-    ? roundDownToNearestFive(data.totalWithExtraFromEditor)
-    : roundDownToNearestFive(discountedTotalCombined + extraTotalCombined);
+    ? roundBudgetTotal(data.totalWithExtraFromEditor)
+    : roundBudgetTotal(discountedTotalCombined + extraTotalCombined);
 
   // Show extra services totals only if checkbox is enabled (totalWithExtraFromEditor is provided)
   // and there are extra items
@@ -864,7 +864,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const extrasContainerStyle = ' margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;';
     // Итог с доп. услугами за период = скинутая база этого периода + доп. услуги периода.
     const makeGrandTotalWithExtrasForPeriod = (period: 'day1' | 'combined') =>
-      roundDownToNearestFive(discountedTotalForPeriod(period) + (period === 'combined' ? extraTotalCombined : extraTotalDay1));
+      roundBudgetTotal(discountedTotalForPeriod(period) + (period === 'combined' ? extraTotalCombined : extraTotalDay1));
     // Show totals based on mode
     if (isCombinedOnlyMode) {
       // Combined only mode: show only combined total with extras

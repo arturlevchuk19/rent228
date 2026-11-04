@@ -28,5 +28,21 @@ const floatingTotals=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map(match=
 assert.equal(parseFloat(floatingTotals[0].at(-1)),294);assert.equal(parseFloat(floatingTotals[1].at(-1)),294,'Boundary rounding must not add 28 BYN at zero coefficient');
 await generateBudgetPDF({...data,paymentMode:'byn_cash',budgetItems:rows(false,0.5)});let totals=[...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map(match=>values(match[1])).filter(row=>row[0]?.includes('ИТОГО ПО РАЗДЕЛУ'));assert(parseFloat(totals[1].at(-1))>parseFloat(totals[0].at(-1)),'Nonzero coefficient still increases multi-day totals');
 assert.equal(calcCombinedTotal({price:10,quantity:28,multi_day_rate_override:0},7),280);
+// Hidden USD precision and fractional quantities must not leak into visible amounts.
+for (const mode of ['usd','byn_cash','byn_noncash']) for (const extra of [false,true]) {
+ const precise=[1.005,1.23456,0.2666663333333,2.675,3.335].map((price,index)=>({category_id:'c',equipment:{name:`Item ${index}`,category:'Расходные материалы'},quantity:[1,3,28,0.25,1.333][index],price,total:0,multi_day_rate_override:0.13,is_extra:extra}));
+ await generateBudgetPDF({...data,paymentMode:mode,budgetItems:precise});
+ const table=html.match(/<table[^>]*>([\s\S]*?)<\/table>/)[1];
+ const entries=[...table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map(match=>values(match[1])).filter(row=>row.length);
+ const lines=entries.filter(row=>row.length===4);
+ for(const row of lines) assert(Math.abs(parseFloat(row[3])-parseFloat(row[2])*parseFloat(row[1]))<=0.00501,`Visible price × quantity mismatch: ${mode}: ${row}`);
+ const sum=lines.reduce((sum,row)=>sum+Math.round(parseFloat(row[3])*100),0)/100;
+ const total=parseFloat(entries.find(row=>row[0].includes('ИТОГО ПО РАЗДЕЛУ')).at(-1));assert.equal(total,sum,'Section total must add the rounded visible rows');
+ if(!extra) {
+  const footer=html.match(/<footer[^>]*>([\s\S]*?)<\/footer>/)[1];
+  const amounts=[...footer.matchAll(/<span style="font-size: 30px[^>]*>([^<]*)<\/span>/g)].map(match=>parseFloat(match[1]));
+  assert.equal(amounts[0],sum,'Grand total must not silently round down to a multiple of five');
+ }
+}
 globalThis.setTimeout=nativeTimeout;
 console.log('PASS: actual PDF HTML main/extra rows in USD/BYN cash/noncash; zero coefficient equals first day; displayed unit × quantity equals amount; floating point boundary and nonzero coefficient');
