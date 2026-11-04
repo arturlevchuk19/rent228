@@ -1,3 +1,4 @@
+import { BudgetConsumption } from './BudgetConsumption';
 import { retryBudgetUpdate, isBudgetNetworkError } from '../lib/retryBudgetUpdate';
 import { useCatalogLongPress } from '../lib/useCatalogLongPress';
 import { useBudgetTouchDrag } from '../lib/useBudgetTouchDrag';
@@ -10,7 +11,7 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { InlineQuantityAdd } from './InlineQuantityAdd';
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Package, Download, Settings, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical, StickyNote } from 'lucide-react';
+import { X, Plus, Package, Download, Star, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
 import { type Event, type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
@@ -42,7 +43,7 @@ interface BudgetEditorProps {
   onClose: () => void;
 }
 
-type BudgetAutoSettings = Required<Pick<Event, 'discount_enabled' | 'discount_percent' | 'discount2_enabled' | 'discount2_percent' | 'budget_days' | 'budget_totals_mode' | 'budget_note' | 'budget_version' | 'budget_payment_mode' | 'budget_exchange_rate' | 'sticky_notes'>>;
+type BudgetAutoSettings = Required<Pick<Event, 'discount_enabled' | 'discount_percent' | 'discount2_enabled' | 'discount2_percent' | 'budget_days' | 'budget_totals_mode' | 'budget_note' | 'budget_version' | 'budget_payment_mode' | 'budget_exchange_rate' | 'sticky_notes' | 'show_nominal_consumption' | 'show_max_consumption'>>;
 
 interface GroupedItemsByLocation {
   [locationCategoryKey: string]: BudgetItem[];
@@ -95,6 +96,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [selectedItemType, setSelectedItemType] = useState<string>('Оборудование');
   const [mobileTab, setMobileTab] = useState<MobileBudgetTab>('estimate');
+  const [showNominalConsumption, setShowNominalConsumption] = useState(true);
+  const [showMaxConsumption, setShowMaxConsumption] = useState(true);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [mobileCatalogExpanded, setMobileCatalogExpanded] = useState(true);
   const catalogSearchRef = useRef<HTMLInputElement>(null);
@@ -120,7 +123,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showWarehouseSpec, setShowWarehouseSpec] = useState(false);
-  const [showExchangeRatePopover, setShowExchangeRatePopover] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [showLedSizeDialog, setShowLedSizeDialog] = useState(false);
   const [selectedLedEquipment, setSelectedLedEquipment] = useState<EquipmentItem | null>(null);
@@ -185,6 +187,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     budget_days: budgetDays, budget_totals_mode: budgetTotalsMode, budget_note: budgetNote,
     budget_version: budgetVersion, budget_payment_mode: paymentMode, budget_exchange_rate: exchangeRate,
     sticky_notes: JSON.stringify(stickyNotes),
+    show_nominal_consumption: showNominalConsumption, show_max_consumption: showMaxConsumption,
   };
   const autosave = useBudgetAutosave(`budget_autosave_${budgetId}`, settingsSnapshot, initialSettings,
     !loading && canAccess(user, 'budgets', 2), async patch => {
@@ -225,17 +228,11 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           setShowCategoryDropdown(false);
         }
       }
-      if (showExchangeRatePopover) {
-        const target = event.target as HTMLElement;
-        if (!target.closest('.exchange-rate-container')) {
-          setShowExchangeRatePopover(false);
-        }
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showCategoryDropdown, showExchangeRatePopover]);
+  }, [showCategoryDropdown]);
 
   useEffect(() => {
     if (budgetDays <= 1 && budgetTotalsMode === 'day1_plus_combined') {
@@ -290,6 +287,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           budget_payment_mode: eventData.budget_payment_mode ?? (localMode === 'byn_cash' || localMode === 'byn_noncash' ? localMode : 'usd'),
           budget_exchange_rate: eventData.budget_exchange_rate || budgetData[0]?.exchange_rate || 3,
           sticky_notes: JSON.stringify(loadedNotes),
+          show_nominal_consumption: eventData.show_nominal_consumption ?? true,
+          show_max_consumption: eventData.show_max_consumption ?? true,
         };
         let restored = loaded;
         if (canAccess(user, 'budgets', 2)) {
@@ -309,6 +308,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         setDiscount2Enabled(restored.discount2_enabled);
         setDiscount2Percent(restored.discount2_percent); setDiscount2PercentInput(String(restored.discount2_percent));
         setBudgetDays(restored.budget_days); setBudgetTotalsMode(restored.budget_totals_mode);
+        setShowNominalConsumption(restored.show_nominal_consumption);
+        setShowMaxConsumption(restored.show_max_consumption);
         setBudgetNote(restored.budget_note); setBudgetVersion(restored.budget_version);
         setPaymentMode(restored.budget_payment_mode); setExchangeRate(restored.budget_exchange_rate);
         setExchangeRateInput(String(restored.budget_exchange_rate));
@@ -2153,51 +2154,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             <h2 className="min-w-0 text-lg font-bold text-white flex items-center gap-2 break-words">
               Смета: {budgetName}
             </h2>
-            <div className="flex items-center gap-1.5">
-              <label htmlFor="budget-version" className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Версия</label>
-              <input
-                id="budget-version"
-                type="text"
-                value={budgetVersion}
-                onChange={(e) => setBudgetVersion(e.target.value)}
-                placeholder="1.0"
-                className="w-16 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none"
-              />
-            </div>
-
-            <div className="relative exchange-rate-container">
-              <button
-                onClick={() => setShowExchangeRatePopover(!showExchangeRatePopover)}
-                className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-all"
-              >
-                <Settings className="w-3.5 h-3.5 text-gray-500" />
-                <span className="text-xs font-medium">{getCurrencyLabel()}</span>
-                <span className="text-[10px] text-gray-500 font-mono">({exchangeRate.toFixed(2)})</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showExchangeRatePopover ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showExchangeRatePopover && (
-                <div className="absolute top-full right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 p-3 min-w-[200px]">
-                  {currencySettings}
-                </div>
-              )}
-            </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowBudgetNoteDialog(true)}
-              className="px-2 py-1 text-[11px] font-medium text-cyan-300 border border-cyan-700/60 rounded-md hover:bg-cyan-500/10 transition-colors"
-            >
-              +Примечание
-            </button>
-            <button
-              onClick={() => setShowStickyNotes(!showStickyNotes)}
-              className="text-gray-400 hover:text-yellow-400 p-1 hover:bg-gray-800 rounded-full transition-all"
-              title="Заметки"
-            >
-              <StickyNote className="w-5 h-5" />
-            </button>
+            <button type="button" onClick={() => setShowMobileSettings(true)} aria-label="Настройки сметы" title="Настройки сметы" className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-300 hover:bg-gray-800 hover:text-amber-200"><Star className="h-5 w-5" /></button>
             <button
               onClick={handleClose}
               aria-label="Закрыть смету"
@@ -2366,6 +2325,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                                   className={`transition-all duration-200 ${dragOverTarget === categoryGroupId ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
                                 >
                                   <CategoryBlock
+                                    showNominalConsumption={showNominalConsumption}
+                                    showMaxConsumption={showMaxConsumption}
                                     categoryId={categoryGroupId}
                                     categoryName={category.name}
                                     locationId={location.id}
@@ -2397,6 +2358,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
                             {(groupedItems[buildLocationUncategorizedGroupId(location.id)] || []).length > 0 && (
                               <CategoryBlock
+                                showNominalConsumption={showNominalConsumption}
+                                showMaxConsumption={showMaxConsumption}
                                 categoryId={buildLocationUncategorizedGroupId(location.id)}
                                 categoryName="Без категории"
                                 locationId={location.id}
@@ -2450,6 +2413,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         className={`transition-all duration-200 ${dragOverTarget === categoryGroupId ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
                       >
                         <CategoryBlock
+                          showNominalConsumption={showNominalConsumption}
+                          showMaxConsumption={showMaxConsumption}
                           categoryId={categoryGroupId}
                           categoryName={category.name}
                           items={categoryItems}
@@ -2483,6 +2448,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                       className={`transition-all duration-200 ${dragOverTarget === NO_LOCATION_GROUP_ID ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
                     >
                       <CategoryBlock
+                        showNominalConsumption={showNominalConsumption}
+                        showMaxConsumption={showMaxConsumption}
                         categoryId={NO_LOCATION_GROUP_ID}
                         categoryName="Без локации / категории"
                         items={groupedItems[NO_LOCATION_GROUP_ID]}
@@ -2626,6 +2593,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         <div className={`${mobileTab === 'total' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t border-gray-800 bg-gray-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:flex md:flex-none md:shrink-0 md:max-h-none md:pb-3 lg:flex-row lg:items-center lg:justify-between`}>
           <div className="flex min-w-0 flex-col items-start gap-4 md:flex-row md:items-center md:gap-6">
             <div className="flex flex-col">
+              <BudgetConsumption items={budgetItems} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} />
               <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итоговая сумма</span>
               <span className="text-xl font-black text-white">
                 <span className="text-cyan-400">{getPrimaryTotalForMode().toLocaleString()}</span>
@@ -2883,6 +2851,11 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           <input type="text" value={budgetVersion} onChange={event => setBudgetVersion(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-gray-700 bg-gray-800 px-3 text-base text-white" />
         </label>
         {currencySettings}
+        <fieldset className="space-y-3 border-t border-gray-800 pt-4">
+          <legend className="text-sm font-medium text-gray-300">Потребление в категориях и итогах</legend>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showNominalConsumption} onChange={event => setShowNominalConsumption(event.target.checked)} className="h-4 w-4 accent-cyan-500" />Ном. потребление</label>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showMaxConsumption} onChange={event => setShowMaxConsumption(event.target.checked)} className="h-4 w-4 accent-cyan-500" />Макс. потребление</label>
+        </fieldset>
         <div className="flex flex-wrap gap-3 border-t border-gray-800 pt-4">
           <button type="button" onClick={() => { setShowMobileSettings(false); setShowBudgetNoteDialog(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Примечание</button>
           <button type="button" onClick={() => { setShowMobileSettings(false); setShowStickyNotes(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Заметки</button>

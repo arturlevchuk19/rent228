@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { ArrowLeft, Calculator, Package, Plus, Receipt, Settings, Users, X } from 'lucide-react';
+import { ArrowLeft, Calculator, Package, Plus, Receipt, Star, Users, X } from 'lucide-react';
 
 export type MobileBudgetTab = 'equipment' | 'personnel' | 'estimate' | 'total';
 
@@ -13,7 +13,7 @@ export function MobileBudgetNavigation({ name, tab, onTabChange, count, onBack, 
     <header className="flex items-center gap-2 border-b border-gray-800 px-3 py-3">
       <button type="button" onClick={onBack} aria-label="Назад из сметы" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-300 active:bg-gray-800"><ArrowLeft className="h-5 w-5" /></button>
       <h1 className="min-w-0 flex-1 break-words text-lg font-semibold text-white">Смета: {name}</h1>
-      <button type="button" onClick={onSettings} aria-label="Настройки сметы" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-300 active:bg-gray-800"><Settings className="h-5 w-5" /></button>
+      <button type="button" onClick={onSettings} aria-label="Настройки сметы" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-300 active:bg-gray-800"><Star className="h-5 w-5" /></button>
     </header>
     <nav aria-label="Разделы сметы" className="mx-3 mt-3 mb-3 flex gap-1 rounded-2xl bg-gray-800 p-1">
       {([

@@ -1,3 +1,4 @@
+import { BudgetConsumption } from './BudgetConsumption';
 import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, Copy, MessageSquarePlus, Highlighter } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
@@ -11,6 +12,8 @@ export interface BudgetDragTarget {
 }
 
 interface CategoryBlockProps {
+  showNominalConsumption?: boolean;
+  showMaxConsumption?: boolean;
   categoryId: string;
   categoryName: string;
   locationId?: string | null;
@@ -43,6 +46,8 @@ interface CategoryBlockProps {
 }
 
 export function CategoryBlock({
+  showNominalConsumption = true,
+  showMaxConsumption = true,
   categoryId,
   categoryName,
   locationId = null,
@@ -419,6 +424,10 @@ export function CategoryBlock({
           ({items.length})
         </div>
       </div>
+
+      {(showNominalConsumption || showMaxConsumption) && <div className="border-b border-gray-800 px-3 py-2">
+        <BudgetConsumption items={items} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} />
+      </div>}
 
       {/* Items table - flat, compact */}
       {isExpanded && items.length > 0 && (

@@ -69,6 +69,8 @@ export interface Event {
   budget_days?: number;
   budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
   budget_note?: string;
+  show_nominal_consumption?: boolean;
+  show_max_consumption?: boolean;
   budget_version?: string;
   budget_payment_mode?: 'usd' | 'byn_cash' | 'byn_noncash';
   budget_exchange_rate?: number;
