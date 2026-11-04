@@ -99,6 +99,7 @@ export interface Equipment {
   quantity: number;
   rental_price: number;
   power: string;
+  peak_power: string;
   object_type: 'physical' | 'virtual';
   has_composition?: boolean;
   is_component?: boolean;

@@ -298,14 +298,18 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                     {item.rental_price > 0 ? `$${item.rental_price}` : '-'}
                   </div>
                 </div>
-                {item.power && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
-                      Мощность
-                    </label>
-                    <div className="text-white">{item.power}</div>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">
+                    Номинальное потребление (В)
+                  </label>
+                  <div className="text-white">{item.power?.trim() || '0'}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">
+                    Пиковое потребление (В)
+                  </label>
+                  <div className="text-white">{item.peak_power?.trim() || item.power?.trim() || '0'}</div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Тип объекта

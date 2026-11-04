@@ -113,7 +113,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     quantity: String(item?.quantity ?? 0),
     rental_price: String(item?.rental_price ?? 0),
     multi_day_rate: String(item?.multi_day_rate ?? 0),
-    power: item?.power || '',
+    power: item?.power?.trim() || '0',
+    peak_power: item?.peak_power?.trim() || item?.power?.trim() || '0',
     object_type: item?.object_type || 'physical' as 'physical' | 'virtual',
     rental_type: item?.rental_type || 'rental' as 'rental' | 'sublease',
     has_composition: item?.has_composition || false,
@@ -141,6 +142,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
 
     const submitData = {
       ...formData,
+      power: formData.power.trim() || '0',
+      peak_power: formData.peak_power.trim() || '0',
       quantity: parseFloat(formData.quantity) || 0,
       rental_price: parseFloat(formData.rental_price) || 0,
       multi_day_rate: parseFloat(formData.multi_day_rate) || 0,
@@ -416,13 +419,28 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Мощность
+                <label htmlFor="equipment-power" className="block text-sm font-medium text-gray-300 mb-1">
+                  Номинальное потребление (В)
                 </label>
                 <input
                   type="text"
+                  id="equipment-power"
                   name="power"
                   value={formData.power}
+                  onChange={handleChange}
+                  placeholder="Для электрооборудования"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="equipment-peak_power" className="block text-sm font-medium text-gray-300 mb-1">
+                  Пиковое потребление (В)
+                </label>
+                <input
+                  type="text"
+                  id="equipment-peak_power"
+                  name="peak_power"
+                  value={formData.peak_power}
                   onChange={handleChange}
                   placeholder="Для электрооборудования"
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"

@@ -17,6 +17,7 @@ export interface EquipmentItem {
   rental_price: number;
   multi_day_rate: number;
   power: string;
+  peak_power: string;
   object_type: 'physical' | 'virtual';
   rental_type: 'rental' | 'sublease';
   has_composition: boolean;
@@ -159,6 +160,8 @@ export async function createEquipmentItem(item: Partial<EquipmentItem>): Promise
     .from('equipment_items')
     .insert({
       ...item,
+      power: item.power?.trim() || '0',
+      peak_power: item.peak_power?.trim() || item.power?.trim() || '0',
       // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
       ...(item.sku !== undefined ? { sku: item.sku?.trim() || null } : {}),
       updated_at: new Date().toISOString()
@@ -175,6 +178,8 @@ export async function updateEquipmentItem(id: string, item: Partial<EquipmentIte
     .from('equipment_items')
     .update({
       ...item,
+      ...(item.power !== undefined ? { power: item.power.trim() || '0' } : {}),
+      ...(item.peak_power !== undefined ? { peak_power: item.peak_power.trim() || '0' } : {}),
       // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
       ...(item.sku !== undefined ? { sku: item.sku?.trim() || null } : {}),
       updated_at: new Date().toISOString()
@@ -417,7 +422,7 @@ export async function importEquipmentFromCSV(csvText: string): Promise<number> {
     const sku = parts[6] || '';
     const quantityStr = parts[7] || '0';
     const rentalPriceStr = parts[8] || '0';
-    const power = parts[9] || '';
+    const power = parts[9]?.trim() || '0';
 
     if (!category || !type || !name || !sku) continue;
 
@@ -439,7 +444,8 @@ export async function importEquipmentFromCSV(csvText: string): Promise<number> {
       quantity,
       rental_price,
       multi_day_rate,
-      power
+      power,
+      peak_power: power
     });
   }
 
