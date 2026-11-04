@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total } from './budgetPricing';
+import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
 interface BudgetItem {
@@ -313,9 +313,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     return roundBudgetPrice(value);
   };
 
-  const roundBudgetTotal = (value: number): number => {
-    return roundBudgetPrice(value);
-  };
+  const roundBudgetTotal = roundBudgetTotalDown;
 
   let grandTotalWorkDay1 = 0;
 
@@ -843,7 +841,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const discountedTotalCombined = discountedTotalForPeriod('combined');
 
   // Total with extras for each mode: discounted main total + extra services
-  // Preserve the sum of displayed line amounts to cents.
+  // Round the final total down to the nearest multiple of five.
   const grandTotalWithExtrasDay1 = data.totalWithExtraFromEditor !== undefined && !isCombinedOnlyMode
     ? roundBudgetTotal(data.totalWithExtraFromEditor)
     : roundBudgetTotal(discountedTotalDay1 + extraTotalDay1);

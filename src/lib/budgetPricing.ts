@@ -49,3 +49,6 @@ export const calcDisplayedGrandTotals = (items: Array<Pick<BudgetItem, 'price' |
   const combinedTotal = roundBudgetPrice(items.reduce((sum, item) => sum + calcDisplayedCombinedTotal(item, days), 0));
   return { day1Total, combinedTotal, totalForMode: mode === 'combined_only' ? combinedTotal : day1Total };
 };
+
+/** Grand totals are rounded down to the nearest multiple of five. */
+export const roundBudgetTotalDown = (value: number): number => Math.floor(roundBudgetPrice(value) / 5) * 5;

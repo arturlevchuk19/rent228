@@ -24,7 +24,7 @@ import { TemplatesInBudget } from './TemplatesInBudget';
 import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
 import { generateContractDocx } from '../lib/contractGenerator';
-import { roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
+import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
 import {
   UShapeUnifiedDialog,
   LedSizeDialog,
@@ -1715,9 +1715,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
   const normalizeGrandTotalForPaymentMode = roundBudgetPrice;
 
-  const roundBudgetTotal = (value: number): number => {
-    return roundBudgetPrice(value);
-  };
+  const roundBudgetTotal = roundBudgetTotalDown;
 
   const calculateCategoryTotalForPaymentMode = (items: BudgetItem[], mode: 'day1' | 'combined') => {
     switch (paymentMode) {
@@ -1793,7 +1791,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       ? getCombinedTotalForPaymentMode()
       : getDay1TotalForPaymentMode();
 
-    return normalizeGrandTotalForPaymentMode(rawTotal);
+    return roundBudgetTotal(rawTotal);
   };
 
   const getExtraServiceItems = () => {
@@ -1823,7 +1821,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
       ? getDiscountedTotal('combined')!
       : getCombinedTotalForPaymentMode();
 
-    // Preserve the sum of displayed line amounts to cents.
+    // Round the final total down to the nearest multiple of five.
     const grandTotalWithExtrasDay1 = roundBudgetTotal(baseTotalDay1 + extraTotalDay1);
     const grandTotalWithExtrasCombined = roundBudgetTotal(baseTotalCombined + extraTotalCombined);
 
@@ -2605,12 +2603,12 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
               </span>
               {budgetTotalsMode === 'day1_plus_combined' && (
                 <span className="text-[11px] text-gray-400">
-                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{roundBudgetTotal(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               {budgetDays > 1 && (
                 <span className="text-[11px] text-gray-400">
-                  Итого за {budgetDays} дней: <span className="text-cyan-300">{normalizeGrandTotalForPaymentMode(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                  Итого за {budgetDays} дней: <span className="text-cyan-300">{roundBudgetTotal(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               <label className="flex items-center gap-2 cursor-pointer select-none mt-1">

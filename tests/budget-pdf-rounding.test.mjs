@@ -6,8 +6,8 @@ globalThis.document={fonts:{ready:Promise.resolve()},createElement:tag=>tag==='c
 globalThis.requestAnimationFrame=callback=>{callback();return 1;};
 const cache=new Map();
 function load(file){if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);new Function('exports','require',ts.transpile(fs.readFileSync(file,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}))(exports,name=>name==='jspdf'?class{addImage(){}save(){}}:name==='html2canvas'?async()=>({width:1000,height:1000,toDataURL:()=> 'data:image/png;base64,AA'}):name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):{});return exports;}
-const {generateBudgetPDF}=load('src/lib/pdfGenerator.ts');const {ceilCurrencyUnit,calcCombinedTotal}=load('src/lib/budgetPricing.ts');
-assert.equal(ceilCurrencyUnit(3.0000000000000004),3);assert.equal(ceilCurrencyUnit(3.001),4);assert.equal(ceilCurrencyUnit(0),0);
+const {generateBudgetPDF}=load('src/lib/pdfGenerator.ts');const {ceilCurrencyUnit,calcCombinedTotal,roundBudgetTotalDown}=load('src/lib/budgetPricing.ts');
+assert.equal(ceilCurrencyUnit(3.0000000000000004),3);assert.equal(ceilCurrencyUnit(3.001),4);assert.equal(ceilCurrencyUnit(0),0);assert.equal(roundBudgetTotalDown(294),290);assert.equal(roundBudgetTotalDown(322),320);assert.equal(roundBudgetTotalDown(325),325);
 const rows=(extra=false,coefficient=0)=>[{category_id:'c',equipment:{name:'Жидкость',category:'Расходные материалы'},quantity:7,price:10,total:70,multi_day_rate_override:coefficient,is_extra:extra},{category_id:'c',equipment:{name:'Батарейки',category:'Расходные материалы'},quantity:28,price:1.1,total:30.8,multi_day_rate_override:coefficient,is_extra:extra}];
 const data={eventName:'Проверка',categories:[{id:'c',name:'Расходные материалы'}],exchangeRate:3,budgetDays:7,budgetTotalsMode:'day1_plus_combined'};
 const values=row=>[...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(match=>match[1].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim());
@@ -41,7 +41,7 @@ for (const mode of ['usd','byn_cash','byn_noncash']) for (const extra of [false,
  if(!extra) {
   const footer=html.match(/<footer[^>]*>([\s\S]*?)<\/footer>/)[1];
   const amounts=[...footer.matchAll(/<span style="font-size: 30px[^>]*>([^<]*)<\/span>/g)].map(match=>parseFloat(match[1]));
-  assert.equal(amounts[0],sum,'Grand total must not silently round down to a multiple of five');
+  assert.equal(amounts[0],Math.floor(sum/5)*5,'Grand total is rounded down to a multiple of five, leaving line and section amounts exact');
  }
 }
 globalThis.setTimeout=nativeTimeout;
