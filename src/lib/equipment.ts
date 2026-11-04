@@ -1,3 +1,4 @@
+import { cleanupEquipmentPhoto } from './equipmentMedia';
 import { parseConsumption, validateConsumptionInput } from './budgetConsumption';
 import { supabase } from './supabase';
 
@@ -16,6 +17,13 @@ export interface EquipmentItem {
   unit: EquipmentUnit;
   quantity: number;
   rental_price: number;
+  purchase_price?: number | null;
+  weight_kg?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  length_cm?: number | null;
+  volume_m3?: number | null;
+  photo_path?: string | null;
   multi_day_rate: number;
   power: string;
   peak_power: string;
@@ -156,11 +164,17 @@ export async function getEquipmentPage(options: { offset: number; limit: number;
   return { items: (data || []) as EquipmentItem[], total: count || 0 };
 }
 
+function equipmentWriteFields(item: Partial<EquipmentItem>): Partial<EquipmentItem> {
+  const fields = { ...item };
+  delete fields.volume_m3;
+  return fields;
+}
+
 export async function createEquipmentItem(item: Partial<EquipmentItem>): Promise<EquipmentItem> {
   const { data, error } = await supabase
     .from('equipment_items')
     .insert({
-      ...item,
+      ...equipmentWriteFields(item),
       power: validateConsumptionInput(item.power || ''),
       peak_power: validateConsumptionInput(item.peak_power ?? item.power ?? ''),
       // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
@@ -178,7 +192,7 @@ export async function updateEquipmentItem(id: string, item: Partial<EquipmentIte
   const { data, error } = await supabase
     .from('equipment_items')
     .update({
-      ...item,
+      ...equipmentWriteFields(item),
       ...(item.power !== undefined ? { power: validateConsumptionInput(item.power) } : {}),
       ...(item.peak_power !== undefined ? { peak_power: validateConsumptionInput(item.peak_power) } : {}),
       // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
@@ -221,12 +235,14 @@ export async function deleteEquipmentItem(id: string): Promise<void> {
   }
 
   // If no references found, proceed with deletion
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from('equipment_items')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('photo_path');
 
   if (error) throw error;
+  for (const row of deleted || []) if (row.photo_path) await cleanupEquipmentPhoto(row.photo_path).catch(() => {});
 }
 
 export interface EquipmentModification {

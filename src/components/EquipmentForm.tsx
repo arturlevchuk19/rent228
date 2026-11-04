@@ -1,3 +1,5 @@
+import { optionalEquipmentNumber, equipmentVolumeM3 } from '../lib/equipmentDimensions';
+import { prepareEquipmentPhoto, equipmentPhotoUrl, uploadEquipmentPhoto, cleanupEquipmentPhoto } from '../lib/equipmentMedia';
 import { parseConsumption } from '../lib/budgetConsumption';
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
@@ -113,6 +115,11 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     unit: item?.unit || 'шт.',
     quantity: String(item?.quantity ?? 0),
     rental_price: String(item?.rental_price ?? 0),
+    purchase_price: item?.purchase_price == null ? '' : String(item.purchase_price),
+    weight_kg: item?.weight_kg == null ? '' : String(item.weight_kg),
+    width_cm: item?.width_cm == null ? '' : String(item.width_cm),
+    height_cm: item?.height_cm == null ? '' : String(item.height_cm),
+    length_cm: item?.length_cm == null ? '' : String(item.length_cm),
     multi_day_rate: String(item?.multi_day_rate ?? 0),
     power: String(parseConsumption(item?.power)),
     peak_power: String(parseConsumption(item?.peak_power ?? item?.power)),
@@ -121,6 +128,30 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     has_composition: item?.has_composition || false,
     is_component: item?.is_component || false
   }));
+
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (photoFile) {
+      const url = URL.createObjectURL(photoFile); setPhotoPreview(url);
+      return () => { URL.revokeObjectURL(url); };
+    }
+    setPhotoPreview('');
+    if (item?.photo_path && !removePhoto) equipmentPhotoUrl(item.photo_path).then(url => { if (active) setPhotoPreview(url); }).catch(() => { if (active) setError('Не удалось загрузить фото. Можно выбрать новое или сохранить остальные поля.'); });
+    return () => { active = false; };
+  }, [item?.photo_path, photoFile, removePhoto]);
+  const choosePhoto = async (file?: File) => {
+    if (!file) return;
+    setProcessingPhoto(true); setError('');
+    try { setPhotoFile(await prepareEquipmentPhoto(file)); setRemovePhoto(false); }
+    catch (caught) { setError(getErrorMessage(caught)); }
+    finally { setProcessingPhoto(false); }
+  };
+  const dimensionValue = (value: string) => value.trim() && Number.isFinite(Number(value.replace(',', '.'))) && Number(value.replace(',', '.')) >= 0 ? Number(value.replace(',', '.')) : null;
+  const volume = equipmentVolumeM3(dimensionValue(formData.width_cm), dimensionValue(formData.height_cm), dimensionValue(formData.length_cm));
 
   // Синхронизируем локальные копии со справочниками родителя,
   // но только когда окно формы закрыто, чтобы не затирать незавершённый ввод.
@@ -139,22 +170,31 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
       setError('Заполните обязательные поля: Категория и Тип');
       return;
     }
+    if (loading || processingPhoto) return;
     setLoading(true);
-
-    const submitData = {
-      ...formData,
-      power: formData.power.trim() || '0',
-      peak_power: formData.peak_power.trim() || '0',
-      quantity: parseFloat(formData.quantity) || 0,
-      rental_price: parseFloat(formData.rental_price) || 0,
-      multi_day_rate: parseFloat(formData.multi_day_rate) || 0,
-    };
-
+    let uploaded: string | undefined;
     try {
+      const submitData = {
+        ...formData,
+        power: formData.power.trim() || '0',
+        peak_power: formData.peak_power.trim() || '0',
+        quantity: parseFloat(formData.quantity) || 0,
+        rental_price: parseFloat(formData.rental_price) || 0,
+        multi_day_rate: parseFloat(formData.multi_day_rate) || 0,
+        purchase_price: optionalEquipmentNumber(formData.purchase_price, 'Цена покупки'),
+        weight_kg: optionalEquipmentNumber(formData.weight_kg, 'Вес'),
+        width_cm: optionalEquipmentNumber(formData.width_cm, 'Ширина'),
+        height_cm: optionalEquipmentNumber(formData.height_cm, 'Высота'),
+        length_cm: optionalEquipmentNumber(formData.length_cm, 'Длина'),
+        photo_path: removePhoto ? null : item?.photo_path || null,
+      };
+      if (photoFile) { uploaded = await uploadEquipmentPhoto(photoFile); submitData.photo_path = uploaded; }
       const saved = item ? await updateEquipmentItem(item.id, submitData) : await createEquipmentItem(submitData);
+      if (item?.photo_path && item.photo_path !== saved.photo_path) await cleanupEquipmentPhoto(item.photo_path).catch(() => {});
       onSaved?.(saved);
       onClose();
     } catch (err) {
+      if (uploaded) await cleanupEquipmentPhoto(uploaded).catch(() => {});
       setError(getErrorMessage(err) || 'Ошибка при сохранении');
     } finally {
       setLoading(false);
@@ -217,6 +257,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
           </h2>
           <button
             onClick={onClose}
+              disabled={loading || processingPhoto}
             className="shrink-0 p-2 text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
@@ -401,6 +442,11 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                 />
               </div>
 
+              <div>
+                <label htmlFor="equipment-purchase-price" className="block text-sm font-medium text-gray-300 mb-1">Цена покупки ($)</label>
+                <input id="equipment-purchase-price" type="number" inputMode="decimal" name="purchase_price" value={formData.purchase_price} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.01" className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
+              </div>
+
               {(parseFloat(formData.rental_price) || 0) > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -452,6 +498,28 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   placeholder="Для электрооборудования"
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
                 />
+              </div>
+              <div>
+                <label htmlFor="equipment-weight" className="block text-sm font-medium text-gray-300 mb-1">Вес, кг</label>
+                <input id="equipment-weight" type="number" inputMode="decimal" name="weight_kg" value={formData.weight_kg} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
+              </div>
+              <fieldset>
+                <legend className="block text-sm font-medium text-gray-300 mb-1">Габариты (Ш×В×Д), см</legend>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                  {(['width_cm', 'height_cm', 'length_cm'] as const).map((key, index) => <React.Fragment key={key}>{index > 0 && <span aria-hidden="true" className="text-gray-500">×</span>}<input type="number" inputMode="decimal" name={key} aria-label={['Ширина, см', 'Высота, см', 'Длина, см'][index]} placeholder={['Ш', 'В', 'Д'][index]} value={formData[key]} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin min-w-0 w-full rounded-lg border border-gray-700 bg-gray-800 px-2 py-2 text-center text-white outline-none focus:border-cyan-500" /></React.Fragment>)}
+                </div>
+              </fieldset>
+              <div>
+                <label htmlFor="equipment-volume" className="block text-sm font-medium text-gray-300 mb-1">Объём, м³</label>
+                <input id="equipment-volume" readOnly value={volume === null ? '' : String(volume)} placeholder="Рассчитывается автоматически" className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-cyan-300 outline-none" />
+                <p className="mt-1 text-xs text-gray-500">Ш × В × Д ÷ 1 000 000</p>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-300">Фото</label>
+                {photoPreview && !removePhoto && <img src={photoPreview} alt={formData.name || 'Фото оборудования'} className="max-h-56 w-full rounded-xl border border-gray-700 bg-gray-800 object-contain" />}
+                <input type="file" aria-label="Фото оборудования" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif" disabled={loading || processingPhoto} onChange={event => { void choosePhoto(event.target.files?.[0]); event.target.value = ''; }} className="block w-full min-w-0 text-sm text-gray-400 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-800 file:px-3 file:py-2 file:text-cyan-300" />
+                {processingPhoto && <p role="status" className="text-xs text-gray-500">Подготовка фото…</p>}
+                {(photoFile || item?.photo_path) && !removePhoto && <button type="button" disabled={loading || processingPhoto} onClick={() => { setPhotoFile(null); setRemovePhoto(true); }} className="text-sm text-red-400 underline">Убрать фото</button>}
               </div>
             </div>
           </div>
@@ -669,13 +737,14 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
             <button
               type="button"
               onClick={onClose}
+              disabled={loading || processingPhoto}
               className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
             >
               Отмена
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || processingPhoto}
               className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50"
             >
               {loading ? 'Сохранение...' : item ? 'Сохранить' : 'Создать'}
