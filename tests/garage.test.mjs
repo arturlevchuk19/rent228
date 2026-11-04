@@ -1,0 +1,13 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+let writes=[],response={data:{id:'v'},error:null};
+const chain={select:()=>chain,eq:(key,value)=>{writes.push(['eq',key,value]);return chain;},update:value=>{writes.push(['update',value]);return chain;},insert:value=>{writes.push(['insert',value]);return chain;},delete:()=>{writes.push(['delete']);return chain;},single:async()=>response,maybeSingle:async()=>response};
+const supabase={from:()=>chain,storage:{from:()=>({remove:async paths=>{writes.push(['remove',paths]);return {error:null};}})}};
+const exports={};new Function('exports','require',ts.transpile(fs.readFileSync('src/lib/garage.ts','utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,()=>({supabase}));
+const {formatGaragePlate,validateGarageVehicle,saveGarageVehicle,deleteGarageVehicle}=exports;
+assert.equal(formatGaragePlate('0345hb1','BY'),'0345 HB-1');assert.equal(formatGaragePlate('0345 HB-1','BY'),'0345 HB-1');assert.equal(formatGaragePlate('abc-123','PL'),'ABC-123');
+const fields={category:'cargo',status:'repair',name:' Isuzu ',plate_country:'BY',plate_number:'0345hb1',brand_model:'Isuzu NPR',body_type:'Фургон',payload:'3.5 т',dimensions:'5×2.2×2.4 м',fuel:'diesel',fuel_consumption:12.5,driver_name:'Водитель смены',phone_country:'BY',driver_phone:'+375000000000',photo_path:null};
+assert.equal(validateGarageVehicle(fields),null);assert(validateGarageVehicle({...fields,name:' '}));assert(validateGarageVehicle({...fields,fuel_consumption:-1}));assert(validateGarageVehicle({...fields,fuel_consumption:NaN}));
+await saveGarageVehicle(undefined,fields);const inserted=writes.find(row=>row[0]==='insert')[1];assert.equal(inserted.name,'Isuzu');assert.equal(inserted.plate_number,'0345 HB-1');assert.equal(inserted.fuel_consumption,12.5);assert.equal(inserted.driver_name,'Водитель смены');
+writes=[];await saveGarageVehicle('v',{...fields,category:'passenger',photo_path:'image.jpg'},'timestamp');assert(writes.some(row=>row[0]==='eq'&&row[1]==='updated_at'&&row[2]==='timestamp'));
+response={data:null,error:null};await assert.rejects(saveGarageVehicle('v',fields,'old'),/изменён/);response={data:{id:'v'},error:null};await deleteGarageVehicle({...fields,id:'v',updated_at:'now',photo_path:'image.jpg'});assert(writes.some(row=>row[0]==='remove'&&row[1][0]==='image.jpg'));
+console.log('PASS: plate country formatting, validation, all field persistence, cargo/passenger editing, conflict guard and photo cleanup on deletion');

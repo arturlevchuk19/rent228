@@ -64,7 +64,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
     { id: 'equipment', label: 'Оборудование', icon: Package },
     { id: 'events', label: 'Мероприятия', icon: Calendar },
     { id: 'contacts', label: 'Справочники', icon: Users },
-    { id: 'logistics', label: 'Логистика', icon: Truck },
+    { id: 'logistics', label: 'Гараж', icon: Truck },
     { id: 'payments', label: 'Выплаты', icon: DollarSign },
     { id: 'personnel-report', label: 'Отчет по выплатам', icon: FileText },
     { id: 'staff', label: 'Персонал', icon: Users },

@@ -19,6 +19,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m
 const Equipment = lazy(() => import('./pages/Equipment').then(m => ({ default: m.Equipment })));
 const Events = lazy(() => import('./pages/Events').then(m => ({ default: m.Events })));
 const Contacts = lazy(() => import('./pages/Contacts').then(m => ({ default: m.Contacts })));
+const Garage = lazy(() => import('./pages/Garage'));
 const Personnel = lazy(() => import('./pages/Personnel'));
 const Payments = lazy(() => import('./pages/Payments'));
 const PersonnelPaymentsReport = lazy(() => import('./pages/PersonnelPaymentsReport'));
@@ -73,10 +74,10 @@ function AppContent() {
       case 'payments': return <Payments />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
       case 'staff': return <Personnel />;
-      case 'logistics':
+      case 'logistics': return <Garage />;
       case 'users':
       case 'settings':
-        return <div className="text-white"><h1 className="hidden text-3xl font-bold mb-4">{currentPage === 'logistics' ? 'Логистика' : currentPage === 'users' ? 'Пользователи' : 'Настройки'}</h1><p className="text-gray-400">В разработке...</p></div>;
+        return <div className="text-white"><h1 className="hidden text-3xl font-bold mb-4">{currentPage === 'users' ? 'Пользователи' : 'Настройки'}</h1><p className="text-gray-400">В разработке...</p></div>;
       default: return <Dashboard />;
     }
   };

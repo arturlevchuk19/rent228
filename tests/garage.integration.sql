@@ -1,0 +1,30 @@
+DO $$
+DECLARE actor_id uuid; car uuid; denied boolean;
+BEGIN
+ SELECT u.id INTO actor_id FROM public.users u JOIN public.app_roles r ON r.key=u.role WHERE u.status='active' AND (u.role='superuser' OR COALESCE((r.permissions->>'logistics')::integer,0)>=3) LIMIT 1;
+ IF actor_id IS NULL THEN RAISE EXCEPTION 'Test needs a garage administrator'; END IF;
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',actor_id,'role','authenticated')::text,true);
+ EXECUTE 'SET LOCAL ROLE authenticated';
+ INSERT INTO public.garage_vehicles(name,category,status,plate_number,brand_model,body_type,payload,dimensions,fuel,fuel_consumption,driver_name,driver_phone) VALUES('__garage_test__','cargo','repair','0345 HB-1','Isuzu NPR','Фургон','3.5 т','5×2.2×2.4 м','diesel',12.5,'Тест водителя','+375000000000') RETURNING id INTO car;
+ IF (SELECT created_by FROM public.garage_vehicles WHERE id=car) IS DISTINCT FROM actor_id THEN RAISE EXCEPTION 'Audit identity not stamped'; END IF;
+ UPDATE public.garage_vehicles SET category='passenger',status='available',fuel='petrol',fuel_consumption=8.5 WHERE id=car;
+ IF (SELECT fuel_consumption FROM public.garage_vehicles WHERE id=car)<>8.5 THEN RAISE EXCEPTION 'Vehicle update failed'; END IF;
+ denied:=false;BEGIN UPDATE public.garage_vehicles SET fuel_consumption=-1 WHERE id=car;EXCEPTION WHEN check_violation THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Negative consumption allowed'; END IF;
+ denied:=false;BEGIN UPDATE public.garage_vehicles SET name=' ' WHERE id=car;EXCEPTION WHEN check_violation THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Blank name allowed'; END IF;
+ EXECUTE 'RESET ROLE';
+ IF (SELECT public FROM storage.buckets WHERE id='garage-photos') IS DISTINCT FROM false THEN RAISE EXCEPTION 'Garage photos must be private'; END IF;
+ PERFORM set_config('request.jwt.claims','{"role":"authenticated"}',true);
+ EXECUTE 'SET LOCAL ROLE authenticated';
+ IF EXISTS(SELECT 1 FROM public.garage_vehicles WHERE id=car) THEN RAISE EXCEPTION 'Unauthorized reader sees vehicle'; END IF;
+ denied:=false;BEGIN INSERT INTO public.garage_vehicles(name) VALUES('__forbidden__');EXCEPTION WHEN insufficient_privilege THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Unauthorized creation allowed'; END IF;
+ EXECUTE 'RESET ROLE';
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',actor_id,'role','authenticated')::text,true);
+ EXECUTE 'SET LOCAL ROLE authenticated';
+ DELETE FROM public.garage_vehicles WHERE id=car;
+ IF EXISTS(SELECT 1 FROM public.garage_vehicles WHERE id=car) THEN RAISE EXCEPTION 'Delete failed'; END IF;
+ EXECUTE 'RESET ROLE';
+END;
+$$;

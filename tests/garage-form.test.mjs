@@ -1,0 +1,15 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+let state=[],index=0,saves=[],uploads=0,removed=[],saved=0;globalThis.document={body:{}};
+const jsx=(type,props)=>({type,props});const exports={};
+const lib={GARAGE_CATEGORIES:{cargo:'Грузовой',passenger:'Легковой'},GARAGE_COUNTRIES:[{code:'BY',name:'Беларусь',phone:'+375'}],GARAGE_FUELS:{'':'Не указано',diesel:'Дизель'},GARAGE_STATUSES:{available:'Готов',repair:'Требует ремонта'},formatGaragePlate:value=>value,validateGarageVehicle:()=>null,uploadGaragePhoto:async()=>{uploads++;return 'new.jpg';},removeGaragePhoto:async path=>removed.push(path),saveGarageVehicle:async(...args)=>saves.push(args)};
+new Function('exports','require',ts.transpile(fs.readFileSync('src/components/GarageVehicleForm.tsx','utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>{
+ if(name==='react')return {useId:()=> 'title',useRef:value=>({current:value}),useState:initial=>{const i=index++;if(!(i in state))state[i]=initial;return [state[i],value=>state[i]=typeof value==='function'?value(state[i]):value];},useEffect:()=>{}};
+ if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-dom')return {createPortal:value=>value};if(name.endsWith('/garage'))return lib;if(name.endsWith('/garagePhoto'))return {prepareGaragePhoto:async file=>file};if(name.endsWith('/errors'))return {getErrorMessage:error=>error.message};return {};
+});
+const props={editable:true,onClose:()=>{},onSaved:()=>saved++};const render=()=>{index=0;return exports.GarageVehicleForm(props);};const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(n.props?.children):typeof n==='string'?n:'';
+let tree=nodes(render());for(const label of ['Категория','Статус','Название','Страна номера','Госномер','Марка, модель','Тип','Грузоподъёмность','Габариты','Топливо','Расход, л/100 км','Водитель','Телефон водителя'])assert(tree.some(n=>n.type==='label'&&text(n).startsWith(label)),label);
+const inputFor=label=>{const tree=nodes(render());const wrapper=tree.find(n=>n.type==='label'&&text(n).startsWith(label));return nodes(wrapper).find(n=>n.type==='input'||n.type==='select');};
+inputFor('Название').props.onChange({target:{value:'Isuzu'}});inputFor('Грузоподъёмность').props.onChange({target:{value:'3.5 т'}});inputFor('Расход, л/100 км').props.onChange({target:{value:'12.5'}});
+tree=nodes(render());await tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});assert.equal(saves[0][1].name,'Isuzu');assert.equal(saves[0][1].fuel_consumption,12.5);assert.equal(saved,1);
+state[2]=new File(['photo'],'photo.jpg',{type:'image/jpeg'});tree=nodes(render());await tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});assert.equal(uploads,1);assert.equal(saves.at(-1)[1].photo_path,'new.jpg');
+console.log('PASS: all screenshot form fields, mobile form structure, numeric fuel consumption and uploaded-photo persistence');

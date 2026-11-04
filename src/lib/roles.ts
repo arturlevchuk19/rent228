@@ -5,7 +5,7 @@ export const MODULES = [
   ['specifications', 'Складская спецификация'], ['equipment', 'Оборудование'],
   ['contacts', 'Справочники'], ['templates', 'Шаблоны смет'], ['payments', 'Выплаты'],
   ['personnel-report', 'Отчёт по выплатам'], ['staff', 'Персонал'],
-  ['dashboard', 'Главная'], ['logistics', 'Логистика'], ['users', 'Пользователи'],
+  ['dashboard', 'Главная'], ['logistics', 'Гараж'], ['users', 'Пользователи'],
   ['roles', 'Роли и доступ'], ['settings', 'Настройки'],
 ] as const;
 export type AppModule = typeof MODULES[number][0];
