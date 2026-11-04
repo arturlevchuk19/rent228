@@ -1,7 +1,7 @@
 import { dayNumber } from './calendar';
 
 export interface ScheduleEntry { id: string; date: string; title: string; start: string; end: string; }
-export interface ProjectPerson { id: string; personnel_id: string; name: string; group: 'team' | 'freelance' | 'external'; rate: string; }
+export interface ProjectPerson { id: string; personnel_id: string; name: string; group: 'team' | 'freelance' | 'external'; rate: string; work_id?: string; work_name?: string; hours?: string; }
 export interface ProjectTransport { id: string; vehicle: string; driver: string; notes: string; }
 export interface EventProjectDetails {
   description: string; schedule: ScheduleEntry[]; people: ProjectPerson[]; transport: ProjectTransport[];
@@ -15,7 +15,7 @@ export function normalizeProjectDetails(value: unknown): EventProjectDetails {
   return {
     description: text(data.description), sound: text(data.sound), light: text(data.light), media: text(data.media), io: text(data.io),
     schedule: records(data.schedule).map((row, index) => ({ id: text(row.id) || `schedule-${index}`, date: text(row.date), title: text(row.title), start: text(row.start), end: text(row.end) })),
-    people: records(data.people).map((row, index) => ({ id: text(row.id) || `person-${index}`, personnel_id: text(row.personnel_id), name: text(row.name), group: row.group === 'freelance' || row.group === 'external' ? row.group : 'team', rate: text(row.rate) })),
+    people: records(data.people).map((row, index) => ({ id: text(row.id) || `person-${index}`, personnel_id: text(row.personnel_id), name: text(row.name), group: row.group === 'freelance' || row.group === 'external' ? row.group : 'team', rate: text(row.rate), ...(typeof row.work_id === 'string' ? { work_id: row.work_id } : {}), ...(typeof row.work_name === 'string' ? { work_name: row.work_name } : {}), ...(typeof row.hours === 'string' ? { hours: row.hours } : {}) })),
     transport: records(data.transport).map((row, index) => ({ id: text(row.id) || `transport-${index}`, vehicle: text(row.vehicle), driver: text(row.driver), notes: text(row.notes) })),
   };
 }
@@ -29,6 +29,7 @@ export function validateProjectDetails(value: EventProjectDetails, startDate: st
   }
   if (value.people.some(person => !person.name.trim())) return 'Укажите имена всех добавленных участников.';
   if (value.people.some(person => person.rate && (!Number.isFinite(Number(person.rate)) || Number(person.rate) < 0))) return 'Ставка участника должна быть неотрицательным числом.';
+  if (value.people.some(person => person.hours && (!Number.isFinite(Number(person.hours)) || Number(person.hours) < 0))) return 'Количество часов должно быть неотрицательным числом.';
   if (value.transport.some(row => !row.vehicle.trim())) return 'Укажите транспорт или удалите незаполненную строку.';
   return null;
 }

@@ -5,6 +5,9 @@ export interface Personnel {
   user_id: string;
   full_name: string;
   salary: number;
+  employment_type?: 'staff' | 'freelance';
+  installation_rate?: number;
+  warehouse_rate?: number;
   rate_percentage: number;
   drivers_license: string;
   phone: string;
