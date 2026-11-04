@@ -19,3 +19,14 @@ for (const value of [undefined, null, '', ' ', 'invalid', '-2', 'Infinity', '1/2
 assert.equal(parse(' 0,125 кВт '), 0.125);
 assert.equal(format(1.23456), '1,235 кВт');
 console.log('PASS: quantity totals, independent peak values, categories, decimals, missing and invalid data');
+const { validateConsumptionInput: validate } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+for (const value of ['Физическое оборудование', 'Device', 'Part', 'Kit', 'Consumable']) {
+  assert.equal(parse(value), 0);
+  assert.throws(() => validate(value), /числом/);
+}
+assert.equal(validate(''), '0');
+assert.equal(validate('  '), '0');
+assert.equal(validate('0,015'), '0,015');
+assert.equal(validate('1.2'), '1.2');
+assert.throws(() => validate('-1'));
+console.log('PASS: legacy descriptions become zero; invalid consumption input rejected');

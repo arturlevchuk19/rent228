@@ -21,3 +21,12 @@ export function calculateBudgetConsumption(items: Pick<BudgetItem, 'item_type' |
 }
 
 export const formatConsumption = (value: number) => `${value.toLocaleString('ru-RU', { maximumFractionDigits: 3 })} кВт`;
+
+export function validateConsumptionInput(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '0';
+  if (!/^\d+(?:[.,]\d+)?$/.test(trimmed) || !Number.isFinite(Number(trimmed.replace(',', '.')))) {
+    throw new Error('Потребление должно быть неотрицательным числом в кВт');
+  }
+  return trimmed;
+}

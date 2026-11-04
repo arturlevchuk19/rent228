@@ -1,3 +1,4 @@
+import { parseConsumption } from '../lib/budgetConsumption';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { useState, useEffect } from 'react';
@@ -302,13 +303,13 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Номинальное потребление (кВт)
                   </label>
-                  <div className="text-white">{item.power?.trim() || '0'}</div>
+                  <div className="text-white">{parseConsumption(item.power)}</div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Пиковое потребление (кВт)
                   </label>
-                  <div className="text-white">{item.peak_power?.trim() || item.power?.trim() || '0'}</div>
+                  <div className="text-white">{parseConsumption(item.peak_power ?? item.power)}</div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">

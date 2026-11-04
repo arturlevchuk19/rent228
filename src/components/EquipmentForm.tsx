@@ -1,3 +1,4 @@
+import { parseConsumption } from '../lib/budgetConsumption';
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import {
@@ -113,8 +114,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     quantity: String(item?.quantity ?? 0),
     rental_price: String(item?.rental_price ?? 0),
     multi_day_rate: String(item?.multi_day_rate ?? 0),
-    power: item?.power?.trim() || '0',
-    peak_power: item?.peak_power?.trim() || item?.power?.trim() || '0',
+    power: String(parseConsumption(item?.power)),
+    peak_power: String(parseConsumption(item?.peak_power ?? item?.power)),
     object_type: item?.object_type || 'physical' as 'physical' | 'virtual',
     rental_type: item?.rental_type || 'rental' as 'rental' | 'sublease',
     has_composition: item?.has_composition || false,
@@ -425,6 +426,9 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                 <input
                   type="text"
                   id="equipment-power"
+                  inputMode="decimal"
+                  pattern="[0-9]+([.,][0-9]+)?"
+                  title="Неотрицательное число в кВт"
                   name="power"
                   value={formData.power}
                   onChange={handleChange}
@@ -439,6 +443,9 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                 <input
                   type="text"
                   id="equipment-peak_power"
+                  inputMode="decimal"
+                  pattern="[0-9]+([.,][0-9]+)?"
+                  title="Неотрицательное число в кВт"
                   name="peak_power"
                   value={formData.peak_power}
                   onChange={handleChange}

@@ -1,3 +1,4 @@
+import { parseConsumption, validateConsumptionInput } from './budgetConsumption';
 import { supabase } from './supabase';
 
 export const EQUIPMENT_UNITS = ['шт.', 'м.', 'комп.', 'ед.', 'чел.', 'л.', 'кг', 'услуга', 'час', 'смена'] as const;
@@ -160,8 +161,8 @@ export async function createEquipmentItem(item: Partial<EquipmentItem>): Promise
     .from('equipment_items')
     .insert({
       ...item,
-      power: item.power?.trim() || '0',
-      peak_power: item.peak_power?.trim() || item.power?.trim() || '0',
+      power: validateConsumptionInput(item.power || ''),
+      peak_power: validateConsumptionInput(item.peak_power ?? item.power ?? ''),
       // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
       ...(item.sku !== undefined ? { sku: item.sku?.trim() || null } : {}),
       updated_at: new Date().toISOString()
@@ -178,8 +179,8 @@ export async function updateEquipmentItem(id: string, item: Partial<EquipmentIte
     .from('equipment_items')
     .update({
       ...item,
-      ...(item.power !== undefined ? { power: item.power.trim() || '0' } : {}),
-      ...(item.peak_power !== undefined ? { peak_power: item.peak_power.trim() || '0' } : {}),
+      ...(item.power !== undefined ? { power: validateConsumptionInput(item.power) } : {}),
+      ...(item.peak_power !== undefined ? { peak_power: validateConsumptionInput(item.peak_power) } : {}),
       // Empty SKUs must be NULL so the unique constraint allows multiple items without an article.
       ...(item.sku !== undefined ? { sku: item.sku?.trim() || null } : {}),
       updated_at: new Date().toISOString()
@@ -422,7 +423,7 @@ export async function importEquipmentFromCSV(csvText: string): Promise<number> {
     const sku = parts[6] || '';
     const quantityStr = parts[7] || '0';
     const rentalPriceStr = parts[8] || '0';
-    const power = parts[9]?.trim() || '0';
+    const power = String(parseConsumption(parts[9]));
 
     if (!category || !type || !name || !sku) continue;
 
