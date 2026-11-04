@@ -352,6 +352,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
   const handleSelectCategory = async (templateCategory: Category) => {
     setShowCategoryDropdown(false);
+    const targetLocationId = selectedCategoryId ? parseGroupId(selectedCategoryId).locationId : null;
 
     try {
       const localCategory = await createCategory(
@@ -361,14 +362,15 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         eventId, budgetId
       );
 
+      const groupId = buildCategoryGroupId(localCategory.id, targetLocationId);
       setCategories(prev => [...prev, localCategory]);
       setActiveCategoryIds(prev => {
         const next = new Set(prev);
-        next.add(`category:${localCategory.id}`);
+        next.add(groupId);
         return next;
       });
-      setExpandedCategories(prev => ({ ...prev, [`category:${localCategory.id}`]: true }));
-      setSelectedCategoryId(`category:${localCategory.id}`);
+      setExpandedCategories(prev => ({ ...prev, [groupId]: true, ...(targetLocationId ? { [`location:${targetLocationId}`]: true } : {}) }));
+      setSelectedCategoryId(groupId);
     } catch (error) {
       console.error('Error creating local category copy:', error);
       alert('Ошибка создания категории');
@@ -382,6 +384,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   };
 
   const handleCreateExtraServiceCategory = async () => {
+    const targetLocationId = selectedCategoryId ? parseGroupId(selectedCategoryId).locationId : null;
     const baseName = 'Доп услуги';
     const existingNames = categories.map((item) => item.name.trim().toLowerCase());
     let nextName = baseName;
@@ -393,14 +396,14 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
     try {
       const category = await createCategory(nextName, EXTRA_SERVICE_DESCRIPTION_FLAG, false, eventId, budgetId);
-      const groupId = buildCategoryGroupId(category.id);
+      const groupId = buildCategoryGroupId(category.id, targetLocationId);
       setCategories((prev) => [...prev, category]);
       setActiveCategoryIds((prev) => {
         const next = new Set(prev);
         next.add(groupId);
         return next;
       });
-      setExpandedCategories((prev) => ({ ...prev, [groupId]: true }));
+      setExpandedCategories((prev) => ({ ...prev, [groupId]: true, ...(targetLocationId ? { [`location:${targetLocationId}`]: true } : {}) }));
       setSelectedCategoryId(groupId);
     } catch (error) {
       console.error('Error creating extra service category:', error);
@@ -2252,7 +2255,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         key={location.id}
                         data-budget-selected={selectedCategoryId === locationGroupId}
                         data-budget-drop-group={JSON.stringify({ type: 'location', id: location.id, locationId: location.id })}
-                        className={`transition-all duration-200 rounded-xl border border-emerald-900/30 ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`}
+                        className={`transition-all duration-200 rounded-xl border ${selectedCategoryId === locationGroupId ? 'border-amber-300 ring-1 ring-amber-300' : 'border-emerald-900/30'} ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`}
                         onDragOver={(e) => handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })}
                         onDrop={(e) => handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}
                       >
@@ -2268,13 +2271,17 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                             handleLocationDrop(e, location.id);
                           }}
                         >
+                          <button type="button" aria-label={`${expandedCategories[locationGroupId] ?? true ? 'Свернуть' : 'Развернуть'} локацию ${location.name}`} aria-expanded={expandedCategories[locationGroupId] ?? true}
+                            className="flex min-h-8 min-w-8 items-center justify-center rounded hover:bg-black/20"
+                            onClick={() => setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !(prev[locationGroupId] ?? true) }))}>
+                            {(expandedCategories[locationGroupId] ?? true) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          </button>
                           <button
                             type="button"
                             className="flex-1 flex items-center gap-2 text-left"
-                            onClick={() => {
-                              setSelectedCategoryId(locationGroupId);
-                              setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !prev[locationGroupId] }));
-                            }}
+                            aria-pressed={selectedCategoryId === locationGroupId}
+                            title="Выбрать локацию для новых категорий"
+                            onClick={() => setSelectedCategoryId(current => current === locationGroupId ? null : locationGroupId)}
                           >
                             <div
                               draggable
@@ -2286,11 +2293,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                             >
                               <GripVertical className="w-3.5 h-3.5" />
                             </div>
-                            {(expandedCategories[locationGroupId] ?? true) ? (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            )}
+
                             <MapPin className="w-3.5 h-3.5" />
                             <span>{location.name}</span>
                           </button>
@@ -2313,6 +2316,10 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                             </button>
                           </div>
                         </div>
+
+                        {(showNominalConsumption || showMaxConsumption) && <div className="border-b border-gray-800 px-3 py-2">
+                          <BudgetConsumption items={budgetItems.filter(item => item.location_id === location.id)} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} />
+                        </div>}
 
                         {(expandedCategories[locationGroupId] ?? true) && (
                           <div className="pl-2 border-l border-emerald-900/30">
