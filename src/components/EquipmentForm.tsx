@@ -420,7 +420,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
 
               <div>
                 <label htmlFor="equipment-power" className="block text-sm font-medium text-gray-300 mb-1">
-                  Номинальное потребление (В)
+                  Номинальное потребление (кВт)
                 </label>
                 <input
                   type="text"
@@ -434,7 +434,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
               </div>
               <div>
                 <label htmlFor="equipment-peak_power" className="block text-sm font-medium text-gray-300 mb-1">
-                  Пиковое потребление (В)
+                  Пиковое потребление (кВт)
                 </label>
                 <input
                   type="text"
