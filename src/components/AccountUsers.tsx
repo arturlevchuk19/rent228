@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/authContext';
-import { listAccountUsers, createAccountUser, updateAccountUser, deleteAccountUser, resetAccountPassword } from '../lib/account';
+import { listAccountUsers, listAccountPersonnel, linkAccountPersonnel, type AccountPersonnelChoice, createAccountUser, updateAccountUser, deleteAccountUser, resetAccountPassword } from '../lib/account';
 import { ROLE_NAMES, ROLE_ORDER, ROLE_RANK, canAccess, canManageUser, defaultPermissions, passwordError, type RoleDefinition } from '../lib/roles';
 import type { User, UserRole } from '../lib/supabase';
 import { getErrorMessage } from '../lib/errors';
@@ -13,16 +13,18 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [personnelChoices, setPersonnelChoices] = useState<AccountPersonnelChoice[]>([]);
+  const [personnelId, setPersonnelId] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('staff');
   const [passwordTarget, setPasswordTarget] = useState<string | null>(null);
   const [replacementPassword, setReplacementPassword] = useState('');
-  const reload = async () => { const rows = await listAccountUsers(); setUsers(rows); };
+  const reload = async () => { const [rows, people] = await Promise.all([listAccountUsers(), canAccess(user, 'users', 2) ? listAccountPersonnel() : Promise.resolve([])]); setUsers(rows); setPersonnelChoices(people); };
   useEffect(() => {
     let active = true;
-    listAccountUsers().then(rows => { if (active) setUsers(rows); }).catch(caught => { if (active) setError(getErrorMessage(caught)); }).finally(() => { if (active) setLoading(false); });
+    Promise.all([listAccountUsers(), canAccess(user, 'users', 2) ? listAccountPersonnel() : Promise.resolve([])]).then(([rows, people]) => { if (active) { setUsers(rows); setPersonnelChoices(people); } }).catch(caught => { if (active) setError(getErrorMessage(caught)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
   if (!user) return null;
@@ -33,20 +35,21 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
     if (busy) return;
     setBusy(true); setError(''); setMessage('');
     try { await action(); await reload(); setMessage(success); }
-    catch (caught) { setError(getErrorMessage(caught)); } finally { setBusy(false); }
+    catch (caught) { setError(getErrorMessage(caught)); await reload().catch(() => {}); } finally { setBusy(false); }
   };
   return <div className="space-y-5">
     {error && <p role="alert" className="rounded-lg border border-red-800 bg-red-900/20 p-3 text-sm text-red-300">{error}<button type="button" disabled={busy} onClick={() => { void perform(reload, 'Список обновлён.'); }} className="ml-2 underline">Повторить</button></p>}
     {message && <p role="status" className="text-sm text-emerald-400">{message}</p>}
-    {canAccess(user, 'users', 2) && <form className="grid items-end gap-3 rounded-xl border border-gray-800 bg-gray-800/30 p-4 sm:grid-cols-2 xl:grid-cols-5" onSubmit={event => {
+    {canAccess(user, 'users', 2) && <form className="grid items-end gap-3 rounded-xl border border-gray-800 bg-gray-800/30 p-4 sm:grid-cols-2 xl:grid-cols-6" onSubmit={event => {
       event.preventDefault();
       const invalid = passwordError(password); if (invalid) { setError(invalid); return; }
-      void perform(async () => { await createAccountUser(email.trim(), password, name.trim(), selectedRole); setEmail(''); setPassword(''); setName(''); }, 'Пользователь создан.');
+      void perform(async () => { const created = await createAccountUser(email.trim(), password, name.trim(), selectedRole); const selectedPerson = personnelId; setPersonnelId(''); setEmail(''); setPassword(''); setName(''); if (selectedPerson) { try { await linkAccountPersonnel(created.id, selectedPerson); } catch (caught) { throw new Error(`Пользователь создан, но связь с сотрудником не сохранена: ${getErrorMessage(caught)}. Выберите сотрудника в карточке созданного пользователя.`); } } }, 'Пользователь создан.');
     }}>
       <label className="space-y-2 text-sm text-gray-300"><span>Логин (e-mail)</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} disabled={busy} required className={accountInput} /></label>
       <PasswordField label="Пароль" value={password} onChange={setPassword} disabled={busy} />
       <label className="space-y-2 text-sm text-gray-300"><span>Имя</span><input value={name} onChange={event => setName(event.target.value)} maxLength={120} disabled={busy} required className={accountInput} /></label>
       <label className="space-y-2 text-sm text-gray-300"><span>Роль</span><select value={selectedRole} onChange={event => setRole(event.target.value as UserRole)} disabled={busy} className={accountInput}>{assignable.map(key => <option key={key} value={key}>{roleName(key)}</option>)}</select></label>
+      <label className="space-y-2 text-sm text-gray-300"><span>Сотрудник из персонала</span><select aria-label="Сотрудник для нового пользователя" value={personnelId} onChange={event => setPersonnelId(event.target.value)} disabled={busy} className={accountInput}><option value="">Без связи с персоналом</option>{personnelChoices.filter(person => !person.account_user_id).map(person => <option key={person.id} value={person.id}>{person.full_name} — {person.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</option>)}</select></label>
       <button disabled={busy || !assignable.length} className={accountButton}>{busy ? 'Подождите...' : 'Создать'}</button>
     </form>}
     {loading ? <p role="status" className="py-10 text-center text-gray-400">Загрузка пользователей...</p> : <div className="space-y-3">{users.map(target => {
@@ -59,6 +62,7 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
             <select aria-label={`Роль: ${target.full_name}`} value={target.role} disabled={!editable || busy} onChange={event => { void perform(() => updateAccountUser(target.id, event.target.value as UserRole, target.status), 'Роль изменена.'); }} className={`${accountInput} w-full sm:w-48`}>
               {!assignable.includes(target.role) && <option value={target.role}>{roleName(target.role)}</option>}{assignable.map(key => <option key={key} value={key}>{roleName(key)}</option>)}
             </select>
+            {editable && <label className="text-xs text-gray-400">Сотрудник<select aria-label={`Сотрудник пользователя ${target.full_name}`} value={personnelChoices.find(person => person.account_user_id === target.id)?.id || ''} disabled={busy} onChange={event => { void perform(() => linkAccountPersonnel(target.id, event.target.value || null), 'Связь с сотрудником обновлена.'); }} className={`${accountInput} mt-1 w-full sm:w-52`}><option value="">Без связи с персоналом</option>{personnelChoices.filter(person => !person.account_user_id || person.account_user_id === target.id).map(person => <option key={person.id} value={person.id}>{person.full_name}</option>)}</select></label>}
             {editable && <>
               <button type="button" disabled={busy} onClick={() => { void perform(() => updateAccountUser(target.id, target.role, target.status === 'active' ? 'inactive' : 'active'), 'Статус изменён.'); }} className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50">{target.status === 'active' ? 'Отключить' : 'Активировать'}</button>
               <button type="button" disabled={busy} onClick={() => { setPasswordTarget(passwordTarget === target.id ? null : target.id); setReplacementPassword(''); }} className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50">Сменить пароль</button>

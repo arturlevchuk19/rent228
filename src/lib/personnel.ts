@@ -3,6 +3,8 @@ import { supabase } from './supabase';
 export interface Personnel {
   id: string;
   user_id: string;
+  account_user_id?: string | null;
+  show_in_budgets?: boolean;
   full_name: string;
   salary: number;
   employment_type?: 'staff' | 'freelance';
@@ -148,3 +150,5 @@ export async function getBudgetItemPersonnel(budgetItemId: string): Promise<Pers
   const rows = (data || []) as Array<{ personnel: unknown }>;
   return rows.map(row => row.personnel).filter((person): person is Personnel => Boolean(person));
 }
+
+export const isAssignablePersonnel = (person: Pick<Personnel, 'show_in_budgets'>) => person.show_in_budgets !== false;

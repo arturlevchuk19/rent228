@@ -1,4 +1,4 @@
-import type { Personnel, WorkItem } from './personnel';
+import { isAssignablePersonnel, type Personnel, type WorkItem } from './personnel';
 import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
 import { budgetLineAmount, roundBudgetPrice, ceilCurrencyUnit, calcCombinedTotal } from './budgetPricing';
@@ -14,7 +14,7 @@ export function peopleWorkRate(person: Personnel, workName: string): string {
   return String(/склад|загрузка|разгрузка/i.test(workName) ? person.warehouse_rate ?? 0 : person.installation_rate ?? 0);
 }
 export function addWorkPeople(current: ProjectPerson[], selected: Personnel[], work: PeopleWork, id: () => string): ProjectPerson[] {
-  return [...current, ...selected.filter(person => !current.some(row => row.personnel_id === person.id && (row.work_id === work.id || (!row.work_id && row.work_name === work.name)))).map(person => ({
+  return [...current, ...selected.filter(person => isAssignablePersonnel(person) && !current.some(row => row.personnel_id === person.id && (row.work_id === work.id || (!row.work_id && row.work_name === work.name)))).map(person => ({
     id: id(), personnel_id: person.id, name: person.full_name,
     group: person.employment_type === 'freelance' ? 'freelance' as const : 'team' as const,
     work_id: work.id, work_name: work.name, rate: peopleWorkRate(person, work.name), hours: '',

@@ -54,6 +54,16 @@ async function adminAction<T>(body: Record<string, unknown>): Promise<T> {
 }
 export const listAccountUsers = () => adminAction<User[]>({ action: 'list' });
 export const createAccountUser = (email: string, password: string, fullName: string, role: UserRole) => adminAction<User>({ action: 'create', email, password, full_name: fullName, role });
+export interface AccountPersonnelChoice { id: string; full_name: string; employment_type?: 'staff' | 'freelance'; account_user_id: string | null; show_in_budgets: boolean; }
+export async function listAccountPersonnel(): Promise<AccountPersonnelChoice[]> {
+  const { data, error } = await supabase.rpc('account_list_personnel');
+  if (error) throw error;
+  return data || [];
+}
+export async function linkAccountPersonnel(id: string, personnelId: string | null): Promise<void> {
+  const { error } = await supabase.rpc('account_link_personnel', { p_target: id, p_personnel: personnelId });
+  if (error) throw error;
+}
 export const updateAccountUser = (id: string, role: UserRole, status: UserStatus) => adminAction<User>({ action: 'update', id, role, status });
 export const resetAccountPassword = (id: string, password: string) => adminAction<void>({ action: 'password', id, password });
 export async function deleteAccountUser(id: string): Promise<void> {

@@ -1,5 +1,5 @@
 import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
-const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):({dayNumber:()=>null}));return exports;};
+const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./personnel'?{isAssignablePersonnel:person=>person.show_in_budgets!==false}:name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):({dayNumber:()=>null}));return exports;};
 const peopleAPI=load('src/lib/eventPeople.ts');
 const {orderedPeopleWorks,peopleWorkRate,addWorkPeople}=peopleAPI;
 const works=[{id:'warehouse',name:'Работа на складе'},{id:'other',name:'Звукорежиссёр'},{id:'dem',name:'Демонтаж'},{id:'inst',name:'Монтаж'}];
@@ -13,10 +13,11 @@ const {normalizeProjectDetails,validateProjectDetails}=load('src/lib/eventProjec
 let states=[],index=0,currentRows=[],customWorks=[];const exports={};const jsx=(type,props)=>({type,props});
 new Function('exports','require',ts.transpile(fs.readFileSync('src/components/EventPeoplePanel.tsx','utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>{
  if(name==='react')return {useState:value=>{const i=index++;if(!(i in states))states[i]=value;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];},useEffect:()=>{},useRef:value=>({current:value})};
+ if(name.endsWith('/personnel'))return {isAssignablePersonnel:person=>person.show_in_budgets!==false};
  if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-dom')return {createPortal:x=>x};
  if(name.endsWith('eventPeople'))return peopleAPI;if(name.endsWith('eventProject'))return {newProjectId:next};return {};
 });
-const render=()=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable:true,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
+const render=()=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance,{...staff,id:'office',full_name:'Бухгалтер',show_in_budgets:false}],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable:true,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
 const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children),...nodes(n.props?.titleActions)]:[];
 const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(n.props?.children):typeof n==='string'?n:'';
 let tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить')).props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.props?.role==='tab'&&text(n)==='Фриланс').props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить выбранных')).props.onClick();assert.equal(currentRows.length,2);assert.deepEqual(currentRows.map(x=>x.work_name),['Монтаж','Монтаж']);assert(currentRows.some(x=>x.group==='freelance'));assert.equal(states[0],false);
@@ -38,3 +39,8 @@ console.log('PASS: directory selection, manual total updates hourly rate with di
 currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',rate:'10'}:row);states[0]=false;
 tree=nodes(render());tree.find(n=>n.type==='button'&&n.props['aria-label']==='Скопировать людей из работы Монтаж').props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Демонтаж'&&n.props['aria-expanded']===undefined).props.onClick();assert.equal(currentRows.filter(row=>row.work_name==='Демонтаж').length,2);assert(currentRows.find(row=>row.work_name==='Демонтаж'&&row.name==='Иван').hours==='3');
 console.log('PASS: per-work copy button opens target selection and copies employees');
+
+// Hidden office personnel do not appear in new event assignments.
+states[0]=false;tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить').props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());assert(!tree.some(n=>n.type==='label'&&text(n).includes('Бухгалтер')));
+assert.equal(addWorkPeople([], [{...staff,id:'office',show_in_budgets:false}], {id:'inst',name:'Монтаж'}, next).length,0,'Hidden employees cannot be added even from a stale selection');
+console.log('PASS: hidden office personnel excluded from picker and new assignments');

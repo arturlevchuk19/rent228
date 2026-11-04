@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
-import { Personnel, getPersonnel } from '../lib/personnel';
+import { Personnel, getPersonnel, isAssignablePersonnel } from '../lib/personnel';
 
 interface PersonnelSelectorProps {
   selectedIds: string[];
@@ -20,7 +20,7 @@ export function PersonnelSelector({ selectedIds, onConfirm, onClose }: Personnel
   async function loadPersonnel() {
     try {
       const data = await getPersonnel();
-      setPersonnel(data);
+      setPersonnel(data.filter(person => isAssignablePersonnel(person) || selectedIds.includes(person.id)));
     } catch (error) {
       console.error('Error loading personnel:', error);
     } finally {

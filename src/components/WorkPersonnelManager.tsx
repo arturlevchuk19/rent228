@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
-import { Personnel, getPersonnel, assignPersonnelToBudgetItem, getBudgetItemPersonnel } from '../lib/personnel';
+import { Personnel, getPersonnel, isAssignablePersonnel, assignPersonnelToBudgetItem, getBudgetItemPersonnel } from '../lib/personnel';
 import { getErrorMessage } from '../lib/errors';
 
 interface WorkPersonnelManagerProps {
@@ -187,7 +187,7 @@ export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, 
                         {personnel.length === 0 ? (
                           <p className="text-gray-400 text-sm">Нет доступного персонала</p>
                         ) : (
-                          personnel.map(person => {
+                          personnel.filter(person => isAssignablePersonnel(person) || (assignments[item.id] || []).includes(person.id)).map(person => {
                             const isAssigned = (assignments[item.id] || []).includes(person.id);
                             const amount = isAssigned ? calculatePersonnelAmount(item, person) : 0;
 

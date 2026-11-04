@@ -1,0 +1,23 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+const compile=path=>ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX});
+const personnelAPI={};new Function('exports','require',compile('src/lib/personnel.ts'))(personnelAPI,()=>({supabase:{}}));
+assert.equal(personnelAPI.isAssignablePersonnel({}),true);assert.equal(personnelAPI.isAssignablePersonnel({show_in_budgets:false}),false);assert.equal(personnelAPI.isAssignablePersonnel({show_in_budgets:true}),true);
+const roles={};new Function('exports','require',compile('src/lib/roles.ts'))(roles,()=>({}));
+let state,index,calls=[],failLink=false;const exports={};const jsx=(type,props)=>({type,props});const actor={id:'actor',role:'superuser',status:'active'};
+const choices=[{id:'person',full_name:'Сотрудник',account_user_id:null,show_in_budgets:false},{id:'occupied',full_name:'Уже связан',account_user_id:'someone'}];
+new Function('exports','require',compile('src/components/AccountUsers.tsx'))(exports,name=>{
+ if(name==='react')return {useState:()=>{const i=index++;return [state[i],value=>state[i]=typeof value==='function'?value(state[i]):value];},useEffect:()=>{}};
+ if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};
+ if(name.endsWith('/authContext'))return {useAuth:()=>({user:actor})};if(name.endsWith('/roles'))return roles;
+ if(name.endsWith('/errors'))return {getErrorMessage:error=>error.message||String(error)};
+ if(name.endsWith('/account'))return {listAccountUsers:async()=>[],listAccountPersonnel:async()=>choices,createAccountUser:async(...args)=>{calls.push(['create',...args]);return {id:'created'};},linkAccountPersonnel:async(...args)=>{calls.push(['link',...args]);if(failLink)throw Error('Сотрудник уже связан');}};
+ return {};
+});
+const render=()=>{index=0;return exports.AccountUsers({roles:[]});};
+const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];
+const reset=()=>{state=[[],false,false,'','',choices,'person','new@example.com','Имя','Password1','staff',null,''];calls=[];};
+reset();let tree=nodes(render());const selector=tree.find(n=>n.props?.['aria-label']==='Сотрудник для нового пользователя');assert(selector);assert.equal(nodes(selector).filter(n=>n.type==='option').length,2,'Exclude already linked personnel, but allow office employees to have accounts');
+tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});await new Promise(r=>setTimeout(r,0));assert.deepEqual(calls.map(x=>x[0]),['create','link']);assert.deepEqual(calls[1],['link','created','person']);assert.equal(state[7],'');assert.equal(state[9],'');
+reset();failLink=true;tree=nodes(render());tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});await new Promise(r=>setTimeout(r,0));assert(state[3].includes('Пользователь создан'));assert.equal(state[7],'','Clear successful creation to prevent duplicate retries');assert.equal(state[9],'');
+const sql=fs.readFileSync('supabase/migrations/20261104160000_personnel_accounts_and_visibility.sql','utf8');assert(sql.includes('ON DELETE SET NULL'));assert(sql.includes('CREATE UNIQUE INDEX'));assert(sql.includes("public.app_can_access('users',2)"));assert(sql.includes('actor.id=target.id'));
+console.log('PASS: employee visibility defaults; account creation binds chosen personnel; occupied rows excluded; partial link failure preserves created account and clears password; FK/uniqueness/permission SQL guards');
