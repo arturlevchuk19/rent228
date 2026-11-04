@@ -1,0 +1,12 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+globalThis.document={body:{}};
+let states=[],index=0,saved=[],fail=false,closed=0;const exports={};const jsx=(type,props)=>({type,props});
+new Function('exports','require',ts.transpile(fs.readFileSync('src/components/AccountUserEditDialog.tsx','utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>{
+ if(name==='react')return {useRef:value=>({current:value}),useEffect:()=>{},useState:initial=>{const i=index++;if(!(i in states))states[i]=initial;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];}};
+ if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-dom')return {createPortal:value=>value};if(name.endsWith('/errors'))return {getErrorMessage:error=>error.message};return {};
+});
+const props={target:{id:'user',email:'old@example.com',full_name:'Имя',role:'staff',status:'active'},personnel:[{id:'current',full_name:'Связанный',account_user_id:'user'},{id:'free',full_name:'Свободный',account_user_id:null},{id:'occupied',full_name:'Занят',account_user_id:'other'}],roles:['staff','warehouse'],roleName:key=>key,onClose:()=>closed++,onSave:async values=>{if(fail)throw Error('Сотрудник уже связан');saved.push(values);}};
+const render=()=>{index=0;return exports.AccountUserEditDialog(props);};const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children)]:[];
+let tree=nodes(render());const select=tree.find(n=>n.props?.['aria-label']==='Связанный сотрудник');assert.equal(select.props.value,'current');assert.equal(nodes(select).filter(n=>n.type==='option').length,3,'Current and free rows, never another account’s employee');select.props.onChange({target:{value:'free'}});tree=nodes(render());tree.find(n=>n.type==='input').props.onChange({target:{value:'Новое имя'}});tree=nodes(render());await tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});assert.deepEqual(saved[0],{fullName:'Новое имя',role:'staff',status:'active',personnelId:'free'});
+fail=true;tree=nodes(render());await tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});tree=nodes(render());assert(tree.some(n=>n.props?.role==='alert'));assert.equal(states[0],'Новое имя');assert.equal(states[3],'free');assert.equal(closed,0,'Failure retains the form and draft');
+console.log('PASS: edit form preloads account/employee, excludes occupied links, submits all fields and preserves draft on failure');

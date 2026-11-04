@@ -1,6 +1,8 @@
+import { AccountUserEditDialog } from './AccountUserEditDialog';
+import { Pencil } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/authContext';
-import { listAccountUsers, listAccountPersonnel, linkAccountPersonnel, type AccountPersonnelChoice, createAccountUser, updateAccountUser, deleteAccountUser, resetAccountPassword } from '../lib/account';
+import { listAccountUsers, listAccountPersonnel, editAccountUserDetails, linkAccountPersonnel, type AccountPersonnelChoice, createAccountUser, updateAccountUser, deleteAccountUser, resetAccountPassword } from '../lib/account';
 import { ROLE_NAMES, ROLE_ORDER, ROLE_RANK, canAccess, canManageUser, defaultPermissions, passwordError, type RoleDefinition } from '../lib/roles';
 import type { User, UserRole } from '../lib/supabase';
 import { getErrorMessage } from '../lib/errors';
@@ -21,6 +23,7 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
   const [role, setRole] = useState<UserRole>('staff');
   const [passwordTarget, setPasswordTarget] = useState<string | null>(null);
   const [replacementPassword, setReplacementPassword] = useState('');
+  const [editTarget, setEditTarget] = useState<User | null>(null);
   const reload = async () => { const [rows, people] = await Promise.all([listAccountUsers(), canAccess(user, 'users', 2) ? listAccountPersonnel() : Promise.resolve([])]); setUsers(rows); setPersonnelChoices(people); };
   useEffect(() => {
     let active = true;
@@ -62,8 +65,9 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
             <select aria-label={`Роль: ${target.full_name}`} value={target.role} disabled={!editable || busy} onChange={event => { void perform(() => updateAccountUser(target.id, event.target.value as UserRole, target.status), 'Роль изменена.'); }} className={`${accountInput} w-full sm:w-48`}>
               {!assignable.includes(target.role) && <option value={target.role}>{roleName(target.role)}</option>}{assignable.map(key => <option key={key} value={key}>{roleName(key)}</option>)}
             </select>
-            {editable && <label className="text-xs text-gray-400">Сотрудник<select aria-label={`Сотрудник пользователя ${target.full_name}`} value={personnelChoices.find(person => person.account_user_id === target.id)?.id || ''} disabled={busy} onChange={event => { void perform(() => linkAccountPersonnel(target.id, event.target.value || null), 'Связь с сотрудником обновлена.'); }} className={`${accountInput} mt-1 w-full sm:w-52`}><option value="">Без связи с персоналом</option>{personnelChoices.filter(person => !person.account_user_id || person.account_user_id === target.id).map(person => <option key={person.id} value={person.id}>{person.full_name}</option>)}</select></label>}
+
             {editable && <>
+              <button type="button" disabled={busy} onClick={() => setEditTarget(target)} className="inline-flex items-center gap-2 rounded-lg border border-cyan-800 px-3 py-2 text-xs text-cyan-400 hover:bg-cyan-900/20 disabled:opacity-50"><Pencil className="h-3.5 w-3.5" />Редактировать</button>
               <button type="button" disabled={busy} onClick={() => { void perform(() => updateAccountUser(target.id, target.role, target.status === 'active' ? 'inactive' : 'active'), 'Статус изменён.'); }} className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50">{target.status === 'active' ? 'Отключить' : 'Активировать'}</button>
               <button type="button" disabled={busy} onClick={() => { setPasswordTarget(passwordTarget === target.id ? null : target.id); setReplacementPassword(''); }} className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50">Сменить пароль</button>
               {canAccess(user, 'users', 3) && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Удалить пользователя «${target.full_name}»?`)) void perform(() => deleteAccountUser(target.id), 'Пользователь удалён.'); }} className="rounded-lg border border-red-900 px-3 py-2 text-xs text-red-400 hover:bg-red-900/30 disabled:opacity-50">Удалить</button>}
@@ -76,5 +80,13 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
         }}><div className="w-full flex-1"><PasswordField label="Новый пароль" value={replacementPassword} onChange={setReplacementPassword} disabled={busy} /></div><button disabled={busy} className={accountButton}>Сохранить пароль</button></form>}
       </div>;
     })}{!users.length && !error && <p className="text-sm text-gray-400">Пользователи не найдены.</p>}</div>}
+    {editTarget && <AccountUserEditDialog key={editTarget.id} target={editTarget} personnel={personnelChoices} roles={assignable} roleName={roleName} onClose={() => { if (!busy) setEditTarget(null); }} onSave={async values => {
+      setBusy(true); setError(''); setMessage('');
+      try {
+        await editAccountUserDetails(editTarget.id, values.fullName, values.role, values.status, values.personnelId);
+        setEditTarget(null); setMessage('Изменения пользователя сохранены.');
+        await reload().catch(caught => setError(`Изменения сохранены, но список не обновился: ${getErrorMessage(caught)}`));
+      } finally { setBusy(false); }
+    }} />}
   </div>;
 }

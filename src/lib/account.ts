@@ -70,3 +70,8 @@ export async function deleteAccountUser(id: string): Promise<void> {
   const { error } = await supabase.rpc('account_delete_user', { p_target: id });
   if (error) throw new Error(error.code === '23503' ? 'У пользователя есть связанные документы. Отключите его вместо удаления.' : error.message);
 }
+
+export async function editAccountUserDetails(id: string, fullName: string, role: UserRole, status: UserStatus, personnelId: string | null): Promise<void> {
+  const { error } = await supabase.rpc('account_edit_user_details', { p_target: id, p_full_name: fullName.trim(), p_role: role, p_status: status, p_personnel: personnelId });
+  if (error) throw error;
+}
