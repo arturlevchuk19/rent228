@@ -2260,7 +2260,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         onDrop={(e) => handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}
                       >
                         <div
-                          className="budget-location-header w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2"
+                          className="budget-location-header rounded-t-[inherit] w-full px-3 py-2 text-xs font-semibold text-white flex items-center justify-between gap-2"
                           style={{ backgroundColor: location.color || '#14532d' }}
                           onDragOver={(e) => {
                             if (!draggedLocationId) return;
