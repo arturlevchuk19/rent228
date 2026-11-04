@@ -96,8 +96,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [selectedItemType, setSelectedItemType] = useState<string>('Оборудование');
   const [mobileTab, setMobileTab] = useState<MobileBudgetTab>('estimate');
-  const [showNominalConsumption, setShowNominalConsumption] = useState(true);
-  const [showMaxConsumption, setShowMaxConsumption] = useState(true);
+  const [showNominalConsumption, setShowNominalConsumption] = useState(false);
+  const [showMaxConsumption, setShowMaxConsumption] = useState(false);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [mobileCatalogExpanded, setMobileCatalogExpanded] = useState(true);
   const catalogSearchRef = useRef<HTMLInputElement>(null);
@@ -287,8 +287,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           budget_payment_mode: eventData.budget_payment_mode ?? (localMode === 'byn_cash' || localMode === 'byn_noncash' ? localMode : 'usd'),
           budget_exchange_rate: eventData.budget_exchange_rate || budgetData[0]?.exchange_rate || 3,
           sticky_notes: JSON.stringify(loadedNotes),
-          show_nominal_consumption: eventData.show_nominal_consumption ?? true,
-          show_max_consumption: eventData.show_max_consumption ?? true,
+          show_nominal_consumption: eventData.show_nominal_consumption ?? false,
+          show_max_consumption: eventData.show_max_consumption ?? false,
         };
         let restored = loaded;
         if (canAccess(user, 'budgets', 2)) {
