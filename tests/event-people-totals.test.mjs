@@ -1,6 +1,6 @@
 import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
 const modules=new Map();function load(path){if(modules.has(path))return modules.get(path);const exports={};modules.set(path,exports);new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):name==='./calendar'?load('src/lib/calendar.ts'):{});return exports;}
-const {budgetPeopleWorks,documentPeopleWorks,personWorkAmount,peopleWorkBalance,budgetWorkAmountBYN}=load('src/lib/eventPeople.ts');
+const {budgetPeopleWorks,documentPeopleWorks,personWorkAmount,peopleWorkBalance,budgetWorkAmountBYN,rateForWorkAmount}=load('src/lib/eventPeople.ts');
 const item=(id,name,price,rest={})=>({id,budget_id:'a',item_type:'work',work_item_id:id,work_item:{name},price,quantity:1,exchange_rate:3,...rest});
 let works=budgetPeopleWorks([item('combined','Монтаж/демонтаж',100),item('light','Светорежиссёр',50),{...item('equipment','Колонка',200),item_type:'equipment'}],{});
 assert.deepEqual(works.map(row=>[row.name,row.budgetAmount]),[['Монтаж',180],['Демонтаж',120],['Светорежиссёр',150]]);assert(!works.some(row=>row.name==='Колонка'));
@@ -18,3 +18,6 @@ assert.deepEqual(peopleWorkBalance([{rate:'10',hours:'3'}],50),{amount:30,budget
 const all=[item('x','Работа A',10),item('y','Работа B',100,{budget_id:'b'}),item('legacy','Работа legacy',2,{budget_id:null})];assert.deepEqual(documentPeopleWorks(all,{id:'a',is_primary:true,settings:{}}).map(x=>x.name),['Работа A','Работа legacy']);assert.deepEqual(documentPeopleWorks(all,{id:'b',is_primary:false,settings:{}}).map(x=>x.name),['Работа B']);
 const {normalizeProjectDetails}=load('src/lib/eventProject.ts');const details={people_budget_id:'b',people_works:[{id:'custom',name:'Особая работа'}]};const normalized=normalizeProjectDetails(details);assert.equal(normalized.people_budget_id,'b');assert.deepEqual(normalized.people_works,details.people_works);
 console.log('PASS: estimate-only work list, 60/40 split and cent preservation, duplicate rows, periods, USD/BYN cash/noncash conversion, hourly totals, signed balance, separate estimate variants and custom-work persistence');
+
+assert.equal(rateForWorkAmount(100,'3'),String(100/3));assert.equal(personWorkAmount({rate:rateForWorkAmount(100,'3'),hours:'3'}),100);assert.equal(rateForWorkAmount(100,'0'),null);assert.equal(rateForWorkAmount(100,''),null);assert.equal(rateForWorkAmount(-10,'2'),null);assert.equal(rateForWorkAmount(0,'2'),'0');assert.equal(rateForWorkAmount(25,'2,5'),'10');
+console.log('PASS: manual total conversion, non-divisible amounts, zero/empty hours, negative totals and decimal hours');

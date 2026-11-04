@@ -16,12 +16,20 @@ new Function('exports','require',ts.transpile(fs.readFileSync('src/components/Ev
  if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-dom')return {createPortal:x=>x};
  if(name.endsWith('eventPeople'))return peopleAPI;if(name.endsWith('eventProject'))return {newProjectId:next};return {};
 });
-const render=()=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance],assigned:[],works,editable:true,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
+const render=()=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable:true,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
 const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children),...nodes(n.props?.titleActions)]:[];
 const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(n.props?.children):typeof n==='string'?n:'';
 let tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить')).props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.props?.role==='tab'&&text(n)==='Фриланс').props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить выбранных')).props.onClick();assert.equal(currentRows.length,2);assert.deepEqual(currentRows.map(x=>x.work_name),['Монтаж','Монтаж']);assert(currentRows.some(x=>x.group==='freelance'));assert.equal(states[0],false);
 console.log('PASS: job ordering, staff/freelance defaults, warehouse/install rates, deduplication, separate jobs, hours persistence/validation and two-step multi-tab checkbox picker');
 
 // New work creation is part of the event, not an unrelated catalogue entry.
-tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить').props.onClick();tree=nodes(render());tree.find(n=>n.props?.['aria-label']==='Название новой работы').props.onChange({target:{value:'Новая работа'}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить работу').props.onClick();assert.equal(customWorks[0].name,'Новая работа');assert.equal(states[1].name,'Новая работа');
+tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить').props.onClick();tree=nodes(render());tree.find(n=>n.props?.['aria-label']==='Работа из справочника').props.onChange({target:{value:'catalog-new'}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить работу').props.onClick();assert.equal(customWorks[0].name,'Новая работа');assert.equal(states[1].name,'Новая работа');
 console.log('PASS: custom work is saved to event and opens employee selection');
+
+assert.equal(customWorks[0].id,'catalog-new','Added work must keep the directory ID');
+// Editing a total adjusts the hourly rate rather than changing the hours.
+states[0]=false;
+currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',rate:'10'}:row);
+tree=nodes(render());const amountInput=tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван');assert(amountInput);assert.equal(amountInput.props.disabled,false);amountInput.props.onChange({target:{value:'100'}});assert.equal(currentRows[0].hours,'3');assert.equal(peopleAPI.personWorkAmount(currentRows[0]),100);assert(Math.abs(Number(currentRows[0].rate)-100/3)<1e-10);
+currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'0'}:row);tree=nodes(render());assert.equal(tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван').props.disabled,true);
+console.log('PASS: directory selection, manual total updates hourly rate with division precision and zero-hour protection');

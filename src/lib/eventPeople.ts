@@ -71,3 +71,10 @@ export function budgetPeopleWorks(items: BudgetItem[], settings: Partial<Event>)
 export function documentPeopleWorks(items: BudgetItem[], budget: Pick<EventBudget, 'id' | 'is_primary' | 'settings'>): BudgetPeopleWork[] {
   return budgetPeopleWorks(items.filter(item => item.budget_id === budget.id || (!item.budget_id && budget.is_primary)), budget.settings);
 }
+
+/** Retain division precision so a manually entered total survives recomputation. */
+export function rateForWorkAmount(amount: number, hours: string | undefined): string | null {
+  const count = Number((hours || '').replace(',', '.'));
+  if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(count) || count <= 0) return null;
+  return String(amount / count);
+}
