@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { InlineQuantityAdd } from './InlineQuantityAdd';
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Package, Download, Star, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { X, Plus, Package, Download, Settings, StickyNote, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
 import { type Event, type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getClients } from '../lib/events';
 import { EquipmentItem, getEquipmentItems } from '../lib/equipment';
@@ -2156,7 +2156,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowMobileSettings(true)} aria-label="Настройки сметы" title="Настройки сметы" className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-300 hover:bg-gray-800 hover:text-amber-200"><Star className="h-5 w-5" /></button>
+            <button type="button" onClick={() => setShowBudgetNoteDialog(true)} className="rounded-lg border border-cyan-700/60 px-3 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-500/10">Примечание</button>
+            <button type="button" onClick={() => setShowStickyNotes(true)} aria-label="Заметки" title="Заметки" className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-300 hover:bg-gray-800 hover:text-yellow-400"><StickyNote className="h-5 w-5" /></button>
+            <button type="button" onClick={() => setShowMobileSettings(true)} aria-label="Настройки сметы" title="Настройки сметы" className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-300 hover:bg-gray-800 hover:text-amber-200"><Settings className="h-5 w-5" /></button>
             <button
               onClick={handleClose}
               aria-label="Закрыть смету"
@@ -2856,7 +2858,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showNominalConsumption} onChange={event => setShowNominalConsumption(event.target.checked)} className="h-4 w-4 accent-cyan-500" />Ном. потребление</label>
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showMaxConsumption} onChange={event => setShowMaxConsumption(event.target.checked)} className="h-4 w-4 accent-cyan-500" />Макс. потребление</label>
         </fieldset>
-        <div className="flex flex-wrap gap-3 border-t border-gray-800 pt-4">
+        <div className="flex flex-wrap gap-3 border-t border-gray-800 pt-4 md:hidden">
           <button type="button" onClick={() => { setShowMobileSettings(false); setShowBudgetNoteDialog(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Примечание</button>
           <button type="button" onClick={() => { setShowMobileSettings(false); setShowStickyNotes(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Заметки</button>
         </div>
