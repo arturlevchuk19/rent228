@@ -1,3 +1,4 @@
+import { searchInputProps } from '../lib/searchInput';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
@@ -105,7 +106,7 @@ export function Templates() {
           <input
             type="text"
             placeholder="Поиск..."
-            value={searchTerm}
+            {...searchInputProps} value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
           />

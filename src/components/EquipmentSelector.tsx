@@ -1,3 +1,4 @@
+import { searchInputProps } from '../lib/searchInput';
 import { useState, useEffect } from 'react';
 import { X, Plus, Search } from 'lucide-react';
 import { getEquipmentItems, getEquipmentCategories, EquipmentItem, getEquipmentModifications, EquipmentModification } from '../lib/equipment';
@@ -138,7 +139,7 @@ export function EquipmentSelector({
               <input
                 type="text"
                 placeholder="Поиск оборудования..."
-                value={searchTerm}
+                {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
               />

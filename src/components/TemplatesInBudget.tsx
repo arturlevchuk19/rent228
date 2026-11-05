@@ -1,3 +1,4 @@
+import { searchInputProps } from '../lib/searchInput';
 import { useState, useEffect } from 'react';
 import { X, Package, Plus, Search } from 'lucide-react';
 import { getTemplates, getTemplateById, applyTemplateToEvent, Template } from '../lib/templates';
@@ -157,7 +158,7 @@ export function TemplatesInBudget({ eventId, budgetId, onClose, onApply }: Templ
             <input
               type="text"
               placeholder="Поиск шаблонов..."
-              value={searchTerm}
+              {...searchInputProps} value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
             />

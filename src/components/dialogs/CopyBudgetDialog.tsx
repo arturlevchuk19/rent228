@@ -1,3 +1,4 @@
+import { searchInputProps } from '../../lib/searchInput';
 import { getEventBudgets, copyEventBudget, type EventBudget } from '../../lib/eventBudgets';
 import { useState, useEffect, useMemo } from 'react';
 import { X, Search, Calendar, Copy, Loader2, User, MapPin } from 'lucide-react';
@@ -120,7 +121,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
               <input
                 type="text"
                 placeholder="Поиск по названию, заказчику, площадке..."
-                value={searchTerm}
+                {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
               />

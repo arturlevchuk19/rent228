@@ -1,3 +1,4 @@
+import { searchInputProps } from '../lib/searchInput';
 import { BudgetDocumentDialog } from '../components/BudgetDocumentDialog';
 import { getEventBudgets, type EventBudget } from '../lib/eventBudgets';
 import { getErrorMessage } from '../lib/errors';
@@ -280,7 +281,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             <input
               type="text"
               placeholder="Поиск..."
-              value={searchTerm}
+              {...searchInputProps} value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
             />
@@ -351,7 +352,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
               <h2 className="text-white font-semibold">Фильтры</h2>
               <button type="button" onClick={() => setShowMobileFilters(false)} className="text-gray-400 hover:text-white">Закрыть</button>
             </div>
-            <input type="text" placeholder="Поиск..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" />
+            <input type="text" placeholder="Поиск..." {...searchInputProps} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" />
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
               <option value="all">Все типы</option>{EVENT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
             </select>

@@ -1,3 +1,4 @@
+import { searchInputProps } from '../lib/searchInput';
 import { BudgetConsumption } from './BudgetConsumption';
 import { retryBudgetUpdate, isBudgetNetworkError } from '../lib/retryBudgetUpdate';
 import { useCatalogLongPress } from '../lib/useCatalogLongPress';
@@ -2490,7 +2491,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             <div className="p-3 border-b border-gray-800 space-y-2 flex-shrink-0">
               <input
                 type="text"
-                value={searchTerm}
+                {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 ref={catalogSearchRef}
                 aria-label="Поиск позиций для добавления в смету"
