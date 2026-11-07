@@ -21,21 +21,21 @@ export interface CalendarSegment {
   continuesBefore: boolean;
   continuesAfter: boolean;
 }
-export function weekSegments(events: Event[], weekStart: number): CalendarSegment[] {
+export function weekSegments(events: Event[], weekStart: number, days = 7): CalendarSegment[] {
   const ranges = events.flatMap(event => {
     const start = dayNumber(event.event_date);
     if (start === null) return [];
     const end = Math.max(start, dayNumber(event.event_end_date || '') ?? start);
-    return end < weekStart || start > weekStart + 6 ? [] : [{ event, start, end }];
+    return end < weekStart || start > weekStart + days - 1 ? [] : [{ event, start, end }];
   }).sort((a, b) => a.start - b.start || b.end - a.end || a.event.id.localeCompare(b.event.id));
   const laneEnds: number[] = [];
   return ranges.map(({ event, start, end }) => {
     const clippedStart = Math.max(start, weekStart);
-    const clippedEnd = Math.min(end, weekStart + 6);
+    const clippedEnd = Math.min(end, weekStart + days - 1);
     let lane = laneEnds.findIndex(previousEnd => previousEnd < clippedStart);
     if (lane === -1) lane = laneEnds.length;
     laneEnds[lane] = clippedEnd;
     return { event, start: clippedStart - weekStart, end: clippedEnd - weekStart, lane,
-      continuesBefore: start < weekStart, continuesAfter: end > weekStart + 6 };
+      continuesBefore: start < weekStart, continuesAfter: end > weekStart + days - 1 };
   });
 }
