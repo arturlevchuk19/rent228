@@ -100,17 +100,16 @@ export function Templates() {
         </button></MobileHeaderContent>
       </div>
 
-      <div className="bg-gray-900 rounded-xl p-3 sm:p-4">
-        <div className="relative w-full sm:max-w-md">
+      <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
+            aria-label="Поиск шаблонов"
             type="text"
             placeholder="Поиск..."
             {...searchInputProps} value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 min-h-11"
+            className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 min-h-11 sm:min-h-9"
           />
-        </div>
       </div>
 
       {filteredTemplates.length === 0 ? (

@@ -127,11 +127,11 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
     <header hidden={!hideHeader} className="shrink-0">
       {!hideHeader && <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>}
       <div className="flex flex-wrap items-center gap-2">
-        <CalendarPeriodContainer inline={hideHeader}><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1">
+        <CalendarPeriodContainer inline={hideHeader}><div ref={pickerRef} className={`relative flex w-full sm:w-fit min-w-0 items-center gap-1 ${listContent ? 'flex-wrap sm:flex-nowrap' : ''}`}>
           <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
             if (!pickerOpen) setPickerYear(year);
             setPickerOpen(value => !value);
-          }} className="min-w-0 flex-1 truncate sm:min-w-44 rounded-lg border border-gray-700 bg-gray-900 px-2 sm:px-4 py-2 text-left text-sm sm:text-base font-medium text-white hover:border-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500">
+          }} className={`min-w-0 flex-1 truncate sm:min-w-44 rounded-lg border border-gray-700 bg-gray-900 px-2 sm:px-4 py-2 text-left text-sm sm:text-base font-medium text-white hover:border-gray-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 ${listContent ? 'basis-[calc(100%_-_6rem)] sm:basis-auto' : ''}`}>
             {rangeLabel}<ChevronDown className={`ml-2 inline h-4 w-4 transition-transform ${pickerOpen ? 'rotate-180' : ''}`} />
           </button>
           <button type="button" aria-label="Предыдущий период" disabled={year === 100 && month === 0} onClick={() => moveMonth(-1)} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
