@@ -3,7 +3,7 @@ import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { getEvents, type Event } from '../lib/events';
-import { dateFromDay, dayNumber, monthWeeks, weekSegments } from '../lib/calendar';
+import { dateFromDay, dayNumber, calendarPeriodWeeks, weekSegments } from '../lib/calendar';
 import { useAuth } from '../contexts/authContext';
 
 const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -20,6 +20,8 @@ const formatDate = (value: string) => {
 interface CalendarProps {
   refreshSignal?: number;
   eventsData?: Event[];
+  listContent?: ReactNode;
+  toolbarActions?: ReactNode;
   hideHeader?: boolean;
   selectedPeriod?: { year: number; month: number; day?: number };
   onPeriodChange?: (period: { year: number; month: number; day?: number }) => void;
@@ -27,7 +29,7 @@ interface CalendarProps {
   onEventFormOpen: (event: Event) => void;
   onSpecificationOpen: (eventId: string) => void;
 }
-export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal = 0, eventsData, hideHeader = false, selectedPeriod, onPeriodChange, onRangeChange }: CalendarProps) {
+export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal = 0, eventsData, hideHeader = false, selectedPeriod, onPeriodChange, onRangeChange, listContent, toolbarActions }: CalendarProps) {
   const { user } = useAuth();
   const [today] = useState(() => new Date());
   const [month, setMonth] = useState(selectedPeriod?.month ?? today.getMonth());
@@ -88,16 +90,11 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
         pickerButtonRef.current?.focus();
       }
     };
-    const focusOutside = (event: FocusEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) setPickerOpen(false);
-    };
     document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', escape);
-    document.addEventListener('focusin', focusOutside);
     return () => {
       document.removeEventListener('pointerdown', outside);
       document.removeEventListener('keydown', escape);
-      document.removeEventListener('focusin', focusOutside);
     };
   }, [pickerOpen]);
   const moveMonth = (direction: number) => {
@@ -110,8 +107,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
   };
   const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000;
   const anchor = Date.UTC(year, month, day) / 86400000;
-  const monday = anchor - (dateFromDay(anchor).getUTCDay() + 6) % 7;
-  const weeks = view === 'month' ? monthWeeks(year, month) : view === 'fortnight' ? [monday, monday + 7] : [view === 'day' ? anchor : monday];
+  const weeks = calendarPeriodWeeks(year, month, day, view);
   const columns = view === 'day' ? 1 : 7;
   const rangeStart = view === 'month' ? Date.UTC(year, month, 1) / 86400000 : weeks[0];
   const rangeEnd = view === 'month' ? Date.UTC(year, month + 1, 0) / 86400000 : weeks[weeks.length - 1] + columns - 1;
@@ -128,7 +124,10 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
     <header hidden={!hideHeader} className="shrink-0">
       {!hideHeader && <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>}
       <div className="flex flex-wrap items-center gap-2">
-        <CalendarPeriodContainer inline={hideHeader}><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1">
+        <CalendarPeriodContainer inline={hideHeader}><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1" onBlur={event => {
+          const next = event.relatedTarget;
+          if (next instanceof Node && !event.currentTarget.contains(next)) setPickerOpen(false);
+        }}>
           <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
             if (!pickerOpen) setPickerYear(year);
             setPickerOpen(value => !value);
@@ -138,9 +137,16 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
           <button type="button" aria-label="Предыдущий период" disabled={year === 100 && month === 0} onClick={() => moveMonth(-1)} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
           <button type="button" aria-label="Следующий период" disabled={year === 9999 && month === 11} onClick={() => moveMonth(1)} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronRight className="h-5 w-5" /></button>
           {hideHeader && <button type="button" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); setDay(today.getDate()); onPeriodChange?.({ year: today.getFullYear(), month: today.getMonth(), day: today.getDate() }); setPickerOpen(false); }} className="min-h-11 shrink-0 rounded-lg px-2 text-sm text-gray-300 hover:bg-gray-800">Сегодня</button>}
+          {toolbarActions}
           {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" className="fixed left-4 right-4 top-14 z-30 mt-2 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-96 max-h-[calc(100dvh-5rem)] overflow-y-auto max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-gray-900 p-3 shadow-2xl">
             <div role="group" aria-label="Период календаря" className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-gray-700 bg-gray-950 p-1">
-              {([['month', 'Месяц'], ['fortnight', '2 недели'], ['week', 'Неделя'], ['day', 'День']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)} className={`min-h-12 rounded-lg px-1 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-400 ${view === value ? 'bg-gray-900 text-gray-100' : 'text-gray-400 hover:text-white'}`}>{label}</button>)}
+              {([['month', 'Месяц'], ['fortnight', '2 недели'], ['week', 'Неделя'], ['day', 'День']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => {
+                setView(value);
+                if (value === 'week' || value === 'fortnight') {
+                  setYear(today.getFullYear()); setMonth(today.getMonth()); setDay(today.getDate());
+                  onPeriodChange?.({year: today.getFullYear(), month: today.getMonth(), day: today.getDate()});
+                }
+              }} className={`min-h-12 rounded-lg px-1 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-400 ${view === value ? 'bg-gray-900 text-gray-100' : 'text-gray-400 hover:text-white'}`}>{label}</button>)}
             </div>
             <div className="mb-4 flex items-center justify-between gap-3 px-1 py-2">
               <button type="button" aria-label="Предыдущий год" disabled={pickerYear <= 100} onClick={() => setPickerYear(value => value - 1)} className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-6 w-6" /></button>
@@ -156,12 +162,12 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
         </div></CalendarPeriodContainer>
       </div>
     </header>
-    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">{Object.entries(statuses).map(([status, color]) => <span key={status} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${color}`} />{status}</span>)}</div>
-    {!loading && !error && <p className="shrink-0 text-xs text-gray-400">{count ? `Мероприятий за период: ${count}` : 'За этот период мероприятий нет'}</p>}
-    {loading ? <div className="py-20 text-center text-gray-400" role="status">Загрузка календаря...</div> : error ? <div role="alert" className="rounded-lg border border-red-900 p-6 text-red-300">{error}<button type="button" onClick={() => setAttempt(value => value + 1)} className="ml-3 underline">Повторить</button></div> : <>
+    {!listContent && <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">{Object.entries(statuses).map(([status, color]) => <span key={status} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${color}`} />{status}</span>)}</div>}
+    {!listContent && !loading && !error && <p className="shrink-0 text-xs text-gray-400">{count ? `Мероприятий за период: ${count}` : 'За этот период мероприятий нет'}</p>}
+    {listContent ? <div className="min-h-0 flex-1 overflow-y-auto">{listContent}</div> : loading ? <div className="py-20 text-center text-gray-400" role="status">Загрузка календаря...</div> : error ? <div role="alert" className="rounded-lg border border-red-900 p-6 text-red-300">{error}<button type="button" onClick={() => setAttempt(value => value + 1)} className="ml-3 underline">Повторить</button></div> : <>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900">
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="grid shrink-0 border-b border-gray-700" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{(view === 'day' ? [dateFromDay(anchor).toLocaleDateString('ru-RU', { weekday: 'long', timeZone: 'UTC' })] : ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']).map((day, index) => <div key={day} className={`py-1 sm:py-2 text-center text-xs font-medium uppercase ${index > 4 ? 'text-gray-500' : 'text-gray-300'}`}>{day}</div>)}</div>
+          <div className="grid shrink-0 border-b border-gray-700" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{Array.from({length: columns}, (_, index) => dateFromDay((view === 'month' ? weeks[0] : anchor) + index).toLocaleDateString('ru-RU', {weekday: columns === 1 ? 'long' : 'short', timeZone:'UTC'})).map((day, index) => <div key={day} className={`py-1 sm:py-2 text-center text-xs font-medium uppercase ${[0,6].includes(dateFromDay((view === 'month' ? weeks[0] : anchor) + index).getUTCDay()) ? 'text-gray-500' : 'text-gray-300'}`}>{day}</div>)}</div>
           <div className="grid min-h-0 flex-1" style={{ gridTemplateRows: `repeat(${weeks.length}, minmax(0, 1fr))` }}>
           {weeks.map(week => {
             const segments = weekSegments(events, week, columns);
@@ -169,7 +175,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
               <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>{Array.from({ length: columns }, (_, index) => {
                 const day = week + index; const date = dateFromDay(day);
                 const current = date.getUTCMonth() === month;
-                return <div key={day} className={`border-r border-gray-800 p-0.5 sm:p-1 last:border-r-0 ${!current ? 'bg-black/20' : index > 4 ? 'bg-gray-950/30' : ''}`}><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${day === todayDay ? 'bg-accent-500 font-bold text-gray-950' : current ? 'text-gray-200' : 'text-gray-500'}`}>{date.getUTCDate()}</span></div>;
+                return <div key={day} className={`border-r border-gray-800 p-0.5 sm:p-1 last:border-r-0 ${!current ? 'bg-black/20' : [0,6].includes(date.getUTCDay()) ? 'bg-gray-950/30' : ''}`}><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${day === todayDay ? 'bg-accent-500 font-bold text-gray-950' : current ? 'text-gray-200' : 'text-gray-500'}`}>{date.getUTCDate()}</span></div>;
               })}</div>
               <div className="calendar-events-scroll absolute inset-x-0 bottom-0 top-7 overflow-x-hidden overflow-y-auto overscroll-contain" tabIndex={segments.length ? 0 : undefined} aria-label="Мероприятия периода — прокрутите для просмотра остальных">
               <div className="grid min-w-0 gap-y-0.5 pb-1" style={{ gridAutoRows: 32, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>

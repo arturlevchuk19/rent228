@@ -13,6 +13,12 @@ export function monthWeeks(year: number, month: number) {
   const start = first - (dateFromDay(first).getUTCDay() + 6) % 7;
   return Array.from({ length: Math.ceil((last - start + 1) / 7) }, (_, index) => start + index * 7);
 }
+/** Week and fortnight views start on the selected date rather than Monday. */
+export function calendarPeriodWeeks(year: number, month: number, day: number, view: 'month' | 'fortnight' | 'week' | 'day') {
+  if (view === 'month') return monthWeeks(year, month);
+  const anchor = Date.UTC(year, month, day) / DAY;
+  return view === 'fortnight' ? [anchor, anchor + 7] : [anchor];
+}
 export interface CalendarSegment {
   event: Event;
   start: number;

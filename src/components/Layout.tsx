@@ -40,6 +40,8 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
   const [mobileTitle, setMobileTitle] = useState<HTMLDivElement | null>(null);
   const [mobileActions, setMobileActions] = useState<HTMLDivElement | null>(null);
 
+  const [mobileAfterTitle, setMobileAfterTitle] = useState<HTMLDivElement | null>(null);
+  const [pageAfterTitle, setPageAfterTitle] = useState<HTMLDivElement | null>(null);
   const [pageTitle, setPageTitle] = useState<HTMLDivElement | null>(null);
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const mobile = useSyncExternalStore(subscribeToViewport, isMobileViewport, () => false);
@@ -76,7 +78,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
   );
 
   return (
-    <MobileHeaderContext.Provider value={{ active: !pageOpen, title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions }}>
+    <MobileHeaderContext.Provider value={{ active: !pageOpen, title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions, afterTitle: mobile ? mobileAfterTitle : pageAfterTitle }}>
     <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-accent-500 focus:px-4 focus:py-3 focus:text-gray-950">Перейти к содержимому</a>
     <div className="h-dvh flex flex-col bg-gray-950 overflow-hidden">
       <div className="relative z-20 flex h-14 shrink-0 border-b border-gray-800 bg-gray-900">
@@ -92,11 +94,13 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
-            <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
+            <div ref={setMobileTitle} className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
               <h1 className="truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <div ref={setMobileAfterTitle} className="flex shrink-0 items-center" />
             </div>
             <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
               <h1 className="truncate text-xl font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <div ref={setPageAfterTitle} className="flex shrink-0 items-center" />
               <div ref={setPageTitle} className="min-w-0 shrink-0" />
             </div>
           </div>
