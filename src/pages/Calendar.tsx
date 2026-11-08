@@ -1,3 +1,4 @@
+import type { EventsCalendarView } from '../lib/eventsPreferences';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -20,6 +21,8 @@ const formatDate = (value: string) => {
 interface CalendarProps {
   refreshSignal?: number;
   eventsData?: Event[];
+  initialView?: EventsCalendarView;
+  onViewChange?: (view: EventsCalendarView) => void;
   listContent?: ReactNode;
   toolbarActions?: ReactNode;
   hideHeader?: boolean;
@@ -29,12 +32,12 @@ interface CalendarProps {
   onEventFormOpen: (event: Event) => void;
   onSpecificationOpen: (eventId: string) => void;
 }
-export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal = 0, eventsData, hideHeader = false, selectedPeriod, onPeriodChange, onRangeChange, listContent, toolbarActions }: CalendarProps) {
+export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal = 0, eventsData, hideHeader = false, selectedPeriod, onPeriodChange, onRangeChange, listContent, toolbarActions, initialView = 'month', onViewChange }: CalendarProps) {
   const { user } = useAuth();
   const [today] = useState(() => new Date());
   const [month, setMonth] = useState(selectedPeriod?.month ?? today.getMonth());
   const [year, setYear] = useState(selectedPeriod?.year ?? today.getFullYear());
-  const [view, setView] = useState<'month' | 'fortnight' | 'week' | 'day'>('month');
+  const [view, setView] = useState<EventsCalendarView>(initialView);
   const [day, setDay] = useState(() => selectedPeriod?.day ?? (selectedPeriod && (selectedPeriod.year !== today.getFullYear() || selectedPeriod.month !== today.getMonth()) ? 1 : today.getDate()));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(year);
@@ -138,7 +141,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
           {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" onPointerDown={event => event.stopPropagation()} className="fixed left-4 right-4 top-14 z-30 mt-2 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-96 max-h-[calc(100dvh-5rem)] overflow-y-auto max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-gray-900 p-3 shadow-2xl">
             <div role="group" aria-label="Период календаря" className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-gray-700 bg-gray-950 p-1">
               {([['month', 'Месяц'], ['fortnight', '2 недели'], ['week', 'Неделя'], ['day', 'День']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => {
-                setView(value);
+                setView(value); onViewChange?.(value);
                 if (value === 'week' || value === 'fortnight') {
                   setYear(today.getFullYear()); setMonth(today.getMonth()); setDay(today.getDate());
                   onPeriodChange?.({year: today.getFullYear(), month: today.getMonth(), day: today.getDate()});

@@ -6,6 +6,7 @@ import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { getEvents, EVENT_TYPES, type Event } from '../lib/events';
+import { readEventsPreferences, writeEventsPreferences, type EventsCalendarView } from '../lib/eventsPreferences';
 import { dayNumber } from '../lib/calendar';
 import { searchInputProps } from '../lib/searchInput';
 
@@ -20,25 +21,33 @@ export function EventsWorkspace({ refreshSignal = 0, onEventFormOpen, onSpecific
   lastCreatedEventId?: string | null;
 }) {
   const { user } = useAuth();
+  const userId = user?.id ?? 'guest';
+  const [saved] = useState(() => readEventsPreferences(userId));
+  const [calendarView, setCalendarView] = useState<EventsCalendarView>(saved.calendarView);
   const calendarAllowed = canAccess(user, 'calendar');
   const listAllowed = canAccess(user, 'events');
   const [view, setView] = useState<View>(() => {
     try {
       if (new URL(location.href).searchParams.get('page') === 'calendar') return 'calendar';
-      return localStorage.getItem(preferenceKey) === 'list' ? 'list' : 'calendar';
+      return saved.view;
     } catch { return 'calendar'; }
   });
   const mode = view === 'calendar' && calendarAllowed ? 'calendar' : listAllowed ? 'list' : 'calendar';
-  const [period, setPeriod] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth(), day: new Date().getDate() }));
-  const [range, setRange] = useState<[number, number]>(() => monthRange(period.year, period.month));
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [period, setPeriod] = useState(saved.period);
+  const [range, setRange] = useState<[number, number]>(() => {
+    if (saved.calendarView === 'month') return monthRange(period.year, period.month);
+    const start = Date.UTC(period.year,period.month,period.day) / 86400000;
+    return [start, start + (saved.calendarView === 'fortnight' ? 13 : saved.calendarView === 'week' ? 6 : 0)];
+  });
+  const [filtersOpen, setFiltersOpen] = useState(saved.filtersOpen);
+  const focusSearchOnOpen = useRef(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
-  const [search, setSearch] = useState('');
-  const [type, setType] = useState('all');
-  const [status, setStatus] = useState('all');
-  const [allDates, setAllDates] = useState(false);
-  const [showCancelled, setShowCancelled] = useState(false);
+  const [search, setSearch] = useState(saved.search);
+  const [type, setType] = useState(saved.type);
+  const [status, setStatus] = useState(saved.status);
+  const [allDates, setAllDates] = useState(saved.allDates);
+  const [showCancelled, setShowCancelled] = useState(saved.showCancelled);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -86,13 +95,16 @@ export function EventsWorkspace({ refreshSignal = 0, onEventFormOpen, onSpecific
   }), [filtered, range, allDates]);
   const reportRange = useCallback((start: number, end: number) => {
     setRange(previous => previous[0] === start && previous[1] === end ? previous : [start, end]);
-    setAllDates(false);
   }, []);
   useEffect(() => {
-    if (filtersOpen) searchRef.current?.focus();
+    if (filtersOpen && focusSearchOnOpen.current) searchRef.current?.focus();
+    focusSearchOnOpen.current = false;
   }, [filtersOpen]);
   const activeFilters = Number(Boolean(search.trim())) + Number(type !== 'all') + Number(status !== 'all') + Number(showCancelled);
   const resetFilters = () => { setAllDates(false); setSearch(''); setType('all'); setStatus('all'); setShowCancelled(false); };
+  useEffect(() => {
+    writeEventsPreferences(userId, {view, calendarView, period, search, type, status, allDates, showCancelled, filtersOpen});
+  }, [userId, view, calendarView, period, search, type, status, allDates, showCancelled, filtersOpen]);
   const field = 'min-h-11 min-w-0 rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-gray-100';
   return <section aria-label="Мероприятия" className="flex h-full min-h-0 flex-col gap-3">
     {canAccess(user, 'events', 2) && <MobileHeaderContent><button type="button" aria-label="Добавить мероприятие" onClick={() => onEventFormOpen()} className="flex min-h-11 items-center gap-2 rounded-lg bg-accent-500 px-3 text-sm font-semibold text-gray-950 hover:bg-accent-400"><Plus className="h-4 w-4" /><span className="hidden md:inline">Добавить</span></button></MobileHeaderContent>}
@@ -117,9 +129,9 @@ export function EventsWorkspace({ refreshSignal = 0, onEventFormOpen, onSpecific
     {mode === 'list' && <p className="shrink-0 text-xs text-gray-400">{allDates ? 'Все даты, включая мероприятия без назначенной даты' : `Период: ${new Date(range[0] * 86400000).toLocaleDateString('ru-RU', {timeZone:'UTC'})} — ${new Date(range[1] * 86400000).toLocaleDateString('ru-RU', {timeZone:'UTC'})}`}</p>}
     {error && <div role="alert" className="shrink-0 rounded-lg border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" onClick={() => setAttempt(value=>value+1)} className="ml-3 underline">Повторить</button></div>}
     {loading ? <div role="status" className="py-12 text-center text-gray-400">Загрузка мероприятий…</div> : <>
-      <div className="min-h-0 flex-1"><Calendar hideHeader eventsData={filtered} selectedPeriod={period} onPeriodChange={changeCalendarPeriod} onRangeChange={reportRange} onEventFormOpen={onEventFormOpen} onSpecificationOpen={onSpecificationOpen}
+      <div className="min-h-0 flex-1"><Calendar initialView={calendarView} onViewChange={value => { setCalendarView(value); setAllDates(false); }} hideHeader eventsData={filtered} selectedPeriod={period} onPeriodChange={changeCalendarPeriod} onRangeChange={reportRange} onEventFormOpen={onEventFormOpen} onSpecificationOpen={onSpecificationOpen}
         toolbarActions={<>
-          <button ref={searchButtonRef} type="button" aria-label={filtersOpen ? 'Свернуть поиск и фильтры' : 'Поиск и фильтры'} title="Поиск и фильтры" aria-expanded={filtersOpen} aria-controls="event-search-filters" onClick={() => setFiltersOpen(value => !value)} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${filtersOpen || activeFilters ? 'border-accent-700 bg-accent-900/40 text-accent-300' : 'border-gray-700 text-gray-300 hover:bg-gray-800'}`}><Search className="h-5 w-5" />{activeFilters > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-semibold text-gray-950">{activeFilters}<span className="sr-only"> активных фильтров</span></span>}</button>
+          <button ref={searchButtonRef} type="button" aria-label={filtersOpen ? 'Свернуть поиск и фильтры' : 'Поиск и фильтры'} title="Поиск и фильтры" aria-expanded={filtersOpen} aria-controls="event-search-filters" onClick={() => { focusSearchOnOpen.current = !filtersOpen; setFiltersOpen(value => !value); }} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${filtersOpen || activeFilters ? 'border-accent-700 bg-accent-900/40 text-accent-300' : 'border-gray-700 text-gray-300 hover:bg-gray-800'}`}><Search className="h-5 w-5" />{activeFilters > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-semibold text-gray-950">{activeFilters}<span className="sr-only"> активных фильтров</span></span>}</button>
 </>}
         listContent={mode === 'list' && listAllowed ? <Events hideToolbar eventsData={listEvents} onRefresh={() => setAttempt(value=>value+1)} onEventFormOpen={onEventFormOpen} onSpecificationOpen={onSpecificationOpen} lastCreatedEventId={lastCreatedEventId} /> : undefined}
       /></div>

@@ -68,7 +68,7 @@ function AppContent() {
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
       case 'equipment': return <Equipment />;
-      case 'events': return <EventsWorkspace refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
+      case 'events': return <EventsWorkspace key={user.id} refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
       case 'payments': return <Payments />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
