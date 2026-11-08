@@ -7,7 +7,7 @@ const pages = new Set([
 
 const readPage = () => {
   const page = new URL(window.location.href).searchParams.get('page');
-  return page && pages.has(page) ? page : 'calendar';
+  return page === 'calendar' ? 'events' : page && pages.has(page) ? page : 'events';
 };
 
 export function usePageNavigation() {
@@ -22,7 +22,8 @@ export function usePageNavigation() {
     return () => { active = false; window.removeEventListener('popstate', sync); };
   }, []);
 
-  const navigate = (page: string) => {
+  const navigate = (requestedPage: string) => {
+    const page = requestedPage === 'calendar' ? 'events' : requestedPage;
     if (!pages.has(page)) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get('page') !== page) {

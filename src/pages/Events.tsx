@@ -10,6 +10,9 @@ import { getEvents, deleteEvent, Event, EVENT_TYPES } from '../lib/events';
 import { useAuth } from '../contexts/authContext';
 
 interface EventsProps {
+  eventsData?: Event[];
+  onRefresh?: () => void;
+  hideToolbar?: boolean;
   refreshSignal?: number;
   onEventFormOpen?: (event?: Event) => void;
   onSpecificationOpen?: (eventId: string, budgetId?: string) => void;
@@ -21,7 +24,7 @@ const monthNames = [
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
 ];
 
-export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventId, refreshSignal = 0 }: EventsProps) {
+export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventId, refreshSignal = 0, eventsData, hideToolbar = false, onRefresh }: EventsProps) {
   const { user } = useAuth();
   const [specificationChoice, setSpecificationChoice] = useState<{ eventId: string; budgets: EventBudget[] } | null>(null);
   const [loadingSpecifications, setLoadingSpecifications] = useState(false);
@@ -43,7 +46,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
-  const [filterYear, setFilterYear] = useState<string>(() => String(new Date().getFullYear()));
+  const [filterYear, setFilterYear] = useState<string>(() => hideToolbar ? 'all' : String(new Date().getFullYear()));
   const [showCancelled, setShowCancelled] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [visibleEventCount, setVisibleEventCount] = useState(50);
@@ -53,11 +56,12 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
   useEffect(() => {
     let active = true;
+    if (eventsData) { setEvents(eventsData); setLoading(false); return; }
     getEvents().then(data => { if (active) setEvents(data); })
       .catch(error => { if (active) console.error('Error loading events:', error); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [refreshSignal]);
+  }, [refreshSignal, eventsData]);
 
   useEffect(() => {
     setVisibleEventCount(50);
@@ -136,7 +140,8 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
     try {
       await deleteEvent(id);
-      await loadEvents();
+      if (onRefresh) onRefresh();
+      else await loadEvents();
     } catch (error) {
       console.error('Error deleting event:', error);
       alert('Ошибка при удалении');
@@ -178,7 +183,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
     const matchesType = filterType === 'all' || event.event_type === filterType;
     const matchesMonth = filterMonth === 'all' || getEventMonthTitle(event) === filterMonth;
     const matchesYear = filterYear === 'all' || event.event_date?.slice(0, 4) === filterYear;
-    const matchesCancelled = showCancelled || event.status !== 'Отменено';
+    const matchesCancelled = hideToolbar || showCancelled || event.status !== 'Отменено';
     return matchesSearch && matchesType && matchesMonth && matchesYear && matchesCancelled;
   });
 
@@ -258,6 +263,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
   return (
     <div className="space-y-4">
+      {!hideToolbar && <>
       <div hidden>
         <div className="flex items-center gap-2">
           <Calendar className="w-6 h-6 text-accent-500" />
@@ -368,6 +374,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         </div>
       )}
 
+      </>}
       <div className="overflow-hidden rounded-xl bg-gray-900">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">

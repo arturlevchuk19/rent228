@@ -14,10 +14,10 @@ import { VenueForm } from './components/VenueForm';
 import { WarehouseSpecification } from './components/WarehouseSpecification';
 import { Client, Venue, Event, getEvent } from './lib/events';
 
-const Calendar = lazy(() => import('./pages/Calendar').then(m => ({ default: m.Calendar })));
+
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const Equipment = lazy(() => import('./pages/Equipment').then(m => ({ default: m.Equipment })));
-const Events = lazy(() => import('./pages/Events').then(m => ({ default: m.Events })));
+const EventsWorkspace = lazy(() => import('./pages/EventsWorkspace').then(m => ({ default: m.EventsWorkspace })));
 const Contacts = lazy(() => import('./pages/Contacts').then(m => ({ default: m.Contacts })));
 const Garage = lazy(() => import('./pages/Garage'));
 const Personnel = lazy(() => import('./pages/Personnel'));
@@ -63,13 +63,12 @@ function AppContent() {
   };
 
   const renderPage = () => {
-    if (!canAccess(user, currentPage as AppModule)) return <p className="rounded-lg border border-gray-800 p-6 text-sm text-gray-400">Нет доступа к этому разделу. Выберите доступный раздел в меню или откройте свой профиль.</p>;
+    if (!canAccess(user, currentPage as AppModule) && !(currentPage === 'events' && canAccess(user, 'calendar'))) return <p className="rounded-lg border border-gray-800 p-6 text-sm text-gray-400">Нет доступа к этому разделу. Выберите доступный раздел в меню или откройте свой профиль.</p>;
     switch (currentPage) {
-      case 'calendar': return <Calendar refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} />;
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
       case 'equipment': return <Equipment />;
-      case 'events': return <Events refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
+      case 'events': return <EventsWorkspace refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
       case 'payments': return <Payments />;
       case 'personnel-report': return <PersonnelPaymentsReport />;

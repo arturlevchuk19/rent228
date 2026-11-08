@@ -1,6 +1,6 @@
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { getEvents, type Event } from '../lib/events';
 import { dateFromDay, dayNumber, monthWeeks, weekSegments } from '../lib/calendar';
@@ -10,6 +10,7 @@ const months = ['Январь', 'Февраль', 'Март', 'Апрель', '�
 const shortMonths = ['Янв.', 'Февр.', 'Март', 'Апр.', 'Май', 'Июнь', 'Июль', 'Авг.', 'Сент.', 'Окт.', 'Нояб.', 'Дек.'];
 const statuses: Record<string, string> = {
   'Запрос': 'bg-accent-900 text-accent-200 ring-1 ring-inset ring-accent-700',
+  'Отменено': 'bg-red-950 text-red-200 ring-1 ring-inset ring-red-900',
   'Подтверждено': 'bg-emerald-950 text-emerald-200 ring-1 ring-inset ring-emerald-800', 'Выполнено': 'bg-gray-800 text-gray-300 line-through'
 };
 const formatDate = (value: string) => {
@@ -18,28 +19,37 @@ const formatDate = (value: string) => {
 };
 interface CalendarProps {
   refreshSignal?: number;
+  eventsData?: Event[];
+  hideHeader?: boolean;
+  selectedPeriod?: { year: number; month: number; day?: number };
+  onPeriodChange?: (period: { year: number; month: number; day?: number }) => void;
+  onRangeChange?: (start: number, end: number) => void;
   onEventFormOpen: (event: Event) => void;
   onSpecificationOpen: (eventId: string) => void;
 }
-export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal = 0 }: CalendarProps) {
+export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal = 0, eventsData, hideHeader = false, selectedPeriod, onPeriodChange, onRangeChange }: CalendarProps) {
   const { user } = useAuth();
   const [today] = useState(() => new Date());
-  const [month, setMonth] = useState(today.getMonth());
-  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(selectedPeriod?.month ?? today.getMonth());
+  const [year, setYear] = useState(selectedPeriod?.year ?? today.getFullYear());
   const [view, setView] = useState<'month' | 'fortnight' | 'week' | 'day'>('month');
-  const [day, setDay] = useState(today.getDate());
+  const [day, setDay] = useState(() => selectedPeriod?.day ?? (selectedPeriod && (selectedPeriod.year !== today.getFullYear() || selectedPeriod.month !== today.getMonth()) ? 1 : today.getDate()));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(year);
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerButtonRef = useRef<HTMLButtonElement>(null);
   const selectedMonthRef = useRef<HTMLButtonElement>(null);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>(eventsData ?? []);
+  const [loading, setLoading] = useState(eventsData === undefined);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<Event | null>(null);
   const [attempt, setAttempt] = useState(0);
   const hasLoaded = useRef(false);
   useEffect(() => {
+    if (eventsData !== undefined) {
+      setEvents(eventsData); setLoading(false); setError('');
+      return;
+    }
     let active = true;
     if (!hasLoaded.current) setLoading(true);
     setError('');
@@ -47,7 +57,19 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
       .catch(() => { if (active) setError('Не удалось загрузить мероприятия'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [attempt, refreshSignal]);
+  }, [attempt, refreshSignal, eventsData]);
+  const externalYear = selectedPeriod?.year;
+  const externalMonth = selectedPeriod?.month;
+  const externalDay = selectedPeriod?.day;
+  useEffect(() => {
+    if (externalYear === undefined || externalMonth === undefined) return;
+    // A parent echo of an internal move must preserve its chosen day.
+    if (externalYear !== year || externalMonth !== month || (externalDay !== undefined && externalDay !== day)) {
+      setYear(externalYear); setMonth(externalMonth); setDay(externalDay ?? 1);
+    }
+  // Synchronize only an actual external period change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalYear, externalMonth, externalDay]);
   useEffect(() => {
     if (!selected) return;
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); };
@@ -83,6 +105,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
     setDay(next.getDate());
     setMonth(next.getMonth());
     setYear(next.getFullYear());
+    onPeriodChange?.({ year: next.getFullYear(), month: next.getMonth(), day: next.getDate() });
     setPickerOpen(false);
   };
   const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000;
@@ -92,6 +115,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
   const columns = view === 'day' ? 1 : 7;
   const rangeStart = view === 'month' ? Date.UTC(year, month, 1) / 86400000 : weeks[0];
   const rangeEnd = view === 'month' ? Date.UTC(year, month + 1, 0) / 86400000 : weeks[weeks.length - 1] + columns - 1;
+  useEffect(() => { onRangeChange?.(rangeStart, rangeEnd); }, [rangeStart, rangeEnd, onRangeChange]);
   const rangeLabel = view === 'month' ? `${months[month]} ${year}` : view === 'day' ? `${day} ${shortMonths[month].toLowerCase()} ${year}` : `${dateFromDay(rangeStart).getUTCDate()}${dateFromDay(rangeStart).getUTCMonth() !== dateFromDay(rangeEnd).getUTCMonth() ? ' ' + shortMonths[dateFromDay(rangeStart).getUTCMonth()].toLowerCase() : ''}—${dateFromDay(rangeEnd).getUTCDate()} ${shortMonths[dateFromDay(rangeEnd).getUTCMonth()].toLowerCase()}`;
   const count = events.filter(event => {
     const start = dayNumber(event.event_date);
@@ -101,10 +125,10 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
   }).length;
   const canEdit = canAccess(user, 'events');
   return <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
-    <header hidden>
-      <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>
+    <header hidden={!hideHeader} className="shrink-0">
+      {!hideHeader && <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>}
       <div className="flex flex-wrap items-center gap-2">
-        <MobileHeaderContent slot="title"><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1">
+        <CalendarPeriodContainer inline={hideHeader}><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1">
           <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
             if (!pickerOpen) setPickerYear(year);
             setPickerOpen(value => !value);
@@ -113,6 +137,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
           </button>
           <button type="button" aria-label="Предыдущий период" disabled={year === 100 && month === 0} onClick={() => moveMonth(-1)} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
           <button type="button" aria-label="Следующий период" disabled={year === 9999 && month === 11} onClick={() => moveMonth(1)} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronRight className="h-5 w-5" /></button>
+          {hideHeader && <button type="button" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); setDay(today.getDate()); onPeriodChange?.({ year: today.getFullYear(), month: today.getMonth(), day: today.getDate() }); setPickerOpen(false); }} className="min-h-11 shrink-0 rounded-lg px-2 text-sm text-gray-300 hover:bg-gray-800">Сегодня</button>}
           {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" className="fixed left-4 right-4 top-14 z-30 mt-2 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-96 max-h-[calc(100dvh-5rem)] overflow-y-auto max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-gray-900 p-3 shadow-2xl">
             <div role="group" aria-label="Период календаря" className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-gray-700 bg-gray-950 p-1">
               {([['month', 'Месяц'], ['fortnight', '2 недели'], ['week', 'Неделя'], ['day', 'День']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)} className={`min-h-12 rounded-lg px-1 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-400 ${view === value ? 'bg-gray-900 text-gray-100' : 'text-gray-400 hover:text-white'}`}>{label}</button>)}
@@ -124,11 +149,11 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
             </div>
             <div className="grid grid-cols-3 gap-2">
               {shortMonths.map((name, index) => <button key={name} ref={index === month ? selectedMonthRef : undefined} type="button" aria-label={`${months[index]} ${pickerYear}`} aria-pressed={month === index && year === pickerYear} onClick={() => {
-                setMonth(index); setYear(pickerYear); setDay(1); setPickerOpen(false); pickerButtonRef.current?.focus();
+                setMonth(index); setYear(pickerYear); setDay(1); onPeriodChange?.({ year: pickerYear, month: index, day: 1 }); setPickerOpen(false); pickerButtonRef.current?.focus();
               }} className={`rounded-xl px-2 py-4 text-lg font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-400 ${month === index && year === pickerYear ? 'bg-accent-500/15 font-semibold text-accent-300' : 'text-gray-200 hover:bg-gray-800'}`}>{name}</button>)}
             </div>
           </div>}
-        </div></MobileHeaderContent>
+        </div></CalendarPeriodContainer>
       </div>
     </header>
     <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">{Object.entries(statuses).map(([status, color]) => <span key={status} className="flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-full ${color}`} />{status}</span>)}</div>
@@ -167,4 +192,8 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
       </section>
     </div>}
   </div>;
+}
+
+function CalendarPeriodContainer({ inline, children }: { inline: boolean; children: ReactNode }) {
+  return inline ? <>{children}</> : <MobileHeaderContent slot="title">{children}</MobileHeaderContent>;
 }

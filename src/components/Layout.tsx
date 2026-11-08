@@ -58,11 +58,10 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
     label: string;
     icon: LucideIcon;
   }> = [
-    { id: 'calendar', label: 'Календарь', icon: Calendar },
+    { id: 'events', label: 'Мероприятия', icon: Calendar },
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'templates', label: 'Шаблоны для сметы', icon: Package },
     { id: 'equipment', label: 'Оборудование', icon: Package },
-    { id: 'events', label: 'Мероприятия', icon: Calendar },
     { id: 'contacts', label: 'Справочники', icon: Users },
     { id: 'logistics', label: 'Гараж', icon: Truck },
     { id: 'payments', label: 'Выплаты', icon: DollarSign },
@@ -73,7 +72,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
   ];
 
   const availableMenuItems = menuItems.filter((item) =>
-    canAccess(user, item.id as AppModule)
+    canAccess(user, item.id as AppModule) || (item.id === 'events' && canAccess(user, 'calendar'))
   );
 
   return (
@@ -94,7 +93,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
-              {(currentPage !== 'calendar' || pageOpen) && <h1 className="truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
+              <h1 className="truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
             </div>
             <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
               <h1 className="truncate text-xl font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
@@ -164,13 +163,13 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-1' : 'overflow-y-auto p-4 lg:p-6'}`}>
+        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'events' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-1' : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
         </div>
       </div>
     </div>
-    {!pageOpen && currentPage === 'calendar' && <InstallAppButton />}
+    {!pageOpen && currentPage === 'events' && <InstallAppButton />}
     {accountTab && <AccountDialog initialTab={accountTab} onClose={() => setAccountTab(null)} />}
     </MobileHeaderContext.Provider>
   );
