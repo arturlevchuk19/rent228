@@ -190,10 +190,10 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-2 sm:p-4 z-50">
-      <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-4xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] overflow-hidden flex flex-col [overflow-wrap:anywhere]">
+      <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-4xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] overflow-hidden flex flex-col [overflow-wrap:anywhere]">
         <div className="shrink-0 relative z-10 bg-gray-900 border-b border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
-            <Package className="w-6 h-6 shrink-0 text-cyan-500" />
+            <Package className="w-6 h-6 shrink-0 text-accent-500" />
             <div>
               <h2 className="text-base sm:text-xl font-bold text-white">{item.name}</h2>
               <p className="text-sm text-gray-400">{item.sku}</p>
@@ -201,7 +201,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
           </div>
           <button
             onClick={onClose}
-            aria-label="Закрыть информацию об оборудовании" className="shrink-0 p-2 text-gray-400 hover:text-white transition-colors"
+            aria-label="Закрыть информацию об оборудовании" className="shrink-0 min-h-11 min-w-11 inline-flex items-center justify-center p-2 text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -211,51 +211,54 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
           <div className="grid grid-cols-3 px-1 sm:px-6">
             <button
               onClick={() => setActiveTab('details')}
+              aria-pressed={activeTab === 'details'}
               className={`min-w-0 px-1 sm:px-4 py-3 text-xs sm:text-base font-medium transition-colors relative ${
                 activeTab === 'details'
-                  ? 'text-cyan-400'
+                  ? 'text-accent-400'
                   : 'text-gray-400 hover:text-gray-300'
               }`}
             >
               Детали
               {activeTab === 'details' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-400"></div>
               )}
             </button>
             <button
               onClick={() => setActiveTab('composition')}
+              aria-pressed={activeTab === 'composition'}
               className={`min-w-0 px-1 sm:px-4 py-3 text-xs sm:text-base font-medium transition-colors relative ${
                 activeTab === 'composition'
-                  ? 'text-cyan-400'
+                  ? 'text-accent-400'
                   : 'text-gray-400 hover:text-gray-300'
               }`}
             >
               Содержимое
               {compositions.length > 0 && (
-                <span className="ml-1 inline-block px-1.5 py-0.5 bg-cyan-600 text-white text-xs rounded-full">
+                <span className="ml-1 inline-block px-1.5 py-0.5 bg-accent-500 text-gray-950 text-xs rounded-full">
                   {compositions.length}
                 </span>
               )}
               {activeTab === 'composition' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-400"></div>
               )}
             </button>
             <button
               onClick={() => setActiveTab('modifications')}
+              aria-pressed={activeTab === 'modifications'}
               className={`min-w-0 px-1 sm:px-4 py-3 text-xs sm:text-base font-medium transition-colors relative ${
                 activeTab === 'modifications'
-                  ? 'text-cyan-400'
+                  ? 'text-accent-400'
                   : 'text-gray-400 hover:text-gray-300'
               }`}
             >
               Модификации
               {modifications.length > 0 && (
-                <span className="ml-1 inline-block px-1.5 py-0.5 bg-cyan-600 text-white text-xs rounded-full">
+                <span className="ml-1 inline-block px-1.5 py-0.5 bg-accent-500 text-gray-950 text-xs rounded-full">
                   {modifications.length}
                 </span>
               )}
               {activeTab === 'modifications' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-400"></div>
               )}
             </button>
           </div>
@@ -289,7 +292,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Количество
                   </label>
-                  <div className="text-white font-semibold">{item.quantity} {item.unit}</div>
+                  <div className="text-gray-100 font-semibold tabular-nums">{item.quantity} {item.unit}</div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
@@ -357,7 +360,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                     </p>
                     <button disabled={!canAccess(user, 'equipment', 2)}
                       onClick={() => setShowAddComposition(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+                      className="flex items-center gap-2 min-h-11 px-4 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors text-sm"
                     >
                       <Plus className="w-4 h-4" />
                       Добавить элемент
@@ -387,7 +390,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                         >
                           <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
                             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-                              <div className="text-cyan-400 font-mono text-sm">{comp.child_sku}</div>
+                              <div className="text-gray-400 font-mono text-sm">{comp.child_sku}</div>
                               <div className="text-white font-medium">{comp.child_name}</div>
                             </div>
                             <div className="text-sm text-gray-400 mt-1">
@@ -397,11 +400,11 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                           <div className="flex items-center gap-4">
                             <div className="text-right">
                               <div className="text-sm text-gray-400">Количество</div>
-                              <div className="text-white font-semibold">{comp.quantity}</div>
+                              <div className="text-gray-100 font-semibold tabular-nums">{comp.quantity}</div>
                             </div>
                             <button disabled={!canAccess(user, 'equipment', 3)}
                               onClick={() => handleDeleteComposition(comp.id)}
-                              className="p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                              className="min-h-11 min-w-11 inline-flex items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                               title="Удалить"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -432,7 +435,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                 </p>
                 <button disabled={!canAccess(user, 'equipment', 2)}
                   onClick={() => setShowAddModification(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+                  className="flex items-center gap-2 min-h-11 px-4 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors text-sm"
                 >
                   <Plus className="w-4 h-4" />
                   Добавить модификацию
@@ -451,7 +454,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                         value={newModificationName}
                         onChange={(e) => setNewModificationName(e.target.value)}
                         placeholder="Например: Базовая, Расширенная, Премиум"
-                        className="w-full min-w-0 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white focus:outline-none focus:border-cyan-500"
+                        className="w-full min-w-0 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                       />
                     </div>
                     <div>
@@ -463,7 +466,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                         onChange={(e) => setNewModificationDescription(e.target.value)}
                         placeholder="Краткое описание модификации"
                         rows={2}
-                        className="w-full min-w-0 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white focus:outline-none focus:border-cyan-500"
+                        className="w-full min-w-0 px-3 py-2 bg-gray-900 border border-gray-700 rounded text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                       />
                     </div>
                   </div>
@@ -481,9 +484,9 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                     <button
                       onClick={handleAddModification}
                       disabled={(loading || !newModificationName.trim()) || !canAccess(user, 'equipment', 2)}
-                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors disabled:opacity-50"
+                      className="min-h-11 px-4 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded transition-colors disabled:opacity-50"
                     >
-                      {loading ? 'Создание...' : 'Создать'}
+                      {loading ? 'Создание…' : 'Создать'}
                     </button>
                   </div>
                 </div>
@@ -509,7 +512,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                           <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 sm:flex sm:items-center sm:gap-3">
                             <button
                               onClick={() => handleToggleModification(mod.id)}
-                              className="text-gray-400 hover:text-cyan-400 transition-colors"
+                              className="text-gray-400 hover:text-accent-400 transition-colors"
                             >
                               {isExpanded ? (
                                 <ChevronDown className="w-5 h-5" />
@@ -519,7 +522,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                             </button>
                             <div className="min-w-0 flex-1">
                               <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-                                <Settings className="w-5 h-5 shrink-0 text-cyan-400" />
+                                <Settings className="w-5 h-5 shrink-0 text-accent-400" />
                                 <div>
                                   <div className="text-white font-medium">{mod.name}</div>
                                   {mod.description && (
@@ -529,14 +532,14 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                               </div>
                             </div>
                             {components.length > 0 && (
-                              <span className="col-start-2 w-fit px-3 py-1 bg-cyan-600/20 text-cyan-400 text-xs rounded-full">
+                              <span className="col-start-2 w-fit px-3 py-1 bg-accent-600/20 text-accent-400 text-xs rounded-full">
                                 {components.length} компонентов
                               </span>
                             )}
                           </div>
                           <button disabled={!canAccess(user, 'equipment', 3)}
                             onClick={() => handleDeleteModification(mod.id)}
-                            className="p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors ml-2"
+                            className="min-h-11 min-w-11 inline-flex items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors ml-2"
                             title="Удалить модификацию"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -550,7 +553,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                                 <h4 className="text-sm font-medium text-gray-300">Компоненты модификации</h4>
                                 <button disabled={!canAccess(user, 'equipment', 2)}
                                   onClick={() => setShowAddComponentForMod(mod.id)}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs transition-colors"
+                                  className="flex items-center gap-2 min-h-11 px-3 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded text-xs transition-colors"
                                 >
                                   <Plus className="w-3 h-3" />
                                   Добавить компонент
@@ -580,7 +583,7 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                                     >
                                       <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
                                         <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                          <div className="text-cyan-400 font-mono text-xs">{comp.component?.sku}</div>
+                                          <div className="text-gray-400 font-mono text-xs">{comp.component?.sku}</div>
                                           <div className="text-white text-sm font-medium">{comp.component?.name}</div>
                                         </div>
                                         <div className="text-xs text-gray-400 mt-1">
@@ -590,11 +593,11 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                                       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                                         <div className="text-right">
                                           <div className="text-xs text-gray-400">Количество</div>
-                                          <div className="text-white font-semibold text-sm">{comp.quantity}</div>
+                                          <div className="text-gray-100 font-semibold tabular-nums text-sm">{comp.quantity}</div>
                                         </div>
                                         <button disabled={!canAccess(user, 'equipment', 3)}
                                           onClick={() => handleDeleteModificationComponent(comp.id, mod.id)}
-                                          className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                                          className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                                           title="Удалить"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" />

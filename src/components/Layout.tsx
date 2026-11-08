@@ -78,7 +78,8 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
 
   return (
     <MobileHeaderContext.Provider value={{ active: !pageOpen, title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions }}>
-    <div className="h-dvh flex flex-col bg-black overflow-hidden">
+    <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-accent-500 focus:px-4 focus:py-3 focus:text-gray-950">Перейти к содержимому</a>
+    <div className="h-dvh flex flex-col bg-gray-950 overflow-hidden">
       <div className="relative z-20 flex h-14 shrink-0 border-b border-gray-800 bg-gray-900">
         <div className="hidden w-64 shrink-0 items-center border-r border-gray-800 px-6 lg:flex">
           <span className="text-lg font-bold text-white">RentMaster</span>
@@ -107,7 +108,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
               <p className="text-sm leading-tight text-white">{user.full_name}</p>
               <p className="text-xs leading-tight text-gray-400">{user.role_name || ROLE_NAMES[user.role]}</p>
             </div>
-            <button onClick={() => setAccountTab('profile')} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-cyan-400" title="Мой профиль" aria-label="Мой профиль">
+            <button onClick={() => setAccountTab('profile')} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-accent-400" title="Мой профиль" aria-label="Мой профиль">
               <UserRound className="h-5 w-5" />
             </button>
           </div>
@@ -138,6 +139,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
               return (
                 <button
                   key={item.id}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => {
                     if (item.id === 'users') setAccountTab('users');
                     else onNavigate(item.id);
@@ -148,7 +150,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
                     transition-colors
                     ${
                       isActive
-                        ? 'bg-cyan-600 text-white'
+                        ? 'bg-accent-500/10 text-accent-300 ring-1 ring-inset ring-accent-700/60'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }
                   `}
@@ -162,7 +164,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <main ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-1' : 'overflow-y-auto p-4 lg:p-6'}`}>
+        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-1' : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
         </div>

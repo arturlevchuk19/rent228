@@ -1806,7 +1806,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     const extraTotalDay1 = extraItems.length > 0
       ? calculateCategoryTotalForPaymentMode(extraItems, 'day1')
       : 0;
-    
+
     const extraTotalCombined = extraItems.length > 0
       ? calculateCategoryTotalForPaymentMode(extraItems, 'combined')
       : 0;
@@ -1817,7 +1817,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     const baseTotalDay1 = getDiscountedTotal('day1') !== null
       ? getDiscountedTotal('day1')!
       : getDay1TotalForPaymentMode();
-    
+
     const baseTotalCombined = getDiscountedTotal('combined') !== null
       ? getDiscountedTotal('combined')!
       : getCombinedTotalForPaymentMode();
@@ -1947,7 +1947,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
     return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950 md:bg-black/70 md:p-3">
       <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-gray-900 md:h-auto md:max-h-[90dvh] md:max-w-4xl md:rounded-xl md:border md:border-gray-700">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-800 p-4"><h2 className="font-semibold text-white">Смета: {budgetName}</h2><button type="button" onClick={onClose} aria-label="Закрыть" className="rounded p-2 text-gray-300"><X className="h-5 w-5" /></button></header>
-        <div className="min-h-0 overflow-y-auto p-4">{canAccess(user, 'budgets') ? <><p className="mb-3 text-xs text-gray-400">Режим просмотра</p>{budgetItems.map(item => <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 py-3 text-sm"><span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span><span className="shrink-0 text-cyan-400">{item.quantity} × {item.price}</span></div>)}<p className="mt-4 font-semibold text-white">Итого: {getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></> : <p className="text-gray-400">Нет доступа к сметам.</p>}</div>
+        <div className="min-h-0 overflow-y-auto p-4">{canAccess(user, 'budgets') ? <><p className="mb-3 text-xs text-gray-400">Режим просмотра</p>{budgetItems.map(item => <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 py-3 text-sm"><span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span><span className="shrink-0 text-gray-100 tabular-nums">{item.quantity} × {item.price}</span></div>)}<p className="mt-4 font-semibold text-white">Итого: {getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></> : <p className="text-gray-400">Нет доступа к сметам.</p>}</div>
       </section>
     </div>;
   }
@@ -1965,7 +1965,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const currencySettings = (
     <div className="space-y-3">
       <div>
-        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Курс валюты</label>
+        <label className="text-xs font-bold text-gray-500  block mb-1.5">Курс валюты</label>
         <input
           type="text"
           inputMode="decimal"
@@ -1979,16 +1979,16 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             if (Number.isFinite(rate) && rate > 0) setExchangeRate(rate);
           }}
           onBlur={() => setExchangeRateInput(String(exchangeRate))}
-          className="min-h-11 w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-base md:min-h-0 md:text-xs focus:ring-2 focus:ring-cyan-500 outline-none"
+          className="min-h-11 w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-base md:min-h-0 md:text-xs focus:ring-2 focus:ring-accent-500 outline-none"
         />
       </div>
       <div className="space-y-1">
-        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Система расчёта</label>
+        <label className="text-xs font-bold text-gray-500  block">Система расчёта</label>
         <button
           onClick={() => setPaymentMode('usd')}
           className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
             paymentMode === 'usd'
-              ? 'bg-cyan-600 text-white'
+              ? 'bg-accent-600 text-gray-950'
               : 'text-gray-300 hover:bg-gray-700'
           }`}
         >
@@ -1998,7 +1998,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           onClick={() => setPaymentMode('byn_noncash')}
           className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
             paymentMode === 'byn_noncash'
-              ? 'bg-cyan-600 text-white'
+              ? 'bg-accent-600 text-gray-950'
               : 'text-gray-300 hover:bg-gray-700'
           }`}
         >
@@ -2008,7 +2008,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           onClick={() => setPaymentMode('byn_cash')}
           className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
             paymentMode === 'byn_cash'
-              ? 'bg-cyan-600 text-white'
+              ? 'bg-accent-600 text-gray-950'
               : 'text-gray-300 hover:bg-gray-700'
           }`}
         >
@@ -2043,36 +2043,36 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           display: block;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: #111827;
+          background: var(--color-surface);
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #374151;
+          background: var(--color-border);
           border-radius: 10px;
-          border: 2px solid #111827;
+          border: 2px solid var(--color-surface);
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #4b5563;
+          background: var(--color-border-strong);
         }
         @media (max-width: 767px) {
           .mobile-budget-page .budget-items-heading { display: none; }
           .mobile-budget-page [data-budget-selected="true"] > .budget-category-header,
           .mobile-budget-page [data-budget-selected="true"] > .budget-location-header {
-            outline: 2px solid #fcd34d; outline-offset: -2px; border-radius: 12px;
-            box-shadow: 0 0 0 1px #f59e0b33;
+            outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: 12px;
+
           }
           .mobile-budget-page .budget-category-header {
-            min-height: 52px; gap: 8px; padding: 8px; margin: 8px 0;
-            border: 1px solid #374151; border-radius: 12px; flex-wrap: nowrap; gap: 4px;
+            min-height: 56px; gap: 8px; padding: 6px 8px; margin: 8px 0;
+            border: 1px solid var(--color-border); border-radius: 12px; flex-wrap: wrap; gap: 4px;
           }
-          .mobile-budget-page [data-budget-drag-type] { touch-action: none; user-select: none; -webkit-user-select: none; opacity: 1; display: flex; align-items: center; justify-content: center; min-width: 24px; min-height: 32px; }
-          .mobile-budget-page .budget-category-header h3 { min-width: 0; font-size: 14px; }
+          .mobile-budget-page [data-budget-drag-type] { touch-action: none; user-select: none; -webkit-user-select: none; opacity: 1; display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 44px; }
+          .mobile-budget-page .budget-category-header h3 { min-width: 80px; font-size: 15px; flex-basis: calc(100% - 104px); }
           .mobile-budget-page .budget-category-header > :not(h3) { flex-shrink: 0; }
           .mobile-budget-page .budget-category-header > div:last-child { white-space: nowrap; }
-          .mobile-budget-page .budget-category-header > button { min-width: 28px; min-height: 32px; }
+          .mobile-budget-page .budget-category-header > button { min-width: 44px; min-height: 44px; }
           .mobile-budget-page .budget-category-header svg { width: 14px; height: 14px; }
           .mobile-budget-page .budget-item-row {
             position: relative; flex-wrap: wrap; gap: 8px; padding: 12px; margin: 8px 0;
-            border: 1px solid #1f2937; border-radius: 12px; background-color: #111827;
+            border: 1px solid var(--color-border); border-radius: 12px; background-color: var(--color-surface);
           }
           .mobile-budget-page .budget-item-row > [draggable] {
             position: absolute; left: 4px; top: 10px; width: 24px;
@@ -2090,11 +2090,11 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           .mobile-budget-page .budget-item-fields,
           .mobile-budget-page .budget-item-fields-with-coefficient {
             order: -1; flex-basis: 100%; min-width: 0;
-            grid-template-columns: minmax(72px, 1.1fr) minmax(32px, .55fr) minmax(64px, 1fr) minmax(0, 1.5fr) !important;
+            grid-template-columns: minmax(80px, 1.1fr) minmax(32px, .55fr) minmax(64px, 1fr) minmax(0, 1.5fr) !important;
             gap: 8px 4px;
           }
           .mobile-budget-page .budget-item-fields > :first-child {
-            grid-column: 1 / -1; min-height: 28px; padding-right: 88px; font-size: 15px; font-weight: 600;
+            grid-column: 1 / -1; min-height: 44px; padding-right: 0; margin-bottom: 44px; font-size: 15px; font-weight: 600;
           }
           .mobile-budget-page [data-mobile-label] {
             display: flex; align-items: center; justify-content: center; text-align: center; min-width: 0;
@@ -2104,7 +2104,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           .mobile-budget-page [data-mobile-label="Ед. изм."] { grid-column: 2; grid-row: 2; }
           .mobile-budget-page [data-mobile-label="Цена"] { grid-column: 3; grid-row: 2; gap: 2px; }
           .mobile-budget-page [data-mobile-label="Цена"]::before {
-            content: '×'; display: block; color: #9ca3af; font-size: 16px;
+            content: '×'; display: block; color: var(--color-text-muted); font-size: 16px;
           }
           .mobile-budget-page [data-mobile-label="Цена"] input { min-width: 0; flex-shrink: 1; }
           .mobile-budget-page [data-mobile-label="Сумма"] {
@@ -2112,35 +2112,35 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             padding-right: 0; white-space: nowrap; font-size: 14px;
           }
           .mobile-budget-page [data-mobile-label="Сумма"]::before {
-            content: '='; display: block; margin-right: auto; color: #9ca3af; font-size: 16px;
+            content: '='; display: block; margin-right: auto; color: var(--color-text-muted); font-size: 16px;
           }
           .mobile-budget-page [data-mobile-label="Коэф."] {
             grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; gap: 8px;
           }
           .mobile-budget-page [data-mobile-label="Коэф."]::before {
-            content: attr(data-mobile-label); display: block; color: #9ca3af; font-size: 10px;
+            content: attr(data-mobile-label); display: block; color: var(--color-text-muted); font-size: 12px;
           }
-          .mobile-budget-page .budget-item-fields input { min-height: 36px; max-width: 100%; text-align: center; font-size: 16px; }
-          .mobile-budget-page [data-mobile-label="Количество"] button { min-height: 36px; min-width: 20px; }
-          .mobile-budget-page [data-mobile-label="Ед. изм."] button { min-height: 36px; font-size: 13px; }
-          .mobile-budget-page .budget-item-actions { position: absolute; top: 10px; right: 8px; gap: 0; }
+          .mobile-budget-page .budget-item-fields input { min-height: 44px; max-width: 100%; text-align: center; font-size: 16px; }
+          .mobile-budget-page [data-mobile-label="Количество"] button { min-height: 44px; min-width: 24px; }
+          .mobile-budget-page [data-mobile-label="Ед. изм."] button { min-height: 44px; font-size: 14px; }
+          .mobile-budget-page .budget-item-actions { position: absolute; top: 56px; right: 8px; gap: 0; }
           .mobile-budget-page .budget-item-actions > button,
           .mobile-budget-page .budget-item-actions > div,
           .mobile-budget-page .budget-item-actions > div > button {
-            width: 28px; min-width: 28px; min-height: 28px; align-items: center; opacity: 1;
+            width: 44px; min-width: 44px; min-height: 44px; align-items: center; opacity: 1;
           }
         }
-        .budget-touch-target { outline: 2px solid #22d3ee; outline-offset: -2px; background-color: #164e6333; }
+        .budget-touch-target { outline: 2px solid var(--color-accent); outline-offset: -2px; background-color: var(--color-accent-soft); }
         .budget-touch-ghost {
           position: fixed; z-index: 1000; pointer-events: none; max-width: 220px;
-          padding: 8px 12px; border: 1px solid #22d3ee; border-radius: 10px;
-          background: #111827; color: #e5e7eb; font-size: 13px;
+          padding: 8px 12px; border: 1px solid var(--color-accent); border-radius: 10px;
+          background: var(--color-surface); color: var(--color-text); font-size: 13px;
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 8px 24px #0008;
         }
         /* Для Firefox */
         .custom-scrollbar {
           scrollbar-width: thin;
-          scrollbar-color: #374151 #111827;
+          scrollbar-color: var(--color-border) var(--color-surface);
         }
       `}</style>
 
@@ -2153,13 +2153,13 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowBudgetNoteDialog(true)} className="rounded-lg border border-cyan-700/60 px-3 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-500/10">Примечание</button>
+            <button type="button" onClick={() => setShowBudgetNoteDialog(true)} className="rounded-lg border border-accent-700/60 px-3 py-2 text-xs font-medium text-accent-300 hover:bg-accent-500/10">Примечание</button>
             <button type="button" onClick={() => setShowStickyNotes(true)} aria-label="Заметки" title="Заметки" className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-300 hover:bg-gray-800 hover:text-yellow-400"><StickyNote className="h-5 w-5" /></button>
-            <button type="button" onClick={() => setShowMobileSettings(true)} aria-label="Настройки сметы" title="Настройки сметы" className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-300 hover:bg-gray-800 hover:text-amber-200"><Settings className="h-5 w-5" /></button>
+            <button type="button" onClick={() => setShowMobileSettings(true)} aria-label="Настройки сметы" title="Настройки сметы" className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-300 hover:bg-gray-800 hover:text-accent-200"><Settings className="h-5 w-5" /></button>
             <button
               onClick={handleClose}
               aria-label="Закрыть смету"
-              className="text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-full transition-all"
+              className="text-gray-400 hover:text-white p-1 hover:bg-gray-800 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -2194,7 +2194,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
                     aria-expanded={showCategoryDropdown}
                     aria-label="Добавить категорию"
-                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    className="py-1 text-gray-200 transition-colors hover:text-accent-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
                   >
                     Категория
                   </button>
@@ -2202,7 +2202,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     type="button"
                     onClick={() => setShowLocationDialog(true)}
                     aria-label="Добавить локацию"
-                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    className="py-1 text-gray-200 transition-colors hover:text-accent-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
                   >
                     Локация
                   </button>
@@ -2210,7 +2210,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     type="button"
                     onClick={handleCreateExtraServiceCategory}
                     aria-label="Добавить дополнительную услугу"
-                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    className="py-1 text-gray-200 transition-colors hover:text-accent-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
                   >
                     Доп. услуга
                   </button>
@@ -2218,7 +2218,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     type="button"
                     onClick={() => setShowTemplates(true)}
                     aria-label="Добавить из шаблона"
-                    className="py-1 text-gray-200 transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    className="py-1 text-gray-200 transition-colors hover:text-accent-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400"
                   >
                     Шаблон
                   </button>
@@ -2249,7 +2249,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         key={location.id}
                         data-budget-selected={selectedCategoryId === locationGroupId}
                         data-budget-drop-group={JSON.stringify({ type: 'location', id: location.id, locationId: location.id })}
-                        className={`transition-all duration-200 rounded-xl border ${selectedCategoryId === locationGroupId ? 'border-amber-300 ring-1 ring-amber-300' : 'border-emerald-900/30'} ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${locationDragOverId === location.id ? 'ring-2 ring-cyan-400' : ''}`}
+                        className={`transition-colors duration-200 rounded-xl border ${selectedCategoryId === locationGroupId ? 'border-accent-300 ring-1 ring-accent-300' : 'border-emerald-900/30'} ${dragOverTarget === locationGroupId ? 'ring-2 ring-emerald-500 bg-emerald-500/5 p-0.5' : ''} ${locationDragOverId === location.id ? 'ring-2 ring-accent-400' : ''}`}
                         onDragOver={(e) => handleDragOver(e, { type: 'location', id: location.id, locationId: location.id })}
                         onDrop={(e) => handleDrop(e, { type: 'location', id: location.id, locationId: location.id })}
                       >
@@ -2325,7 +2325,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                               return (
                                 <div
                                   key={categoryGroupId}
-                                  className={`transition-all duration-200 ${dragOverTarget === categoryGroupId ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                                  className={`transition-colors duration-200 ${dragOverTarget === categoryGroupId ? 'ring-2 ring-accent-500 bg-accent-500/5 rounded-xl p-0.5' : ''}`}
                                 >
                                   <CategoryBlock
                                     showNominalConsumption={showNominalConsumption}
@@ -2396,7 +2396,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
                   <div
                     data-budget-drop-group={JSON.stringify({ type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
-                    className={'rounded-xl transition-all duration-200' + (draggedItem ? ' ring-2 ring-cyan-500/50 bg-cyan-500/5' : '')}
+                    className={'rounded-xl transition-colors duration-200' + (draggedItem ? ' ring-2 ring-accent-500/50 bg-accent-500/5' : '')}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -2413,7 +2413,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     return (
                       <div
                         key={categoryGroupId}
-                        className={`transition-all duration-200 ${dragOverTarget === categoryGroupId ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                        className={`transition-colors duration-200 ${dragOverTarget === categoryGroupId ? 'ring-2 ring-accent-500 bg-accent-500/5 rounded-xl p-0.5' : ''}`}
                       >
                         <CategoryBlock
                           showNominalConsumption={showNominalConsumption}
@@ -2448,7 +2448,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   })}
                   {groupedItems[NO_LOCATION_GROUP_ID] && groupedItems[NO_LOCATION_GROUP_ID].length > 0 && (
                     <div
-                      className={`transition-all duration-200 ${dragOverTarget === NO_LOCATION_GROUP_ID ? 'ring-2 ring-cyan-500 bg-cyan-500/5 rounded-xl p-0.5' : ''}`}
+                      className={`transition-colors duration-200 ${dragOverTarget === NO_LOCATION_GROUP_ID ? 'ring-2 ring-accent-500 bg-accent-500/5 rounded-xl p-0.5' : ''}`}
                     >
                       <CategoryBlock
                         showNominalConsumption={showNominalConsumption}
@@ -2496,18 +2496,18 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                 ref={catalogSearchRef}
                 aria-label="Поиск позиций для добавления в смету"
                 placeholder="Поиск по названию или категории..."
-                className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-2 focus:ring-accent-500 outline-none transition-colors"
               />
               <div className="hidden bg-gray-800 p-0.5 rounded-lg md:flex">
                 <button
                   onClick={() => setSelectedItemType('Оборудование')}
-                  className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${selectedItemType === 'Оборудование' ? 'bg-gray-700 text-cyan-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${selectedItemType === 'Оборудование' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   Оборудование
                 </button>
                 <button
                   onClick={() => setSelectedItemType('Работа')}
-                  className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${selectedItemType === 'Работа' ? 'bg-gray-700 text-cyan-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                  className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${selectedItemType === 'Работа' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   Работа / Персонал
                 </button>
@@ -2516,7 +2516,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                 <select
                   value={selectedEquipmentCategory}
                   onChange={(e) => setSelectedEquipmentCategory(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-[10px] text-gray-300 focus:ring-1 focus:ring-cyan-500 outline-none"
+                  className="w-full px-2.5 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-300 focus:ring-1 focus:ring-accent-500 outline-none"
                 >
                   {equipmentCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
@@ -2524,8 +2524,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-3 pb-3 md:px-0 md:pb-0">
-              <button type="button" aria-expanded={mobileCatalogExpanded} onClick={() => setMobileCatalogExpanded(!mobileCatalogExpanded)} className="mb-3 flex min-h-12 w-full items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-400/10 px-3 text-left text-sm font-bold uppercase text-gray-200 md:hidden">
-                <ChevronDown className={`h-4 w-4 text-amber-300 transition-transform ${mobileCatalogExpanded ? '' : '-rotate-90'}`} />
+              <button type="button" aria-expanded={mobileCatalogExpanded} onClick={() => setMobileCatalogExpanded(!mobileCatalogExpanded)} className="mb-3 flex min-h-12 w-full items-center gap-2 rounded-xl border border-accent-500/30 bg-accent-400/10 px-3 text-left text-sm font-bold uppercase text-gray-200 md:hidden">
+                <ChevronDown className={`h-4 w-4 text-accent-300 transition-transform ${mobileCatalogExpanded ? '' : '-rotate-90'}`} />
                 {selectedItemType === 'Оборудование' ? 'Склад' : 'Персонал и доставка'}
                 <span className="rounded-full bg-gray-700/70 px-2 text-xs text-gray-400">{selectedItemType === 'Оборудование' ? filteredEquipment.length : filteredWorkItems.length}</span>
               </button>
@@ -2539,18 +2539,18 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                       {...catalogLongPress(`equipment:${item.id}`)}
                       onClick={() => handleEquipmentClick(item)}
                       onContextMenu={event => { event.preventDefault(); setQuantityTarget(`equipment:${item.id}`); }}
-                      className="group touch-pan-y select-none [-webkit-touch-callout:none] flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
+                      className="group touch-pan-y select-none [-webkit-touch-callout:none] flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-accent-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-base font-semibold text-gray-200 break-words group-hover:text-white md:truncate md:text-xs md:font-medium">{item.name}</p>
+                          <p className="text-base font-semibold text-gray-200 break-words group-hover:text-gray-950 md:truncate md:text-xs md:font-medium">{item.name}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 ml-3">
                         <div className="text-right">
-                          <p className="text-xs font-mono text-cyan-500 font-bold">${item.rental_price}</p>
+                          <p className="text-sm tabular-nums text-gray-100 font-medium">${item.rental_price}</p>
                         </div>
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors group-hover:bg-cyan-600 group-hover:text-white md:h-auto md:w-auto md:p-1 md:text-gray-500">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors group-hover:bg-accent-600 group-hover:text-gray-950 md:h-auto md:w-auto md:p-1 md:text-gray-500">
                           <Plus className="w-3.5 h-3.5" />
                         </div>
                       </div>
@@ -2567,13 +2567,13 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                       {...catalogLongPress(`work:${item.id}`)}
                       onClick={() => handleAddWorkItem(item)}
                       onContextMenu={event => { event.preventDefault(); setQuantityTarget(`work:${item.id}`); }}
-                      className="group touch-pan-y select-none [-webkit-touch-callout:none] flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-cyan-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
+                      className="group touch-pan-y select-none [-webkit-touch-callout:none] flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-accent-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-base font-semibold text-gray-200 break-words group-hover:text-white md:truncate md:text-xs md:font-medium">{item.name}</p>
-                        <p className="mt-1 text-sm text-gray-500 md:mt-0 md:text-[10px]">Ед. измерения: {item.unit}</p>
+                        <p className="text-base font-semibold text-gray-200 break-words group-hover:text-gray-950 md:truncate md:text-xs md:font-medium">{item.name}</p>
+                        <p className="mt-1 text-sm text-gray-500 md:mt-0 md:text-xs">Ед. измерения: {item.unit}</p>
                       </div>
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors group-hover:bg-cyan-600 group-hover:text-white md:h-auto md:w-auto md:p-1 md:text-gray-500">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors group-hover:bg-accent-600 group-hover:text-gray-950 md:h-auto md:w-auto md:p-1 md:text-gray-500">
                         <Plus className="w-3.5 h-3.5" />
                       </div>
                     </div>
@@ -2589,7 +2589,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
 
         {(mobileTab === 'equipment' || mobileTab === 'personnel') && <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-800 bg-gray-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
           <div><p className="text-xs text-gray-400">Итого</p><p className="font-semibold text-white">{getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></div>
-          <button type="button" onClick={() => changeMobileTab('estimate')} className="min-h-11 rounded-xl bg-cyan-600 px-4 text-sm font-semibold text-white">К смете · {budgetItems.length}</button>
+          <button type="button" onClick={() => changeMobileTab('estimate')} className="min-h-11 rounded-xl bg-accent-600 px-4 text-sm font-semibold text-gray-950">К смете · {budgetItems.length}</button>
         </div>}
 
         {/* Footer */}
@@ -2597,19 +2597,19 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
           <div className="flex min-w-0 flex-col items-start gap-4 md:flex-row md:items-center md:gap-6">
             <div className="flex flex-col">
               <BudgetConsumption items={budgetItems} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} />
-              <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">Итоговая сумма</span>
-              <span className="text-xl font-black text-white">
-                <span className="text-cyan-400">{getPrimaryTotalForMode().toLocaleString()}</span>
+              <span className="text-xs font-medium text-gray-400 ">Итоговая сумма</span>
+              <span className="text-2xl font-semibold text-white tabular-nums">
+                <span className="text-gray-100 tabular-nums">{getPrimaryTotalForMode().toLocaleString()}</span>
                 <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
               </span>
               {budgetTotalsMode === 'day1_plus_combined' && (
-                <span className="text-[11px] text-gray-400">
-                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-cyan-300">{roundBudgetTotal(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                <span className="text-xs text-gray-400">
+                  {budgetDays === 1 ? 'ИТОГО' : 'Итого за 1 день:'} <span className="text-gray-100 tabular-nums">{roundBudgetTotal(getDay1TotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               {budgetDays > 1 && (
-                <span className="text-[11px] text-gray-400">
-                  Итого за {budgetDays} дней: <span className="text-cyan-300">{roundBudgetTotal(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
+                <span className="text-xs text-gray-400">
+                  Итого за {budgetDays} дней: <span className="text-gray-100 tabular-nums">{roundBudgetTotal(getCombinedTotalForPaymentMode()).toLocaleString()}</span> {getCurrencyLabel()}
                 </span>
               )}
               <label className="flex items-center gap-2 cursor-pointer select-none mt-1">
@@ -2617,17 +2617,17 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                   type="checkbox"
                   checked={showExtraTotal}
                   onChange={(e) => setShowExtraTotal(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-violet-500 cursor-pointer"
+                  className="w-3.5 h-3.5 accent-accent-500 cursor-pointer"
                 />
-                <span className="text-[11px] text-gray-400 font-medium">Итого с дополнительными услугами</span>
+                <span className="text-xs text-gray-400 font-medium">Итого с дополнительными услугами</span>
               </label>
               {showExtraTotal && budgetTotalsMode === 'combined_only' && (
                 <>
-                  <span className="text-sm font-bold text-violet-400">
+                  <span className="text-sm font-semibold text-gray-100 tabular-nums">
                     {getTotalWithExtraCombined().toLocaleString()} {getCurrencyLabel()}
                   </span>
                   {getDiscountedTotalWithExtraCombined() !== null && (
-                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
+                    <span className="text-xs font-medium text-gray-400  mt-0.5">
                       Итого со скидкой {activeDiscountPercentLabel}: {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
                     </span>
                   )}
@@ -2635,11 +2635,11 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
               )}
               {showExtraTotal && budgetTotalsMode === 'day1_plus_combined' && budgetDays === 1 && (
                 <>
-                  <span className="text-sm font-bold text-violet-400">
+                  <span className="text-sm font-semibold text-gray-100 tabular-nums">
                     {getTotalWithExtraDay1().toLocaleString()} {getCurrencyLabel()}
                   </span>
                   {getDiscountedTotalWithExtraDay1() !== null && (
-                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest mt-0.5">
+                    <span className="text-xs font-medium text-gray-400  mt-0.5">
                       Итого со скидкой {activeDiscountPercentLabel}: {getDiscountedTotalWithExtraDay1()!.toLocaleString()} {getCurrencyLabel()}
                     </span>
                   )}
@@ -2647,11 +2647,11 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
               )}
               {showExtraTotal && budgetTotalsMode === 'day1_plus_combined' && budgetDays > 1 && (
                 <>
-                  <span className="text-[11px] text-gray-400">
-                    Итого с доп. услугами за {budgetDays} дн.: <span className="text-violet-300">{getTotalWithExtraCombined().toLocaleString()}</span> {getCurrencyLabel()}
+                  <span className="text-xs text-gray-400">
+                    Итого с доп. услугами за {budgetDays} дн.: <span className="text-gray-100 tabular-nums">{getTotalWithExtraCombined().toLocaleString()}</span> {getCurrencyLabel()}
                   </span>
                   {getDiscountedTotalWithExtraCombined() !== null && (
-                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest -mt-1">
+                    <span className="text-xs font-medium text-gray-400  -mt-1">
                       Итого со скидкой {activeDiscountPercentLabel} ({budgetDays} дн.): {getDiscountedTotalWithExtraCombined()!.toLocaleString()} {getCurrencyLabel()}
                     </span>
                   )}
@@ -2672,7 +2672,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         // без скидки клиенту она считается от сметы, со скидкой клиенту —
                         // от скидки клиента (зависимость описана в расчётах выше).
                       }}
-                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                      className="w-3.5 h-3.5 accent-accent-500 cursor-pointer"
                     />
                     <span className="text-xs text-gray-300 font-medium">Скидка клиенту</span>
                     {discountEnabled && (
@@ -2700,7 +2700,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                               setDiscountPercentInput(String(clamped));
                             }
                           }}
-                          className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                          className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-accent-500 outline-none text-center"
                         />
                         <span className="text-xs text-gray-400">%</span>
                       </div>
@@ -2713,7 +2713,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                       type="checkbox"
                       checked={discount2Enabled}
                       onChange={(e) => setDiscount2Enabled(e.target.checked)}
-                      className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                      className="w-3.5 h-3.5 accent-accent-500 cursor-pointer"
                     />
                     <span className="text-xs text-gray-300 font-medium">Скидка организатору</span>
                     {discount2Enabled && (
@@ -2741,7 +2741,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                               setDiscount2PercentInput(String(clamped));
                             }
                           }}
-                          className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                          className="w-14 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-accent-500 outline-none text-center"
                         />
                         <span className="text-xs text-gray-400">%</span>
                       </div>
@@ -2753,7 +2753,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     - скидка клиенту активна   -> скидка организатору считается от скидки клиента. */}
                 {getDiscountedTotal() !== null && (
                   <div className="flex flex-col">
-                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-widest">{footerDiscountLabel}</span>
+                    <span className="text-xs font-medium text-gray-400 ">{footerDiscountLabel}</span>
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
@@ -2766,7 +2766,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                             (e.currentTarget as HTMLInputElement).blur();
                           }
                         }}
-                        className="w-28 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-sm font-black text-green-400 focus:ring-1 focus:ring-cyan-500 outline-none text-right"
+                        className="w-28 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-sm font-black text-green-400 focus:ring-1 focus:ring-accent-500 outline-none text-right"
                       />
                       <span className="text-xs font-normal text-gray-400 ml-1">{getCurrencyLabel()}</span>
                     </div>
@@ -2802,7 +2802,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         (e.currentTarget as HTMLInputElement).blur();
                       }
                     }}
-                    className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-cyan-500 outline-none text-center"
+                    className="w-16 px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded-md text-xs text-white focus:ring-1 focus:ring-accent-500 outline-none text-center"
                   />
                 </div>
                 {budgetDays > 1 && (
@@ -2814,9 +2814,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         name={`budget-totals-mode-${eventId}`}
                         checked={budgetTotalsMode === 'combined_only'}
                         onChange={() => setBudgetTotalsMode('combined_only')}
-                        className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                        className="w-3.5 h-3.5 accent-accent-500 cursor-pointer"
                       />
-                      <span className="text-[11px] text-gray-300">Только общий за N дней</span>
+                      <span className="text-xs text-gray-300">Только общий за N дней</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
@@ -2824,9 +2824,9 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                         name={`budget-totals-mode-${eventId}`}
                         checked={budgetTotalsMode === 'day1_plus_combined'}
                         onChange={() => setBudgetTotalsMode('day1_plus_combined')}
-                        className="w-3.5 h-3.5 accent-cyan-500 cursor-pointer"
+                        className="w-3.5 h-3.5 accent-accent-500 cursor-pointer"
                       />
-                      <span className="text-[11px] text-gray-300">Итог за 1 день + итог за N дней</span>
+                      <span className="text-xs text-gray-300">Итог за 1 день + итог за N дней</span>
                     </label>
                   </div>
                 )}
@@ -2838,7 +2838,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
             <button
               onClick={() => handleExportPDF()}
               disabled={generatingPDF || budgetItems.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-all disabled:opacity-30 border border-gray-700"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-30 border border-gray-700"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="text-xs font-medium">PDF</span>
@@ -2856,8 +2856,8 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         {currencySettings}
         <fieldset className="space-y-3 border-t border-gray-800 pt-4">
           <legend className="text-sm font-medium text-gray-300">Потребление в категориях и итогах</legend>
-          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showNominalConsumption} onChange={event => setShowNominalConsumption(event.target.checked)} className="h-4 w-4 accent-cyan-500" />Ном. потребление</label>
-          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showMaxConsumption} onChange={event => setShowMaxConsumption(event.target.checked)} className="h-4 w-4 accent-cyan-500" />Макс. потребление</label>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showNominalConsumption} onChange={event => setShowNominalConsumption(event.target.checked)} className="h-4 w-4 accent-accent-500" />Ном. потребление</label>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showMaxConsumption} onChange={event => setShowMaxConsumption(event.target.checked)} className="h-4 w-4 accent-accent-500" />Макс. потребление</label>
         </fieldset>
         <div className="flex flex-wrap gap-3 border-t border-gray-800 pt-4 md:hidden">
           <button type="button" onClick={() => { setShowMobileSettings(false); setShowBudgetNoteDialog(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Примечание</button>
@@ -2886,7 +2886,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                 value={budgetNote}
                 onChange={(e) => setBudgetNote(e.target.value)}
                 placeholder="Введите примечание, которое будет выведено внизу сметы"
-                className="w-full min-h-[260px] px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-cyan-500 outline-none resize-y"
+                className="w-full min-h-[260px] px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-accent-500 outline-none resize-y"
               />
             </div>
 
