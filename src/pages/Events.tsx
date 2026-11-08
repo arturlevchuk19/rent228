@@ -222,7 +222,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
 
   const getStatusColor = (status: string) => {
     const colors = {
-      'Запрос': 'bg-yellow-900/30 text-yellow-400 border-yellow-600',
+      'Запрос': 'bg-accent-900/50 text-accent-200 border-accent-700/60',
       'Подтверждено': 'bg-green-900/30 text-green-400 border-green-600',
       'Отменено': 'bg-red-900/30 text-red-400 border-red-600',
       'Выполнено': 'bg-gray-800 text-gray-400 border-gray-600'
@@ -260,13 +260,13 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
     <div className="space-y-4">
       <div hidden>
         <div className="flex items-center gap-2">
-          <Calendar className="w-6 h-6 text-cyan-500" />
+          <Calendar className="w-6 h-6 text-accent-500" />
           <h1 className="text-2xl font-bold text-white">Мероприятия</h1>
         </div>
         {canEditDelete && (
           <MobileHeaderContent><button disabled={!canAccess(user, 'events', 2)}
             onClick={() => onEventFormOpen?.()}
-            className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+            className="flex items-center gap-2 min-h-11 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 font-semibold rounded-lg transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
             Добавить
@@ -274,7 +274,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
         )}
       </div>
 
-      <div className="hidden md:block bg-gray-900 rounded-lg border border-gray-800 p-3">
+      <div className="hidden md:block bg-gray-900 rounded-xl p-3">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="relative md:col-span-2">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -283,7 +283,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
               placeholder="Поиск..."
               {...searchInputProps} value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+              className="w-full pl-9 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500"
             />
           </div>
 
@@ -292,7 +292,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
+              className="w-full pl-9 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 appearance-none"
             >
               <option value="all">Все типы</option>
               {EVENT_TYPES.map(type => (
@@ -306,7 +306,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             <select
               value={filterYear}
               onChange={(e) => setFilterYear(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
+              className="w-full pl-9 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 appearance-none"
             >
               <option value="all">Все года</option>
               {availableYears.map(year => (
@@ -320,7 +320,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             <select
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
+              className="w-full pl-9 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 appearance-none"
             >
               <option value="all">Все месяцы</option>
               {availableMonths.map(month => (
@@ -334,14 +334,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
             type="checkbox"
             checked={showCancelled}
             onChange={(e) => setShowCancelled(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
+            className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-accent-600 focus:ring-accent-500 focus:ring-offset-gray-900 cursor-pointer"
           />
           <span className="text-gray-400 select-none">Показывать отмененные</span>
         </label>
       </div>
 
       <div className="md:hidden">
-        <button type="button" onClick={() => setShowMobileFilters(true)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-200">
+        <button type="button" onClick={() => setShowMobileFilters(true)} className="min-h-11 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-200">
           <Filter className="w-4 h-4" /> Фильтр
         </button>
       </div>
@@ -352,46 +352,46 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
               <h2 className="text-white font-semibold">Фильтры</h2>
               <button type="button" onClick={() => setShowMobileFilters(false)} className="text-gray-400 hover:text-white">Закрыть</button>
             </div>
-            <input type="text" placeholder="Поиск..." {...searchInputProps} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" />
-            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+            <input type="text" placeholder="Поиск..." {...searchInputProps} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white" />
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
               <option value="all">Все типы</option>{EVENT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
             </select>
-            <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+            <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
               <option value="all">Все года</option>{availableYears.map(year => <option key={year} value={year}>{year}</option>)}
             </select>
-            <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
+            <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white">
               <option value="all">Все месяцы</option>{availableMonths.map(month => <option key={month} value={month}>{month}</option>)}
             </select>
             <label className="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" checked={showCancelled} onChange={(e) => setShowCancelled(e.target.checked)} className="w-4 h-4" />Показывать отмененные</label>
-            <button type="button" onClick={() => setShowMobileFilters(false)} className="w-full px-3 py-2 bg-cyan-600 text-white rounded-lg text-sm">Применить</button>
+            <button type="button" onClick={() => setShowMobileFilters(false)} className="min-h-11 w-full px-3 py-2 bg-accent-500 text-gray-950 font-semibold rounded-lg text-sm">Применить</button>
           </div>
         </div>
       )}
 
-      <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+      <div className="overflow-hidden rounded-xl bg-gray-900">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Дата
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Площадка
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Заказчик
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Название / Тип
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Статус
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Прогресс
                 </th>
-                <th className="px-4 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
                   Действия
                 </th>
               </tr>
@@ -408,10 +408,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                   <React.Fragment key={group.title}>
                     <tr 
                       ref={el => monthRefs.current[group.title] = el}
-                      className="bg-gray-800/50"
+                      className="scroll-mt-4 bg-gray-950"
                     >
-                      <td colSpan={7} className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-800/50">
-                        {group.title}
+                      <td colSpan={7} className="px-4 pb-3 pt-7">
+                        <div className="flex items-center gap-4">
+                          <h2 className="shrink-0 text-xl font-semibold tracking-tight text-gray-100">{group.title}</h2>
+                          <span className="h-px flex-1 bg-gray-700" aria-hidden="true" />
+                          <span className="text-sm tabular-nums text-gray-400" aria-label={`Мероприятий: ${group.events.length}`}>{group.events.length}</span>
+                        </div>
                       </td>
                     </tr>
                     {group.events.map((event) => (
@@ -427,10 +431,11 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             onEventFormOpen?.(event);
                           }
                         }}
-                        className={`transition-colors group ${canAccess(user, 'events') ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 ring-1 ring-inset ring-yellow-500/70' : 'hover:bg-gray-800/50'}`}
+                        className={`transition-colors group ${canAccess(user, 'events') ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500' : ''} ${isNearestEvent(event) ? 'bg-gray-800/70 ring-1 ring-inset ring-accent-700/50' : 'hover:bg-gray-800/50'}`}
                       >
                         <td className="px-4 py-2">
-                          <div className="text-cyan-400 font-medium text-sm">{formatDateRange(event)}</div>
+                          <div className="text-gray-100 font-medium text-sm tabular-nums">{formatDateRange(event)}</div>
+                          {isNearestEvent(event) && <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-accent-300"><span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />В фокусе</span>}
                         </td>
                         <td className="px-4 py-2 text-white text-sm">
                           {event.venues?.name || '-'}
@@ -443,7 +448,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           <div className="text-xs text-gray-400 leading-tight">{event.event_type}</div>
                         </td>
                         <td className="px-4 py-2">
-                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border ${getStatusColor(event.status)}`}>
                             {event.status}
                           </span>
                         </td>
@@ -451,22 +456,22 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           {canSeeEventProgress && (
                           <div className="flex items-center gap-1.5">
                             <ReceiptText
-                              className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400' : 'text-gray-500'}`}
                               >
                                 <title>{event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}</title>
                             </ReceiptText>
                             <CheckCircle
-                              className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-accent-400' : 'text-gray-500'}`}
                               >
                                 <title>{event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}</title>
                             </CheckCircle>
                             <ClipboardCheck
-                              className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-gray-200' : 'text-gray-500'}`}
                               >
                                 <title>{event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}</title>
                             </ClipboardCheck>
                             <CreditCard
-                              className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
+                              className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-accent-300' : 'text-gray-500'}`}
                               >
                                 <title>{event.progress_paid ? 'Оплачен' : 'Не оплачен'}</title>
                             </CreditCard>
@@ -477,13 +482,13 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           <div className="flex items-center justify-end gap-1.5">
                             <span
                               title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
-                              className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
+                              className={`transition-colors ${event.equipment_shipped ? 'text-red-400' : 'text-gray-500'}`}
                             >
                               <Truck className="w-3.5 h-3.5" />
                             </span>
                             <span
                               title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
-                              className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                              className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400' : 'text-gray-500'}`}
                               style={{ transform: 'scaleX(-1)' }}
                             >
                               <Truck className="w-3.5 h-3.5" />
@@ -492,7 +497,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             <button
                               onClick={() => { void openSpecification(event.id); }}
                               disabled={loadingSpecifications || !['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
-                              className={`p-1 rounded transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
+                              className={`inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-8 items-center justify-center rounded-lg transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer' : 'text-gray-500 cursor-not-allowed'}`}
                               title={['Подтверждено', 'Выполнено'].includes(event.status) ? 'Открыть спецификацию' : 'Мероприятие не подтверждено'}
                             >
                               <FileText className="w-3.5 h-3.5" />
@@ -501,14 +506,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                               <>
                                 <button disabled={!canAccess(user, 'events', 2)}
                                   onClick={() => onEventFormOpen?.(event)}
-                                  className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                                  className="inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-8 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors"
                                   title="Редактировать"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <button disabled={!canAccess(user, 'events', 3)}
                                   onClick={() => handleDelete(event.id)}
-                                  className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                                  className="inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-8 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
                                   title="Удалить"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -536,9 +541,11 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
               <React.Fragment key={group.title}>
                 <div 
                   ref={el => monthRefs.current[group.title + '-mobile'] = el}
-                  className="bg-gray-800/50 px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest"
+                  className="scroll-mt-4 flex items-center gap-3 bg-gray-950 px-4 pb-3 pt-7"
                 >
-                  {group.title}
+                  <h2 className="shrink-0 text-xl font-semibold tracking-tight text-gray-100">{group.title}</h2>
+                  <span className="h-px flex-1 bg-gray-700" aria-hidden="true" />
+                  <span className="text-sm tabular-nums text-gray-400" aria-label={`Мероприятий: ${group.events.length}`}>{group.events.length}</span>
                 </div>
                 {group.events.map((event) => (
                   <div 
@@ -553,23 +560,23 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                             onEventFormOpen?.(event);
                           }
                         }}
-                    className={`p-3 space-y-2 ${canAccess(user, 'events') ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500' : ''} ${isNearestEvent(event) ? 'bg-yellow-500/10 border-l-2 border-yellow-400' : ''}`}
+                    className={`p-4 space-y-3 ${canAccess(user, 'events') ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500' : ''} ${isNearestEvent(event) ? 'bg-gray-800/70 ring-1 ring-inset ring-accent-700/50' : ''}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-white font-medium text-sm leading-tight truncate">{event.venues?.name || '-'}</div>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-[160px] flex-1">
+                        <div className="text-gray-100 font-semibold text-base leading-snug break-words">{event.venues?.name || '-'}</div>
                         <div className="text-xs text-gray-400 leading-tight mt-0.5">{event.name || '-'} ({event.event_type})</div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0" onClick={clickEvent => clickEvent.stopPropagation()}>
                         <span
                           title={event.equipment_shipped ? 'Оборудование отгружено' : 'Отгрузка не выполнена'}
-                          className={`transition-colors ${event.equipment_shipped ? 'text-red-400 drop-shadow-[0_0_4px_rgba(248,113,113,0.7)]' : 'text-gray-600'}`}
+                          className={`transition-colors ${event.equipment_shipped ? 'text-red-400' : 'text-gray-500'}`}
                         >
                           <Truck className="w-4 h-4" />
                         </span>
                         <span
                           title={event.equipment_returned ? 'Оборудование принято' : 'Возврат не выполнен'}
-                          className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                          className={`inline-flex transition-colors ${event.equipment_returned ? 'text-green-400' : 'text-gray-500'}`}
                           style={{ transform: 'scaleX(-1)' }}
                         >
                           <Truck className="w-4 h-4" />
@@ -578,7 +585,7 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                         <button
                           onClick={() => { void openSpecification(event.id); }}
                           disabled={loadingSpecifications || !['Подтверждено', 'Выполнено'].includes(event.status) || !canAccess(user, 'specifications')}
-                          className={`p-1 rounded transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600 cursor-not-allowed'}`}
+                          className={`inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-8 items-center justify-center rounded-lg transition-colors ${['Подтверждено', 'Выполнено'].includes(event.status) ? 'text-green-400 hover:bg-gray-700 cursor-pointer' : 'text-gray-500 cursor-not-allowed'}`}
                           title={['Подтверждено', 'Выполнено'].includes(event.status) ? 'Открыть спецификацию' : 'Мероприятие не подтверждено'}
                         >
                           <FileText className="w-4 h-4" />
@@ -587,14 +594,14 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                           <>
                             <button disabled={!canAccess(user, 'events', 2)}
                               onClick={() => onEventFormOpen?.(event)}
-                              className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                              className="inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-8 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors"
                               title="Редактировать"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button disabled={!canAccess(user, 'events', 3)}
                               onClick={() => handleDelete(event.id)}
-                              className="p-1 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                              className="inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-8 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
                               title="Удалить"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -604,8 +611,9 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-cyan-400 font-medium text-xs">{formatDateRange(event)}</span>
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${getStatusColor(event.status)}`}>
+                      <span className="text-gray-100 font-medium text-sm tabular-nums">{formatDateRange(event)}</span>
+                      {isNearestEvent(event) && <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-300"><span className="h-1.5 w-1.5 rounded-full bg-accent-500" aria-hidden="true" />В фокусе</span>}
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border ${getStatusColor(event.status)}`}>
                         {event.status}
                       </span>
                     </div>
@@ -619,22 +627,22 @@ export function Events({ onEventFormOpen, onSpecificationOpen, lastCreatedEventI
                     {canSeeEventProgress && (
                     <div className="flex items-center gap-1.5">
                       <ReceiptText
-                        className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400 drop-shadow-[0_0_4px_rgba(74,222,128,0.7)]' : 'text-gray-600'}`}
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_budget_done ? 'text-green-400' : 'text-gray-500'}`}
                         >
                           <title>{event.progress_budget_done ? 'Смета составлена' : 'Смета не составлена'}</title>
                       </ReceiptText>
                       <CheckCircle
-                        className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-cyan-400 drop-shadow-[0_0_4px_rgba(34,211,238,0.7)]' : 'text-gray-600'}`}
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_equipment_reserved ? 'text-accent-400' : 'text-gray-500'}`}
                         >
                           <title>{event.progress_equipment_reserved ? 'Смета подтверждена' : 'Смета не подтверждена'}</title>
                       </CheckCircle>
                       <ClipboardCheck
-                        className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.7)]' : 'text-gray-600'}`}
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_project_completed ? 'text-gray-200' : 'text-gray-500'}`}
                         >
                           <title>{event.progress_project_completed ? 'Проект выполнен' : 'Проект не выполнен'}</title>
                       </ClipboardCheck>
                       <CreditCard
-                        className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]' : 'text-gray-600'}`}
+                        className={`w-3.5 h-3.5 transition-colors ${event.progress_paid ? 'text-accent-300' : 'text-gray-500'}`}
                         >
                           <title>{event.progress_paid ? 'Оплачен' : 'Не оплачен'}</title>
                       </CreditCard>
