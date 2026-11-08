@@ -95,7 +95,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <div ref={setMobileTitle} className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
-              <h1 className="truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
               <div ref={setMobileAfterTitle} className="flex shrink-0 items-center" />
             </div>
             <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">

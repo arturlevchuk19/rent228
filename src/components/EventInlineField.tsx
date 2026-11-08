@@ -18,10 +18,10 @@ export function EventInlineField({ label, icon: Icon, value, placeholder, option
       onChange={event => { onChange(event.target.value || null); setEditing(false); }}
       onBlur={() => setEditing(false)} onKeyDown={event => { if (event.key === 'Escape') setEditing(false); }}
       style={{ width: `${Math.max(12, text.length + 3)}ch` }}
-      className="min-w-0 max-w-full rounded border border-gray-700 bg-gray-900 py-0.5 text-gray-200 outline-none focus:border-cyan-600">
+      className="min-h-11 min-w-0 max-w-full rounded-lg border border-gray-700 bg-gray-900 py-0.5 text-gray-200 outline-none focus:border-accent-500">
       <option value="">{placeholder}</option>
       {options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
     </select> : <button type="button" aria-label={label} disabled={disabled} onClick={() => setEditing(true)}
-      className="min-w-0 border-b border-dashed border-gray-600 py-0.5 text-left [overflow-wrap:anywhere] hover:text-white disabled:cursor-default">{text}</button>}
+      className="min-h-11 min-w-0 border-b border-dashed border-gray-600 py-0.5 text-left [overflow-wrap:anywhere] hover:text-white disabled:cursor-default">{text}</button>}
   </div>;
 }

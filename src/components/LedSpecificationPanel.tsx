@@ -282,10 +282,10 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, eventId, onCl
                   {totalModuleArea.toFixed(2)} / {requiredArea.toFixed(2)} м² ({Math.round(progress)}%)
                 </span>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden min-h-11">
                 <div 
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-cyan-500' : progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                  className={`h-full rounded-full transition-colors duration-300 ${
+                    progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-accent-500' : progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                   }`}
                   style={{ width: `${progress}%` }}
                 />
@@ -376,7 +376,7 @@ export function LedSpecificationPanel({ budgetItemId, budgetItems, eventId, onCl
                     handleLoadAvailableModules();
                   }
                 }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors min-h-11"
               >
                 {showAddModule ? <ChevronDown className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 Добавить модуль из справочника

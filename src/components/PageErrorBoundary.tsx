@@ -20,7 +20,7 @@ export class PageErrorBoundary extends Component<{ children: ReactNode }, { erro
       <h1 className="text-lg font-semibold text-white">{assetLoadFailed ? 'Не удалось загрузить раздел' : 'Не удалось открыть раздел'}</h1>
       <p className="mt-3 text-sm">{assetLoadFailed ? 'Возможно, приложение обновилось или пропало соединение. Проверьте интернет и обновите страницу.' : 'При открытии раздела произошла ошибка. Попробуйте обновить страницу.'}</p>
       <p className="mt-2 text-sm text-gray-400">Перед обновлением сохраните несохранённые изменения в других открытых формах.</p>
-      <button type="button" onClick={() => window.location.reload()} className="mt-5 min-h-11 rounded-lg bg-cyan-600 px-4 font-semibold text-white hover:bg-cyan-500">Обновить страницу</button>
+      <button type="button" onClick={() => window.location.reload()} className="mt-5 min-h-11 rounded-lg bg-accent-500 px-4 font-semibold text-gray-950 hover:bg-accent-400">Обновить страницу</button>
     </section>;
   }
 }

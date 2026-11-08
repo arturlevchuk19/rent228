@@ -62,7 +62,7 @@ export function ContractDialog({ isOpen, clients, initialOrganizationId = '', on
       <div className="bg-gray-900 border border-gray-800 rounded-t-xl sm:rounded-xl shadow-2xl w-full sm:max-w-[420px] max-h-[90vh] flex flex-col overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <FileSignature className="w-4 h-4 text-cyan-500" />
+            <FileSignature className="w-4 h-4 text-accent-500" />
             <h3 className="text-sm font-bold text-white">Договор</h3>
           </div>
           <button onClick={handleClose} className="text-gray-500 hover:text-white">
@@ -77,7 +77,7 @@ export function ContractDialog({ isOpen, clients, initialOrganizationId = '', on
               type="date"
               value={contractDate}
               onChange={(e) => setContractDate(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none min-h-11"
             />
             {dateError && <p className="text-xs text-red-400 mt-1">{dateError}</p>}
           </div>
@@ -87,7 +87,7 @@ export function ContractDialog({ isOpen, clients, initialOrganizationId = '', on
             <select
               value={organizationId}
               onChange={(e) => setOrganizationId(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none min-h-11"
             >
               <option value="">Выберите организацию</option>
               {clients.map((client) => (
@@ -109,7 +109,7 @@ export function ContractDialog({ isOpen, clients, initialOrganizationId = '', on
               value={equipmentTypeRP}
               onChange={(e) => setEquipmentTypeRP(e.target.value)}
               placeholder="Например: светодиодном оборудовании"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none min-h-11"
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             />
             {equipmentError && <p className="text-xs text-red-400 mt-1">{equipmentError}</p>}
@@ -123,7 +123,7 @@ export function ContractDialog({ isOpen, clients, initialOrganizationId = '', on
           <button
             onClick={handleSubmit}
             disabled={Boolean(dateError || equipmentError || organizationError) || isSubmitting}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Создание...' : 'Создать'}
           </button>

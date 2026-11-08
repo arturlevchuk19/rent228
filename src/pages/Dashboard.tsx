@@ -9,36 +9,36 @@ export function Dashboard() {
       label: 'Активные мероприятия',
       value: '12',
       icon: Calendar,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-900/30',
+      color: 'text-gray-300',
+      bgColor: 'bg-gray-800',
     },
     {
       label: 'Единиц оборудования',
       value: '247',
       icon: Package,
-      color: 'text-green-500',
-      bgColor: 'bg-green-900/30',
+      color: 'text-gray-300',
+      bgColor: 'bg-gray-800',
     },
     {
       label: 'Активных смет',
       value: '8',
       icon: FileText,
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-900/30',
+      color: 'text-gray-300',
+      bgColor: 'bg-gray-800',
     },
     {
       label: 'Отчётов на рассмотрении',
       value: '5',
       icon: DollarSign,
-      color: 'text-cyan-500',
-      bgColor: 'bg-cyan-900/30',
+      color: 'text-gray-300',
+      bgColor: 'bg-gray-800',
     },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="hidden text-2xl font-bold text-white mb-1">Главная</h1>
+        <h1 className="hidden text-2xl font-semibold tabular-nums text-gray-100 mb-1">Главная</h1>
         <p className="text-sm text-gray-400">
           Добро пожаловать, {user?.full_name}
         </p>
@@ -58,7 +58,7 @@ export function Dashboard() {
                 </div>
               </div>
               <p className="text-gray-400 text-xs mb-1">{stat.label}</p>
-              <p className="text-2xl font-bold text-white">{stat.value}</p>
+              <p className="text-2xl font-semibold tabular-nums text-gray-100">{stat.value}</p>
             </div>
           );
         })}
@@ -81,7 +81,7 @@ export function Dashboard() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-400 mb-1">2025-11-{20 + i}</p>
-                  <span className="text-[10px] bg-green-900/30 text-green-500 px-1.5 py-0.5 rounded border border-green-600/30">
+                  <span className="text-xs bg-green-900/30 text-green-500 px-1.5 py-0.5 rounded border border-green-600/30">
                     Подтверждено
                   </span>
                 </div>
@@ -106,7 +106,7 @@ export function Dashboard() {
                 </div>
                 <div className="text-right">
                   <p className="text-white text-sm font-medium mb-1">${500 * i}</p>
-                  <span className="text-[10px] bg-yellow-900/30 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-600/30">
+                  <span className="text-xs bg-yellow-900/30 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-600/30">
                     Черновик
                   </span>
                 </div>

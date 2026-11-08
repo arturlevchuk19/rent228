@@ -103,7 +103,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
       <div className="bg-gray-900 rounded-xl border border-gray-800 w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Copy className="w-5 h-5 text-cyan-400" />
+            <Copy className="w-5 h-5 text-accent-400" />
             Скопировать в новую смету
           </h2>
           <button
@@ -123,7 +123,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                 placeholder="Поиск по названию, заказчику, площадке..."
                 {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 min-h-11"
               />
             </div>
             <div className="relative">
@@ -138,7 +138,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                   const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
                   setDateFilter(digits.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2}\.\d{2})(\d)/, '$1.$2'));
                 }}
-                className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 min-h-11"
               />
             </div>
           </div>
@@ -148,7 +148,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
               type="checkbox"
               checked={copyEventData}
               onChange={(e) => setCopyEventData(e.target.checked)}
-              className="w-4 h-4 accent-cyan-500 cursor-pointer"
+              className="w-4 h-4 accent-accent-500 cursor-pointer"
             />
             <span className="text-sm text-gray-300">Также скопировать данные мероприятия (название, тип, заказчик, площадка, примечания)</span>
           </label>
@@ -161,7 +161,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
           {loadError ? <p role="alert" className="p-3 text-sm text-red-400">{loadError}</p> : loading ? (
             <div className="flex items-center justify-center h-32">
-              <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+              <Loader2 className="w-6 h-6 text-accent-400 animate-spin" />
             </div>
           ) : filteredEvents.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -176,7 +176,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                 >
                   <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-cyan-400 text-sm font-medium whitespace-nowrap">
+                      <span className="text-accent-400 text-sm font-medium whitespace-nowrap">
                         {formatDate(event.event_date)}
                       </span>
                       <span className="text-white font-medium truncate">
@@ -214,7 +214,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                   <button
                     onClick={() => handleCopy(event.id, event.sourceBudgets.length === 1 ? event.sourceBudgets[0].id : selectedBudgets[event.id])}
                     disabled={copying || (event.sourceBudgets.length > 1 && !selectedBudgets[event.id])}
-                    className="ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                    className="min-h-11 ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-accent-500 hover:bg-accent-400 text-gray-950 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
                     {copying ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />

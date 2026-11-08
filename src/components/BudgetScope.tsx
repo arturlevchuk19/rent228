@@ -32,6 +32,6 @@ export function BudgetScope({ eventId, budgetId, onClose, children }: { eventId:
   // Auth refreshes on window focus return a new user object for the same account.
   // Only a different account, budget or effective permission needs resolution.
   }, [eventId, budgetId, userId, canCreateBudget]);
-  if (!resolved) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><p role={error ? 'alert' : 'status'} className="rounded-xl border border-gray-700 bg-gray-900 p-5 text-gray-300">{error || 'Загрузка сметы...'}<button type="button" onClick={onClose} className="ml-3 text-cyan-400">Закрыть</button></p></div>;
+  if (!resolved) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><p role={error ? 'alert' : 'status'} className="rounded-xl border border-gray-700 bg-gray-900 p-5 text-gray-300">{error || 'Загрузка сметы...'}<button type="button" onClick={onClose} className="ml-3 text-accent-400">Закрыть</button></p></div>;
   return children(resolved.id, resolved.name);
 }

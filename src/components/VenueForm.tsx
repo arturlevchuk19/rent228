@@ -49,14 +49,15 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-2xl max-h-[90dvh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
-          <h2 className="text-2xl font-bold text-white">
+          <h2 className="text-xl font-semibold text-white">
             {venue ? 'Редактировать площадку' : 'Новая площадка'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Закрыть"
+            className="flex h-11 w-11 items-center justify-center p-2 hover:bg-gray-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-gray-400" />
           </button>
@@ -73,7 +74,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="Концертный зал"
               />
             </div>
@@ -86,7 +87,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                 type="text"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="ул. Примерная, 123"
               />
             </div>
@@ -100,7 +101,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                   type="text"
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                   placeholder="Минск"
                 />
               </div>
@@ -120,7 +121,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                     if (!isNaN(n)) setFormData(prev => ({ ...prev, distance_km: Math.max(0, n) }));
                     setDraftValues(prev => { const copy = { ...prev }; delete copy['distance_km']; return copy; });
                   }}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                   placeholder="0"
                 />
               </div>
@@ -135,7 +136,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                   type="text"
                   value={formData.contact}
                   onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                   placeholder="+375 29 123-45-67"
                 />
               </div>
@@ -154,7 +155,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                     if (!isNaN(n)) setFormData(prev => ({ ...prev, capacity: Math.max(0, n) }));
                     setDraftValues(prev => { const copy = { ...prev }; delete copy['capacity']; return copy; });
                   }}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                   placeholder="500"
                 />
               </div>
@@ -168,7 +169,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 resize-none"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 resize-none"
                 placeholder="Описание площадки..."
               />
             </div>
@@ -181,7 +182,7 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={2}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 resize-none"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 resize-none"
                 placeholder="Дополнительная информация..."
               />
             </div>
@@ -191,14 +192,14 @@ export function VenueForm({ venue, onClose, onSave }: VenueFormProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              className="min-h-11 px-4 py-2 text-gray-400 hover:text-white transition-colors"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              className="min-h-11 px-6 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? 'Сохранение...' : 'Сохранить'}
             </button>

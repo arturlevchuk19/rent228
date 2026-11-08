@@ -58,7 +58,7 @@ export function PodiumDialog({ equipment, isOpen, onClose, onConfirm }: PodiumDi
       <div className="bg-gray-900 border border-gray-800 rounded-t-xl sm:rounded-xl shadow-2xl w-full sm:max-w-[420px] max-h-[90vh] flex flex-col overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-800 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Calculator className="w-4 h-4 text-cyan-500" />
+            <Calculator className="w-4 h-4 text-accent-500" />
             <h3 className="text-sm font-bold text-white">Размеры</h3>
           </div>
           <button
@@ -84,7 +84,7 @@ export function PodiumDialog({ equipment, isOpen, onClose, onConfirm }: PodiumDi
                   value={width}
                   onChange={(e) => setWidth(e.target.value)}
                   placeholder="4"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none min-h-11"
                   onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
                 />
               </div>
@@ -96,7 +96,7 @@ export function PodiumDialog({ equipment, isOpen, onClose, onConfirm }: PodiumDi
                   value={depth}
                   onChange={(e) => setDepth(e.target.value)}
                   placeholder="3"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none min-h-11"
                   onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
                 />
               </div>
@@ -108,7 +108,7 @@ export function PodiumDialog({ equipment, isOpen, onClose, onConfirm }: PodiumDi
                   value={height}
                   onChange={(e) => setHeight(e.target.value)}
                   placeholder="0.6"
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none min-h-11"
                   onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
                 />
               </div>
@@ -117,7 +117,7 @@ export function PodiumDialog({ equipment, isOpen, onClose, onConfirm }: PodiumDi
             {calculatedArea !== null && (
               <div className="bg-gray-800/30 rounded-lg p-3">
                 <p className="text-xs text-gray-400 mb-1">Общая площадь</p>
-                <p className="text-sm font-bold text-cyan-400">
+                <p className="text-sm font-bold text-accent-400">
                   {calculatedArea.toFixed(2)} м²
                 </p>
               </div>
@@ -143,7 +143,7 @@ export function PodiumDialog({ equipment, isOpen, onClose, onConfirm }: PodiumDi
           <button
             onClick={handleConfirm}
             disabled={!isValid}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Добавить
           </button>

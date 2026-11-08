@@ -85,7 +85,7 @@ export function Templates() {
     <div className="space-y-3 sm:space-y-4">
       <div hidden>
         <div className="flex items-center gap-2 min-w-0">
-          <Package className="w-6 h-6 text-cyan-500" />
+          <Package className="w-6 h-6 text-accent-500" />
           <h1 className="text-xl sm:text-2xl font-bold text-white truncate">Шаблоны для сметы</h1>
         </div>
         <MobileHeaderContent><button disabled={!canAccess(user, 'templates', 2)}
@@ -93,14 +93,14 @@ export function Templates() {
             setEditingTemplate(null);
             setShowForm(true);
           }}
-          className="flex w-auto shrink-0 items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+          className="flex w-auto shrink-0 items-center justify-center gap-2 min-h-11 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />
           Создать
         </button></MobileHeaderContent>
       </div>
 
-      <div className="bg-gray-900 rounded-lg border border-gray-800 p-3 sm:p-4">
+      <div className="bg-gray-900 rounded-xl p-3 sm:p-4">
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
@@ -108,7 +108,7 @@ export function Templates() {
             placeholder="Поиск..."
             {...searchInputProps} value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+            className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 min-h-11"
           />
         </div>
       </div>
@@ -122,7 +122,7 @@ export function Templates() {
               setEditingTemplate(null);
               setShowForm(true);
             }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+            className="inline-flex items-center gap-2 min-h-11 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
             Создать первый шаблон
@@ -133,7 +133,7 @@ export function Templates() {
           {filteredTemplates.map(template => (
             <div
               key={template.id}
-              className="min-w-0 bg-gray-900 rounded-lg border border-gray-800 p-4 hover:border-gray-700 transition-colors"
+              className="min-w-0 bg-gray-900 rounded-xl border border-gray-800 p-4 hover:border-gray-700 transition-colors"
             >
               <h3 className="font-bold text-white text-base mb-1 whitespace-normal [overflow-wrap:anywhere] sm:truncate">{template.name}</h3>
               {template.description && (
@@ -153,14 +153,15 @@ export function Templates() {
               <div className="flex gap-2">
                 <button disabled={!canAccess(user, 'templates', 2)}
                   onClick={() => handleEdit(template)}
-                  className="flex-1 flex items-center justify-center gap-2 px-2 py-1.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs"
+                  className="flex-1 flex items-center justify-center gap-2 min-h-11 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs"
                 >
                   <Pencil className="w-3.5 h-3.5" />
                   Правка
                 </button>
                 <button disabled={!canAccess(user, 'templates', 3)}
+                  aria-label={`Удалить шаблон ${template.name}`}
                   onClick={() => handleDelete(template.id)}
-                  className="flex items-center justify-center px-2 py-1.5 bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/40 transition-colors"
+                  className="flex items-center justify-center min-h-11 px-3 py-2 bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/40 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

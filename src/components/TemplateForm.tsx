@@ -303,7 +303,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Например: Звуковая система"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 min-h-11"
                 />
               </div>
 
@@ -316,7 +316,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Описание шаблона..."
                   rows={3}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 resize-none"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 resize-none min-h-11"
                 />
               </div>
 
@@ -328,7 +328,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                   <button
                     type="button"
                     onClick={() => setShowEquipmentSelector(true)}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 sm:py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm transition-colors"
+                    className="min-h-11 w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 sm:py-1 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg text-sm transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     Добавить
@@ -351,9 +351,9 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, index)}
                           onDragEnd={handleDragEnd}
-                          className={`flex flex-col gap-2 p-3 bg-gray-900 rounded border transition-all cursor-move ${
+                          className={`flex flex-col gap-2 p-3 bg-gray-900 rounded border transition-colors cursor-move ${
                             dragOverItemIndex === index && draggedItemIndex !== index
-                              ? 'border-cyan-500 bg-cyan-500/10'
+                              ? 'border-accent-500 bg-accent-500/10'
                               : 'border-gray-600'
                           } ${draggedItemIndex === index ? 'opacity-50' : ''}`}
                         >
@@ -388,7 +388,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                                     if (!isNaN(n)) handleUpdateQuantity(index, Math.max(1, n));
                                     setDraftValues(prev => { const copy = { ...prev }; delete copy[item.templateItemId + '_quantity']; return copy; });
                                   }}
-                                  className="w-12 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-cyan-500"
+                                  className="w-12 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-accent-500"
                                 />
                                 <span className="text-gray-400">{item.unit || 'шт.'}</span>
                               </div>
@@ -407,7 +407,7 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
                                   if (!isNaN(n)) handleUpdatePrice(index, Math.max(0, n));
                                   setDraftValues(prev => { const copy = { ...prev }; delete copy[item.templateItemId + '_price']; return copy; });
                                 }}
-                                className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-cyan-500"
+                                className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-accent-500 min-h-11"
                               />
                             </div>
                           </div>
@@ -423,14 +423,14 @@ export function TemplateForm({ template: initialTemplate, onClose, onSave }: Tem
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full sm:flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="w-full sm:flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors min-h-11"
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full sm:flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50"
+                className="min-h-11 w-full sm:flex-1 px-4 py-2 bg-accent-500 text-gray-950 rounded-lg hover:bg-accent-400 transition-colors disabled:opacity-50"
               >
                 {saving ? 'Сохранение...' : 'Сохранить'}
               </button>

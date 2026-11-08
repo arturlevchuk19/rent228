@@ -151,19 +151,19 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
     <div className="space-y-4">
       <div hidden>
         <div className="flex items-center gap-2">
-          <Users className="w-6 h-6 text-cyan-500" />
-          <h1 className="text-2xl font-bold text-white">Справочники</h1>
+          <Users className="w-6 h-6 text-accent-500" />
+          <h1 className="text-xl font-semibold text-white">Справочники</h1>
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-lg border border-gray-800">
+      <div className="bg-gray-900 rounded-xl border border-gray-800">
         <div className="border-b border-gray-800">
           <nav aria-label="Разделы справочников" className="grid min-w-0 grid-cols-2 sm:flex sm:flex-wrap">
             <button
               onClick={() => { setActiveTab('clients'); setSearchTerm(''); }}
-              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 min-h-11 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
                 activeTab === 'clients'
-                  ? 'border-cyan-500 text-cyan-400'
+                  ? 'border-accent-500 text-accent-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
@@ -172,9 +172,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
             </button>
             <button
               onClick={() => { setActiveTab('venues'); setSearchTerm(''); }}
-              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 min-h-11 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
                 activeTab === 'venues'
-                  ? 'border-cyan-500 text-cyan-400'
+                  ? 'border-accent-500 text-accent-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
@@ -183,9 +183,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
             </button>
             <button
               onClick={() => { setActiveTab('works'); setSearchTerm(''); }}
-              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 min-h-11 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
                 activeTab === 'works'
-                  ? 'border-cyan-500 text-cyan-400'
+                  ? 'border-accent-500 text-accent-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
@@ -194,9 +194,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
             </button>
             <button
               onClick={() => { setActiveTab('events'); setSearchTerm(''); }}
-              className={`flex min-w-0 items-center justify-center gap-1.5 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+              className={`flex min-w-0 items-center justify-center gap-1.5 min-h-11 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
                 activeTab === 'events'
-                  ? 'border-cyan-500 text-cyan-400'
+                  ? 'border-accent-500 text-accent-400'
                   : 'border-transparent text-gray-400 hover:text-gray-300'
               }`}
             >
@@ -215,7 +215,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                 placeholder="Поиск..."
                 {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500"
               />
             </div>
             <MobileHeaderContent><button disabled={!canAccess(user, 'contacts', 2)}
@@ -227,7 +227,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                   setEditingEventType(null); setEventTypeName(''); setEventTypeDialogOpen(true);
                 }
               }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+              className="flex min-h-11 items-center gap-2 px-3 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 font-semibold rounded-lg transition-colors text-sm"
             >
               <Plus className="w-4 h-4" />
               Добавить
@@ -240,12 +240,12 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                 <table className="w-full">
                   <thead className="bg-gray-800 border-b border-gray-700">
                     <tr>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Организация</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">ФИО</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Должность</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Телефон</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Email</th>
-                      <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Организация</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">ФИО</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Должность</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Телефон</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Email</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-400">Действия</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
@@ -257,12 +257,12 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                           <td className="px-3 py-2 text-white font-medium text-sm whitespace-pre-line">{client.organization}</td>
                           <td className="px-3 py-2 text-white text-sm">{client.full_name || '-'}</td>
                           <td className="px-3 py-2 text-gray-400 text-sm">{client.position || '-'}</td>
-                          <td className="px-3 py-2 text-cyan-400 text-sm">{client.phone || '-'}</td>
+                          <td className="px-3 py-2 text-accent-400 text-sm">{client.phone || '-'}</td>
                           <td className="px-3 py-2 text-gray-400 text-sm">{client.email || '-'}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onClientFormOpen?.(client)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteClient(client.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                              <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onClientFormOpen?.(client)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors" aria-label="Редактировать"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteClient(client.id)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors" aria-label="Удалить"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </td>
                         </tr>
@@ -283,12 +283,12 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                           {client.full_name && <div className="text-xs text-gray-400">{client.full_name}{client.position && ` · ${client.position}`}</div>}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onClientFormOpen?.(client)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-4 h-4" /></button>
-                          <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteClient(client.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
+                          <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onClientFormOpen?.(client)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors" aria-label="Редактировать"><Pencil className="w-4 h-4" /></button>
+                          <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteClient(client.id)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors" aria-label="Удалить"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs">
-                        {client.phone && <span className="text-cyan-400">{client.phone}</span>}
+                        {client.phone && <span className="text-accent-400">{client.phone}</span>}
                         {client.email && <span className="text-gray-400">{client.email}</span>}
                       </div>
                     </div>
@@ -304,12 +304,12 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                 <table className="w-full">
                   <thead className="bg-gray-800 border-b border-gray-700">
                     <tr>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Название</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Адрес</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Город</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Вместимость</th>
-                      <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Контакт</th>
-                      <th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Название</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Адрес</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Город</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Вместимость</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Контакт</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-400">Действия</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
@@ -322,11 +322,11 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                           <td className="px-3 py-2 text-gray-400 text-sm">{venue.address || '-'}</td>
                           <td className="px-3 py-2 text-gray-400 text-sm">{venue.city || '-'}</td>
                           <td className="px-3 py-2 text-white text-sm">{venue.capacity || '-'}</td>
-                          <td className="px-3 py-2 text-cyan-400 text-sm">{venue.contact || '-'}</td>
+                          <td className="px-3 py-2 text-accent-400 text-sm">{venue.contact || '-'}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onVenueFormOpen?.(venue)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteVenue(venue.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                              <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onVenueFormOpen?.(venue)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors" aria-label="Редактировать"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteVenue(venue.id)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors" aria-label="Удалить"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </td>
                         </tr>
@@ -349,13 +349,13 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                           )}
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onVenueFormOpen?.(venue)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-4 h-4" /></button>
-                          <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteVenue(venue.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-4 h-4" /></button>
+                          <button disabled={!canAccess(user, 'contacts', 2)} onClick={() => onVenueFormOpen?.(venue)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors" aria-label="Редактировать"><Pencil className="w-4 h-4" /></button>
+                          <button disabled={!canAccess(user, 'contacts', 3)} onClick={() => handleDeleteVenue(venue.id)} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors" aria-label="Удалить"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-3 text-xs">
                         {venue.capacity && <span className="text-gray-400">Вместимость: <span className="text-white">{venue.capacity}</span></span>}
-                        {venue.contact && <span className="text-cyan-400">{venue.contact}</span>}
+                        {venue.contact && <span className="text-accent-400">{venue.contact}</span>}
                       </div>
                     </div>
                   ))
@@ -367,9 +367,9 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
           {activeTab === 'works' && (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Название</th><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Единица</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
+                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Название</th><th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Единица</th><th className="px-3 py-2 text-right text-xs font-medium text-gray-400">Действия</th></tr></thead>
                 <tbody className="divide-y divide-gray-800">{filteredWorkItems.length === 0 ? <tr><td colSpan={3} className="px-3 py-8 text-center text-gray-500 text-sm">Работы не найдены</td></tr> : filteredWorkItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{item.name}</td><td className="px-3 py-2 text-gray-400 text-sm">{item.unit}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button disabled={!canAccess(user, 'contacts', 2)} onClick={() => { setEditingWork(item); setWorkName(item.name); setWorkUnit(item.unit); setWorkDialogOpen(true); }} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button disabled={!canAccess(user, 'contacts', 3)} onClick={() => setDeleteDialog({ kind: 'work', id: item.id, title: item.name })} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
+                  <tr key={item.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{item.name}</td><td className="px-3 py-2 text-gray-400 text-sm">{item.unit}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button disabled={!canAccess(user, 'contacts', 2)} onClick={() => { setEditingWork(item); setWorkName(item.name); setWorkUnit(item.unit); setWorkDialogOpen(true); }} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors" aria-label="Редактировать"><Pencil className="w-3.5 h-3.5" /></button><button disabled={!canAccess(user, 'contacts', 3)} onClick={() => setDeleteDialog({ kind: 'work', id: item.id, title: item.name })} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors" aria-label="Удалить"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>
@@ -378,18 +378,18 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
           {activeTab === 'events' && (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">Тип мероприятия</th><th className="px-3 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">Действия</th></tr></thead>
+                <thead className="bg-gray-800 border-b border-gray-700"><tr><th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Тип мероприятия</th><th className="px-3 py-2 text-right text-xs font-medium text-gray-400">Действия</th></tr></thead>
                 <tbody className="divide-y divide-gray-800">{filteredEventTypes.length === 0 ? <tr><td colSpan={2} className="px-3 py-8 text-center text-gray-500 text-sm">Типы мероприятий не найдены</td></tr> : filteredEventTypes.map((type) => (
-                  <tr key={type.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{type.name}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button disabled={!canAccess(user, 'contacts', 2)} onClick={() => { setEditingEventType(type); setEventTypeName(type.name); setEventTypeDialogOpen(true); }} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button><button disabled={!canAccess(user, 'contacts', 3)} onClick={() => setDeleteDialog({ kind: 'eventType', id: type.id, title: type.name })} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
+                  <tr key={type.id} className="hover:bg-gray-800/50 transition-colors"><td className="px-3 py-2 text-white text-sm">{type.name}</td><td className="px-3 py-2 text-right"><div className="flex items-center justify-end gap-1"><button disabled={!canAccess(user, 'contacts', 2)} onClick={() => { setEditingEventType(type); setEventTypeName(type.name); setEventTypeDialogOpen(true); }} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded-lg transition-colors" aria-label="Редактировать"><Pencil className="w-3.5 h-3.5" /></button><button disabled={!canAccess(user, 'contacts', 3)} onClick={() => setDeleteDialog({ kind: 'eventType', id: type.id, title: type.name })} className="inline-flex min-h-11 min-w-11 md:min-h-9 md:min-w-9 items-center justify-center text-red-400 hover:bg-red-900/30 rounded-lg transition-colors" aria-label="Удалить"><Trash2 className="w-3.5 h-3.5" /></button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>
           )}
         </div>
       </div>
-      {workDialogOpen && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">{editingWork ? 'Редактировать работу' : 'Новая работа'}</h3><input value={workName} onChange={(e)=>setWorkName(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Название" /><input value={workUnit} onChange={(e)=>setWorkUnit(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Ед. изм." /><div className="flex justify-end gap-2"><button disabled={!canAccess(user, 'contacts', 2)} onClick={()=>setWorkDialogOpen(false)} className="px-3 py-1.5 text-gray-300">Отмена</button><button disabled={!canAccess(user, 'contacts', 2)} onClick={async()=>{await handleUpsertWorkItem(editingWork||undefined); setWorkDialogOpen(false);}} className="px-3 py-1.5 bg-cyan-600 rounded text-white">Сохранить</button></div></div></div>}
-      {eventTypeDialogOpen && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">{editingEventType ? 'Редактировать тип мероприятия' : 'Новый тип мероприятия'}</h3><input value={eventTypeName} onChange={(e)=>setEventTypeName(e.target.value)} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Название типа" /><div className="flex justify-end gap-2"><button disabled={!canAccess(user, 'contacts', 2)} onClick={()=>setEventTypeDialogOpen(false)} className="px-3 py-1.5 text-gray-300">Отмена</button><button disabled={!canAccess(user, 'contacts', 2)} onClick={async()=>{if(!eventTypeName.trim()) return; if(editingEventType) await updateEventType(editingEventType.id,eventTypeName.trim()); else await createEventType(eventTypeName.trim()); await loadData(); setEventTypeDialogOpen(false);}} className="px-3 py-1.5 bg-cyan-600 rounded text-white">Сохранить</button></div></div></div>}
-      {deleteDialog && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-lg w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">Удаление</h3><p className="text-gray-300 text-sm">Удалить «{deleteDialog.title}»?</p><div className="flex justify-end gap-2"><button disabled={!canAccess(user, 'contacts', 3)} onClick={()=>setDeleteDialog(null)} className="px-3 py-1.5 text-gray-300">Отмена</button><button disabled={!canAccess(user, 'contacts', 3)} onClick={async()=>{if(deleteDialog.kind==='work') await handleDeleteWorkItem(deleteDialog.id); else {const t=eventTypes.find(x=>x.id===deleteDialog.id); if(t) await handleDeleteEventType(t);} setDeleteDialog(null);}} className="px-3 py-1.5 bg-red-600 rounded text-white">Удалить</button></div></div></div>}
+      {workDialogOpen && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">{editingWork ? 'Редактировать работу' : 'Новая работа'}</h3><input value={workName} onChange={(e)=>setWorkName(e.target.value)} className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Название" /><input value={workUnit} onChange={(e)=>setWorkUnit(e.target.value)} className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Ед. изм." /><div className="flex justify-end gap-2"><button disabled={!canAccess(user, 'contacts', 2)} onClick={()=>setWorkDialogOpen(false)} className="min-h-11 px-3 py-2 text-gray-300">Отмена</button><button disabled={!canAccess(user, 'contacts', 2)} onClick={async()=>{await handleUpsertWorkItem(editingWork||undefined); setWorkDialogOpen(false);}} className="min-h-11 px-3 py-2 bg-accent-500 rounded-lg text-gray-950 font-semibold">Сохранить</button></div></div></div>}
+      {eventTypeDialogOpen && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">{editingEventType ? 'Редактировать тип мероприятия' : 'Новый тип мероприятия'}</h3><input value={eventTypeName} onChange={(e)=>setEventTypeName(e.target.value)} className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white" placeholder="Название типа" /><div className="flex justify-end gap-2"><button disabled={!canAccess(user, 'contacts', 2)} onClick={()=>setEventTypeDialogOpen(false)} className="min-h-11 px-3 py-2 text-gray-300">Отмена</button><button disabled={!canAccess(user, 'contacts', 2)} onClick={async()=>{if(!eventTypeName.trim()) return; if(editingEventType) await updateEventType(editingEventType.id,eventTypeName.trim()); else await createEventType(eventTypeName.trim()); await loadData(); setEventTypeDialogOpen(false);}} className="min-h-11 px-3 py-2 bg-accent-500 rounded-lg text-gray-950 font-semibold">Сохранить</button></div></div></div>}
+      {deleteDialog && <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-4 space-y-3"><h3 className="text-white font-semibold">Удаление</h3><p className="text-gray-300 text-sm">Удалить «{deleteDialog.title}»?</p><div className="flex justify-end gap-2"><button disabled={!canAccess(user, 'contacts', 3)} onClick={()=>setDeleteDialog(null)} className="min-h-11 px-3 py-2 text-gray-300">Отмена</button><button disabled={!canAccess(user, 'contacts', 3)} onClick={async()=>{if(deleteDialog.kind==='work') await handleDeleteWorkItem(deleteDialog.id); else {const t=eventTypes.find(x=>x.id===deleteDialog.id); if(t) await handleDeleteEventType(t);} setDeleteDialog(null);}} className="min-h-11 px-3 py-2 bg-red-600 rounded text-white">Удалить</button></div></div></div>}
     </div>
   );
 }
