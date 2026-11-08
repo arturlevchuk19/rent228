@@ -31,6 +31,9 @@ export function EventsWorkspace({ refreshSignal = 0, onEventFormOpen, onSpecific
   const mode = view === 'calendar' && calendarAllowed ? 'calendar' : listAllowed ? 'list' : 'calendar';
   const [period, setPeriod] = useState(() => ({ year: new Date().getFullYear(), month: new Date().getMonth(), day: new Date().getDate() }));
   const [range, setRange] = useState<[number, number]>(() => monthRange(period.year, period.month));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
   const [search, setSearch] = useState('');
   const [type, setType] = useState('all');
   const [status, setStatus] = useState('all');
@@ -85,6 +88,11 @@ export function EventsWorkspace({ refreshSignal = 0, onEventFormOpen, onSpecific
     setRange(previous => previous[0] === start && previous[1] === end ? previous : [start, end]);
     setAllDates(false);
   }, []);
+  useEffect(() => {
+    if (filtersOpen) searchRef.current?.focus();
+  }, [filtersOpen]);
+  const activeFilters = Number(Boolean(search.trim())) + Number(type !== 'all') + Number(status !== 'all') + Number(showCancelled);
+  const resetFilters = () => { setAllDates(false); setSearch(''); setType('all'); setStatus('all'); setShowCancelled(false); };
   const field = 'min-h-11 min-w-0 rounded-lg border border-gray-700 bg-gray-900 px-3 text-sm text-gray-100';
   return <section aria-label="Мероприятия" className="flex h-full min-h-0 flex-col gap-3">
     {canAccess(user, 'events', 2) && <MobileHeaderContent><button type="button" aria-label="Добавить мероприятие" onClick={() => onEventFormOpen()} className="flex min-h-11 items-center gap-2 rounded-lg bg-accent-500 px-3 text-sm font-semibold text-gray-950 hover:bg-accent-400"><Plus className="h-4 w-4" /><span className="hidden md:inline">Добавить</span></button></MobileHeaderContent>}
@@ -93,17 +101,26 @@ export function EventsWorkspace({ refreshSignal = 0, onEventFormOpen, onSpecific
         {([['calendar','Календарь',CalendarDays,calendarAllowed],['list','Список',List,listAllowed]] as const).filter(([, , , allowed]) => allowed).map(([value,label,Icon]) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={mode===value} onClick={() => changeMode(value)} className={`flex h-10 min-w-9 items-center justify-center gap-2 rounded-md px-2 text-sm font-semibold lg:px-3 ${mode===value ? 'bg-accent-500 text-gray-950' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-100'}`}><Icon className="h-4 w-4" /><span className="hidden lg:inline">{label}</span></button>)}
       </div>
     </MobileHeaderContent>
-    <div className="grid shrink-0 grid-cols-2 gap-2 lg:grid-cols-[minmax(200px,1fr)_180px_180px_auto]">
-      <label className="relative col-span-2 lg:col-span-1"><span className="sr-only">Поиск мероприятий</span><Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" /><input {...searchInputProps} value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск мероприятий…" className={`${field} w-full pl-9`} /></label>
+    <div id="event-search-filters" hidden={!filtersOpen} className={filtersOpen ? 'grid shrink-0 grid-cols-2 gap-2 rounded-xl border border-gray-800 bg-gray-900 p-3 lg:grid-cols-[minmax(200px,1fr)_180px_180px_auto]' : 'hidden'} onKeyDown={event => {
+      if (event.key === 'Escape') { event.stopPropagation(); setFiltersOpen(false); searchButtonRef.current?.focus(); }
+    }}>
+      <label className="relative col-span-2 lg:col-span-1"><span className="sr-only">Поиск мероприятий</span><Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" /><input ref={searchRef} {...searchInputProps} value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск мероприятий…" className={`${field} w-full pl-9`} /></label>
       <select aria-label="Статус мероприятий" value={status} onChange={event => setStatus(event.target.value)} className={field}><option value="all">Все статусы</option>{['Запрос','Подтверждено','Выполнено','Отменено'].map(value => <option key={value}>{value}</option>)}</select>
       <select aria-label="Тип мероприятий" value={type} onChange={event => setType(event.target.value)} className={field}><option value="all">Все типы</option>{EVENT_TYPES.map(value => <option key={value}>{value}</option>)}</select>
       <label className="col-span-2 flex min-h-11 items-center gap-2 text-xs text-gray-400 lg:col-span-1"><input type="checkbox" checked={showCancelled} onChange={event => setShowCancelled(event.target.checked)} className="h-4 w-4 accent-accent-500" />Показывать отменённые</label>
+      <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 lg:col-span-4">
+        {mode === 'list' && <button type="button" aria-pressed={allDates} onClick={() => setAllDates(value => !value)} className={`${field} mr-auto ${allDates ? 'ring-1 ring-inset ring-accent-500 text-accent-300' : 'hover:bg-gray-800'}`}>Все даты</button>}
+        {activeFilters > 0 && <button type="button" onClick={resetFilters} className="min-h-11 rounded-lg px-3 text-sm text-gray-300 hover:bg-gray-800">Сбросить</button>}
+        <button type="button" onClick={() => { setFiltersOpen(false); searchButtonRef.current?.focus(); }} className="min-h-11 rounded-lg px-3 text-sm text-gray-300 hover:bg-gray-800">Свернуть</button>
+      </div>
     </div>
     {mode === 'list' && <p className="shrink-0 text-xs text-gray-400">{allDates ? 'Все даты, включая мероприятия без назначенной даты' : `Период: ${new Date(range[0] * 86400000).toLocaleDateString('ru-RU', {timeZone:'UTC'})} — ${new Date(range[1] * 86400000).toLocaleDateString('ru-RU', {timeZone:'UTC'})}`}</p>}
     {error && <div role="alert" className="shrink-0 rounded-lg border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" onClick={() => setAttempt(value=>value+1)} className="ml-3 underline">Повторить</button></div>}
     {loading ? <div role="status" className="py-12 text-center text-gray-400">Загрузка мероприятий…</div> : <>
       <div className="min-h-0 flex-1"><Calendar hideHeader eventsData={filtered} selectedPeriod={period} onPeriodChange={changeCalendarPeriod} onRangeChange={reportRange} onEventFormOpen={onEventFormOpen} onSpecificationOpen={onSpecificationOpen}
-        toolbarActions={mode === 'list' ? <button type="button" aria-pressed={allDates} onClick={() => setAllDates(value => !value)} className={`${field} ${allDates ? 'ring-1 ring-inset ring-accent-500 text-accent-300' : 'hover:bg-gray-800'}`}>Все даты</button> : undefined}
+        toolbarActions={<>
+          <button ref={searchButtonRef} type="button" aria-label={filtersOpen ? 'Свернуть поиск и фильтры' : 'Поиск и фильтры'} title="Поиск и фильтры" aria-expanded={filtersOpen} aria-controls="event-search-filters" onClick={() => setFiltersOpen(value => !value)} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${filtersOpen || activeFilters ? 'border-accent-700 bg-accent-900/40 text-accent-300' : 'border-gray-700 text-gray-300 hover:bg-gray-800'}`}><Search className="h-5 w-5" />{activeFilters > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-semibold text-gray-950">{activeFilters}<span className="sr-only"> активных фильтров</span></span>}</button>
+</>}
         listContent={mode === 'list' && listAllowed ? <Events hideToolbar eventsData={listEvents} onRefresh={() => setAttempt(value=>value+1)} onEventFormOpen={onEventFormOpen} onSpecificationOpen={onSpecificationOpen} lastCreatedEventId={lastCreatedEventId} /> : undefined}
       /></div>
     </>}

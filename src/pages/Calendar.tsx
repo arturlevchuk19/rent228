@@ -124,10 +124,7 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
     <header hidden={!hideHeader} className="shrink-0">
       {!hideHeader && <div className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-500" /><h1 className="text-2xl font-bold text-white">Календарь</h1></div>}
       <div className="flex flex-wrap items-center gap-2">
-        <CalendarPeriodContainer inline={hideHeader}><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1" onBlur={event => {
-          const next = event.relatedTarget;
-          if (next instanceof Node && !event.currentTarget.contains(next)) setPickerOpen(false);
-        }}>
+        <CalendarPeriodContainer inline={hideHeader}><div ref={pickerRef} className="relative flex w-full sm:w-fit min-w-0 items-center gap-1">
           <button ref={pickerButtonRef} type="button" aria-haspopup="dialog" aria-expanded={pickerOpen} aria-controls="calendar-month-picker" onClick={() => {
             if (!pickerOpen) setPickerYear(year);
             setPickerOpen(value => !value);
@@ -137,8 +134,8 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
           <button type="button" aria-label="Предыдущий период" disabled={year === 100 && month === 0} onClick={() => moveMonth(-1)} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronLeft className="h-5 w-5" /></button>
           <button type="button" aria-label="Следующий период" disabled={year === 9999 && month === 11} onClick={() => moveMonth(1)} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white disabled:opacity-30"><ChevronRight className="h-5 w-5" /></button>
           {hideHeader && <button type="button" onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); setDay(today.getDate()); onPeriodChange?.({ year: today.getFullYear(), month: today.getMonth(), day: today.getDate() }); setPickerOpen(false); }} className="min-h-11 shrink-0 rounded-lg px-2 text-sm text-gray-300 hover:bg-gray-800">Сегодня</button>}
-          {toolbarActions}
-          {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" className="fixed left-4 right-4 top-14 z-30 mt-2 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-96 max-h-[calc(100dvh-5rem)] overflow-y-auto max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-gray-900 p-3 shadow-2xl">
+          {toolbarActions && <div className="contents" onPointerDown={() => setPickerOpen(false)}>{toolbarActions}</div>}
+          {pickerOpen && <div id="calendar-month-picker" role="dialog" aria-label="Выбор месяца и года" onPointerDown={event => event.stopPropagation()} className="fixed left-4 right-4 top-14 z-30 mt-2 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-96 max-h-[calc(100dvh-5rem)] overflow-y-auto max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-700 bg-gray-900 p-3 shadow-2xl">
             <div role="group" aria-label="Период календаря" className="mb-3 grid grid-cols-4 gap-1 rounded-xl border border-gray-700 bg-gray-950 p-1">
               {([['month', 'Месяц'], ['fortnight', '2 недели'], ['week', 'Неделя'], ['day', 'День']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => {
                 setView(value);
@@ -155,9 +152,10 @@ export function Calendar({ onEventFormOpen, onSpecificationOpen, refreshSignal =
             </div>
             <div className="grid grid-cols-3 gap-2">
               {shortMonths.map((name, index) => <button key={name} ref={index === month ? selectedMonthRef : undefined} type="button" aria-label={`${months[index]} ${pickerYear}`} aria-pressed={month === index && year === pickerYear} onClick={() => {
-                setMonth(index); setYear(pickerYear); setDay(1); onPeriodChange?.({ year: pickerYear, month: index, day: 1 }); setPickerOpen(false); pickerButtonRef.current?.focus();
+                setMonth(index); setYear(pickerYear); setDay(1); onPeriodChange?.({ year: pickerYear, month: index, day: 1 });
               }} className={`rounded-xl px-2 py-4 text-lg font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-400 ${month === index && year === pickerYear ? 'bg-accent-500/15 font-semibold text-accent-300' : 'text-gray-200 hover:bg-gray-800'}`}>{name}</button>)}
             </div>
+            <button type="button" onClick={() => { setPickerOpen(false); pickerButtonRef.current?.focus(); }} className="mt-3 min-h-11 w-full rounded-lg bg-accent-500 text-sm font-semibold text-gray-950 hover:bg-accent-400">Готово</button>
           </div>}
         </div></CalendarPeriodContainer>
       </div>
