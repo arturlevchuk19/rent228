@@ -234,6 +234,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const logoDataURL = await getLogoDataURL();
 
   const tableCellSpacing = 'padding: 0px 8px 8px 10px; vertical-align: middle; line-height: 1.2;';
+  const totalCellSpacing = 'padding: 4px 8px 4px 10px; vertical-align: middle; line-height: 1.2;';
   const mainBudgetItems = data.budgetItems.filter((item) => !item.is_extra);
   const extraBudgetItems = data.budgetItems.filter((item) => item.is_extra);
 
@@ -426,13 +427,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <tbody>
             ${rows}
             <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
-              <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ:</td>
-              <td style="${tableCellSpacing} text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+              <td colspan="3" style="${totalCellSpacing} text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ:</td>
+              <td style="${totalCellSpacing} text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
             <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
-              <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
-              <td style="${tableCellSpacing} text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
+              <td colspan="3" style="${totalCellSpacing} text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+              <td style="${totalCellSpacing} text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
             ` : ''}
           </tbody>
@@ -549,13 +550,13 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
               <tbody>
                 ${rows}
                 <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
-                  <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
-                  <td style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
+                  <td colspan="3" style="${totalCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
+                  <td style="${totalCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
                 </tr>
                 ${!isCombinedOnlyMode && budgetDays > 1 ? `
                 <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
-                  <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
-                  <td style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotalCombined)}${currencySuffix}</td>
+                  <td colspan="3" style="${totalCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
+                  <td style="${totalCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotalCombined)}${currencySuffix}</td>
                 </tr>
                 ` : ''}
               </tbody>
