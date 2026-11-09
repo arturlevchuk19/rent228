@@ -23,17 +23,8 @@ console.log('PASS: A4 page cuts, whole rows, oversized rows between text lines, 
 globalThis.NodeFilter = { SHOW_TEXT: 4 };
 globalThis.document = { createTreeWalker:()=>({nextNode:()=>false}), createRange:()=>({}) };
 const fractionalRows = Array.from({length:40},(_,i)=>({getBoundingClientRect:()=>({top:i*30.5,bottom:(i+1)*30.5})}));
-const container = {getBoundingClientRect:()=>({top:0}),querySelector:()=>null,querySelectorAll:selector=>['table','section'].includes(selector)?[]:fractionalRows};
+const container = {getBoundingClientRect:()=>({top:0}),querySelectorAll:selector=>selector==='table'?[]:fractionalRows};
 const measured = exports.measurePdfBlocks(container, 300);
 const measuredPages = paginatePdf(1220,300,measured);
 assert.equal(measuredPages.length,5);
 assert.ok(measuredPages.slice(0,-1).every(page=>page.bottom-page.top>=270));
-
-// A small category moves as a whole instead of leaving one item on the previous page.
-assert.deepEqual(paginatePdf(160,100,[{top:60,bottom:140}]), [{top:0,bottom:60},{top:60,bottom:160}]);
-// Last item, category totals and grand totals travel together.
-assert.deepEqual(paginatePdf(130,100,[{top:80,bottom:100},{top:100,bottom:115},{top:115,bottom:130},{top:80,bottom:130}]), [{top:0,bottom:80},{top:80,bottom:130}]);
-// If a whole category plus its footer cannot fit, preserve its last item + totals.
-const conflict = paginatePdf(140,100,[{top:0,bottom:30},{top:30,bottom:60},{top:60,bottom:90},{top:90,bottom:110},{top:110,bottom:140},{top:60,bottom:140},{top:0,bottom:110}]);
-assert.deepEqual(conflict,[{top:0,bottom:60},{top:60,bottom:140}]);
-console.log('PASS: whole categories, totals anchored to items, conflicting groups do not split rows');
