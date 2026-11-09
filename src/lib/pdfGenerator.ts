@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { measurePdfBlocks, paginatePdf } from './pdfPagination';
 import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
@@ -275,7 +276,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const container = document.createElement('div');
   // Уменьшены отступы для компактности [cite: 53]
   container.style.cssText = `
-    position: absolute; position:relative; width: 800px; height: auto;
+    position: absolute; left: 0; top: 0; width: 800px; height: auto;
     background-color: #ffffff; color: #1a1a1a;
     font-family: 'Montserrat', sans-serif; padding: 20px 30px;
     box-sizing: border-box; line-height: 1.2;
@@ -443,12 +444,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const locationTotalsHtml = isNoLocation
       ? ''
       : `
-        <div style="padding: 2px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 5px;">
+        <div data-pdf-keep style="padding: 2px 8px; display: flex; justify-content: flex-end; align-items: center; gap: 5px;">
           <span style="font-size: 18px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
           <span style="font-size: 21px; font-weight: 800; color: #000000;">${formatMoney(locationTotal)}${currencySuffix}</span>
         </div>
         ${!isCombinedOnlyMode && budgetDays > 1 ? `
-        <div style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 5px;">
+        <div data-pdf-keep style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: center; gap: 5px;">
           <span style="font-size: 18px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
           <span style="font-size: 21px; font-weight: 800; color: #000000;">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
         </div>
@@ -745,7 +746,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ? ' border-bottom: 2px solid #000000; padding-bottom: 8px;'
       : '';
     return `
-      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; min-width: ${minWidth}px;${extraContainerStyle}">
+      <div data-pdf-keep style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; min-width: ${minWidth}px;${extraContainerStyle}">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;${amountDecoration}">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
@@ -951,48 +952,36 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     <div style="height: 80px; background: #ffffff;"></div>
   `;
 
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const marginY = 8;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', putOnlyUsedFonts: true, compress: true });
   document.body.appendChild(container);
-  await waitForRenderReady();
-  const canvas = await html2canvas(container, {
-    // Double resolution keeps small text and table lines sharp in the saved PDF.
-    scale: 2,
-    backgroundColor: '#ffffff',
-    useCORS: true,
-    logging: false,
-    imageTimeout: 5000,
-    removeContainer: false,
-    height: container.scrollHeight,
-    windowHeight: container.scrollHeight
-  });
-
-  container.remove();
-
-  const pageWidth = 210; // A4 width in mm (portrait)
-  const imgHeightPx = canvas.height;
-  const imgWidthPx = canvas.width;
-  
-  // Calculate proportional height in mm to fit content exactly
-  // This ensures page height matches the budget content height
-  
-  let pageHeight = (imgHeightPx * pageWidth) / imgWidthPx;
-  
-  // Ensure portrait orientation: height must be >= width
-  // If content is short, set minimum height to width (210mm) to maintain portrait
-  // This adds minimal empty space while keeping portrait orientation
-  if (pageHeight < pageWidth) {
-    pageHeight = pageWidth;
+  try {
+    await waitForRenderReady();
+    const pixelsPerMm = container.getBoundingClientRect().width / pageWidth;
+    const contentHeight = Math.floor((pageHeight - marginY * 2) * pixelsPerMm);
+    // The final spacer is decorative and must not create an empty last page.
+    const spacer = container.lastElementChild;
+    spacer?.remove();
+    const pages = paginatePdf(container.scrollHeight, contentHeight, measurePdfBlocks(container, contentHeight));
+    for (const [index, page] of pages.entries()) {
+      const rect = container.getBoundingClientRect();
+      // Render one page at a time to avoid browser canvas size limits on large estimates.
+      const canvas = await html2canvas(container, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        imageTimeout: 5000, removeContainer: true,
+        x: rect.left + window.scrollX, y: rect.top + window.scrollY + page.top,
+        width: rect.width, height: page.bottom - page.top,
+        windowWidth: document.documentElement.clientWidth,
+        windowHeight: window.innerHeight
+      });
+      if (index) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, marginY, pageWidth, (page.bottom - page.top) / pixelsPerMm);
+    }
+  } finally {
+    container.remove();
   }
-
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: [pageWidth, pageHeight],
-    putOnlyUsedFonts: true,    compress: true
-  });
-
-  const renderedImageHeightMm = imgHeightPx * pageWidth / imgWidthPx;
-  // Lossless PNG preserves text edges and colors without JPEG artifacts.
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, renderedImageHeightMm);
 
   // Формируем имя файла: Дата_Площадка_Версия
   const fileNameParts: string[] = [];
