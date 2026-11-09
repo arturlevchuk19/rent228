@@ -75,6 +75,11 @@ export function measurePdfBlocks(container: HTMLElement, pageHeight: number): Pd
   const range = document.createRange();
   while (walker.nextNode()) {
     if (!walker.currentNode.textContent?.trim()) continue;
+    // A normal table row already protects its full contents. Font ink bounds
+    // can protrude across the row edge (especially on Safari); measuring them
+    // again joins adjacent rows into one large, falsely indivisible category.
+    const row = walker.currentNode.parentElement?.closest('tr');
+    if (row && row.getBoundingClientRect().height <= pageHeight) continue;
     range.selectNodeContents(walker.currentNode);
     Array.from(range.getClientRects()).forEach(rect => {
       blocks.push({ top: Math.max(0, Math.floor(rect.top - origin)), bottom: Math.ceil(rect.bottom - origin) });

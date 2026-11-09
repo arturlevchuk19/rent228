@@ -35,3 +35,16 @@ assert.deepEqual(paginatePdf(200,100,[...rows,{top:40,bottom:120,keepWithNext:tr
 assert.deepEqual(paginatePdf(150,100,[{top:90,bottom:105,keepWithNext:true}]),[{top:0,bottom:90},{top:90,bottom:150}]);
 // Conflicting overlapping preferences cannot keep shifting a cut backwards.
 assert.deepEqual(paginatePdf(180,100,[{top:0,bottom:60},{top:60,bottom:120},{top:50,bottom:110,keepWithNext:true}]),[{top:0,bottom:60},{top:60,bottom:160},{top:160,bottom:180}]);
+// Font rectangles may extend outside row boxes. Do not let these redundant
+// rectangles join separate normal rows into an indivisible category.
+const tableRows = Array.from({length:12},(_,i)=>({getBoundingClientRect:()=>({top:i*20,bottom:(i+1)*20,height:20})}));
+const nodes = tableRows.map(row=>({textContent:'Позиция',parentElement:{closest:()=>row}}));
+let index=-1, selected;
+globalThis.document = {
+ createTreeWalker:()=>({nextNode:()=>++index<nodes.length,get currentNode(){return nodes[index];}}),
+ createRange:()=>({selectNodeContents:node=>{selected=node;},getClientRects:()=>{const rect=selected.parentElement.closest().getBoundingClientRect();return [{top:rect.top-1,bottom:rect.bottom+1}];}})
+};
+const fontContainer={getBoundingClientRect:()=>({top:0}),querySelectorAll:selector=>selector==='table'?[]:tableRows};
+const fontBlocks=exports.measurePdfBlocks(fontContainer,100);
+assert.equal(fontBlocks.length,12,'Normal rows need no extra font rectangles');
+assert.deepEqual(paginatePdf(240,100,fontBlocks),[{top:0,bottom:100},{top:100,bottom:200},{top:200,bottom:240}]);
