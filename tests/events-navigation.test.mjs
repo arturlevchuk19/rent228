@@ -6,7 +6,7 @@ const code = ts.transpileModule(fs.readFileSync('src/hooks/usePageNavigation.ts'
   compilerOptions: { module: ts.ModuleKind.CommonJS },
 }).outputText;
 const updates = [];
-for (const [query, expected] of [['', 'events'], ['?page=calendar', 'events'], ['?page=events', 'events'], ['?page=equipment', 'equipment']]) {
+for (const [query, expected] of [['', 'events'], ['?page=calendar', 'events'], ['?page=events', 'events'], ['?page=equipment', 'equipment'], ['?page=my-claims', 'my-claims']]) {
   globalThis.window = {
     location: { href: `https://example.com/${query}` },
     history: { state: { marker: 'keep', eventPage: true }, pushState: (...args) => updates.push(args) },

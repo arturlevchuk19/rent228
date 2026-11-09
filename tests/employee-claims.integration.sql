@@ -1,0 +1,75 @@
+DO $$
+DECLARE retry_id uuid=gen_random_uuid(); admin_id uuid=gen_random_uuid(); staff_a uuid=gen_random_uuid();staff_b uuid=gen_random_uuid();person_a uuid;person_b uuid;live_event uuid;expired_event uuid;multi_event uuid;bad_event uuid;cancelled_event uuid;claim public.employee_claims;paid public.employee_claims;payload jsonb;denied boolean;today date=(clock_timestamp() AT TIME ZONE 'Europe/Minsk')::date;legacy_count bigint;path text;
+BEGIN
+ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(admin_id,admin_id||'@claims-test.invalid','{"full_name":"Test claims owner"}'),(staff_a,staff_a||'@claims-test.invalid','{"full_name":"Test claims A"}'),(staff_b,staff_b||'@claims-test.invalid','{"full_name":"Test claims B"}');
+ INSERT INTO public.users(id,email,full_name,role,status) VALUES(admin_id,admin_id||'@claims-test.invalid','Test claims owner','superuser','active') ON CONFLICT(id) DO UPDATE SET role='superuser',status='active';
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',admin_id,'role','authenticated')::text,true);
+ INSERT INTO public.users(id,email,full_name,role,status) VALUES(staff_a,staff_a||'@claims-test.invalid','Test claims A','staff','active'),(staff_b,staff_b||'@claims-test.invalid','Test claims B','staff','active') ON CONFLICT(id) DO UPDATE SET role='staff',status='active';
+ INSERT INTO public.personnel(user_id,account_user_id,full_name,installation_rate,warehouse_rate) VALUES(admin_id,staff_a,'Test claims A',15,10) RETURNING id INTO person_a;
+ INSERT INTO public.personnel(user_id,account_user_id,full_name,installation_rate,warehouse_rate) VALUES(admin_id,staff_b,'Test claims B',20,12) RETURNING id INTO person_b;
+ INSERT INTO public.events(name,event_date,event_end_date,status,project_details) VALUES('__claims deadline__',(today-3)::text,(today-3)::text,'Подтверждено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO live_event;
+ INSERT INTO public.events(name,event_date,event_end_date,status,project_details) VALUES('__claims expired__',(today-4)::text,(today-4)::text,'Подтверждено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO expired_event;
+ INSERT INTO public.events(name,event_date,event_end_date,status,project_details) VALUES('__claims multi__',(today-10)::text,(today-3)::text,'Подтверждено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO multi_event;
+ INSERT INTO public.events(name,event_date,status) VALUES('__claims invalid date__','invalid','Подтверждено') RETURNING id INTO bad_event;
+ INSERT INTO public.events(name,event_date,status,project_details) VALUES('__claims cancelled__',(today-1)::text,'Отменено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO cancelled_event;
+ path=staff_a||'/receipt-test.jpg';
+ INSERT INTO storage.objects(bucket_id,name) VALUES('claim-receipts',path);
+ SELECT count(*) INTO legacy_count FROM public.payments;
+ payload=jsonb_build_array(
+  jsonb_build_object('kind','time','work_name','Загрузка','starts_at',(today-4)||'T18:30:00+03:00','ends_at',(today-3)||'T01:00:00+03:00','break_minutes',0,'rate',9999),
+  jsonb_build_object('kind','trip','work_name','Доставка оборудования','kilometers',100,'own_car',true,'own_fuel',true,'rate',.01),
+  jsonb_build_object('kind','expense','description','Инструмент','amount',40,'receipt_path',path),
+  jsonb_build_object('kind','allowance','description','Питание','amount',10));
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',staff_a,'role','authenticated')::text,true);
+ EXECUTE 'SET LOCAL ROLE authenticated';
+ IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.employee_claim_bootstrap()->'events') x WHERE x->>'id'=live_event::text) THEN RAISE EXCEPTION 'Unassigned event not offered'; END IF;
+ IF public.employee_claim_deadline((today-10)::text,(today-3)::text) IS DISTINCT FROM today THEN RAISE EXCEPTION 'Deadline must use event end plus three days'; END IF;
+ PERFORM public.employee_claim_save(retry_id,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание','amount',5)),false);
+ denied=false;BEGIN PERFORM public.employee_claim_save(retry_id,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание','amount',5)),false);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Заявка уже%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Network retry duplicated new expense'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM storage.objects WHERE bucket_id='claim-receipts' AND name=path) THEN RAISE EXCEPTION 'Owner cannot read receipt'; END IF;
+ claim=public.employee_claim_save(NULL,live_event,payload,false);
+ IF claim.work_amount<>145 OR claim.expense_amount<>50 OR claim.total<>195 THEN RAISE EXCEPTION 'Wrong time/km/expense totals: %',claim.total; END IF;
+ IF claim.lines->0->>'rate'<>'10.00' AND (claim.lines->0->>'rate')::numeric<>10 THEN RAISE EXCEPTION 'Employee supplied rate was accepted'; END IF;
+ IF (claim.lines->1->>'rate')::numeric<>.80 THEN RAISE EXCEPTION 'Own car/fuel tariff wrong'; END IF;
+ claim=public.employee_claim_save(claim.id,live_event,payload,true,claim.revision);
+ IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.employee_claim_bootstrap()->'events') x WHERE x->>'id'=cancelled_event::text) THEN RAISE EXCEPTION 'Cancelled event hidden from employee'; END IF;
+ PERFORM public.employee_claim_save(NULL,cancelled_event,jsonb_build_array(payload->1),true);
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,expired_event,jsonb_build_array(payload->1),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Срок подачи%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Fourth day submission accepted'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,bad_event,jsonb_build_array(payload->1),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Срок подачи%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Invalid event date bypassed deadline'; END IF;
+ PERFORM public.employee_claim_save(NULL,multi_event,jsonb_build_array(payload->1),true);
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,NULL,jsonb_build_array(payload->0),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Выберите мероприятие%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Hourly work accepted without event'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,NULL,jsonb_build_array(payload->2),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Этот чек уже%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Receipt reimbursed twice'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,multi_event,jsonb_build_array(payload->0),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Время пересекается%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Overlapping time accepted'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_review(claim.id,'approve',claim.revision);EXCEPTION WHEN insufficient_privilege THEN denied=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Employee approved own claim'; END IF;
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',staff_b,'role','authenticated')::text,true);
+ IF EXISTS(SELECT 1 FROM storage.objects WHERE bucket_id='claim-receipts' AND name=path) THEN RAISE EXCEPTION 'Other employee receipt leaked'; END IF;
+ IF EXISTS(SELECT 1 FROM public.employee_claims WHERE user_id=staff_a) THEN RAISE EXCEPTION 'Other employee claim leaked through RLS'; END IF;
+ IF EXISTS(SELECT 1 FROM public.employee_claim_history WHERE claim_id=claim.id) THEN RAISE EXCEPTION 'Other employee history leaked'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(claim.id,live_event,payload,true,claim.revision);EXCEPTION WHEN insufficient_privilege THEN denied=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Other employee edited a claim'; END IF;
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',admin_id,'role','authenticated')::text,true);
+ PERFORM public.employee_claim_set_rates(.35,.25,.30);
+ claim=public.employee_claim_review(claim.id,'approve',claim.revision,'Проверено');
+ IF claim.total<>195 OR (claim.lines->1->>'rate')::numeric<>.80 THEN RAISE EXCEPTION 'Approved tariff snapshot changed'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_review(claim.id,'pay',NULL,'Перевод');EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Заявка уже%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Null revision bypassed conflict check'; END IF;
+ paid=public.employee_claim_review(claim.id,'pay',claim.revision,'Перевод подтверждён');
+ denied=false;BEGIN PERFORM public.employee_claim_review(paid.id,'pay',paid.revision,'Повтор');EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Недопустимый%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Duplicate payment allowed'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(paid.id,live_event,payload,true,paid.revision,person_a,'Исправление');EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Отправленную%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Paid claim was editable'; END IF;
+ PERFORM public.employee_claim_save(NULL,expired_event,jsonb_build_array(payload->1),true,NULL,person_a,'Позднее исправление бухгалтером');
+ IF (SELECT count(*) FROM public.employee_claim_history WHERE claim_id=paid.id)<>4 THEN RAISE EXCEPTION 'Missing audit transitions'; END IF;
+ EXECUTE 'RESET ROLE';
+ IF (SELECT count(*) FROM public.payments)<>legacy_count THEN RAISE EXCEPTION 'Claims duplicated legacy payments'; END IF;
+ IF has_function_privilege('anon','public.employee_claim_works(uuid)','EXECUTE') OR has_function_privilege('authenticated','public.employee_claim_works(uuid)','EXECUTE') THEN RAISE EXCEPTION 'Private work helper exposed'; END IF;
+ IF (SELECT public FROM storage.buckets WHERE id='claim-receipts') THEN RAISE EXCEPTION 'Receipts must be private'; END IF;
+END;
+$$;

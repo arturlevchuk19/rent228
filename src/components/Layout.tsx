@@ -66,7 +66,8 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
     { id: 'equipment', label: 'Оборудование', icon: Package },
     { id: 'contacts', label: 'Справочники', icon: Users },
     { id: 'logistics', label: 'Гараж', icon: Truck },
-    { id: 'payments', label: 'Выплаты', icon: DollarSign },
+    { id: 'my-claims', label: 'Мои начисления', icon: DollarSign },
+    { id: 'payments', label: 'Бухгалтерия', icon: DollarSign },
     { id: 'personnel-report', label: 'Отчет по выплатам', icon: FileText },
     { id: 'staff', label: 'Персонал', icon: Users },
     { id: 'users', label: 'Пользователи', icon: Users },
@@ -74,7 +75,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
   ];
 
   const availableMenuItems = menuItems.filter((item) =>
-    canAccess(user, item.id as AppModule) || (item.id === 'events' && canAccess(user, 'calendar'))
+    (item.id === 'my-claims' && user.status === 'active') || canAccess(user, item.id as AppModule) || (item.id === 'events' && canAccess(user, 'calendar'))
   );
 
   return (

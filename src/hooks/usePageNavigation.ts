@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 const pages = new Set([
-  'calendar', 'dashboard', 'equipment', 'events', 'contacts', 'payments',
+  'my-claims', 'calendar', 'dashboard', 'equipment', 'events', 'contacts', 'payments',
   'personnel-report', 'staff', 'templates', 'logistics', 'users', 'settings',
 ]);
 

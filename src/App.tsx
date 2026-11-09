@@ -21,7 +21,8 @@ const EventsWorkspace = lazy(() => import('./pages/EventsWorkspace').then(m => (
 const Contacts = lazy(() => import('./pages/Contacts').then(m => ({ default: m.Contacts })));
 const Garage = lazy(() => import('./pages/Garage'));
 const Personnel = lazy(() => import('./pages/Personnel'));
-const Payments = lazy(() => import('./pages/Payments'));
+const Accounting = lazy(() => import('./pages/EmployeeClaims').then(m => ({default:m.Accounting})));
+const EmployeeClaims = lazy(() => import('./pages/EmployeeClaims').then(m => ({default:m.EmployeeClaims})));
 const PersonnelPaymentsReport = lazy(() => import('./pages/PersonnelPaymentsReport'));
 const Templates = lazy(() => import('./pages/Templates').then(m => ({ default: m.Templates })));
 
@@ -63,14 +64,15 @@ function AppContent() {
   };
 
   const renderPage = () => {
-    if (!canAccess(user, currentPage as AppModule) && !(currentPage === 'events' && canAccess(user, 'calendar'))) return <p className="rounded-lg border border-gray-800 p-6 text-sm text-gray-400">Нет доступа к этому разделу. Выберите доступный раздел в меню или откройте свой профиль.</p>;
+    if (!(currentPage === 'my-claims' && user.status === 'active') && !canAccess(user, currentPage as AppModule) && !(currentPage === 'events' && canAccess(user, 'calendar'))) return <p className="rounded-lg border border-gray-800 p-6 text-sm text-gray-400">Нет доступа к этому разделу. Выберите доступный раздел в меню или откройте свой профиль.</p>;
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
       case 'equipment': return <Equipment />;
       case 'events': return <EventsWorkspace key={user.id} refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
-      case 'payments': return <Payments />;
+      case 'payments': return <Accounting key={user.id} />;
+      case 'my-claims': return <EmployeeClaims key={user.id} />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
       case 'staff': return <Personnel />;
       case 'logistics': return <Garage />;
