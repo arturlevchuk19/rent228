@@ -18,9 +18,9 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
   const add = (item: BudgetItem, key: string, name: string, sku: string, quantity: number, category: string, parent?: BudgetItem, unit = 'шт.') => {
     if (excluded.has(key) || quantity <= 0) return;
     const locationId = item.location_id || parent?.location_id;
-    const location = (locationId && locationNames.get(locationId)) || item.location?.name || parent?.location?.name || 'Без локации';
+    const location = (locationId && locationNames.get(locationId)) || item.location?.name || parent?.location?.name || '';
     const categoryId = item.category_id || parent?.category_id;
-    rows.push({ group: `${(item.is_extra && !item.source_budget_item_id) || (parent?.is_extra && !parent.source_budget_item_id) ? 'Добор' : 'Оборудование'} / ${location} / ${(categoryId && categoryNames.get(categoryId)) || category || 'Прочее'}`, name, sku, quantity, unit, notes: item.notes || '' });
+    rows.push({ group: [(item.is_extra && !item.source_budget_item_id) || (parent?.is_extra && !parent.source_budget_item_id) ? 'Добор' : '', location, (categoryId && categoryNames.get(categoryId)) || category || 'Прочее'].filter(Boolean).join(' / '), name, sku, quantity, unit, notes: item.notes || '' });
   };
   for (const item of items) {
     if (item.item_type === 'work') {
@@ -61,7 +61,21 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
     Promise.all(equipmentIds.map(async id => [id, await getEquipmentCompositions(id)] as const)),
     Promise.all(modificationIds.map(async id => [id, await getModificationComponents(id)] as const))
   ]);
-  const rows = buildSpecificationEquipmentRows(items, new Map(compositionEntries), new Map(modificationEntries), new Map([...globalCategories, ...categories].map(row => [row.id, row.name])), new Map(locations.map(row => [row.id, row.name])), new Set([...globalCategories, ...categories].filter(row => row.description === '__extra_service__').map(row => row.id)));
+  // Match the budget's location/category order before expanding virtual equipment.
+  // Item sort_order only orders positions within a category, not categories themselves.
+  const categoryOrder = new Map([...globalCategories, ...categories].map((category, index) => [category.id, index]));
+  const locationOrder = new Map(locations.map((location, index) => [location.id, index]));
+  const itemsById = new Map(items.map(item => [item.id, item]));
+  const groupItem = (item: BudgetItem) => item.parent_budget_item_id ? itemsById.get(item.parent_budget_item_id) || item : item;
+  const rank = (order: Map<string, number>, id?: string | null) => order.get(id || '') ?? Number.MAX_SAFE_INTEGER;
+  const orderedItems = [...items].sort((a, b) => {
+    const parentA = groupItem(a), parentB = groupItem(b);
+    return rank(locationOrder, a.location_id || parentA.location_id) - rank(locationOrder, b.location_id || parentB.location_id)
+      || rank(categoryOrder, a.category_id || parentA.category_id) - rank(categoryOrder, b.category_id || parentB.category_id)
+      || (parentA.sort_order || 0) - (parentB.sort_order || 0)
+      || new Date(parentA.created_at || 0).getTime() - new Date(parentB.created_at || 0).getTime();
+  });
+  const rows = buildSpecificationEquipmentRows(orderedItems, new Map(compositionEntries), new Map(modificationEntries), new Map([...globalCategories, ...categories].map(row => [row.id, row.name])), new Map(locations.map(row => [row.id, row.name])), new Set([...globalCategories, ...categories].filter(row => row.description === '__extra_service__').map(row => row.id)));
 
   const accessories = new Map<string, SpecificationRow>();
   const add = (group: string, name: string, quantity: number, notes: string) => {

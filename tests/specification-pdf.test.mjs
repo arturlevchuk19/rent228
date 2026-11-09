@@ -27,11 +27,28 @@ const items=[parent,{id:'physical',item_type:'equipment',quantity:3,equipment:{n
 const comp=new Map([['rack',[{id:'a',child_id:'eq-a',quantity:1,child_name:'Исключённый'},{id:'b',child_id:'eq-b',quantity:4,child_name:'Микрофон',child_sku:'MIC',child_category:'Звук'}]]]);
 const rows=buildSpecificationEquipmentRows(items,comp,new Map(),new Map([['sound','Звуковое оборудование']]),new Map([['hall','Главная сцена']]));
 assert.equal(rows.length,4);assert.equal(rows[0].name,'Микрофон');assert.equal(rows[0].quantity,8);assert.match(rows[0].group,/Главная сцена/);assert.ok(!rows.some(r=>r.name==='Исключённый'||r.name==='Работа'||r.name==='Ноль'));
+assert.equal(rows[0].group, 'Главная сцена / Звуковое оборудование');
+assert.equal(rows[1].group, 'Прочее');
+assert.ok(rows.every(row => !row.group.startsWith('Оборудование /') && !row.group.includes('Без локации')));
 const loaded=await loadSpecificationExport('event-A','budget-B',true);
 assert.ok(scopeCalls.every(([,event,budget])=>event==='event-A'&&budget==='budget-B'));
 assert.equal(loaded.rows.find(row=>row.name==='10м').quantity,5);assert.equal(loaded.rows.find(row=>row.name==='10м').notes,'A\nB');
 assert.equal(loaded.rows.find(row=>row.name==='Сплиттер X6').quantity,4);assert.ok(loaded.rows.some(row=>row.name==='0.5м'));assert.ok(!loaded.rows.some(row=>row.name==='1м'));
 assert.ok(!loaded.rows.some(row=>row.name==='Доставка'),'No standalone all-services block');
+// Export must use the budget category/location order, even when snapshot rows
+// arrive in a different order (sort_order is local to each category).
+mocks['./categories'].getCategories = async () => [{id:'global',name:'Общая'}];
+mocks['./categories'].getCategoriesForEvent = async () => [{id:'sound',name:'Звук'}, {id:'light',name:'Свет'}];
+mocks['./locations'].getLocationsForEvent = async () => [{id:'hall',name:'Зал'}, {id:'stage',name:'Сцена'}];
+mocks['./warehouseSpecification'].getSpecificationBudgetItems = async () => [
+  {id:'light',item_type:'equipment',category_id:'light',location_id:'hall',name:'Светильник',quantity:1,sort_order:0},
+  {id:'none',item_type:'equipment',category_id:'sound',name:'Без площадки',quantity:1,sort_order:0},
+  {id:'stage',item_type:'equipment',category_id:'sound',location_id:'stage',name:'Сценический звук',quantity:1,sort_order:0},
+  {id:'sound',item_type:'equipment',category_id:'sound',location_id:'hall',name:'Колонка',quantity:1,sort_order:5},
+  {id:'global',item_type:'equipment',category_id:'global',location_id:'hall',name:'Общая позиция',quantity:1,sort_order:10}
+];
+const orderedExport = await loadSpecificationExport('event-A','budget-B',false);
+assert.deepEqual(orderedExport.rows.slice(0,5).map(row=>row.group), ['Зал / Общая','Зал / Звук','Зал / Свет','Сцена / Звук','Звук']);
 const {budgetSpecificationPreview,specificationIsEditable,getSpecificationDifferences}=load('src/lib/specificationServices.ts');
 assert.equal(specificationIsEditable('Запрос'),false);
 assert.equal(specificationIsEditable('Подтверждено'),true);
