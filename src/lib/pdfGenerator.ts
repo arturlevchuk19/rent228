@@ -318,6 +318,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   let grandTotalWorkDay1 = 0;
 
+  const hasLocations = data.budgetItems.some(item => !!item.location_id);
   let locationIdx = 0;
   sortedLocationIds.forEach(locationId => {
     const groupedByCategory = groupedByLocation[locationId];
@@ -331,7 +332,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     });
 
     const isNoLocation = locationId === 'no-location';
-    locationIdx++;
+    if (!isNoLocation) locationIdx++;
     const locationPrefix = `${locationIdx}. `;
     const locationName = isNoLocation ? '' : (locationNameById.get(locationId) || 'Локация');
     const displayLocationName = isNoLocation ? '' : `${locationPrefix}${locationName}`;
@@ -347,7 +348,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const items = groupedByCategory[catId];
       const category = data.categories.find(c => c.id === catId);
       const categoryName = category?.name || 'Прочее';
-      const categoryPrefix = `${categoryIdx}. `;
+      const categoryPrefix = isNoLocation ? `${categoryIdx}. ` : `${locationIdx}.${categoryIdx} `;
 
       let categorySumDay1 = 0;
       let categorySumCombined = 0;
@@ -442,18 +443,18 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
 
     const locationTotalRow = (amount: number, period = '') => `
-      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px;">
+      <div style="display: flex; justify-content: center; align-items: baseline; gap: 16px; text-align: center;">
         <span style="font-size: 17px; font-weight: 700; color: #000000; text-transform: uppercase; line-height: 1.25; min-width: 0; overflow-wrap: anywhere;">Итого локации «${escapeHtml(locationName)}»${period}:</span>
         <span style="font-size: 21px; font-weight: 800; color: #000000; white-space: nowrap; flex-shrink: 0; line-height: 1.25;">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
     const locationTotalsHtml = isNoLocation ? '' : `
-      <div data-pdf-keep style="background: #eeeeee; padding: 6px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
+      <div data-pdf-keep style="background: #eeeeee; padding: 8px 10px; margin-top: 4px; display: flex; flex-direction: column; justify-content: center; gap: 6px;">
         ${locationTotalRow(locationTotal, budgetDays > 1 ? (isCombinedOnlyMode ? ` за ${budgetDays} дн.` : ' за 1 день') : '')}
         ${!isCombinedOnlyMode && budgetDays > 1 ? locationTotalRow(locationTotalCombined, ` за ${budgetDays} дн.`) : ''}
       </div>`;
 
     const locationHeaderHtml = isNoLocation ? '' : `
-      <div data-pdf-keep style="background: #eeeeee; padding: 6px 10px; margin-bottom: 8px; font-size: 20px; font-weight: 800; line-height: 1.25; text-transform: uppercase; color: #000000; overflow-wrap: anywhere;">
+      <div data-pdf-keep style="background: #eeeeee; padding: 8px 10px; margin-bottom: 8px; display: flex; justify-content: center; align-items: center; text-align: center; font-size: 20px; font-weight: 800; line-height: 1.25; text-transform: uppercase; color: #000000; overflow-wrap: anywhere;">
         ${escapeHtml(displayLocationName)}
       </div>`;
 
@@ -727,7 +728,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ? ' border-bottom: 2px solid #000000; padding-bottom: 8px;'
       : '';
     return `
-      <div data-pdf-keep style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; min-width: ${minWidth}px;${extraContainerStyle}">
+      <div data-pdf-keep style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: ${hasLocations ? 'auto' : '100%'}; min-width: ${hasLocations ? 0 : minWidth}px;${extraContainerStyle}">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;${amountDecoration}">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
@@ -841,7 +842,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     // строка «Итого со скидкой на оборудование …%»: метка в одну строку (white-space:
     // nowrap, без UPPERCASE и letter-spacing), чтобы текст не переносился на 2 строчки.
     const extrasLabel = 'Итого с дополнительными услугами';
-    const extrasContainerStyle = ' margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;';
+    const extrasContainerStyle = hasLocations
+      ? ' margin-top: 12px; padding: 12px 10px; background: #eeeeee;'
+      : ' margin-top: 20px; padding: 20px 0 40px 0; border-top: 2px solid #000000;';
     // Итог с доп. услугами за период = скинутая база этого периода + доп. услуги периода.
     const makeGrandTotalWithExtrasForPeriod = (period: 'day1' | 'combined') =>
       roundBudgetTotal(discountedTotalForPeriod(period) + (period === 'combined' ? extraTotalCombined : extraTotalDay1));
@@ -874,19 +877,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
-      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; max-width: 450px;">
+      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; ${hasLocations ? 'max-width: 100%;' : 'width: 100%; max-width: 450px;'}">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ${discountRowsHtml}
     `
     : `
-      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; max-width: 450px;">
+      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; ${hasLocations ? 'max-width: 100%;' : 'width: 100%; max-width: 450px;'}">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
-      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; max-width: 450px;">
+      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; ${hasLocations ? 'max-width: 100%;' : 'width: 100%; max-width: 450px;'}">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
@@ -922,8 +925,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     ${categoriesHtml}
 
-    <footer style="margin-top: 25px; border-top: 2px solid #000000; padding-top: 15px; padding-bottom: 16px; display: flex; justify-content: flex-end;">
-      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding-right: 0px; width: 100%;">
+    <footer style="${hasLocations ? 'margin-top: 16px; background: #eeeeee; padding: 12px 10px;' : 'margin-top: 25px; border-top: 2px solid #000000; padding-top: 15px; padding-bottom: 16px;'} display: flex; justify-content: center;">
+      <div style="display: flex; flex-direction: column; align-items: ${hasLocations ? 'center' : 'flex-end'}; justify-content: center; gap: 6px; padding-right: 0px; width: 100%;">
         ${footerTotalsHtml}
       </div>
     </footer>
@@ -936,16 +939,25 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const pageHeight = 297;
   const marginY = 8;
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', putOnlyUsedFonts: true, compress: true });
+  // html2canvas measures fonts in the source document. Tailwind's block
+  // images break its hidden 1px baseline probe and shift PDF text downward.
+  const fontMetricsStyle = document.createElement('style');
+  fontMetricsStyle.textContent = 'body > div[style*="visibility: hidden"] { line-height: normal !important; } body > div[style*="visibility: hidden"] > img { display: inline-block !important; }';
+  document.body.appendChild(fontMetricsStyle);
   document.body.appendChild(container);
   try {
     await waitForRenderReady();
     const pixelsPerMm = container.getBoundingClientRect().width / pageWidth;
-    const contentHeight = Math.floor((pageHeight - marginY * 2) * pixelsPerMm);
+    // Reserve a separate footer inside common printer margins.
+    const contentHeight = Math.floor((pageHeight - marginY * 2 - 6) * pixelsPerMm);
     // The final spacer is decorative and must not create an empty last page.
     const spacer = container.lastElementChild;
     spacer?.remove();
     const pages = paginatePdf(container.scrollHeight, contentHeight, measurePdfBlocks(container, contentHeight));
-    pdf.setFont('helvetica', 'normal');
+    const { regularFont } = await import('./specificationPdfFonts');
+    pdf.addFileToVFS('EstimateSans.ttf', regularFont);
+    pdf.addFont('EstimateSans.ttf', 'EstimateSans', 'normal');
+    pdf.setFont('EstimateSans', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(110);
     for (const [index, page] of pages.entries()) {
@@ -961,10 +973,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       });
       if (index) pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, marginY, pageWidth, (page.bottom - page.top) / pixelsPerMm);
-      pdf.text(String(index + 1), pageWidth - 8, pageHeight - 3, { align: 'right' });
+      pdf.text(`Страница ${index + 1}`, pageWidth - 12, pageHeight - 8, { align: 'right' });
     }
   } finally {
     container.remove();
+    fontMetricsStyle.remove();
   }
 
   // Формируем имя файла: Дата_Площадка_Версия
