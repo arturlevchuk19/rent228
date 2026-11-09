@@ -53,6 +53,16 @@ interface DateParts {
   year: string;
 }
 
+function CalendarDateButton({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="relative inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-gray-700/50 bg-gray-800 text-gray-300 hover:text-accent-400 focus-within:ring-2 focus-within:ring-accent-500">
+    <CalendarDays aria-hidden="true" className="h-5 w-5" />
+    <input type="date" aria-label={label} value={/^\d{4}-(?!00)\d{2}-(?!00)\d{2}$/.test(value) ? value : ''}
+      onClick={event => { try { event.currentTarget.showPicker?.(); } catch { /* Native date input remains available. */ } }}
+      onChange={event => onChange(event.target.value)}
+      className="absolute inset-0 h-full w-full cursor-pointer opacity-0 [color-scheme:dark]" />
+  </label>;
+}
+
 function parseEventDate(dateString: string): DateParts {
   if (!dateString) return { day: '', month: '', year: '' };
   const parts = dateString.split('-');
@@ -589,6 +599,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     onChange={(e) => handleDateChange('year', e.target.value)}
                     className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
+                  <CalendarDateButton label="Выбрать дату начала в календаре" value={formData.event_date} onChange={value => setDateParts(parseEventDate(value))} />
                 </div>
                 {formData.event_date && (
                   <div className="text-xs text-gray-200 tabular-nums mt-1">
@@ -650,6 +661,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     onChange={(e) => handleEndDateChange('year', e.target.value)}
                     className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
+                  <CalendarDateButton label="Выбрать дату окончания в календаре" value={formData.event_end_date} onChange={value => setEndDateParts(parseEventDate(value))} />
                 </div>
                 {formatEndDateDisplay() && (
                   <div className="text-xs text-gray-200 tabular-nums mt-1">
