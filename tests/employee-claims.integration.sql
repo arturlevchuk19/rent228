@@ -1,5 +1,5 @@
 DO $$
-DECLARE retry_id uuid=gen_random_uuid(); admin_id uuid=gen_random_uuid(); staff_a uuid=gen_random_uuid();staff_b uuid=gen_random_uuid();person_a uuid;person_b uuid;live_event uuid;expired_event uuid;multi_event uuid;bad_event uuid;cancelled_event uuid;claim public.employee_claims;paid public.employee_claims;payload jsonb;denied boolean;today date=(clock_timestamp() AT TIME ZONE 'Europe/Minsk')::date;legacy_count bigint;path text;primary_budget uuid;other_budget uuid;loading_work uuid;conflict_item uuid;
+DECLARE retry_id uuid=gen_random_uuid(); admin_id uuid=gen_random_uuid(); staff_a uuid=gen_random_uuid();staff_b uuid=gen_random_uuid();person_a uuid;person_b uuid;live_event uuid;expired_event uuid;multi_event uuid;bad_event uuid;cancelled_event uuid;claim public.employee_claims;paid public.employee_claims;payload jsonb;denied boolean;today date=(clock_timestamp() AT TIME ZONE 'Europe/Minsk')::date;legacy_count bigint;path text;primary_budget uuid;other_budget uuid;loading_work uuid;conflict_item uuid;warehouse_claim public.employee_claims;warehouse_payload jsonb;
 BEGIN
  INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(admin_id,admin_id||'@claims-test.invalid','{"full_name":"Test claims owner"}'),(staff_a,staff_a||'@claims-test.invalid','{"full_name":"Test claims A"}'),(staff_b,staff_b||'@claims-test.invalid','{"full_name":"Test claims B"}');
  INSERT INTO public.users(id,email,full_name,role,status) VALUES(admin_id,admin_id||'@claims-test.invalid','Test claims owner','superuser','active') ON CONFLICT(id) DO UPDATE SET role='superuser',status='active';
@@ -80,6 +80,20 @@ BEGIN
  IF NOT denied THEN RAISE EXCEPTION 'Overlapping time accepted'; END IF;
  denied=false;BEGIN PERFORM public.employee_claim_review(claim.id,'approve',claim.revision);EXCEPTION WHEN insufficient_privilege THEN denied=true;END;
  IF NOT denied THEN RAISE EXCEPTION 'Employee approved own claim'; END IF;
+ warehouse_payload=jsonb_build_array(jsonb_build_object('kind','warehouse','work_name','Монтаж','description','Сборка и проверка кабелей','starts_at',(today-1)||'T08:00:00+03:00','ends_at',(today-1)||'T10:30:00+03:00','rate',9999,'amount',9999));
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,live_event,warehouse_payload,true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Работа на складе подаётся без%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Warehouse shift attached to event'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,NULL,jsonb_set(warehouse_payload,'{0,description}','" "'),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Укажите выполненную%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Warehouse description missing'; END IF;
+ warehouse_claim=public.employee_claim_save(NULL,NULL,warehouse_payload,false);
+ IF warehouse_claim.event_id IS NOT NULL OR warehouse_claim.event_name<>'Работа на складе' OR warehouse_claim.work_amount<>42.50 OR warehouse_claim.expense_amount<>0 OR warehouse_claim.lines->0->>'work_name'<>'Работа на складе' OR warehouse_claim.lines->0->>'description'<>'Сборка и проверка кабелей' OR (warehouse_claim.lines->0->>'minutes')::numeric<>150 THEN RAISE EXCEPTION 'Standalone warehouse calculation or persistence wrong'; END IF;
+ warehouse_claim=public.employee_claim_save(warehouse_claim.id,NULL,warehouse_payload,true,warehouse_claim.revision);
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,NULL,warehouse_payload,true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Время пересекается%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Warehouse shift paid twice'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,multi_event,jsonb_build_array(jsonb_set(warehouse_payload->0,'{kind}','"time"')||'{"work_name":"Загрузка"}'::jsonb),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Время пересекается%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Event time overlaps warehouse shift'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,NULL,jsonb_build_array(jsonb_set(payload->0,'{kind}','"warehouse"')||'{"description":"Склад"}'::jsonb),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Время пересекается%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Warehouse time overlaps event work'; END IF;
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',staff_b,'role','authenticated')::text,true);
  IF EXISTS(SELECT 1 FROM storage.objects WHERE bucket_id='claim-receipts' AND name=path) THEN RAISE EXCEPTION 'Other employee receipt leaked'; END IF;
  IF EXISTS(SELECT 1 FROM public.employee_claims WHERE user_id=staff_a) THEN RAISE EXCEPTION 'Other employee claim leaked through RLS'; END IF;

@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { prepareGaragePhoto } from './garagePhoto';
 export type ClaimState = 'draft'|'submitted'|'approved'|'paid'|'rejected';
-export type ClaimKind = 'time'|'trip'|'expense'|'allowance';
+export type ClaimKind = 'time'|'trip'|'warehouse'|'expense'|'allowance';
 export interface ClaimLine {
  id?:number; kind:ClaimKind; work_name?:string; starts_at?:string; ends_at?:string;
  break_minutes?:number|string; kilometers?:number|string; own_car?:boolean; own_fuel?:boolean;
@@ -18,7 +18,7 @@ export async function claimWorks(eventId:string):Promise<{works:string[];fixed_r
 export async function listClaims(userId?:string):Promise<EmployeeClaim[]>{let query=supabase.from('employee_claims').select('*').order('updated_at',{ascending:false});if(userId)query=query.eq('user_id',userId);const {data,error}=await query;if(error)throw error;return data||[];}
 export async function saveClaim(claim:EmployeeClaim|null,eventId:string,lines:ClaimLine[],submit:boolean,personnelId?:string,note='',requestId?:string):Promise<EmployeeClaim>{
  const numeric=(value:unknown)=>{const parsed=Number(String(value??0).replace(',','.'));if(!Number.isFinite(parsed))throw Error('Проверьте числовые поля заявки');return parsed;};
- const payload=lines.map(line=>({...line,break_minutes:0,kilometers:line.kind==='trip'?numeric(line.kilometers):undefined,amount:['expense','allowance'].includes(line.kind)||line.calculation==='fixed'?numeric(line.amount):undefined,rate:line.rate===undefined?undefined:numeric(line.rate),starts_at:line.kind==='time'?minskInstant(line.starts_at||''):undefined,ends_at:line.kind==='time'?minskInstant(line.ends_at||''):undefined}));
+ const payload=lines.map(line=>({...line,break_minutes:0,kilometers:line.kind==='trip'?numeric(line.kilometers):undefined,amount:['expense','allowance'].includes(line.kind)||line.calculation==='fixed'?numeric(line.amount):undefined,rate:line.rate===undefined?undefined:numeric(line.rate),starts_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.starts_at||''):undefined,ends_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.ends_at||''):undefined}));
  const {data,error}=await supabase.rpc('employee_claim_save',{p_id:claim?.id||requestId||null,p_event:eventId||null,p_lines:payload,p_submit:submit,p_revision:claim?.revision??null,p_personnel:personnelId||null,p_note:note});if(error)throw error;return data;
 }
 export async function reviewClaim(claim:EmployeeClaim,action:'approve'|'pay'|'reject'|'return'|'withdraw',note=''){const {data,error}=await supabase.rpc('employee_claim_review',{p_id:claim.id,p_action:action,p_revision:claim.revision,p_note:note});if(error)throw error;return data as EmployeeClaim;}

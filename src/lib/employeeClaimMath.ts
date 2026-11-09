@@ -8,10 +8,10 @@ export function sumClaimAmounts(values:number[]){return values.reduce((cents,val
 export function tripRate(rates:ClaimRates,ownCar=false,ownFuel=false){return round(number(rates.driver_rate)+(ownCar?number(rates.car_rate):0)+(ownFuel?number(rates.fuel_rate):0));}
 export function lineEstimate(line:ClaimLine,person:ClaimPerson|null,rates:ClaimRates,snapshot=false,fixedRates:Record<string,number>={}){
  let rate=0,minutes=0,amount=0;
- if(line.kind==='time'){
+ if(line.kind==='time'||line.kind==='warehouse'){
   try{minutes=(+new Date(minskInstant(line.ends_at||''))- +new Date(minskInstant(line.starts_at||'')))/60000;}catch{minutes=0;}
-  rate=snapshot&&line.rate!==undefined?number(line.rate):/загрузка|разгрузка/i.test(line.work_name||'')?number(person?.warehouse_rate):/склад/i.test(line.work_name||'')?number(person?.warehouse_work_rate??10):number(person?.installation_rate);
-  if((snapshot&&line.calculation==='fixed')||(!snapshot&&!/^(монтаж|демонтаж|загрузка|разгрузка)$|склад/i.test((line.work_name||'').trim()))){
+  rate=snapshot&&line.rate!==undefined?number(line.rate):line.kind==='warehouse'?number(person?.warehouse_work_rate??10):/загрузка|разгрузка/i.test(line.work_name||'')?number(person?.warehouse_rate):/склад/i.test(line.work_name||'')?number(person?.warehouse_work_rate??10):number(person?.installation_rate);
+  if(line.kind!=='warehouse'&&((snapshot&&line.calculation==='fixed')||(!snapshot&&!/^(монтаж|демонтаж|загрузка|разгрузка)$|склад/i.test((line.work_name||'').trim())))){
    amount=round(snapshot?number(line.amount):fixedRates[line.work_name||'']??NaN);rate=minutes>0?round(amount*60/minutes):0;
   }else{rate=round(rate);amount=round(rate*Math.max(0,minutes)/60);}
  }else if(line.kind==='trip'){rate=snapshot&&line.rate!==undefined?number(line.rate):tripRate(rates,line.own_car,line.own_fuel);rate=round(rate);amount=round(number(line.kilometers)*rate);}
@@ -20,7 +20,8 @@ export function lineEstimate(line:ClaimLine,person:ClaimPerson|null,rates:ClaimR
 }
 export function claimLineError(line:ClaimLine,now=new Date()):string|null{
  if((line.kind==='time'||line.kind==='trip')&&!line.work_name)return 'Выберите работу';
- if(line.kind==='time'){
+ if(line.kind==='time'||line.kind==='warehouse'){
+  if(line.kind==='warehouse'&&!line.description?.trim())return 'Укажите выполненную работу на складе';
   try{const start=+new Date(minskInstant(line.starts_at||'')),end=+new Date(minskInstant(line.ends_at||''));
    if(end<=start)return 'Окончание должно быть позже начала. Для ночной смены укажите следующую дату.';
    if(end>+now)return 'Нельзя подать ещё не отработанное время';

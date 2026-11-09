@@ -23,5 +23,8 @@ assert.equal(minskInstant('2026-11-09T23:59'),'2026-11-09T20:59:00.000Z');
 assert.equal(minskInput('2026-11-09T21:00:00Z'),'2026-11-10T00:00');
 assert.equal(claimLineError({...night,break_minutes:390}),null);assert(claimLineError({...night,ends_at:'2026-11-02T01:00'}));assert(claimLineError({...night,ends_at:'2028-01-01T00:00'},new Date('2026-11-09')));
 assert(claimLineError({kind:'expense',description:'Инструмент',amount:20}));assert.equal(claimLineError({kind:'expense',description:'Инструмент',amount:20,receipt_path:'owner/check.jpg'}),null);
+const warehouse={kind:'warehouse',description:'Проверка кабелей',starts_at:'2026-11-02T08:00',ends_at:'2026-11-02T10:30'};
+assert.deepEqual(lineEstimate(warehouse,{...person,warehouse_work_rate:17},rates),{rate:17,minutes:150,amount:42.5});
+assert.equal(claimLineError(warehouse),null);assert(claimLineError({...warehouse,description:' '}));assert(claimLineError({...warehouse,ends_at:'2026-11-02T07:30'}));
 assert.equal(out.sumClaimAmounts([.1,.2]),.3);
 console.log('PASS: all four mileage tariffs, overnight work, ignored legacy breaks, fixed work amounts, rate snapshots, Minsk midnight and receipt/time validation');
