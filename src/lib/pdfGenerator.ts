@@ -441,40 +441,21 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     });
     const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
 
-    const locationTotalsHtml = isNoLocation
-      ? ''
-      : `
-        <div data-pdf-keep style="padding: 2px 8px; display: flex; justify-content: flex-end; align-items: baseline; gap: 5px;">
-          <span style="font-size: 18px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации:</span>
-          <span style="font-size: 21px; font-weight: 800; color: #000000;">${formatMoney(locationTotal)}${currencySuffix}</span>
-        </div>
-        ${!isCombinedOnlyMode && budgetDays > 1 ? `
-        <div data-pdf-keep style="padding: 2px 8px 10px; display: flex; justify-content: flex-end; align-items: baseline; gap: 5px;">
-          <span style="font-size: 18px; font-weight: 700; color: #000000; text-transform: uppercase; letter-spacing: 0.8px;">Итого локации за ${budgetDays} дн.:</span>
-          <span style="font-size: 21px; font-weight: 800; color: #000000;">${formatMoney(locationTotalCombined)}${currencySuffix}</span>
-        </div>
-        ` : ''}
-      `;
+    const locationTotalRow = (amount: number, period = '') => `
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px;">
+        <span style="font-size: 17px; font-weight: 700; color: #000000; text-transform: uppercase; line-height: 1.25; min-width: 0; overflow-wrap: anywhere;">Итого локации «${escapeHtml(locationName)}»${period}:</span>
+        <span style="font-size: 21px; font-weight: 800; color: #000000; white-space: nowrap; flex-shrink: 0; line-height: 1.25;">${formatMoney(amount)}${currencySuffix}</span>
+      </div>`;
+    const locationTotalsHtml = isNoLocation ? '' : `
+      <div data-pdf-keep style="background: #eeeeee; border-top: 1px solid #000000; padding: 10px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
+        ${locationTotalRow(locationTotal, budgetDays > 1 ? (isCombinedOnlyMode ? ` за ${budgetDays} дн.` : ' за 1 день') : '')}
+        ${!isCombinedOnlyMode && budgetDays > 1 ? locationTotalRow(locationTotalCombined, ` за ${budgetDays} дн.`) : ''}
+      </div>`;
 
-    const locationHeaderHtml = isNoLocation
-  ? ''
-  : `<div style="display: flex; align-items: center; margin-bottom: 12px; min-height: 22px;">
-      <div style="width: 6px; height: 20px; border-radius: 10px; margin-right: 11px; background: #4b5563; flex-shrink: 0;"></div>
-      <div style="
-        padding: 0px 12px 12px 0px; 
-        height: 22px; 
-        font-size: 18px; 
-        font-weight: 800; 
-        letter-spacing: 1px; 
-        text-transform: uppercase; 
-        color: #000000; 
-        display: flex; 
-        align-items: center; 
-        justify-content: flex-start;
-      ">
-        ${displayLocationName}
-      </div>
-    </div>`;
+    const locationHeaderHtml = isNoLocation ? '' : `
+      <div data-pdf-keep style="background: #eeeeee; padding: 10px 10px; margin-bottom: 14px; font-size: 20px; font-weight: 800; line-height: 1.25; text-transform: uppercase; color: #000000; overflow-wrap: anywhere;">
+        ${escapeHtml(displayLocationName)}
+      </div>`;
 
     categoriesHtml += `
       <section style="margin-bottom: 16px; padding: 14px 14px 6px; background: #ffffff;">
