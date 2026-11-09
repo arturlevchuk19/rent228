@@ -39,7 +39,11 @@ export function buildSpecificationPdf(data: SpecificationPdfData): jsPDF {
   return pdf;
 }
 export function saveSpecificationPdf(data: SpecificationPdfData) {
-  const name = ['Спецификация', eventDateLabel(data.startDate, data.endDate), data.venue?.trim()].filter(Boolean).join(' ').replace(/[<>:"/\\|?*]/g, '_');
+  const formatDate = (value: string) => value ? value.split('-').reverse().join('.') : 'Дата не указана';
+  const date = data.endDate && data.endDate !== data.startDate
+    ? `${formatDate(data.startDate)} - ${formatDate(data.endDate)}`
+    : formatDate(data.startDate);
+  const name = ['Спецификация', date, data.venue?.trim()].filter(Boolean).join(' ').replace(/[<>:"/\\|?*]/g, '_');
   const safeName = Array.from(name, character => character.charCodeAt(0) < 32 ? '_' : character).join('');
   buildSpecificationPdf(data).save(`${safeName}.pdf`);
 }
