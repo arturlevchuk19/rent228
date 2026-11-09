@@ -926,7 +926,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     ${categoriesHtml}
 
-    <footer style="${hasLocations ? 'margin-top: 16px; background: #eeeeee; padding: 12px 10px;' : 'margin-top: 25px; border-top: 2px solid #000000; padding-top: 15px; padding-bottom: 16px;'} display: flex; justify-content: flex-end;">
+    <footer style="${hasLocations ? 'margin-top: 16px; background: #eeeeee; padding: 12px 10px; border-bottom: 2px solid #000000;' : 'margin-top: 25px; border-top: 2px solid #000000; border-bottom: 2px solid #000000; padding-top: 15px; padding-bottom: 16px;'} display: flex; justify-content: flex-end;">
       <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 6px; padding-right: 0px; width: 100%;">
         ${footerTotalsHtml}
       </div>
