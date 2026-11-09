@@ -447,7 +447,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 21px; font-weight: 800; color: #000000; white-space: nowrap; flex-shrink: 0; line-height: 1.25;">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
     const locationTotalsHtml = isNoLocation ? '' : `
-      <div data-pdf-keep style="background: #eeeeee; border-top: 1px solid #000000; padding: 10px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
+      <div data-pdf-keep style="background: #eeeeee; padding: 10px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
         ${locationTotalRow(locationTotal, budgetDays > 1 ? (isCombinedOnlyMode ? ` за ${budgetDays} дн.` : ' за 1 день') : '')}
         ${!isCombinedOnlyMode && budgetDays > 1 ? locationTotalRow(locationTotalCombined, ` за ${budgetDays} дн.`) : ''}
       </div>`;
