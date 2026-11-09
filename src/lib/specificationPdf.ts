@@ -39,7 +39,7 @@ export function buildSpecificationPdf(data: SpecificationPdfData): jsPDF {
   return pdf;
 }
 export function saveSpecificationPdf(data: SpecificationPdfData) {
-  const name = ['Спецификация', data.eventName, data.budgetName].filter(Boolean).join('_').replace(/[<>:"/\\|?*]/g, '_');
+  const name = ['Спецификация', eventDateLabel(data.startDate, data.endDate), data.venue?.trim()].filter(Boolean).join(' ').replace(/[<>:"/\\|?*]/g, '_');
   const safeName = Array.from(name, character => character.charCodeAt(0) < 32 ? '_' : character).join('');
   buildSpecificationPdf(data).save(`${safeName}.pdf`);
 }
