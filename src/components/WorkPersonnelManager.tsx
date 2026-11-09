@@ -123,12 +123,12 @@ export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-lg w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-white">Управление персоналом работ</h2>
+      <div className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-gray-800 flex justify-between items-center gap-3">
+          <h2 className="text-xl font-semibold text-white">Управление персоналом работ</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-2"
+            aria-label="Закрыть управление персоналом" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white p-2"
           >
             <X className="w-6 h-6" />
           </button>
@@ -153,7 +153,7 @@ export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, 
               return (
                 <div key={item.id} className="bg-gray-800 rounded-lg border border-gray-700">
                   <div
-                    className="flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-750 transition-colors"
+                    className="flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-800 transition-colors"
                     onClick={() => toggleExpanded(item.id)}
                   >
                     <button className="text-gray-400 hover:text-white transition-colors">
@@ -172,7 +172,7 @@ export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, 
                     </div>
 
                     <div className="text-right">
-                      <p className="text-cyan-400 font-semibold">
+                      <p className="text-gray-100 font-semibold tabular-nums">
                         {showInBYN ? `${totalAmount.toFixed(2)} BYN` : `$${totalAmount.toFixed(2)}`}
                       </p>
                       <p className="text-sm text-gray-400">
@@ -194,7 +194,7 @@ export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, 
                             return (
                               <div
                                 key={person.id}
-                                className="flex items-center gap-3 p-3 bg-gray-900 rounded-lg hover:bg-gray-850 transition-colors"
+                                className="flex items-center gap-3 p-3 bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
                               >
                                 <input
                                   type="checkbox"
@@ -250,14 +250,14 @@ export function WorkPersonnelManager({ workItems, onClose, onSave, paymentMode, 
         <div className="p-4 border-t border-gray-800 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+            className="min-h-11 px-4 py-2 text-gray-400 hover:text-white transition-colors"
           >
             Отмена
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            className="flex min-h-11 items-center gap-2 px-6 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             {saving ? 'Сохранение...' : 'Сохранить'}

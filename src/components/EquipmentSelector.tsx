@@ -141,13 +141,13 @@ export function EquipmentSelector({
                 placeholder="Поиск оборудования..."
                 {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 min-h-11"
               />
             </div>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none w-full sm:min-w-[110px]"
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 appearance-none w-full sm:min-w-[110px]"
             >
               {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -167,14 +167,14 @@ export function EquipmentSelector({
                   onClick={() => handleSelectEquipment(item)}
                   className={`px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
                     selectedEquipment?.id === item.id
-                      ? 'bg-cyan-900/30 border-cyan-600'
+                      ? 'bg-accent-900/30 border-accent-600'
                       : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="font-medium text-white text-sm">{item.name}</div>
                     {selectedEquipment?.id === item.id && (
-                      <div className="text-cyan-400 text-sm">✓</div>
+                      <div className="text-accent-400 text-sm">✓</div>
                     )}
                   </div>
                 </div>
@@ -199,7 +199,7 @@ export function EquipmentSelector({
                     <select
                       value={selectedModification || ''}
                       onChange={(e) => setSelectedModification(e.target.value || null)}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 min-h-11"
                     >
                       <option value="">Без модификации</option>
                       {modifications.map(mod => (
@@ -224,7 +224,7 @@ export function EquipmentSelector({
                     const n = Math.max(1, parseInt(quantityStr) || 1);
                     setQuantityStr(String(n));
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 [appearance:textfield]"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 [appearance:textfield] min-h-11"
                 />
               </div>
               <div className="flex gap-2">
@@ -236,7 +236,7 @@ export function EquipmentSelector({
                 </button>
                 <button
                   onClick={handleConfirmSelection}
-                  className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2 text-sm"
+                  className="min-h-11 flex-1 px-4 py-2 bg-accent-500 text-gray-950 rounded-lg hover:bg-accent-400 transition-colors flex items-center justify-center gap-2 text-sm"
                 >
                   <Plus className="w-4 h-4" />
                   {onBatchSelect ? 'Выбрать' : 'Добавить'}
@@ -246,7 +246,7 @@ export function EquipmentSelector({
           ) : (
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+              className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm min-h-11"
             >
               Закрыть
             </button>
@@ -256,7 +256,7 @@ export function EquipmentSelector({
             <div className="mt-3 pt-3 border-t border-gray-700">
               <button
                 onClick={handleAddAllSelected}
-                className="w-full px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center justify-center gap-2 text-sm"
+                className="min-h-11 w-full px-4 py-2 bg-accent-500 text-gray-950 rounded-lg hover:bg-accent-400 transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 <Plus className="w-4 h-4" />
                 Добавить ({selectedItems.length})

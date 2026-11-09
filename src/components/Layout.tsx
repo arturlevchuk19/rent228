@@ -40,6 +40,8 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
   const [mobileTitle, setMobileTitle] = useState<HTMLDivElement | null>(null);
   const [mobileActions, setMobileActions] = useState<HTMLDivElement | null>(null);
 
+  const [mobileAfterTitle, setMobileAfterTitle] = useState<HTMLDivElement | null>(null);
+  const [pageAfterTitle, setPageAfterTitle] = useState<HTMLDivElement | null>(null);
   const [pageTitle, setPageTitle] = useState<HTMLDivElement | null>(null);
   const [pageActions, setPageActions] = useState<HTMLDivElement | null>(null);
   const mobile = useSyncExternalStore(subscribeToViewport, isMobileViewport, () => false);
@@ -58,14 +60,14 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
     label: string;
     icon: LucideIcon;
   }> = [
-    { id: 'calendar', label: 'Календарь', icon: Calendar },
+    { id: 'events', label: 'Мероприятия', icon: Calendar },
     { id: 'dashboard', label: 'Главная', icon: LayoutDashboard },
     { id: 'templates', label: 'Шаблоны для сметы', icon: Package },
     { id: 'equipment', label: 'Оборудование', icon: Package },
-    { id: 'events', label: 'Мероприятия', icon: Calendar },
     { id: 'contacts', label: 'Справочники', icon: Users },
     { id: 'logistics', label: 'Гараж', icon: Truck },
-    { id: 'payments', label: 'Выплаты', icon: DollarSign },
+    { id: 'my-claims', label: 'Мои начисления', icon: DollarSign },
+    { id: 'payments', label: 'Бухгалтерия', icon: DollarSign },
     { id: 'personnel-report', label: 'Отчет по выплатам', icon: FileText },
     { id: 'staff', label: 'Персонал', icon: Users },
     { id: 'users', label: 'Пользователи', icon: Users },
@@ -73,12 +75,13 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
   ];
 
   const availableMenuItems = menuItems.filter((item) =>
-    canAccess(user, item.id as AppModule)
+    (item.id === 'my-claims' && user.status === 'active') || canAccess(user, item.id as AppModule) || (item.id === 'events' && canAccess(user, 'calendar'))
   );
 
   return (
-    <MobileHeaderContext.Provider value={{ active: !pageOpen, title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions }}>
-    <div className="h-dvh flex flex-col bg-black overflow-hidden">
+    <MobileHeaderContext.Provider value={{ active: !pageOpen, title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions, afterTitle: mobile ? mobileAfterTitle : pageAfterTitle }}>
+    <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-accent-500 focus:px-4 focus:py-3 focus:text-gray-950">Перейти к содержимому</a>
+    <div className="h-dvh flex flex-col bg-gray-950 overflow-hidden">
       <div className="relative z-20 flex h-14 shrink-0 border-b border-gray-800 bg-gray-900">
         <div className="hidden w-64 shrink-0 items-center border-r border-gray-800 px-6 lg:flex">
           <span className="text-lg font-bold text-white">RentMaster</span>
@@ -92,11 +95,13 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
-            <div ref={setMobileTitle} className="min-w-0 flex-1 sm:hidden">
-              {(currentPage !== 'calendar' || pageOpen) && <h1 className="truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>}
+            <div ref={setMobileTitle} className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
+              <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <div ref={setMobileAfterTitle} className="flex shrink-0 items-center" />
             </div>
             <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
               <h1 className="truncate text-xl font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <div ref={setPageAfterTitle} className="flex shrink-0 items-center" />
               <div ref={setPageTitle} className="min-w-0 shrink-0" />
             </div>
           </div>
@@ -107,7 +112,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
               <p className="text-sm leading-tight text-white">{user.full_name}</p>
               <p className="text-xs leading-tight text-gray-400">{user.role_name || ROLE_NAMES[user.role]}</p>
             </div>
-            <button onClick={() => setAccountTab('profile')} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-cyan-400" title="Мой профиль" aria-label="Мой профиль">
+            <button onClick={() => setAccountTab('profile')} className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-accent-400" title="Мой профиль" aria-label="Мой профиль">
               <UserRound className="h-5 w-5" />
             </button>
           </div>
@@ -138,6 +143,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
               return (
                 <button
                   key={item.id}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => {
                     if (item.id === 'users') setAccountTab('users');
                     else onNavigate(item.id);
@@ -148,7 +154,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
                     transition-colors
                     ${
                       isActive
-                        ? 'bg-cyan-600 text-white'
+                        ? 'bg-accent-500/10 text-accent-300 ring-1 ring-inset ring-accent-700/60'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }
                   `}
@@ -162,13 +168,13 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <main ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'calendar' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-1' : 'overflow-y-auto p-4 lg:p-6'}`}>
+        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'events' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-1' : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
         </div>
       </div>
     </div>
-    {!pageOpen && currentPage === 'calendar' && <InstallAppButton />}
+    {!pageOpen && currentPage === 'events' && <InstallAppButton />}
     {accountTab && <AccountDialog initialTab={accountTab} onClose={() => setAccountTab(null)} />}
     </MobileHeaderContext.Provider>
   );

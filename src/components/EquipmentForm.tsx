@@ -61,7 +61,7 @@ function DirectorySelect({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="w-full text-left px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+        className="w-full text-left px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
       >
         {value || <span className="text-gray-400">{placeholder}</span>}
       </button>
@@ -250,15 +250,16 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-      <div className="flex flex-col bg-gray-900 rounded-lg border border-gray-800 w-full max-w-2xl max-h-[90dvh] overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-labelledby="equipment-form-title" className="flex flex-col bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-2xl max-h-[90dvh] overflow-hidden">
         <div className="shrink-0 bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold text-white">
+          <h2 id="equipment-form-title" className="text-xl font-semibold text-white">
             {item ? 'Редактировать оборудование' : 'Добавить оборудование'}
           </h2>
           <button
             onClick={onClose}
+            aria-label="Закрыть форму оборудования"
               disabled={loading || processingPhoto}
-            className="shrink-0 p-2 text-gray-400 hover:text-white transition-colors"
+            className="shrink-0 min-h-11 min-w-11 inline-flex items-center justify-center p-2 text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -289,7 +290,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                       required
                     />
                   </div>
-                  <button type="button" onClick={() => setShowCategoryDialog(true)} className="text-cyan-400 hover:text-cyan-300">
+                  <button type="button" onClick={() => setShowCategoryDialog(true)} aria-label="Добавить категорию" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300">
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
@@ -309,7 +310,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                       required
                     />
                   </div>
-                  <button type="button" onClick={() => setShowTypeDialog(true)} className="text-cyan-400 hover:text-cyan-300">
+                  <button type="button" onClick={() => setShowTypeDialog(true)} aria-label="Добавить тип" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
@@ -328,7 +329,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                       placeholder="Не выбрано"
                     />
                   </div>
-                  <button type="button" onClick={() => setShowSubtypeDialog(true)} className="text-cyan-400 hover:text-cyan-300">
+                  <button type="button" onClick={() => setShowSubtypeDialog(true)} aria-label="Добавить подтип" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
@@ -343,7 +344,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                   required
                 />
               </div>
@@ -357,7 +358,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   value={formData.note}
                   onChange={handleChange}
                   rows={2}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 resize-none"
+                  className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 resize-none"
                 />
               </div>
             </div>
@@ -375,7 +376,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   value={formData.attribute}
                   onChange={handleChange}
                   placeholder="Короткое название/код"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
 
@@ -389,7 +390,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   value={formData.sku}
                   onChange={handleChange}
                   placeholder="VI_FIX_FRM"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 font-mono"
                 />
               </div>
 
@@ -401,7 +402,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   name="unit"
                   value={formData.unit}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                   required
                 >
                   {EQUIPMENT_UNITS.map((unit) => (
@@ -421,7 +422,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   onChange={handleChange}
                   onWheel={handleNumberWheel}
                   min="0"
-                  className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                   required
                 />
               </div>
@@ -438,13 +439,13 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   onWheel={handleNumberWheel}
                   min="0"
                   step="0.01"
-                  className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
 
               <div>
                 <label htmlFor="equipment-purchase-price" className="block text-sm font-medium text-gray-300 mb-1">Цена покупки ($)</label>
-                <input id="equipment-purchase-price" type="number" inputMode="decimal" name="purchase_price" value={formData.purchase_price} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.01" className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
+                <input id="equipment-purchase-price" type="number" inputMode="decimal" name="purchase_price" value={formData.purchase_price} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.01" className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20" />
               </div>
 
               {(parseFloat(formData.rental_price) || 0) > 0 && (
@@ -460,7 +461,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                     onWheel={handleNumberWheel}
                     min="0"
                     step="0.01"
-                    className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                    className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                   />
                 </div>
               )}
@@ -479,7 +480,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   value={formData.power}
                   onChange={handleChange}
                   placeholder="Для электрооборудования"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               <div>
@@ -496,28 +497,28 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   value={formData.peak_power}
                   onChange={handleChange}
                   placeholder="Для электрооборудования"
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                 />
               </div>
               <div>
                 <label htmlFor="equipment-weight" className="block text-sm font-medium text-gray-300 mb-1">Вес, кг</label>
-                <input id="equipment-weight" type="number" inputMode="decimal" name="weight_kg" value={formData.weight_kg} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
+                <input id="equipment-weight" type="number" inputMode="decimal" name="weight_kg" value={formData.weight_kg} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20" />
               </div>
               <fieldset>
                 <legend className="block text-sm font-medium text-gray-300 mb-1">Габариты (Ш×В×Д), см</legend>
                 <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-                  {(['width_cm', 'height_cm', 'length_cm'] as const).map((key, index) => <React.Fragment key={key}>{index > 0 && <span aria-hidden="true" className="text-gray-500">×</span>}<input type="number" inputMode="decimal" name={key} aria-label={['Ширина, см', 'Высота, см', 'Длина, см'][index]} placeholder={['Ш', 'В', 'Д'][index]} value={formData[key]} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin min-w-0 w-full rounded-lg border border-gray-700 bg-gray-800 px-2 py-2 text-center text-white outline-none focus:border-cyan-500" /></React.Fragment>)}
+                  {(['width_cm', 'height_cm', 'length_cm'] as const).map((key, index) => <React.Fragment key={key}>{index > 0 && <span aria-hidden="true" className="text-gray-500">×</span>}<input type="number" inputMode="decimal" name={key} aria-label={['Ширина, см', 'Высота, см', 'Длина, см'][index]} placeholder={['Ш', 'В', 'Д'][index]} value={formData[key]} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin min-w-0 w-full rounded-lg border border-gray-700 bg-gray-800 px-2 py-2 text-center text-white outline-none focus:border-accent-500" /></React.Fragment>)}
                 </div>
               </fieldset>
               <div>
                 <label htmlFor="equipment-volume" className="block text-sm font-medium text-gray-300 mb-1">Объём, м³</label>
-                <input id="equipment-volume" readOnly value={volume === null ? '' : String(volume)} placeholder="Рассчитывается автоматически" className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-cyan-300 outline-none" />
+                <input id="equipment-volume" readOnly value={volume === null ? '' : String(volume)} placeholder="Рассчитывается автоматически" className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-accent-300 outline-none" />
                 <p className="mt-1 text-xs text-gray-500">Ш × В × Д ÷ 1 000 000</p>
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-300">Фото</label>
                 {photoPreview && !removePhoto && <img src={photoPreview} alt={formData.name || 'Фото оборудования'} className="max-h-56 w-full rounded-xl border border-gray-700 bg-gray-800 object-contain" />}
-                <input type="file" aria-label="Фото оборудования" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif" disabled={loading || processingPhoto} onChange={event => { void choosePhoto(event.target.files?.[0]); event.target.value = ''; }} className="block w-full min-w-0 text-sm text-gray-400 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-800 file:px-3 file:py-2 file:text-cyan-300" />
+                <input type="file" aria-label="Фото оборудования" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif" disabled={loading || processingPhoto} onChange={event => { void choosePhoto(event.target.files?.[0]); event.target.value = ''; }} className="block w-full min-w-0 text-sm text-gray-400 file:mr-2 file:rounded-lg file:border-0 file:bg-gray-800 file:px-3 file:py-2 file:text-accent-300" />
                 {processingPhoto && <p role="status" className="text-xs text-gray-500">Подготовка фото…</p>}
                 {(photoFile || item?.photo_path) && !removePhoto && <button type="button" disabled={loading || processingPhoto} onClick={() => { setPhotoFile(null); setRemovePhoto(true); }} className="text-sm text-red-400 underline">Убрать фото</button>}
               </div>
@@ -537,7 +538,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                     type="checkbox"
                     checked={formData.is_component}
                     onChange={(e) => handleCheckboxChange('is_component', e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500"
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-accent-500 focus:ring-accent-500"
                   />
                   <div>
                     <div className="text-sm font-medium text-white">Комплектующее</div>
@@ -552,18 +553,18 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                     onClick={() => handleRadioChange('object_type', 'physical')}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       formData.object_type === 'physical'
-                        ? 'border-cyan-500 bg-cyan-900/20'
+                        ? 'border-accent-500 bg-accent-900/20'
                         : 'border-gray-700 bg-gray-800 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         formData.object_type === 'physical'
-                          ? 'border-cyan-500 bg-cyan-500'
+                          ? 'border-accent-500 bg-accent-500'
                           : 'border-gray-600'
                       }`}>
                         {formData.object_type === 'physical' && (
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-950"></div>
                         )}
                       </div>
                       <div>
@@ -580,18 +581,18 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                     onClick={() => handleRadioChange('object_type', 'virtual')}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       formData.object_type === 'virtual'
-                        ? 'border-cyan-500 bg-cyan-900/20'
+                        ? 'border-accent-500 bg-accent-900/20'
                         : 'border-gray-700 bg-gray-800 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         formData.object_type === 'virtual'
-                          ? 'border-cyan-500 bg-cyan-500'
+                          ? 'border-accent-500 bg-accent-500'
                           : 'border-gray-600'
                       }`}>
                         {formData.object_type === 'virtual' && (
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-950"></div>
                         )}
                       </div>
                       <div>
@@ -615,18 +616,18 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                     onClick={() => handleRadioChange('rental_type', 'rental')}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       formData.rental_type === 'rental'
-                        ? 'border-cyan-500 bg-cyan-900/20'
+                        ? 'border-accent-500 bg-accent-900/20'
                         : 'border-gray-700 bg-gray-800 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         formData.rental_type === 'rental'
-                          ? 'border-cyan-500 bg-cyan-500'
+                          ? 'border-accent-500 bg-accent-500'
                           : 'border-gray-600'
                       }`}>
                         {formData.rental_type === 'rental' && (
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-950"></div>
                         )}
                       </div>
                       <div>
@@ -643,18 +644,18 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                     onClick={() => handleRadioChange('rental_type', 'sublease')}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       formData.rental_type === 'sublease'
-                        ? 'border-cyan-500 bg-cyan-900/20'
+                        ? 'border-accent-500 bg-accent-900/20'
                         : 'border-gray-700 bg-gray-800 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         formData.rental_type === 'sublease'
-                          ? 'border-cyan-500 bg-cyan-500'
+                          ? 'border-accent-500 bg-accent-500'
                           : 'border-gray-600'
                       }`}>
                         {formData.rental_type === 'sublease' && (
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-950"></div>
                         )}
                       </div>
                       <div>
@@ -676,20 +677,21 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   <button
                     type="button"
                     onClick={() => handleRadioChange('has_composition', false)}
+                    aria-pressed={formData.has_composition === false}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       formData.has_composition === false
-                        ? 'border-cyan-500 bg-cyan-900/20'
+                        ? 'border-accent-500 bg-accent-900/20'
                         : 'border-gray-700 bg-gray-800 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         formData.has_composition === false
-                          ? 'border-cyan-500 bg-cyan-500'
+                          ? 'border-accent-500 bg-accent-500'
                           : 'border-gray-600'
                       }`}>
                         {formData.has_composition === false && (
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-950"></div>
                         )}
                       </div>
                       <div>
@@ -704,20 +706,21 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   <button
                     type="button"
                     onClick={() => handleRadioChange('has_composition', true)}
+                    aria-pressed={formData.has_composition === true}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       formData.has_composition === true
-                        ? 'border-cyan-500 bg-cyan-900/20'
+                        ? 'border-accent-500 bg-accent-900/20'
                         : 'border-gray-700 bg-gray-800 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         formData.has_composition === true
-                          ? 'border-cyan-500 bg-cyan-500'
+                          ? 'border-accent-500 bg-accent-500'
                           : 'border-gray-600'
                       }`}>
                         {formData.has_composition === true && (
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
+                          <div className="w-2 h-2 rounded-full bg-gray-950"></div>
                         )}
                       </div>
                       <div>
@@ -738,16 +741,16 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
               type="button"
               onClick={onClose}
               disabled={loading || processingPhoto}
-              className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
+              className="min-h-11 px-6 py-2.5 text-gray-400 hover:text-white transition-colors"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={loading || processingPhoto}
-              className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              className="min-h-11 px-6 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors disabled:opacity-50"
             >
-              {loading ? 'Сохранение...' : item ? 'Сохранить' : 'Создать'}
+              {loading ? 'Сохранение…' : item ? 'Сохранить' : 'Создать'}
             </button>
           </div>
         </form>

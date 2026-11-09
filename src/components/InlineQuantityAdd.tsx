@@ -43,11 +43,11 @@ export function InlineQuantityAdd({ name, onAdd, onClose }: InlineQuantityAddPro
       Укажите кол-во
       <input autoFocus type="number" inputMode="decimal" step="any" min="0" aria-label={`Количество: ${name}`} value={value} disabled={saving} placeholder="Введите количество" onChange={event => { setValue(event.target.value); setError(''); }} onBlur={() => { void commit(); }} onKeyDown={event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancel(); }
-      }} className="min-w-0 flex-1 rounded border border-gray-600 bg-gray-900 px-2 py-1.5 text-white focus:border-cyan-500 focus:outline-none" />
+      }} className="min-w-0 flex-1 rounded border border-gray-600 bg-gray-900 px-2 py-1.5 text-white focus:border-accent-500 focus:outline-none" />
     </label>
     <div className="flex items-center justify-end gap-2">
       <button type="button" disabled={saving} onPointerDown={event => event.preventDefault()} onClick={cancel} className="px-2 py-1 text-xs text-gray-400 hover:text-white">Отмена</button>
-      <button type="submit" disabled={saving} className="rounded bg-cyan-600 px-2 py-1 text-xs text-white disabled:opacity-50">{saving ? 'Добавление...' : 'Добавить'}</button>
+      <button type="submit" disabled={saving} className="min-h-11 rounded bg-accent-500 px-2 py-1 text-xs text-gray-950 disabled:opacity-50">{saving ? 'Добавление...' : 'Добавить'}</button>
     </div>
     {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
   </form>;

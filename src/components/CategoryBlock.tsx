@@ -262,7 +262,7 @@ export function CategoryBlock({
   return (
     <div
       ref={categoryRef}
-      className={`bg-gray-900 border-b border-gray-800 transition-all ${
+      className={`bg-gray-900 border-b border-gray-800 transition-colors ${
         isSelected ? 'bg-gray-800/50' : ''
       } ${locationColor ? 'border-l-2' : ''}`}
       style={locationColor ? { borderLeftColor: locationColor } : undefined}
@@ -275,7 +275,7 @@ export function CategoryBlock({
       <div
         style={headerStyle}
         className={`budget-category-header flex items-center gap-1 px-1.5 py-1 transition-colors cursor-pointer sticky top-0 z-10 ${
-          isSelected ? 'bg-cyan-900/20' : 'bg-gray-900 hover:bg-gray-800'
+          isSelected ? 'bg-accent-900/20' : 'bg-gray-900 hover:bg-gray-800'
         } ${headerClassName || ''}`}
         onClick={onSelect}
       >
@@ -290,7 +290,7 @@ export function CategoryBlock({
               e.stopPropagation();
               onDragStart?.(e, 'category', categoryId);
             }}
-            className="text-gray-500 hover:text-gray-400 cursor-move"
+            className="text-gray-400 hover:text-gray-300 cursor-move"
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical className="w-3 h-3" />
@@ -323,7 +323,7 @@ export function CategoryBlock({
                 if (e.key === 'Enter') handleSaveName();
                 if (e.key === 'Escape') handleCancelEdit();
               }}
-              className="flex-1 px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:outline-none focus:border-cyan-500"
+              className="flex-1 px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:outline-none focus:border-accent-500"
               autoFocus
             />
             <button
@@ -349,7 +349,7 @@ export function CategoryBlock({
           </div>
         ) : (
           <>
-            <h3 className="font-medium text-xs text-gray-300 flex-1 truncate">{categoryName}</h3>
+            <h3 className="min-w-0 flex-1 text-sm font-medium text-gray-200"><button type="button" onClick={event => { event.stopPropagation(); onSelect?.(); }} aria-pressed={isSelected} className="w-full truncate text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500" title={categoryName}>{categoryName}</button></h3>
             {hasWorkItems && onManagePersonnel && (
               <button
                 type="button"
@@ -357,7 +357,7 @@ export function CategoryBlock({
                   e.stopPropagation();
                   onManagePersonnel(categoryId);
                 }}
-                className="text-blue-500 hover:text-blue-400 transition-colors"
+                className="text-accent-500 hover:text-accent-400 transition-colors"
                 title="Управление персоналом"
               >
                 <Users className="w-3 h-3" />
@@ -385,7 +385,7 @@ export function CategoryBlock({
                     : categoryId.replace('category:', '');
                   onDuplicateCategory(rawCategoryId);
                 }}
-                className="text-gray-500 hover:text-cyan-400 transition-colors"
+                className="text-gray-500 hover:text-accent-400 transition-colors"
                 title="Дублировать категорию (копия со всеми позициями)"
               >
                 <Copy className="w-2.5 h-2.5" />
@@ -409,7 +409,7 @@ export function CategoryBlock({
           </>
         )}
 
-        <div className="text-[10px] font-medium text-cyan-400 ml-0.5 text-right leading-tight" onClick={(e) => e.stopPropagation()}>
+        <div className="text-xs font-semibold text-gray-100 tabular-nums ml-0.5 text-right leading-tight" onClick={(e) => e.stopPropagation()}>
           {budgetTotalsMode === 'day1_plus_combined' && (
             <div>
               1д: {formatSectionTotal(sectionDay1Total)}
@@ -420,7 +420,7 @@ export function CategoryBlock({
           </div>
         </div>
 
-        <div className="text-[10px] text-gray-600 ml-0.5" onClick={(e) => e.stopPropagation()}>
+        <div className="text-xs text-gray-400 ml-0.5" onClick={(e) => e.stopPropagation()}>
           ({items.length})
         </div>
       </div>
@@ -433,7 +433,7 @@ export function CategoryBlock({
       {isExpanded && items.length > 0 && (
         <div>
           {/* Table header */}
-          <div className="budget-items-heading flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-[10px] text-gray-500 border-b border-gray-800">
+          <div className="budget-items-heading flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-xs text-gray-400 border-b border-gray-800">
             <div className="w-3"></div>
             <div
               className="flex-1 grid items-center gap-1"
@@ -471,7 +471,7 @@ export function CategoryBlock({
                   }}
                 >
                   <div
-                    className={`budget-item-row flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-cyan-500/10 border-cyan-500/50' : ''}`}
+                    className={`budget-item-row flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-accent-500/10 border-accent-500/50' : ''}`}
                     style={item.marker_color ? { backgroundColor: `${item.marker_color}40` } : undefined}
                   >
                   <div
@@ -491,7 +491,7 @@ export function CategoryBlock({
                   </div>
 
                   <div
-                    className={`budget-item-fields flex-1 grid items-center gap-1 text-xs ${showCoefficient ? "budget-item-fields-with-coefficient" : ""}`}
+                    className={`budget-item-fields flex-1 grid items-center gap-1 text-sm ${showCoefficient ? "budget-item-fields-with-coefficient" : ""}`}
                     style={{ gridTemplateColumns: tableTemplateColumns }}
                   >
                     <div className="text-gray-300 whitespace-normal break-words pr-2">
@@ -504,7 +504,7 @@ export function CategoryBlock({
                           e.stopPropagation();
                           setOpenUnitDropdownId(openUnitDropdownId === item.id ? null : item.id);
                         }}
-                        className="text-[10px] text-gray-400 hover:text-gray-200 hover:bg-gray-700 px-1 rounded transition-colors"
+                        className="text-xs text-gray-400 hover:text-gray-200 hover:bg-gray-700 px-1 rounded transition-colors"
                       >
                         {item.unit || item.equipment?.unit || item.work_item?.unit || 'шт.'}
                       </button>
@@ -523,7 +523,7 @@ export function CategoryBlock({
                                   onUpdateItem(item.id, { unit: u });
                                   setOpenUnitDropdownId(null);
                                 }}
-                                className="w-full text-left px-2 py-1 text-[10px] text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                                className="w-full text-left px-2 py-1 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                               >
                                 {u}
                               </button>
@@ -536,8 +536,9 @@ export function CategoryBlock({
                     <div data-mobile-label="Количество" className="flex justify-center">
                       <div className="flex items-center justify-center">
                         <button
+                          aria-label={`Уменьшить количество: ${item.equipment?.name || item.work_item?.name || item.name || "Позиция"}`}
                           onClick={() => onUpdateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
-                          className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-[10px]"
+                          className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-xs"
                         >
                           −
                         </button>
@@ -552,12 +553,13 @@ export function CategoryBlock({
                             if (!isNaN(n)) onUpdateItem(item.id, { quantity: Math.max(1, n) });
                             setDraftValues(prev => { const copy = { ...prev }; delete copy[item.id + '_quantity']; return copy; });
                           }}
-                          className="w-8 px-0.5 py-0.5 bg-transparent text-center text-white text-xs focus:outline-none"
+                          className="w-8 px-0.5 py-0.5 bg-transparent text-center text-white text-sm tabular-nums rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
                           onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                         />
                         <button
+                          aria-label={`Увеличить количество: ${item.equipment?.name || item.work_item?.name || item.name || "Позиция"}`}
                           onClick={() => onUpdateItem(item.id, { quantity: item.quantity + 1 })}
-                          className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-[10px]"
+                          className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-xs"
                         >
                           +
                         </button>
@@ -600,7 +602,7 @@ export function CategoryBlock({
                           }
                         }}
                         onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                        className="w-12 px-0.5 py-0.5 bg-transparent text-right text-gray-400 text-xs rounded focus:outline-none focus:bg-gray-800"
+                        className="w-12 px-0.5 py-0.5 bg-transparent text-right text-gray-300 text-sm tabular-nums rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 focus:bg-gray-800"
                       />
                     </div>
 
@@ -624,13 +626,13 @@ export function CategoryBlock({
                               return copy;
                             });
                           }}
-                          className="w-full max-w-[72px] px-1 py-0.5 bg-transparent text-center text-gray-400 text-xs focus:outline-none focus:bg-gray-800 rounded"
+                          className="w-full max-w-[72px] px-1 py-0.5 bg-transparent text-center text-gray-300 text-sm tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 focus:bg-gray-800 rounded"
                           onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                         />
                       </div>
                     )}
 
-                    <div data-mobile-label="Сумма" className="text-right text-cyan-400 font-medium text-xs pr-2">
+                    <div data-mobile-label="Сумма" className="text-right text-gray-100 tabular-nums font-semibold text-sm pr-2">
                       {(() => {
                         switch (paymentMode) {
                           case 'byn_cash':
@@ -667,7 +669,7 @@ export function CategoryBlock({
                               onUpdateItem(item.id, { marker_color: null });
                               setOpenMarkerDropdownId(null);
                             }}
-                            className="text-[10px] text-gray-300 hover:text-white px-1"
+                            className="text-xs text-gray-300 hover:text-white px-1"
                           >
                             Нет
                           </button>
@@ -692,7 +694,7 @@ export function CategoryBlock({
                   <button
                     type="button"
                     onClick={() => setNoteEditorsOpen(prev => ({ ...prev, [item.id]: !isNoteEditorOpen }))}
-                    className={`transition-opacity w-5 flex justify-center flex-shrink-0 ${isNoteEditorOpen || item.notes ? 'text-cyan-500 hover:text-cyan-400 opacity-100' : 'text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100'}`}
+                    className={`transition-opacity w-5 flex justify-center flex-shrink-0 ${isNoteEditorOpen || item.notes ? 'text-accent-500 hover:text-accent-400 opacity-100' : 'text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100'}`}
                     title="Примечание"
                   >
                     <MessageSquarePlus className="w-3 h-3" />
@@ -719,7 +721,7 @@ export function CategoryBlock({
                           if (draftValues[item.id + '_notes'] !== undefined) void saveNote(item, e.target.value);
                         }}
                         placeholder="Примечание"
-                        className="flex-1 bg-transparent text-[9px] text-gray-500 placeholder-gray-600 focus:outline-none focus:text-gray-300"
+                        className="flex-1 bg-transparent text-xs text-gray-300 placeholder-gray-400 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
                       />
                       <button
                         type="button"
@@ -731,15 +733,15 @@ export function CategoryBlock({
                       >
                         <X className="w-3 h-3" />
                       </button>
-                      {savingNotes[item.id] && <span role="status" className="text-[10px] text-gray-400">Сохранение…</span>}
-                      {noteErrors[item.id] && <span role="alert" className="text-xs text-amber-300">Примечание не сохранено. Текст оставлен в поле. <button type="button" onPointerDown={event => event.preventDefault()} onClick={() => { void saveNote(item, draftValues[item.id + '_notes'] ?? item.notes ?? ''); }} className="underline">Повторить</button></span>}
+                      {savingNotes[item.id] && <span role="status" className="text-xs text-gray-400">Сохранение…</span>}
+                      {noteErrors[item.id] && <span role="alert" className="text-xs text-accent-300">Примечание не сохранено. Текст оставлен в поле. <button type="button" onPointerDown={event => event.preventDefault()} onClick={() => { void saveNote(item, draftValues[item.id + '_notes'] ?? item.notes ?? ''); }} className="underline">Повторить</button></span>}
                     </div>
                   )}
                 </div>
               );
             })}
             <div
-              className="h-2 border-t border-dashed border-gray-700/50 hover:border-cyan-500/60 transition-colors"
+              className="h-2 border-t border-dashed border-gray-700/50 hover:border-accent-500/60 transition-colors"
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();

@@ -45,12 +45,13 @@ export function PersonnelSelector({ selectedIds, onConfirm, onClose }: Personnel
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-900 rounded-lg max-w-2xl w-full max-h-[80vh] flex flex-col border border-gray-700">
+      <div className="bg-gray-900 rounded-2xl max-w-2xl w-full max-h-[85dvh] flex flex-col border border-gray-700">
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <h2 className="text-xl font-bold text-white">Выбрать исполнителей</h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Закрыть"
+            className="flex h-11 w-11 items-center justify-center p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -68,13 +69,13 @@ export function PersonnelSelector({ selectedIds, onConfirm, onClose }: Personnel
               {personnel.map((person) => (
                 <label
                   key={person.id}
-                  className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg hover:bg-gray-750 cursor-pointer transition-colors"
+                  className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors"
                 >
                   <input
                     type="checkbox"
                     checked={selected.has(person.id)}
                     onChange={() => toggleSelection(person.id)}
-                    className="w-5 h-5 rounded border-gray-600 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                    className="w-5 h-5 rounded border-gray-600 accent-accent-500 text-accent-600 focus:ring-accent-500 focus:ring-offset-gray-900"
                   />
                   <div className="flex-1">
                     <div className="text-white font-medium">{person.full_name}</div>
@@ -86,7 +87,7 @@ export function PersonnelSelector({ selectedIds, onConfirm, onClose }: Personnel
                     </div>
                   </div>
                   {selected.has(person.id) && (
-                    <Check className="w-5 h-5 text-cyan-500" />
+                    <Check className="w-5 h-5 text-accent-500" />
                   )}
                 </label>
               ))}
@@ -97,13 +98,14 @@ export function PersonnelSelector({ selectedIds, onConfirm, onClose }: Personnel
         <div className="flex justify-end gap-3 p-6 border-t border-gray-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Закрыть"
+            className="min-h-11 px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
           >
             Отмена
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+            className="min-h-11 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 font-semibold rounded-lg transition-colors"
           >
             Подтвердить ({selected.size})
           </button>

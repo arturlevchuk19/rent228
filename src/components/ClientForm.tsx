@@ -53,14 +53,15 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-lg border border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-2xl max-h-[90dvh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
-          <h2 className="text-2xl font-bold text-white">
+          <h2 className="text-xl font-semibold text-white">
             {client ? 'Редактировать заказчика' : 'Новый заказчик'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Закрыть"
+            className="flex h-11 w-11 items-center justify-center p-2 hover:bg-gray-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-gray-400" />
           </button>
@@ -77,7 +78,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 rows={3}
                 value={formData.organization}
                 onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 resize-y"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 resize-y"
                 placeholder="ООО Компания"
               />
             </div>
@@ -90,7 +91,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="Иванов Иван Иванович"
               />
             </div>
@@ -103,7 +104,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.signatory_initials}
                 onChange={(e) => setFormData({ ...formData, signatory_initials: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="И.И. Иванов"
               />
             </div>
@@ -116,7 +117,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.position}
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="директора"
               />
             </div>
@@ -129,7 +130,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.signatory_position_ip}
                 onChange={(e) => setFormData({ ...formData, signatory_position_ip: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="Директор"
               />
             </div>
@@ -142,7 +143,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.basis_for_action}
                 onChange={(e) => setFormData({ ...formData, basis_for_action: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="Устава"
               />
             </div>
@@ -155,7 +156,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.unp}
                 onChange={(e) => setFormData({ ...formData, unp: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="123456789"
               />
             </div>
@@ -168,7 +169,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.legal_address}
                 onChange={(e) => setFormData({ ...formData, legal_address: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="г. Минск, ул. Примерная, 1"
               />
             </div>
@@ -181,7 +182,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 type="text"
                 value={formData.postal_address}
                 onChange={(e) => setFormData({ ...formData, postal_address: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="220000, г. Минск, а/я 1"
               />
             </div>
@@ -194,7 +195,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 value={formData.bank_details}
                 onChange={(e) => setFormData({ ...formData, bank_details: e.target.value })}
                 rows={4}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                 placeholder="р/с, БИК, банк..."
               />
             </div>
@@ -208,7 +209,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                   placeholder="+375 29 123-45-67"
                 />
               </div>
@@ -221,7 +222,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                  className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500"
                   placeholder="email@example.com"
                 />
               </div>
@@ -235,7 +236,7 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 resize-none"
+                className="min-h-11 w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 resize-none"
                 placeholder="Дополнительная информация..."
               />
             </div>
@@ -245,14 +246,14 @@ export function ClientForm({ client, onClose, onSave }: ClientFormProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              className="min-h-11 px-4 py-2 text-gray-400 hover:text-white transition-colors"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              className="min-h-11 px-6 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
               {saving ? 'Сохранение...' : 'Сохранить'}
             </button>

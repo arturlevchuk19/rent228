@@ -421,14 +421,14 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     type="button"
                     disabled={!canAccess(user, 'budgets', 1)}
                     onClick={() => setShowBudgetEditor(true)}
-                    className={`flex items-center gap-1.5 px-2 py-1 text-white rounded transition-colors text-left leading-tight ${
+                    className={`flex items-center gap-1.5 min-h-11 px-3 py-2 text-gray-950 rounded-lg transition-colors text-left leading-tight ${
                       hasBudgetItems
-                        ? 'bg-cyan-600 hover:bg-cyan-700'
-                        : 'bg-green-600 hover:bg-green-700'
+                        ? 'bg-accent-500 hover:bg-accent-400'
+                        : 'bg-accent-500 hover:bg-accent-400'
                     }`}
                   >
                     <Calculator className="w-3.5 h-3.5 shrink-0" />
-                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                    <span className="text-xs font-medium">
                       {hasBudgetItems ? (
                         <>{canAccess(user, 'budgets', 2) ? 'Редактировать' : 'Просмотреть'}<br />смету</>
                       ) : (
@@ -442,7 +442,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     type="button"
                     disabled={!canAccess(user, 'budgets', 2)}
                     onClick={() => setShowCopyDialog(true)}
-                    className="flex items-center gap-1.5 px-2 py-1 text-white bg-violet-600 hover:bg-violet-700 rounded transition-colors text-left leading-tight"
+                    className="flex items-center gap-1.5 px-2 py-1 text-gray-200 bg-gray-800 hover:bg-gray-700 rounded transition-colors text-left leading-tight"
                     title="Скопировать смету из другого мероприятия"
                   >
                     {copySuccess ? (
@@ -450,7 +450,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     ) : (
                       <Copy className="w-3.5 h-3.5 shrink-0" />
                     )}
-                    <span className="text-[10px] font-medium uppercase tracking-wider">
+                    <span className="text-xs font-medium">
                       {copySuccess ? 'Скопировано!' : (
                         <>Скопировать<br />смету</>
                       )}
@@ -502,7 +502,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           </h2>
           <button
             onClick={() => onClose(effectiveEventId)}
-            className="p-1 hover:bg-gray-800 rounded transition-colors"
+            aria-label="Закрыть мероприятие" className="inline-flex min-h-11 min-w-11 items-center justify-center hover:bg-gray-800 rounded-lg transition-colors"
           >
             <X className="w-4 h-4 text-gray-400" />
           </button>
@@ -511,21 +511,21 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         <form onSubmit={handleSubmit} className={page ? 'space-y-3' : 'flex-1 overflow-y-auto'}>
       {page && <div className="mb-3 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => onClose(effectiveEventId)} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Назад</button>
+          <button type="button" onClick={() => onClose(effectiveEventId)} className="inline-flex min-h-11 items-center gap-2 text-sm text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Назад</button>
           <div className="ml-auto flex items-center gap-2">
-          <button type="button" disabled={!effectiveEventId || !budgets.length || generatingPdf || !canAccess(user, 'specifications')} onClick={() => requestDocument('pdf')} className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF'}</button>
-          <button type="button" disabled={!effectiveEventId || !budgets.length || !canAccess(user, 'budgets')} onClick={() => requestDocument('contract')} aria-label="Договор" title="Договор" className="inline-flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileSignature className="h-4 w-4" /><span className="hidden sm:inline">Договор</span></button>
-          <button type="button" disabled={!effectiveEventId || !canAccess(user, 'budgets', 2)} onClick={() => setShowCopyDialog(true)} aria-label="Копировать смету из мероприятия" className="rounded-xl border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-cyan-400 disabled:opacity-40"><Copy className="h-5 w-5" /></button>
-          {canAccess(user, 'events', 3) && effectiveEventId && <button type="button" disabled={saving} onClick={async () => { if (!window.confirm('Удалить это мероприятие и его смету?')) return; try { setSaving(true); await deleteEvent(effectiveEventId); onDirtyChange?.(false); onDeleted?.(); } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setSaving(false); } }} aria-label="Удалить мероприятие" className="rounded-xl border border-red-900 bg-red-950/20 p-2 text-red-400 hover:bg-red-900/30 disabled:opacity-40"><Trash2 className="h-5 w-5" /></button>}
+          <button type="button" disabled={!effectiveEventId || !budgets.length || generatingPdf || !canAccess(user, 'specifications')} onClick={() => requestDocument('pdf')} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF'}</button>
+          <button type="button" disabled={!effectiveEventId || !budgets.length || !canAccess(user, 'budgets')} onClick={() => requestDocument('contract')} aria-label="Договор" title="Договор" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileSignature className="h-4 w-4" /><span className="hidden sm:inline">Договор</span></button>
+          <button type="button" disabled={!effectiveEventId || !canAccess(user, 'budgets', 2)} onClick={() => setShowCopyDialog(true)} aria-label="Копировать смету из мероприятия" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-accent-400 disabled:opacity-40"><Copy className="h-5 w-5" /></button>
+          {canAccess(user, 'events', 3) && effectiveEventId && <button type="button" disabled={saving} onClick={async () => { if (!window.confirm('Удалить это мероприятие и его смету?')) return; try { setSaving(true); await deleteEvent(effectiveEventId); onDirtyChange?.(false); onDeleted?.(); } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setSaving(false); } }} aria-label="Удалить мероприятие" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-900 bg-red-950/20 p-2 text-red-400 hover:bg-red-900/30 disabled:opacity-40"><Trash2 className="h-5 w-5" /></button>}
           </div>
         </div>
-        <input aria-label="Название мероприятия" placeholder="Название мероприятия" value={formData.name} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, name: event.target.value })} className="event-page-title w-full min-w-0 border-0 bg-transparent py-1 text-lg font-semibold text-white outline-none placeholder:text-gray-600 sm:text-xl" />
+        <input aria-label="Название мероприятия" placeholder="Название мероприятия" value={formData.name} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, name: event.target.value })} className="event-page-title min-h-11 w-full min-w-0 border-0 bg-transparent py-1 text-lg font-semibold text-white outline-none placeholder:text-gray-500 sm:text-xl" />
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" aria-label="Изменить даты мероприятия" disabled={!canAccess(user, 'events', 2)} onClick={() => setShowDatesDialog(true)} className="inline-flex items-center gap-2 text-left text-xs sm:text-sm text-gray-200"><CalendarDays className="h-4 w-4 shrink-0 text-gray-500" /><span className="border-b border-dashed border-gray-600 pb-0.5">{eventDateLabel(formData.event_date, formData.event_end_date)}</span></button>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <select aria-label="Статус мероприятия" value={formData.status} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, status: event.target.value, ...eventProgress(event.target.value, budgets.length) })} className={`max-w-full rounded-full border px-3 py-1.5 text-xs font-semibold outline-none ${formData.status === 'Подтверждено' ? 'border-emerald-800 bg-emerald-900/30 text-emerald-400' : formData.status === 'Отменено' ? 'border-red-900 bg-red-900/20 text-red-400' : formData.status === 'Выполнено' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-amber-900 bg-amber-900/20 text-amber-400'}`}>{EVENT_STATUSES.map(status => <option className="bg-gray-900 text-gray-200" key={status}>{status}</option>)}</select>
-        <label className="min-w-0 max-w-full"><span className="sr-only">Тип мероприятия</span><select value={formData.event_type} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, event_type: event.target.value })} className="max-w-full rounded-full border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-semibold text-gray-300 outline-none focus:border-cyan-600">{eventTypes.map(type => <option key={type}>{type}</option>)}</select></label>
+            <select aria-label="Статус мероприятия" value={formData.status} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, status: event.target.value, ...eventProgress(event.target.value, budgets.length) })} className={`min-h-11 max-w-full rounded-lg border px-3 py-1.5 text-xs font-semibold outline-none ${formData.status === 'Подтверждено' ? 'border-emerald-800 bg-emerald-900/30 text-emerald-400' : formData.status === 'Отменено' ? 'border-red-900 bg-red-900/20 text-red-400' : formData.status === 'Выполнено' ? 'border-gray-700 bg-gray-800 text-gray-400' : 'border-amber-900 bg-amber-900/20 text-amber-400'}`}>{EVENT_STATUSES.map(status => <option className="bg-gray-900 text-gray-200" key={status}>{status}</option>)}</select>
+        <label className="min-w-0 max-w-full"><span className="sr-only">Тип мероприятия</span><select value={formData.event_type} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, event_type: event.target.value })} className="min-h-11 max-w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs font-semibold text-gray-300 outline-none focus:border-accent-500">{eventTypes.map(type => <option key={type}>{type}</option>)}</select></label>
             </div>
           </div>
           <EventInlineField label="Заказчик мероприятия" icon={Building2} value={formData.client_id} placeholder="Заказчик не выбран" options={clients.map(client => ({ value: client.id, label: client.organization || client.full_name }))} disabled={!canAccess(user, 'events', 2)} onChange={value => setFormData({ ...formData, client_id: value })} />
@@ -533,10 +533,10 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           <EventInlineField label="Площадка мероприятия" icon={MapPin} value={formData.venue_id} placeholder="Площадка не выбрана" options={venues.map(venue => ({ value: venue.id, label: venue.name }))} disabled={!canAccess(user, 'events', 2)} onChange={value => setFormData({ ...formData, venue_id: value })} />
         </div>
         <div aria-label="Прогресс проекта" className="flex flex-wrap gap-x-4 gap-y-2 pt-1 text-xs text-gray-300">
-          <label className="flex items-center gap-2"><input type="checkbox" checked={budgets.length > 0} disabled className="h-4 w-4 accent-cyan-600" />Смета составлена</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={['Подтверждено', 'Выполнено'].includes(formData.status)} disabled={!canAccess(user, 'events', 2)} onChange={event => { const status = event.target.checked ? 'Подтверждено' : 'Запрос'; setFormData({ ...formData, status, ...eventProgress(status, budgets.length) }); }} className="h-4 w-4 accent-cyan-600" />Смета подтверждена</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={formData.status === 'Выполнено'} disabled={!canAccess(user, 'events', 2)} onChange={event => { const status = event.target.checked ? 'Выполнено' : 'Подтверждено'; setFormData({ ...formData, status, ...eventProgress(status, budgets.length) }); }} className="h-4 w-4 accent-cyan-600" />Проект выполнен</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={formData.progress_paid} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, progress_paid: event.target.checked })} className="h-4 w-4 accent-cyan-600" />Оплачен</label>
+          <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={budgets.length > 0} disabled className="h-4 w-4 accent-accent-600" />Смета составлена</label>
+          <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={['Подтверждено', 'Выполнено'].includes(formData.status)} disabled={!canAccess(user, 'events', 2)} onChange={event => { const status = event.target.checked ? 'Подтверждено' : 'Запрос'; setFormData({ ...formData, status, ...eventProgress(status, budgets.length) }); }} className="h-4 w-4 accent-accent-600" />Смета подтверждена</label>
+          <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={formData.status === 'Выполнено'} disabled={!canAccess(user, 'events', 2)} onChange={event => { const status = event.target.checked ? 'Выполнено' : 'Подтверждено'; setFormData({ ...formData, status, ...eventProgress(status, budgets.length) }); }} className="h-4 w-4 accent-accent-600" />Проект выполнен</label>
+          <label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={formData.progress_paid} disabled={!canAccess(user, 'events', 2)} onChange={event => setFormData({ ...formData, progress_paid: event.target.checked })} className="h-4 w-4 accent-accent-600" />Оплачен</label>
         </div>
         {pageError && <p role="alert" className="rounded-xl border border-red-900 bg-red-900/20 p-3 text-sm text-red-300">{pageError}</p>}
         {saveMessage && <p role="status" className="text-sm text-emerald-400">{saveMessage}</p>}
@@ -567,7 +567,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     maxLength={2}
                     value={dateParts.day}
                     onChange={(e) => handleDateChange('day', e.target.value)}
-                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
                   <span className="text-gray-500">.</span>
                   <input
@@ -577,7 +577,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     maxLength={2}
                     value={dateParts.month}
                     onChange={(e) => handleDateChange('month', e.target.value)}
-                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
                   <span className="text-gray-500">.</span>
                   <input
@@ -587,11 +587,11 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     maxLength={4}
                     value={dateParts.year}
                     onChange={(e) => handleDateChange('year', e.target.value)}
-                    className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                    className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
                 </div>
                 {formData.event_date && (
-                  <div className="text-xs text-cyan-400 mt-1">
+                  <div className="text-xs text-gray-200 tabular-nums mt-1">
                     Сохранится как: {formData.event_date}
                   </div>
                 )}
@@ -605,7 +605,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                   required
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
                 >
                   {EVENT_STATUSES.map(status => (
                     <option key={status} value={status}>{status}</option>
@@ -628,7 +628,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     maxLength={2}
                     value={endDateParts.day}
                     onChange={(e) => handleEndDateChange('day', e.target.value)}
-                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
                   <span className="text-gray-500">.</span>
                   <input
@@ -638,7 +638,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     maxLength={2}
                     value={endDateParts.month}
                     onChange={(e) => handleEndDateChange('month', e.target.value)}
-                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                    className="w-14 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
                   <span className="text-gray-500">.</span>
                   <input
@@ -648,11 +648,11 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     maxLength={4}
                     value={endDateParts.year}
                     onChange={(e) => handleEndDateChange('year', e.target.value)}
-                    className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-center"
+                    className="w-20 px-2 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 text-center"
                   />
                 </div>
                 {formatEndDateDisplay() && (
-                  <div className="text-xs text-cyan-400 mt-1">
+                  <div className="text-xs text-gray-200 tabular-nums mt-1">
                     Сохранится как: {formData.event_end_date}
                   </div>
                 )}
@@ -669,7 +669,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
                 placeholder="Название"
               />
             </div>
@@ -683,7 +683,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                   required
                   value={formData.event_type}
                   onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
                 >
                   {eventTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
@@ -698,7 +698,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                 <select
                   value={formData.client_id || ''}
                   onChange={(e) => setFormData({ ...formData, client_id: e.target.value || null })}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
                 >
                   <option value="">Не выбран</option>
                   {clients.map(client => (
@@ -716,7 +716,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                 <select
                   value={formData.venue_id || ''}
                   onChange={(e) => setFormData({ ...formData, venue_id: e.target.value || null })}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
                 >
                   <option value="">Не выбрана</option>
                   {venues.map(venue => (
@@ -732,7 +732,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                 <select
                   value={formData.site_manager_id || ''}
                   onChange={(e) => setFormData({ ...formData, site_manager_id: e.target.value || null })}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
                 >
                   <option value="">Не назначен</option>
                   {users.map(item => (
@@ -753,7 +753,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     type="checkbox"
                     checked={formData.progress_budget_done}
                     onChange={(e) => setFormData({ ...formData, progress_budget_done: e.target.checked })}
-                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-accent-600 focus:ring-accent-500 focus:ring-offset-gray-900"
                   />
                   <span className="text-gray-300 text-sm">Смета составлена</span>
                 </label>
@@ -763,7 +763,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     type="checkbox"
                     checked={formData.progress_equipment_reserved}
                     onChange={(e) => setFormData({ ...formData, progress_equipment_reserved: e.target.checked })}
-                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-accent-600 focus:ring-accent-500 focus:ring-offset-gray-900"
                   />
                   <span className="text-gray-300 text-sm">Смета подтверждена</span>
                 </label>
@@ -773,7 +773,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     type="checkbox"
                     checked={formData.progress_project_completed}
                     onChange={(e) => setFormData({ ...formData, progress_project_completed: e.target.checked })}
-                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-accent-600 focus:ring-accent-500 focus:ring-offset-gray-900"
                   />
                   <span className="text-gray-300 text-sm">Проект выполнен</span>
                 </label>
@@ -783,7 +783,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                     type="checkbox"
                     checked={formData.progress_paid}
                     onChange={(e) => setFormData({ ...formData, progress_paid: e.target.checked })}
-                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-cyan-600 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                    className="w-4 h-4 bg-gray-800 border-gray-700 rounded text-accent-600 focus:ring-accent-500 focus:ring-offset-gray-900"
                   />
                   <span className="text-gray-300 text-sm">Оплачен</span>
                 </label>
@@ -798,7 +798,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={2}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 resize-none"
+                className="min-h-11 w-full px-3 py-2 bg-gray-800 border border-gray-700/50 rounded text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 resize-none"
                 placeholder="Дополнительная информация..."
               />
             </div>
@@ -821,7 +821,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
               <button
                 type="submit"
                 disabled={saving || !canAccess(user, 'events', 2)}
-                className="px-6 py-1.5 text-sm bg-cyan-600 hover:bg-cyan-700 text-white rounded transition-colors disabled:opacity-50"
+                className="min-h-11 px-6 py-2 text-sm font-semibold bg-accent-500 hover:bg-accent-400 text-gray-950 rounded transition-colors disabled:opacity-50"
               >
                 {saving ? 'Сохранение...' : 'Сохранить'}
               </button>

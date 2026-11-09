@@ -3,7 +3,7 @@ import type { UserRole, UserStatus } from './supabase';
 export const MODULES = [
   ['calendar', 'Календарь'], ['events', 'Мероприятия'], ['budgets', 'Сметы'],
   ['specifications', 'Складская спецификация'], ['equipment', 'Оборудование'],
-  ['contacts', 'Справочники'], ['templates', 'Шаблоны смет'], ['payments', 'Выплаты'],
+  ['contacts', 'Справочники'], ['templates', 'Шаблоны смет'], ['payments', 'Бухгалтерия'],
   ['personnel-report', 'Отчёт по выплатам'], ['staff', 'Персонал'],
   ['dashboard', 'Главная'], ['logistics', 'Гараж'], ['users', 'Пользователи'],
   ['roles', 'Роли и доступ'], ['settings', 'Настройки'],

@@ -110,7 +110,7 @@ export function TemplatesInBudget({ eventId, budgetId, onClose, onApply }: Templ
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
                 placeholder="Например: Звуковая система"
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 min-h-11"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Оставьте пусто для использования названия шаблона
@@ -127,7 +127,7 @@ export function TemplatesInBudget({ eventId, budgetId, onClose, onApply }: Templ
               <button
                 onClick={() => handleConfirmApply(selectedTemplate)}
                 disabled={applying === selectedTemplate.id}
-                className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="min-h-11 flex-1 px-4 py-2 bg-accent-500 text-gray-950 rounded-lg hover:bg-accent-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 {applying === selectedTemplate.id ? 'Применение...' : 'Применить'}
@@ -160,7 +160,7 @@ export function TemplatesInBudget({ eventId, budgetId, onClose, onApply }: Templ
               placeholder="Поиск шаблонов..."
               {...searchInputProps} value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+              className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 min-h-11"
             />
           </div>
 
@@ -194,7 +194,7 @@ export function TemplatesInBudget({ eventId, budgetId, onClose, onApply }: Templ
                   <button
                     onClick={() => handleApplyTemplate(template)}
                     disabled={applying === template.id}
-                    className="ml-4 flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+                    className="min-h-11 ml-4 flex items-center gap-2 px-4 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors disabled:opacity-50 text-sm"
                   >
                     <Plus className="w-4 h-4" />
                     {applying === template.id ? 'Применение...' : 'Применить'}
@@ -208,7 +208,7 @@ export function TemplatesInBudget({ eventId, budgetId, onClose, onApply }: Templ
         <div className="border-t border-gray-700 p-6 bg-gray-800/50">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors min-h-11"
           >
             Закрыть
           </button>

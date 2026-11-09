@@ -4,10 +4,11 @@
 
 /* A classic scrollbar must not narrow the event grid relative to the day grid. */
 .calendar-events-scroll {
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: #797269 transparent;
 }
 .calendar-events-scroll::-webkit-scrollbar {
-  display: none;
+  width: 4px;
 }
 
 /* iOS zooms focused form controls when their text is smaller than 16px.
@@ -47,7 +48,7 @@
   .custom-scrollbar {
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #6b7280 #374151;
+    scrollbar-color: #797269 #302D28;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -56,22 +57,22 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: #374151;
+    background: #302D28;
     border-radius: 5px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #6b7280;
+    background: #797269;
     border-radius: 5px;
-    border: 2px solid #374151;
+    border: 2px solid #302D28;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
+    background: #B4ADA3;
   }
 
   .custom-scrollbar::-webkit-scrollbar-corner {
-    background: #374151;
+    background: #302D28;
   }
 
   /* Always show scrollbar for webkit browsers */
@@ -110,4 +111,40 @@
 }
 @media (min-width: 640px) {
   #root input.event-page-title { font-size: 1.25rem !important; }
+}
+
+/* Shared foundations for the graphite/brass working interface. */
+@layer base {
+  :root {
+    color-scheme: dark;
+    --surface-canvas: #111110;
+    --surface-panel: #1A1917;
+    --surface-raised: #24221F;
+    --color-accent: #D4AE6B;
+    --color-surface: #1A1917;
+    --color-border: #302D28;
+    --color-border-strong: #49443D;
+    --color-text: #F0EDE7;
+    --color-text-muted: #B4ADA3;
+    --color-accent-soft: #30291C;
+  }
+  body {
+    background: var(--surface-canvas);
+    color: #F0EDE7;
+    font-variant-numeric: lining-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: #594626; color: #FAF8F4; }
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

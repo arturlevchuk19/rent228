@@ -189,7 +189,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
         <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-[500px] overflow-hidden">
           <div className="flex justify-center items-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500"></div>
           </div>
         </div>
       </div>
@@ -201,7 +201,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
       <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-[600px] overflow-hidden max-h-[80vh]">
         <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-cyan-500" />
+            <Calculator className="w-5 h-5 text-accent-500" />
             <h3 className="text-lg font-bold text-white">
               Спецификация подиума
             </h3>
@@ -219,7 +219,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
             <h4 className="text-sm font-medium text-white mb-2">
               {budgetItem?.equipment?.name || budgetItem?.name || 'Подиум'}
               {dimensions && (
-                <span className="text-cyan-400 ml-2">
+                <span className="text-accent-400 ml-2">
                   {dimensions.width}×{dimensions.depth}м ({dimensions.area.toFixed(2)} м²)
                 </span>
               )}
@@ -237,10 +237,10 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
                   {totalElementArea.toFixed(2)} / {requiredArea.toFixed(2)} м² ({Math.round(progress)}%)
                 </span>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden min-h-11">
                 <div 
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-cyan-500' : progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                  className={`h-full rounded-full transition-colors duration-300 ${
+                    progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-accent-500' : progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                   }`}
                   style={{ width: `${progress}%` }}
                 />
@@ -257,7 +257,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
               <button
                 onClick={() => setActiveModulesTab('platform')}
                 className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  activeModulesTab === 'platform' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  activeModulesTab === 'platform' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
               >
                 Площадка ({platformModules.length})
@@ -265,7 +265,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
               <button
                 onClick={() => setActiveModulesTab('legs')}
                 className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  activeModulesTab === 'legs' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  activeModulesTab === 'legs' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
               >
                 Ноги ({legModules.length})
@@ -332,7 +332,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
                     handleLoadAvailableModules();
                   }
                 }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors min-h-11"
               >
                 {showAddModule ? <ChevronDown className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 Добавить элемент из справочника
@@ -342,7 +342,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
                 <div className="mt-4 bg-gray-800/30 rounded-lg p-4">
                   {loadingModules ? (
                     <div className="flex justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-500"></div>
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-500"></div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -350,7 +350,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
                         <button
                           onClick={() => setActiveAvailableTab('platform')}
                           className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                            activeAvailableTab === 'platform' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                            activeAvailableTab === 'platform' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                           }`}
                         >
                           Площадка ({availablePlatformModules.length})
@@ -358,7 +358,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
                         <button
                           onClick={() => setActiveAvailableTab('legs')}
                           className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                            activeAvailableTab === 'legs' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                            activeAvailableTab === 'legs' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                           }`}
                         >
                           Ноги ({availableLegModules.length})
@@ -375,7 +375,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
                           </div>
                           <button
                             onClick={() => handleAddModule(module, 1)}
-                            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white text-xs rounded transition-colors"
+                            className="min-h-11 px-3 py-1 bg-accent-500 hover:bg-accent-400 text-gray-950 text-xs rounded transition-colors"
                           >
                             Добавить
                           </button>
@@ -411,7 +411,7 @@ export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, o
               </button>
               <button
                 onClick={handleSave}
-                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="min-h-11 px-6 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 text-sm font-medium rounded-lg transition-colors"
               >
                 Сохранить
               </button>

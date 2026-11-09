@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Package, Plus, Pencil, Trash2, Search, Filter, Eye } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
 import {
   getEquipmentPage,
   getEquipmentCategories,
@@ -132,13 +132,13 @@ export function Equipment() {
     <div className="space-y-4">
       <div hidden>
         <div className="flex items-center gap-2">
-          <Package className="w-6 h-6 text-cyan-500" />
+          <Package className="w-6 h-6 text-accent-500" />
           <h1 className="text-2xl font-bold text-white">Оборудование</h1>
         </div>
         <div className="flex gap-2">
           <MobileHeaderContent><button disabled={!canAccess(user, 'equipment', 2)}
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm"
+            className="flex items-center gap-2 min-h-11 px-3 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
             Добавить
@@ -146,7 +146,7 @@ export function Equipment() {
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-lg border border-gray-800 p-3">
+      <div className="rounded-xl bg-gray-900 p-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -155,7 +155,7 @@ export function Equipment() {
               placeholder="Поиск..."
               {...searchInputProps} value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+              className="w-full min-h-11 pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
             />
           </div>
 
@@ -164,7 +164,7 @@ export function Equipment() {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
+              className="w-full min-h-11 pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 appearance-none"
             >
               <option value="all">Все категории</option>
               {categories.map(cat => (
@@ -178,7 +178,7 @@ export function Equipment() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 appearance-none"
+              className="w-full min-h-11 pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 appearance-none"
             >
               <option value="all">Все типы</option>
               {types.map(type => (
@@ -189,24 +189,24 @@ export function Equipment() {
         </div>
       </div>
 
-      <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full tabular-nums">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Наименование
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Категория / Тип
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Кол-во
                 </th>
-                <th className="px-4 py-2 text-left text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
                   Цена $
                 </th>
-                <th className="px-4 py-2 text-right text-[11px] font-medium text-gray-400 tracking-wider">
+                <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
                   Действия
                 </th>
               </tr>
@@ -220,9 +220,11 @@ export function Equipment() {
                 </tr>
               ) : (
                 visibleItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-800/50 transition-colors group">
+                  <tr key={item.id} tabIndex={0} aria-label={`Посмотреть ${item.name}`} onClick={() => setViewingItem(item)} onKeyDown={event => {
+                    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setViewingItem(item); }
+                  }} className="cursor-pointer hover:bg-gray-800/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 transition-colors group">
                     <td className="px-4 py-2">
-                      <div className="text-white font-medium text-sm leading-tight">{item.name}</div>
+                      <div className="text-white font-medium text-sm leading-snug">{item.name}</div>
                       {item.note && (
                         <div className="text-xs text-gray-400 mt-0.5 leading-tight">{item.note}</div>
                       )}
@@ -234,28 +236,21 @@ export function Equipment() {
                     <td className="px-4 py-2">
                       <div className="text-white font-medium text-sm">{item.quantity} {item.unit}</div>
                     </td>
-                    <td className="px-4 py-2 text-white text-sm">
+                    <td className="px-4 py-2 text-right text-gray-100 text-sm tabular-nums">
                       {item.rental_price > 0 ? `${item.rental_price}` : '-'}
                     </td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-right" onClick={event => event.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => setViewingItem(item)}
-                          className="p-1.5 text-gray-400 hover:bg-gray-700 rounded transition-colors"
-                          title="Просмотр деталей"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
                         <button disabled={!canAccess(user, 'equipment', 2)}
                           onClick={() => handleEdit(item)}
-                          className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors"
+                          className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors"
                           title="Редактировать"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button disabled={!canAccess(user, 'equipment', 3)}
                           onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                          className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
                           title="Удалить"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -273,20 +268,19 @@ export function Equipment() {
             <div className="px-4 py-8 text-center text-gray-500 text-sm">Оборудование не найдено</div>
           ) : (
             visibleItems.map((item) => (
-              <div key={item.id} className="p-3 space-y-1.5">
+              <div key={item.id} tabIndex={0} aria-label={`Посмотреть ${item.name}`} onClick={() => setViewingItem(item)} onKeyDown={event => {
+                if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setViewingItem(item); }
+              }} className="cursor-pointer p-4 space-y-2.5 hover:bg-gray-800/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="text-white font-medium text-sm leading-tight">{item.name}</div>
+                    <div className="text-white font-medium text-sm leading-snug">{item.name}</div>
                     {item.note && <div className="text-xs text-gray-400 leading-tight mt-0.5">{item.note}</div>}
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => setViewingItem(item)} className="p-1.5 text-gray-400 hover:bg-gray-700 rounded transition-colors">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button disabled={!canAccess(user, 'equipment', 2)} onClick={() => handleEdit(item)} className="p-1.5 text-cyan-400 hover:bg-cyan-900/30 rounded transition-colors">
+                  <div className="flex items-center gap-1 flex-shrink-0" onClick={event => event.stopPropagation()}>
+                    <button aria-label={`Редактировать ${item.name}`} disabled={!canAccess(user, 'equipment', 2)} onClick={() => handleEdit(item)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button disabled={!canAccess(user, 'equipment', 3)} onClick={() => handleDelete(item.id)} className="p-1.5 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                    <button aria-label={`Удалить ${item.name}`} disabled={!canAccess(user, 'equipment', 3)} onClick={() => handleDelete(item.id)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -296,10 +290,10 @@ export function Equipment() {
                   <span className="text-gray-600">·</span>
                   <span className="text-gray-500">{item.type}{item.subtype && ` / ${item.subtype}`}</span>
                 </div>
-                <div className="flex items-center gap-4 text-xs">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm tabular-nums">
                   <span className="text-gray-400">Кол-во: <span className="text-white font-medium">{item.quantity} {item.unit}</span></span>
                   {item.rental_price > 0 && (
-                    <span className="text-gray-400">Цена: <span className="text-cyan-400 font-medium">${item.rental_price}</span></span>
+                    <span className="text-gray-400">Цена: <span className="text-gray-100 font-medium tabular-nums">${item.rental_price}</span></span>
                   )}
                 </div>
               </div>
@@ -308,9 +302,9 @@ export function Equipment() {
         </div>
       </div>
 
-      {loading && <p role="status" className="py-3 text-center text-sm text-gray-400">Загрузка...</p>}
-      {error && <div role="alert" className="text-center text-sm text-red-400">{error}<button type="button" onClick={() => void loadPage(offset.current === 0, generation.current)} className="ml-2 text-cyan-400">Повторить</button></div>}
-      {!error && !loading && items.length < total && <div ref={sentinel} className="h-10 text-center text-sm text-gray-400" role="status">{loadingMore ? 'Загрузка...' : 'Прокрутите для загрузки'}</div>}
+      {loading && <p role="status" className="py-3 text-center text-sm text-gray-400">Загрузка…</p>}
+      {error && <div role="alert" className="text-center text-sm text-red-400">{error}<button type="button" onClick={() => void loadPage(offset.current === 0, generation.current)} className="ml-2 text-accent-400">Повторить</button></div>}
+      {!error && !loading && items.length < total && <div ref={sentinel} className="h-10 text-center text-sm text-gray-400" role="status">{loadingMore ? 'Загрузка…' : 'Прокрутите для загрузки'}</div>}
 
       {showForm && (
             <EquipmentForm

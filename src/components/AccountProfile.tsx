@@ -20,9 +20,9 @@ export function AccountProfile() {
   if (!user) return null;
   const begin = () => { setBusy(true); setError(''); setMessage(''); };
   return <div className="space-y-6">
-    <div className="rounded-xl border border-gray-700 bg-gray-800/60 p-4 sm:p-5">
-      <p className="mb-1 text-xs text-gray-400">ID пользователя</p><p className="break-all font-mono text-xs text-cyan-400 sm:text-sm">{user.id}</p>
-      <p className="mt-3 flex items-center gap-2 text-sm text-gray-300"><ShieldCheck className="h-4 w-4 text-cyan-500" />{user.role_name || ROLE_NAMES[user.role]}</p>
+    <div className="rounded-xl bg-gray-800/40 p-4 sm:p-5">
+      <p className="mb-1 text-xs text-gray-400">ID пользователя</p><p className="break-all font-mono text-xs text-gray-200 sm:text-sm">{user.id}</p>
+      <p className="mt-3 flex items-center gap-2 text-sm text-gray-300"><ShieldCheck className="h-4 w-4 text-accent-500" />{user.role_name || ROLE_NAMES[user.role]}</p>
     </div>
     {error && <p role="alert" className="rounded-lg border border-red-800 bg-red-900/20 p-3 text-sm text-red-300">{error}</p>}
     {message && <p role="status" className="rounded-lg border border-emerald-800 bg-emerald-900/20 p-3 text-sm text-emerald-300">{message}</p>}
@@ -37,10 +37,10 @@ export function AccountProfile() {
       } catch (caught) { setError(getErrorMessage(caught)); } finally { setBusy(false); }
     }}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2 text-sm text-gray-300"><span>Логин</span><input readOnly value={user.email} className={`${accountInput} text-gray-400`} /></label>
-        <label className="space-y-2 text-sm text-gray-300"><span>Имя</span><input value={name} onChange={event => setName(event.target.value)} maxLength={120} autoComplete="name" disabled={busy} required className={accountInput} /></label>
+        <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Логин</span><input readOnly value={user.email} className={`${accountInput} text-gray-400`} /></label>
+        <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Имя</span><input value={name} onChange={event => setName(event.target.value)} maxLength={120} autoComplete="name" disabled={busy} required className={accountInput} /></label>
       </div>
-      <label className="block space-y-2 text-sm text-gray-300"><span>E-mail</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" disabled={busy} required className={accountInput} /><span className="block text-xs text-gray-500">Используется для входа. Изменение адреса подтверждается по электронной почте.</span></label>
+      <label className="block space-y-2 text-sm text-gray-300"><span>E-mail</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" disabled={busy} required className={accountInput} /><span className="block text-xs text-gray-400">Используется для входа. Изменение адреса подтверждается по электронной почте.</span></label>
       <div className="flex justify-end"><button disabled={busy} className={accountButton}>{busy ? 'Сохранение...' : 'Сохранить профиль'}</button></div>
     </form>
     <form className="space-y-4 border-t border-gray-800 pt-6" onSubmit={async event => {
@@ -53,8 +53,8 @@ export function AccountProfile() {
     }}>
       <h3 className="font-semibold text-white">Смена пароля</h3>
       <div className="grid gap-4 md:grid-cols-3"><PasswordField label="Текущий пароль" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password" disabled={busy} /><PasswordField label="Новый пароль" value={newPassword} onChange={setNewPassword} disabled={busy} /><PasswordField label="Ещё раз" value={repeatPassword} onChange={setRepeatPassword} disabled={busy} /></div>
-      <p className="text-xs text-gray-500">Минимум 8 символов, одна заглавная буква и одна цифра.</p>
-      <div className="flex justify-end"><button disabled={busy} className="rounded-lg border border-gray-700 px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-50">Сменить пароль</button></div>
+      <p className="text-xs text-gray-400">Минимум 8 символов, одна заглавная буква и одна цифра.</p>
+      <div className="flex justify-end"><button disabled={busy} className="min-h-11 rounded-lg border border-gray-700 px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-50">Сменить пароль</button></div>
     </form>
     <button type="button" disabled={busy} onClick={async () => { begin(); try { await signOut(); } catch (caught) { setError(getErrorMessage(caught)); setBusy(false); } }} className="flex w-full items-center gap-3 rounded-lg border border-red-800 bg-red-900/30 px-4 py-3 text-left text-sm font-medium text-red-300 hover:bg-red-900/50 disabled:opacity-50"><LogOut className="h-4 w-4" />Выйти из аккаунта</button>
   </div>;
