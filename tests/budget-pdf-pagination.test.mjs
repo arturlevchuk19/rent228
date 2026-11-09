@@ -28,3 +28,10 @@ const measured = exports.measurePdfBlocks(container, 300);
 const measuredPages = paginatePdf(1220,300,measured);
 assert.equal(measuredPages.length,5);
 assert.ok(measuredPages.slice(0,-1).every(page=>page.bottom-page.top>=270));
+// A heading preference must not reserve half a page and leave a large blank.
+const rows = Array.from({length:10},(_,i)=>({top:i*20,bottom:(i+1)*20}));
+assert.deepEqual(paginatePdf(200,100,[...rows,{top:40,bottom:120,keepWithNext:true}]),[{top:0,bottom:100},{top:100,bottom:200}]);
+// Small heading + first-row groups still move together when they fit.
+assert.deepEqual(paginatePdf(150,100,[{top:90,bottom:105,keepWithNext:true}]),[{top:0,bottom:90},{top:90,bottom:150}]);
+// Conflicting overlapping preferences cannot keep shifting a cut backwards.
+assert.deepEqual(paginatePdf(180,100,[{top:0,bottom:60},{top:60,bottom:120},{top:50,bottom:110,keepWithNext:true}]),[{top:0,bottom:60},{top:60,bottom:160},{top:160,bottom:180}]);

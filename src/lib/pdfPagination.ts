@@ -1,9 +1,34 @@
-export interface PdfBlock { top: number; bottom: number; }
+export interface PdfBlock { top: number; bottom: number; keepWithNext?: boolean; }
 
 /** Page cuts stay outside protected rows and text lines. Oversize rows may
  * continue on another page, but individual text lines are still protected. */
 export function paginatePdf(height: number, pageHeight: number, blocks: PdfBlock[]): PdfBlock[] {
-  const protectedBlocks = blocks.filter(block => block.bottom > block.top && block.bottom - block.top <= pageHeight);
+  // Whole rows/text lines take precedence over heading preferences. Resolve
+  // overlapping constraints first so one cut cannot cascade back across a page.
+  let protectedBlocks: PdfBlock[] = [];
+  const orderedBlocks = [...blocks.filter(block => !block.keepWithNext), ...blocks.filter(block => block.keepWithNext)];
+  for (const block of orderedBlocks) {
+    if (block.bottom <= block.top || block.bottom - block.top > pageHeight) continue;
+    let merged = { top: block.top, bottom: block.bottom };
+    const overlaps: PdfBlock[] = [];
+    let changed: boolean;
+    do {
+      changed = false;
+      for (const existing of protectedBlocks) {
+        if (!overlaps.includes(existing) && existing.top < merged.bottom && existing.bottom > merged.top) {
+          overlaps.push(existing);
+          merged = { top: Math.min(merged.top, existing.top), bottom: Math.max(merged.bottom, existing.bottom) };
+          changed = true;
+        }
+      }
+    } while (changed);
+    // A heading may accompany the first row, but must not pull a large chunk
+    // of the estimate onto the next sheet. Rows themselves remain indivisible.
+    const limit = block.keepWithNext ? pageHeight * 0.2 : pageHeight;
+    if (merged.bottom - merged.top > limit) continue;
+    protectedBlocks = protectedBlocks.filter(existing => !overlaps.includes(existing));
+    protectedBlocks.push(merged);
+  }
   const pages: PdfBlock[] = [];
   let top = 0;
   while (top < height) {
@@ -42,7 +67,7 @@ export function measurePdfBlocks(container: HTMLElement, pageHeight: number): Pd
     const top = section.tagName === 'SECTION' && section.querySelector('table') === table
       ? section.getBoundingClientRect().top : category.getBoundingClientRect().top;
     const bottom = firstRow.getBoundingClientRect().bottom;
-    if (bottom - top <= pageHeight) add({ top, bottom });
+    if (bottom - top <= pageHeight * 0.2) blocks.push({ top: Math.max(0, Math.round(top - origin)), bottom: Math.round(bottom - origin), keepWithNext: true });
   });
   // Protect rendered lines even for a note/position longer than a full page.
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
