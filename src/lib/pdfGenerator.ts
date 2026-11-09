@@ -406,7 +406,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
 
       locationHtml += `
-       <div style="margin-bottom: 22px;">
+       <div style="margin-bottom: 8px;">
         <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
           <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
           <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
@@ -556,7 +556,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const categoryTotal = isCombinedOnlyMode ? categoryTotalCombined : categoryTotalDay1;
 
         return `
-          <div style="margin-bottom: 22px;">
+          <div style="margin-bottom: 8px;">
             <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
               <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
               <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
