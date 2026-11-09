@@ -2,7 +2,7 @@ import fs from 'node:fs';import ts from 'typescript';import assert from 'node:as
 let html='';
 const pageLabels=[];
 globalThis.window={scrollX:0,scrollY:0,innerHeight:900};
-const nativeTimeout=globalThis.setTimeout;globalThis.setTimeout=(fn,ms)=>nativeTimeout(fn,ms).unref();
+const nativeTimeout=globalThis.setTimeout;globalThis.setTimeout=(fn,ms)=>ms===0?nativeTimeout(fn,ms):nativeTimeout(fn,ms).unref();
 globalThis.Image=class { width=10;height=10;set src(value){queueMicrotask(()=>this.onload());} };
 globalThis.document={documentElement:{clientWidth:1200},fonts:{ready:Promise.resolve()},createElement:tag=>tag==='canvas'?{getContext:()=>({drawImage:()=>{}}),toDataURL:()=> 'data:image/png;base64,AA'}:{style:{},innerHTML:'',scrollHeight:1000,getBoundingClientRect:()=>({width:800,top:0,left:0}),remove:()=>{}},body:{appendChild:element=>{html=element.innerHTML;}}};
 globalThis.requestAnimationFrame=callback=>{callback();return 1;};

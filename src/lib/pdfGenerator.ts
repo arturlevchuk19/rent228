@@ -966,13 +966,20 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const canvas = await html2canvas(container, {
         scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
         imageTimeout: 5000, removeContainer: true,
+        // The export container lives directly under body, outside the app.
+        // Avoid cloning the full editor, its dialogs and images for every page.
+        ignoreElements: element => element.id === 'root',
         x: rect.left + window.scrollX, y: rect.top + window.scrollY + page.top,
         width: rect.width, height: page.bottom - page.top,
         windowWidth: document.documentElement.clientWidth,
         windowHeight: window.innerHeight
       });
       if (index) pdf.addPage();
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, marginY, pageWidth, (page.bottom - page.top) / pixelsPerMm);
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, marginY, pageWidth, (page.bottom - page.top) / pixelsPerMm, undefined, 'FAST');
+      // Release each page's backing buffer before rendering the next page.
+      canvas.width = 0;
+      canvas.height = 0;
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
       pdf.text(`Страница ${index + 1}`, pageWidth - 12, pageHeight - 8, { align: 'right' });
     }
   } finally {
