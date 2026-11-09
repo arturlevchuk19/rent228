@@ -10,8 +10,8 @@ export function lineEstimate(line:ClaimLine,person:ClaimPerson|null,rates:ClaimR
  let rate=0,minutes=0,amount=0;
  if(line.kind==='time'){
   try{minutes=(+new Date(minskInstant(line.ends_at||''))- +new Date(minskInstant(line.starts_at||'')))/60000;}catch{minutes=0;}
-  rate=snapshot&&line.rate!==undefined?number(line.rate):/склад|загрузка|разгрузка/i.test(line.work_name||'')?number(person?.warehouse_rate):number(person?.installation_rate);
-  if((snapshot&&line.calculation==='fixed')||(!snapshot&&!/^(монтаж|демонтаж|загрузка|разгрузка)$/i.test((line.work_name||'').trim()))){
+  rate=snapshot&&line.rate!==undefined?number(line.rate):/загрузка|разгрузка/i.test(line.work_name||'')?number(person?.warehouse_rate):/склад/i.test(line.work_name||'')?number(person?.warehouse_work_rate??10):number(person?.installation_rate);
+  if((snapshot&&line.calculation==='fixed')||(!snapshot&&!/^(монтаж|демонтаж|загрузка|разгрузка)$|склад/i.test((line.work_name||'').trim()))){
    amount=round(snapshot?number(line.amount):fixedRates[line.work_name||'']??NaN);rate=minutes>0?round(amount*60/minutes):0;
   }else{rate=round(rate);amount=round(rate*Math.max(0,minutes)/60);}
  }else if(line.kind==='trip'){rate=snapshot&&line.rate!==undefined?number(line.rate):tripRate(rates,line.own_car,line.own_fuel);rate=round(rate);amount=round(number(line.kilometers)*rate);}

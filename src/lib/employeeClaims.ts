@@ -7,7 +7,7 @@ export interface ClaimLine {
  break_minutes?:number|string; kilometers?:number|string; own_car?:boolean; own_fuel?:boolean;
  description?:string; receipt_path?:string; amount?:number|string; rate?:number|string; minutes?:number; calculation?:'fixed'|'hourly'; budget_id?:string;
 }
-export interface ClaimPerson {id:string;full_name:string;account_user_id?:string;installation_rate:number;warehouse_rate:number;}
+export interface ClaimPerson {id:string;full_name:string;account_user_id?:string;installation_rate:number;warehouse_rate:number;warehouse_work_rate?:number;}
 export interface ClaimEvent {id:string;name:string;event_date:string;event_end_date?:string;deadline:string|null;status?:string;}
 export interface ClaimRates {driver_rate:number;car_rate:number;fuel_rate:number;}
 export interface EmployeeClaim {id:string;user_id:string;personnel_id:string;employee_name:string;event_id:string|null;event_name:string;state:ClaimState;lines:ClaimLine[];work_amount:number;expense_amount:number;total:number;revision:number;review_note:string;created_at:string;updated_at:string;}

@@ -8,6 +8,8 @@ BEGIN
  INSERT INTO public.users(id,email,full_name,role,status) VALUES(staff_a,staff_a||'@claims-test.invalid','Test claims A','staff','active'),(staff_b,staff_b||'@claims-test.invalid','Test claims B','staff','active') ON CONFLICT(id) DO UPDATE SET role='staff',status='active';
  INSERT INTO public.personnel(user_id,account_user_id,full_name,installation_rate,warehouse_rate) VALUES(admin_id,staff_a,'Test claims A',15,10) RETURNING id INTO person_a;
  INSERT INTO public.personnel(user_id,account_user_id,full_name,installation_rate,warehouse_rate) VALUES(admin_id,staff_b,'Test claims B',20,12) RETURNING id INTO person_b;
+ IF (SELECT warehouse_work_rate FROM public.personnel WHERE id=person_b)<>10 THEN RAISE EXCEPTION 'Warehouse work default must be 10'; END IF;
+ UPDATE public.personnel SET warehouse_work_rate=17 WHERE id=person_a;
  INSERT INTO public.events(name,event_date,event_end_date,status,project_details) VALUES('__claims deadline__',(today-3)::text,(today-3)::text,'Подтверждено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO live_event;
  INSERT INTO public.events(name,event_date,event_end_date,status,project_details) VALUES('__claims expired__',(today-4)::text,(today-4)::text,'Подтверждено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO expired_event;
  INSERT INTO public.events(name,event_date,event_end_date,status,project_details) VALUES('__claims multi__',(today-10)::text,(today-3)::text,'Подтверждено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO multi_event;
@@ -28,6 +30,7 @@ BEGIN
  IF (SELECT amount FROM public.employee_claim_fixed_rates(live_event) WHERE name='Светорежиссёр')<>326 THEN RAISE EXCEPTION 'Noncash unit conversion wrong'; END IF;
  UPDATE public.event_budgets SET settings=settings||'{"budget_payment_mode":"usd","budget_exchange_rate":1}'::jsonb WHERE id=primary_budget;
  IF (SELECT count(*) FROM public.event_budgets WHERE event_id=live_event AND is_primary)<>1 THEN RAISE EXCEPTION 'Primary must be unique'; END IF;
+ UPDATE public.events SET project_details=jsonb_set(project_details,'{people_works}',(project_details->'people_works')||'[{"id":"warehouse","name":"Работа на складе"}]'::jsonb) WHERE id=cancelled_event;
  path=staff_a||'/receipt-test.jpg';
  INSERT INTO storage.objects(bucket_id,name) VALUES('claim-receipts',path);
  SELECT count(*) INTO legacy_count FROM public.payments;
@@ -39,6 +42,7 @@ BEGIN
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',staff_a,'role','authenticated')::text,true);
  EXECUTE 'SET LOCAL ROLE authenticated';
  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.employee_claim_bootstrap()->'events') x WHERE x->>'id'=live_event::text) THEN RAISE EXCEPTION 'Unassigned event not offered'; END IF;
+ IF (public.employee_claim_bootstrap()->'personnel'->>'warehouse_work_rate')::numeric<>17 THEN RAISE EXCEPTION 'Warehouse work rate missing in bootstrap'; END IF;
  IF public.employee_claim_deadline((today-10)::text,(today-3)::text) IS DISTINCT FROM today THEN RAISE EXCEPTION 'Deadline must use event end plus three days'; END IF;
  PERFORM public.employee_claim_save(retry_id,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание','amount',5)),false);
  denied=false;BEGIN PERFORM public.employee_claim_save(retry_id,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание','amount',5)),false);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Заявка уже%';END;
@@ -59,8 +63,10 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.employee_claim_bootstrap()->'events') x WHERE x->>'id'=cancelled_event::text) THEN RAISE EXCEPTION 'Cancelled event hidden from employee'; END IF;
  paid=public.employee_claim_save(NULL,cancelled_event,jsonb_build_array(payload->1,
  jsonb_build_object('kind','time','work_name','Загрузка','starts_at',(today-2)||'T10:00:00+03:00','ends_at',(today-2)||'T11:00:00+03:00','rate',9999,'amount',9999,'calculation','fixed'),
- jsonb_build_object('kind','time','work_name','Разгрузка','starts_at',(today-2)||'T11:00:00+03:00','ends_at',(today-2)||'T12:30:00+03:00','rate',9999)),true);
- IF paid.total<>105 OR (paid.lines->1->>'amount')::numeric<>10 OR (paid.lines->2->>'amount')::numeric<>15 OR (paid.lines->1->>'rate')::numeric<>10 OR paid.lines->1->>'calculation'<>'hourly' THEN RAISE EXCEPTION 'Warehouse hourly calculation incorrect'; END IF;
+ jsonb_build_object('kind','time','work_name','Разгрузка','starts_at',(today-2)||'T11:00:00+03:00','ends_at',(today-2)||'T12:30:00+03:00','rate',9999),
+ jsonb_build_object('kind','time','work_name','Работа на складе','starts_at',(today-2)||'T12:30:00+03:00','ends_at',(today-2)||'T14:30:00+03:00','rate',9999)),true);
+ IF (paid.lines->3->>'amount')::numeric<>34 OR (paid.lines->3->>'rate')::numeric<>17 THEN RAISE EXCEPTION 'Warehouse work uses wrong rate'; END IF;
+ IF paid.total<>139 OR (paid.lines->1->>'amount')::numeric<>10 OR (paid.lines->2->>'amount')::numeric<>15 OR (paid.lines->1->>'rate')::numeric<>10 OR paid.lines->1->>'calculation'<>'hourly' THEN RAISE EXCEPTION 'Warehouse hourly calculation incorrect'; END IF;
  denied=false;BEGIN PERFORM public.employee_claim_save(NULL,expired_event,jsonb_build_array(payload->1),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Срок подачи%';END;
  IF NOT denied THEN RAISE EXCEPTION 'Fourth day submission accepted'; END IF;
  denied=false;BEGIN PERFORM public.employee_claim_save(NULL,bad_event,jsonb_build_array(payload->1),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Срок подачи%';END;

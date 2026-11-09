@@ -11,7 +11,7 @@ export function orderedPeopleWorks(works: WorkItem[]): PeopleWork[] {
   return [...first, ...works.filter(work => !first.some(row => row.id === work.id)).sort((a, b) => a.name.localeCompare(b.name, 'ru'))];
 }
 export function peopleWorkRate(person: Personnel, workName: string): string {
-  return String(/склад|загрузка|разгрузка/i.test(workName) ? person.warehouse_rate ?? 0 : person.installation_rate ?? 0);
+  return String(/загрузка|разгрузка/i.test(workName) ? person.warehouse_rate ?? 0 : /склад/i.test(workName) ? person.warehouse_work_rate ?? 10 : person.installation_rate ?? 0);
 }
 export function addWorkPeople(current: ProjectPerson[], selected: Personnel[], work: PeopleWork, id: () => string): ProjectPerson[] {
   return [...current, ...selected.filter(person => isAssignablePersonnel(person) && !current.some(row => row.personnel_id === person.id && (row.work_id === work.id || (!row.work_id && row.work_name === work.name)))).map(person => ({

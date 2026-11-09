@@ -10,6 +10,7 @@ export interface Personnel {
   employment_type?: 'staff' | 'freelance';
   installation_rate?: number;
   warehouse_rate?: number;
+  warehouse_work_rate?: number;
   rate_percentage: number;
   drivers_license: string;
   phone: string;
