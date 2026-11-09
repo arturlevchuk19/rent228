@@ -50,3 +50,13 @@ assert.equal(fontBlocks.length,12,'Normal rows need no extra font rectangles');
 assert.deepEqual(paginatePdf(240,100,fontBlocks),[{top:0,bottom:100},{top:100,bottom:200},{top:200,bottom:240}]);
 // The final item travels with both category totals; preceding items can split.
 assert.deepEqual(paginatePdf(150,100,[{top:80,bottom:110},{top:110,bottom:130},{top:130,bottom:150},{top:80,bottom:150,keepWithNext:true}]),[{top:0,bottom:80},{top:80,bottom:150}]);
+// At a category boundary, two fitting items are insufficient: move its heading
+// and first three items together. Later items may continue on the next page.
+const itemBlocks=Array.from({length:8},(_,i)=>({top:40+i*20,bottom:60+i*20}));
+assert.deepEqual(paginatePdf(200,100,[...itemBlocks,{top:30,bottom:100,keepWithNext:true}]),[{top:0,bottom:100},{top:100,bottom:200}], 'Exactly three items fit');
+assert.deepEqual(paginatePdf(200,90,[...itemBlocks,{top:30,bottom:100,keepWithNext:true}]),[{top:0,bottom:30},{top:30,bottom:120},{top:120,bottom:200}], 'Move heading and items when only two fit');
+const categoryRows=Array.from({length:5},(_,i)=>({getBoundingClientRect:()=>({top:80+i*20,bottom:100+i*20,height:20}),querySelector:()=>null}));
+const categoryTable={parentElement:{parentElement:{tagName:'DIV'},getBoundingClientRect:()=>({top:60})},querySelectorAll:()=>categoryRows};
+const categoryContainer={getBoundingClientRect:()=>({top:0}),querySelectorAll:selector=>selector==='table'?[categoryTable]:categoryRows};
+const categoryBlocks=exports.measurePdfBlocks(categoryContainer,100);
+assert.ok(categoryBlocks.some(block=>block.keepWithNext && block.top===60 && block.bottom===140),'Measurement groups heading with the first three item rows');

@@ -444,7 +444,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const locationTotal = isCombinedOnlyMode ? locationTotalCombined : locationTotalDay1;
 
     const locationTotalRow = (amount: number, period = '') => `
-      <div style="display: flex; justify-content: center; align-items: baseline; gap: 16px; text-align: center;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; text-align: left;">
         <span style="font-size: 17px; font-weight: 700; color: #000000; text-transform: uppercase; line-height: 1.25; min-width: 0; overflow-wrap: anywhere;">Итого локации «${escapeHtml(locationName)}»${period}:</span>
         <span style="font-size: 21px; font-weight: 800; color: #000000; white-space: nowrap; flex-shrink: 0; line-height: 1.25;">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
@@ -455,7 +455,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       </div>`;
 
     const locationHeaderHtml = isNoLocation ? '' : `
-      <div data-pdf-keep style="background: #eeeeee; padding: 8px 10px; margin-bottom: 8px; display: flex; justify-content: center; align-items: center; text-align: center; font-size: 20px; font-weight: 800; line-height: 1.25; text-transform: uppercase; color: #000000; overflow-wrap: anywhere;">
+      <div data-pdf-keep style="background: #eeeeee; padding: 8px 10px; margin-bottom: 8px; display: flex; justify-content: flex-start; align-items: center; text-align: left; font-size: 20px; font-weight: 800; line-height: 1.25; text-transform: uppercase; color: #000000; overflow-wrap: anywhere;">
         ${escapeHtml(displayLocationName)}
       </div>`;
 
@@ -729,7 +729,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       ? ' border-bottom: 2px solid #000000; padding-bottom: 8px;'
       : '';
     return `
-      <div data-pdf-keep style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: ${hasLocations ? 'auto' : '100%'}; min-width: ${hasLocations ? 0 : minWidth}px;${extraContainerStyle}">
+      <div data-pdf-keep style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; min-width: ${minWidth}px;${extraContainerStyle}">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-align: right; line-height: 1.2; flex: 1;"><span style="white-space: nowrap;">${label}</span>${periodPart}:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; color: #000000; text-align: right; white-space: nowrap;${amountDecoration}">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
@@ -878,19 +878,19 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const footerTotalsHtml = isCombinedOnlyMode
     ? `
-      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; ${hasLocations ? 'max-width: 100%;' : 'width: 100%; max-width: 450px;'}">
+      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; max-width: 450px;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : `Итого за ${budgetDays} дн.:`}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
       ${discountRowsHtml}
     `
     : `
-      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; ${hasLocations ? 'max-width: 100%;' : 'width: 100%; max-width: 450px;'}">
+      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; max-width: 450px;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">${budgetDays === 1 ? 'ИТОГО:' : 'Итого за 1 день:'}</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfDay1Total)}${currencySuffix}</span>
       </div>
       ${budgetDays > 1 ? `
-      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; ${hasLocations ? 'max-width: 100%;' : 'width: 100%; max-width: 450px;'}">
+      <div style="display: flex; justify-content: flex-end; align-items: baseline; gap: 8px; width: 100%; max-width: 450px;">
         <span style="font-size: 24px; font-weight: 650; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; line-height: 1.2; flex: 1;">Итого за ${budgetDays} дн.:</span>
         <span style="font-size: 30px; font-weight: 700; line-height: 1.2; text-align: right; white-space: nowrap; color: #000000;">${formatMoney(pdfCombinedTotal)}${currencySuffix}</span>
       </div>
@@ -926,8 +926,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
     ${categoriesHtml}
 
-    <footer style="${hasLocations ? 'margin-top: 16px; background: #eeeeee; padding: 12px 10px;' : 'margin-top: 25px; border-top: 2px solid #000000; padding-top: 15px; padding-bottom: 16px;'} display: flex; justify-content: center;">
-      <div style="display: flex; flex-direction: column; align-items: ${hasLocations ? 'center' : 'flex-end'}; justify-content: center; gap: 6px; padding-right: 0px; width: 100%;">
+    <footer style="${hasLocations ? 'margin-top: 16px; background: #eeeeee; padding: 12px 10px;' : 'margin-top: 25px; border-top: 2px solid #000000; padding-top: 15px; padding-bottom: 16px;'} display: flex; justify-content: flex-end;">
+      <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 6px; padding-right: 0px; width: 100%;">
         ${footerTotalsHtml}
       </div>
     </footer>

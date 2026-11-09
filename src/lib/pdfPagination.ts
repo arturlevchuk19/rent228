@@ -57,9 +57,10 @@ export function measurePdfBlocks(container: HTMLElement, pageHeight: number): Pd
   };
   // Keep table rows, totals and the document header intact.
   container.querySelectorAll<HTMLElement>('header, tr, footer, [data-pdf-keep]').forEach(element => add(element.getBoundingClientRect()));
-  // A category/location heading must travel with its table heading and first row.
+  // Start a category with at least three items (or all items for a short category).
   container.querySelectorAll('table').forEach(table => {
-    const firstRow = table.querySelector('tbody tr');
+    const items = Array.from(table.querySelectorAll('tbody tr')).filter(row => !row.querySelector('td[colspan]'));
+    const firstRow = items[0];
     if (!firstRow) return;
     const category = table.parentElement!;
     const section = category.parentElement!;
@@ -67,7 +68,12 @@ export function measurePdfBlocks(container: HTMLElement, pageHeight: number): Pd
       ? section.getBoundingClientRect().top : category.getBoundingClientRect().top;
     const firstRowRect = firstRow.getBoundingClientRect();
     // For an item taller than a page, accompany its first text line instead.
-    const bottom = firstRowRect.bottom - top <= pageHeight ? firstRowRect.bottom : firstRowRect.top + 24;
+    const thirdRow = items[Math.min(2, items.length - 1)];
+    const preferredBottom = thirdRow.getBoundingClientRect().bottom;
+    // If three exceptionally tall items exceed a sheet, keep as many as fit.
+    const fittingRow = items.slice(0, 3).filter(row => row.getBoundingClientRect().bottom - top <= pageHeight).pop();
+    const bottom = preferredBottom - top <= pageHeight ? preferredBottom
+      : fittingRow ? fittingRow.getBoundingClientRect().bottom : firstRowRect.top + 24;
     if (bottom - top <= pageHeight) blocks.push({ top: Math.max(0, Math.round(top - origin)), bottom: Math.round(bottom - origin), keepWithNext: true });
   });
   // Keep category totals (including multi-day totals) with the final item,
