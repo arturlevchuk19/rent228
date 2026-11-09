@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState } from 'react';
-import { Package, Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Package, Plus, Trash2, Search } from 'lucide-react';
 import { getTemplates, deleteTemplate, Template, getTemplateItemCounts } from '../lib/templates';
 import { TemplateForm } from '../components/TemplateForm';
 
@@ -132,39 +132,32 @@ export function Templates() {
           {filteredTemplates.map(template => (
             <div
               key={template.id}
-              className="min-w-0 bg-gray-900 rounded-xl border border-gray-800 p-4 hover:border-gray-700 transition-colors"
+              className="relative min-w-0 bg-gray-900 rounded-xl border border-gray-800 hover:border-gray-700 transition-colors"
             >
-              <h3 className="font-bold text-white text-base mb-1 whitespace-normal [overflow-wrap:anywhere] sm:truncate">{template.name}</h3>
+              <button type="button" disabled={!canAccess(user, 'templates', 2)} onClick={() => handleEdit(template)} aria-label={`Редактировать шаблон ${template.name}`} className="block h-full w-full rounded-xl p-4 pr-16 text-left hover:bg-gray-800/30 disabled:cursor-default disabled:hover:bg-transparent">
+              <span className="block font-semibold text-white text-base mb-1 whitespace-normal [overflow-wrap:anywhere]">{template.name}</span>
               {template.description && (
-                <p className="text-xs text-gray-400 mb-2 line-clamp-2 leading-tight">
+                <span className="block text-xs text-gray-400 mb-2 line-clamp-2 leading-tight">
                   {template.description}
-                </p>
+                </span>
               )}
 
-              <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
+              <span className="flex items-center gap-2 text-xs text-gray-400 mt-3">
                 <Package className="w-3.5 h-3.5" />
                 <span>
                   {templateDetails[template.id]?.itemCount || 0} элемент
                   {(templateDetails[template.id]?.itemCount || 0) % 10 === 1 && (templateDetails[template.id]?.itemCount || 0) % 100 !== 11 ? '' : 'ов'}
                 </span>
-              </div>
+              </span>
+              </button>
 
-              <div className="flex gap-2">
-                <button disabled={!canAccess(user, 'templates', 2)}
-                  onClick={() => handleEdit(template)}
-                  className="flex-1 flex items-center justify-center gap-2 min-h-11 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  Правка
-                </button>
                 <button disabled={!canAccess(user, 'templates', 3)}
                   aria-label={`Удалить шаблон ${template.name}`}
                   onClick={() => handleDelete(template.id)}
-                  className="flex items-center justify-center min-h-11 px-3 py-2 bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/40 transition-colors"
+                  className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center text-red-400 rounded-lg hover:bg-red-900/30 transition-colors disabled:opacity-40"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
-              </div>
             </div>
           ))}
         </div>

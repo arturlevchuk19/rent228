@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Package, Plus, Pencil, Trash2, Search, Filter, Eye } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
 import {
   getEquipmentPage,
   getEquipmentCategories,
@@ -220,7 +220,9 @@ export function Equipment() {
                 </tr>
               ) : (
                 visibleItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-800/50 transition-colors group">
+                  <tr key={item.id} tabIndex={0} aria-label={`Посмотреть ${item.name}`} onClick={() => setViewingItem(item)} onKeyDown={event => {
+                    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setViewingItem(item); }
+                  }} className="cursor-pointer hover:bg-gray-800/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 transition-colors group">
                     <td className="px-4 py-2">
                       <div className="text-white font-medium text-sm leading-snug">{item.name}</div>
                       {item.note && (
@@ -237,15 +239,8 @@ export function Equipment() {
                     <td className="px-4 py-2 text-right text-gray-100 text-sm tabular-nums">
                       {item.rental_price > 0 ? `${item.rental_price}` : '-'}
                     </td>
-                    <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-right" onClick={event => event.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => setViewingItem(item)}
-                          className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-400 hover:bg-gray-700 rounded transition-colors"
-                          title="Просмотр деталей"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
                         <button disabled={!canAccess(user, 'equipment', 2)}
                           onClick={() => handleEdit(item)}
                           className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors"
@@ -273,16 +268,15 @@ export function Equipment() {
             <div className="px-4 py-8 text-center text-gray-500 text-sm">Оборудование не найдено</div>
           ) : (
             visibleItems.map((item) => (
-              <div key={item.id} className="p-4 space-y-2.5">
+              <div key={item.id} tabIndex={0} aria-label={`Посмотреть ${item.name}`} onClick={() => setViewingItem(item)} onKeyDown={event => {
+                if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setViewingItem(item); }
+              }} className="cursor-pointer p-4 space-y-2.5 hover:bg-gray-800/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-medium text-sm leading-snug">{item.name}</div>
                     {item.note && <div className="text-xs text-gray-400 leading-tight mt-0.5">{item.note}</div>}
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button aria-label={`Посмотреть ${item.name}`} onClick={() => setViewingItem(item)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-400 hover:bg-gray-700 rounded transition-colors">
-                      <Eye className="w-4 h-4" />
-                    </button>
+                  <div className="flex items-center gap-1 flex-shrink-0" onClick={event => event.stopPropagation()}>
                     <button aria-label={`Редактировать ${item.name}`} disabled={!canAccess(user, 'equipment', 2)} onClick={() => handleEdit(item)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors">
                       <Pencil className="w-4 h-4" />
                     </button>
