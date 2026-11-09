@@ -907,7 +907,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           <div style="font-size: 14px; color: #6b7280; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; background: #ffffff; border: 1px solid #000000; border-radius: 12px; padding: 10px 16px; width: 350px; box-sizing: border-box;">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; padding: 10px 0; width: 350px; box-sizing: border-box;">
           <div style="display: flex; flex-direction: column;">
             <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 2px; font-weight: 700;">Дата</span>
             <span style="font-size: 16px; font-weight: 600;">${eventDateDisplayHtml}</span>
