@@ -895,16 +895,15 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     `;
 
   container.innerHTML = `
-    <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 15px;">
-      <div style="display: flex; align-items: center;">
-        <img src="${logoDataURL}" style="width: 128px; height: auto; margin-top: 8px;" alt="Logo" />
+    <header style="display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 15px;">
+      <div style="position: relative; width: 150px; flex-shrink: 0;">
+        <img src="${logoDataURL}" style="position: absolute; top: 0; left: 0; height: 100%; width: auto; max-width: 100%; object-fit: contain; object-position: left top;" alt="Logo" />
       </div>
       
       <div style="width: 350px; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-start;">
         <div style="text-align: left; margin-bottom: 8px;">
           <div style="font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a1a;">Коммерческое предложение</div>
-          <div style="font-size: 14px; color: #6b7280; margin-top: 2px;">Версия ${versionLabel}</div>
-          <div style="font-size: 14px; color: #6b7280; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
+          <div style="font-size: 14px; color: #6b7280; margin-top: 2px; white-space: nowrap;">Версия ${versionLabel} · Дата создания: ${formattedCreatedDate}</div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; padding: 10px 0; width: 350px; box-sizing: border-box;">
