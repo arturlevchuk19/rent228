@@ -22,10 +22,9 @@ export function paginatePdf(height: number, pageHeight: number, blocks: PdfBlock
         }
       }
     } while (changed);
-    // A heading may accompany the first row, but must not pull a large chunk
-    // of the estimate onto the next sheet. Rows themselves remain indivisible.
-    const limit = block.keepWithNext ? pageHeight * 0.2 : pageHeight;
-    if (merged.bottom - merged.top > limit) continue;
+    // Keep headings with the first item even when it takes more than 20%
+    // of a sheet. This does not reserve the rest of the category.
+    if (merged.bottom - merged.top > pageHeight) continue;
     protectedBlocks = protectedBlocks.filter(existing => !overlaps.includes(existing));
     protectedBlocks.push(merged);
   }
@@ -66,8 +65,10 @@ export function measurePdfBlocks(container: HTMLElement, pageHeight: number): Pd
     const section = category.parentElement!;
     const top = section.tagName === 'SECTION' && section.querySelector('table') === table
       ? section.getBoundingClientRect().top : category.getBoundingClientRect().top;
-    const bottom = firstRow.getBoundingClientRect().bottom;
-    if (bottom - top <= pageHeight * 0.2) blocks.push({ top: Math.max(0, Math.round(top - origin)), bottom: Math.round(bottom - origin), keepWithNext: true });
+    const firstRowRect = firstRow.getBoundingClientRect();
+    // For an item taller than a page, accompany its first text line instead.
+    const bottom = firstRowRect.bottom - top <= pageHeight ? firstRowRect.bottom : firstRowRect.top + 24;
+    if (bottom - top <= pageHeight) blocks.push({ top: Math.max(0, Math.round(top - origin)), bottom: Math.round(bottom - origin), keepWithNext: true });
   });
   // Protect rendered lines even for a note/position longer than a full page.
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
