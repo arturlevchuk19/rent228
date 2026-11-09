@@ -48,3 +48,5 @@ const fontContainer={getBoundingClientRect:()=>({top:0}),querySelectorAll:select
 const fontBlocks=exports.measurePdfBlocks(fontContainer,100);
 assert.equal(fontBlocks.length,12,'Normal rows need no extra font rectangles');
 assert.deepEqual(paginatePdf(240,100,fontBlocks),[{top:0,bottom:100},{top:100,bottom:200},{top:200,bottom:240}]);
+// The final item travels with both category totals; preceding items can split.
+assert.deepEqual(paginatePdf(150,100,[{top:80,bottom:110},{top:110,bottom:130},{top:130,bottom:150},{top:80,bottom:150,keepWithNext:true}]),[{top:0,bottom:80},{top:80,bottom:150}]);

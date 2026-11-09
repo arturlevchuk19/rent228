@@ -70,6 +70,17 @@ export function measurePdfBlocks(container: HTMLElement, pageHeight: number): Pd
     const bottom = firstRowRect.bottom - top <= pageHeight ? firstRowRect.bottom : firstRowRect.top + 24;
     if (bottom - top <= pageHeight) blocks.push({ top: Math.max(0, Math.round(top - origin)), bottom: Math.round(bottom - origin), keepWithNext: true });
   });
+  // Keep category totals (including multi-day totals) with the final item,
+  // without reserving the rest of the category or the following location.
+  container.querySelectorAll('table').forEach(table => {
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const lastItem = rows.filter(row => !row.querySelector('td[colspan]')).pop();
+    const lastRow = rows[rows.length - 1];
+    if (!lastItem || !lastRow || lastItem === lastRow) return;
+    const top = Math.round(lastItem.getBoundingClientRect().top - origin);
+    const bottom = Math.round(lastRow.getBoundingClientRect().bottom - origin);
+    if (bottom - top <= pageHeight) blocks.push({ top, bottom, keepWithNext: true });
+  });
   // Protect rendered lines even for a note/position longer than a full page.
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   const range = document.createRange();

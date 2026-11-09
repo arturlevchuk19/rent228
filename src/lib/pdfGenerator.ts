@@ -406,7 +406,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
 
       locationHtml += `
-       <div style="margin-bottom: 22px;">
+       <div style="margin-bottom: ${categoryIdx === sortedCategoryIds.length ? 8 : 22}px;">
         <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
           <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
           <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
@@ -447,18 +447,18 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         <span style="font-size: 21px; font-weight: 800; color: #000000; white-space: nowrap; flex-shrink: 0; line-height: 1.25;">${formatMoney(amount)}${currencySuffix}</span>
       </div>`;
     const locationTotalsHtml = isNoLocation ? '' : `
-      <div data-pdf-keep style="background: #eeeeee; padding: 10px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
+      <div data-pdf-keep style="background: #eeeeee; padding: 6px 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px;">
         ${locationTotalRow(locationTotal, budgetDays > 1 ? (isCombinedOnlyMode ? ` за ${budgetDays} дн.` : ' за 1 день') : '')}
         ${!isCombinedOnlyMode && budgetDays > 1 ? locationTotalRow(locationTotalCombined, ` за ${budgetDays} дн.`) : ''}
       </div>`;
 
     const locationHeaderHtml = isNoLocation ? '' : `
-      <div data-pdf-keep style="background: #eeeeee; padding: 10px 10px; margin-bottom: 14px; font-size: 20px; font-weight: 800; line-height: 1.25; text-transform: uppercase; color: #000000; overflow-wrap: anywhere;">
+      <div data-pdf-keep style="background: #eeeeee; padding: 6px 10px; margin-bottom: 8px; font-size: 20px; font-weight: 800; line-height: 1.25; text-transform: uppercase; color: #000000; overflow-wrap: anywhere;">
         ${escapeHtml(displayLocationName)}
       </div>`;
 
     categoriesHtml += `
-      <section style="margin-bottom: 16px; padding: 14px 14px 6px; background: #ffffff;">
+      <section style="margin-bottom: 8px; padding: 6px 14px 4px; background: #ffffff;">
         ${locationHeaderHtml}
         ${locationHtml}
         ${locationTotalsHtml}
@@ -897,11 +897,11 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   container.innerHTML = `
     <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 15px;">
       <div style="display: flex; align-items: center;">
-        <img src="${logoDataURL}" style="width: 150px; height: auto; margin-top: 15px;" alt="Logo" />
+        <img src="${logoDataURL}" style="width: 128px; height: auto; margin-top: 8px;" alt="Logo" />
       </div>
       
-      <div style="flex: 1; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-end;">
-        <div style="text-align: right; margin-bottom: 8px;">
+      <div style="width: 350px; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-start;">
+        <div style="text-align: left; margin-bottom: 8px;">
           <div style="font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a1a;">Коммерческое предложение</div>
           <div style="font-size: 14px; color: #6b7280; margin-top: 2px;">Версия ${versionLabel}</div>
           <div style="font-size: 14px; color: #6b7280; margin-top: 2px;">Дата создания: ${formattedCreatedDate}</div>
