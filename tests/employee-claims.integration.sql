@@ -1,9 +1,10 @@
 DO $$
-DECLARE retry_id uuid=gen_random_uuid(); admin_id uuid=gen_random_uuid(); staff_a uuid=gen_random_uuid();staff_b uuid=gen_random_uuid();person_a uuid;person_b uuid;live_event uuid;expired_event uuid;multi_event uuid;bad_event uuid;cancelled_event uuid;claim public.employee_claims;paid public.employee_claims;payload jsonb;denied boolean;today date=(clock_timestamp() AT TIME ZONE 'Europe/Minsk')::date;legacy_count bigint;path text;
+DECLARE retry_id uuid=gen_random_uuid(); admin_id uuid=gen_random_uuid(); staff_a uuid=gen_random_uuid();staff_b uuid=gen_random_uuid();person_a uuid;person_b uuid;live_event uuid;expired_event uuid;multi_event uuid;bad_event uuid;cancelled_event uuid;claim public.employee_claims;paid public.employee_claims;payload jsonb;denied boolean;today date=(clock_timestamp() AT TIME ZONE 'Europe/Minsk')::date;legacy_count bigint;path text;primary_budget uuid;other_budget uuid;loading_work uuid;conflict_item uuid;
 BEGIN
  INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(admin_id,admin_id||'@claims-test.invalid','{"full_name":"Test claims owner"}'),(staff_a,staff_a||'@claims-test.invalid','{"full_name":"Test claims A"}'),(staff_b,staff_b||'@claims-test.invalid','{"full_name":"Test claims B"}');
  INSERT INTO public.users(id,email,full_name,role,status) VALUES(admin_id,admin_id||'@claims-test.invalid','Test claims owner','superuser','active') ON CONFLICT(id) DO UPDATE SET role='superuser',status='active';
  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',admin_id,'role','authenticated')::text,true);
+ PERFORM public.employee_claim_set_rates(.25,.25,.30);
  INSERT INTO public.users(id,email,full_name,role,status) VALUES(staff_a,staff_a||'@claims-test.invalid','Test claims A','staff','active'),(staff_b,staff_b||'@claims-test.invalid','Test claims B','staff','active') ON CONFLICT(id) DO UPDATE SET role='staff',status='active';
  INSERT INTO public.personnel(user_id,account_user_id,full_name,installation_rate,warehouse_rate) VALUES(admin_id,staff_a,'Test claims A',15,10) RETURNING id INTO person_a;
  INSERT INTO public.personnel(user_id,account_user_id,full_name,installation_rate,warehouse_rate) VALUES(admin_id,staff_b,'Test claims B',20,12) RETURNING id INTO person_b;
@@ -12,11 +13,26 @@ BEGIN
  INSERT INTO public.events(name,event_date,event_end_date,status,project_details) VALUES('__claims multi__',(today-10)::text,(today-3)::text,'Подтверждено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO multi_event;
  INSERT INTO public.events(name,event_date,status) VALUES('__claims invalid date__','invalid','Подтверждено') RETURNING id INTO bad_event;
  INSERT INTO public.events(name,event_date,status,project_details) VALUES('__claims cancelled__',(today-1)::text,'Отменено','{"people_works":[{"id":"test-delivery","name":"Доставка оборудования"}]}') RETURNING id INTO cancelled_event;
+ INSERT INTO public.event_budgets(event_id,name,is_primary,settings) VALUES(live_event,'Claims primary',true,'{"budget_exchange_rate":1,"budget_payment_mode":"usd"}') RETURNING id INTO primary_budget;
+ INSERT INTO public.event_budgets(event_id,name,is_primary,settings) VALUES(live_event,'Claims alternative',false,'{"budget_exchange_rate":1,"budget_payment_mode":"usd"}') RETURNING id INTO other_budget;
+ INSERT INTO public.work_items(user_id,name) VALUES(admin_id,'Загрузка') RETURNING id INTO loading_work;
+ INSERT INTO public.budget_items(event_id,budget_id,item_type,name,quantity,price,total,exchange_rate,work_item_id) VALUES(live_event,primary_budget,'work','Загрузка',2,65,130,1,loading_work),(live_event,other_budget,'work','Загрузка',2,100,200,1,loading_work);
+ -- Selection changes payroll source atomically without moving document items.
+ PERFORM public.set_primary_event_budget(live_event,other_budget);
+ IF (SELECT amount FROM public.employee_claim_fixed_rates(live_event) WHERE name='Загрузка')<>100 THEN RAISE EXCEPTION 'Primary selection ignored'; END IF;
+ PERFORM public.set_primary_event_budget(live_event,primary_budget);
+ INSERT INTO public.budget_items(event_id,budget_id,item_type,name,quantity,price,total,exchange_rate,work_item_id) VALUES(live_event,primary_budget,'work','Загрузка',1,66,66,1,loading_work) RETURNING id INTO conflict_item;
+ IF EXISTS(SELECT 1 FROM public.employee_claim_fixed_rates(live_event) WHERE name='Загрузка') THEN RAISE EXCEPTION 'Ambiguous rates accepted'; END IF;
+ DELETE FROM public.budget_items WHERE id=conflict_item;
+ UPDATE public.event_budgets SET settings=settings||'{"budget_payment_mode":"byn_noncash","budget_exchange_rate":3}'::jsonb WHERE id=primary_budget;
+ IF (SELECT amount FROM public.employee_claim_fixed_rates(live_event) WHERE name='Загрузка')<>326 THEN RAISE EXCEPTION 'Noncash unit conversion wrong'; END IF;
+ UPDATE public.event_budgets SET settings=settings||'{"budget_payment_mode":"usd","budget_exchange_rate":1}'::jsonb WHERE id=primary_budget;
+ IF (SELECT count(*) FROM public.event_budgets WHERE event_id=live_event AND is_primary)<>1 THEN RAISE EXCEPTION 'Primary must be unique'; END IF;
  path=staff_a||'/receipt-test.jpg';
  INSERT INTO storage.objects(bucket_id,name) VALUES('claim-receipts',path);
  SELECT count(*) INTO legacy_count FROM public.payments;
  payload=jsonb_build_array(
-  jsonb_build_object('kind','time','work_name','Загрузка','starts_at',(today-4)||'T18:30:00+03:00','ends_at',(today-3)||'T01:00:00+03:00','break_minutes',0,'rate',9999),
+  jsonb_build_object('kind','time','work_name','Загрузка','starts_at',(today-4)||'T18:30:00+03:00','ends_at',(today-3)||'T01:00:00+03:00','break_minutes',30,'rate',9999,'amount',9999),
   jsonb_build_object('kind','trip','work_name','Доставка оборудования','kilometers',100,'own_car',true,'own_fuel',true,'rate',.01),
   jsonb_build_object('kind','expense','description','Инструмент','amount',40,'receipt_path',path),
   jsonb_build_object('kind','allowance','description','Питание','amount',10));
@@ -30,7 +46,14 @@ BEGIN
  IF NOT EXISTS(SELECT 1 FROM storage.objects WHERE bucket_id='claim-receipts' AND name=path) THEN RAISE EXCEPTION 'Owner cannot read receipt'; END IF;
  claim=public.employee_claim_save(NULL,live_event,payload,false);
  IF claim.work_amount<>145 OR claim.expense_amount<>50 OR claim.total<>195 THEN RAISE EXCEPTION 'Wrong time/km/expense totals: %',claim.total; END IF;
- IF claim.lines->0->>'rate'<>'10.00' AND (claim.lines->0->>'rate')::numeric<>10 THEN RAISE EXCEPTION 'Employee supplied rate was accepted'; END IF;
+ IF (claim.lines->0->>'rate')::numeric<>10 OR (claim.lines->0->>'amount')::numeric<>65 OR (claim.lines->0->>'minutes')::numeric<>390 OR claim.lines->0->>'calculation'<>'fixed' THEN RAISE EXCEPTION 'Fixed price, unit quantity or ignored break incorrect'; END IF;
+ denied=false;BEGIN PERFORM public.set_primary_event_budget(live_event,other_budget);EXCEPTION WHEN insufficient_privilege THEN denied=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Employee can choose payroll budget'; END IF;
+ payload=jsonb_set(payload,'{0,ends_at}',to_jsonb((today-4)||'T19:30:00+03:00'));
+ claim=public.employee_claim_save(claim.id,live_event,payload,false,claim.revision);
+ IF (claim.lines->0->>'amount')::numeric<>65 OR (claim.lines->0->>'rate')::numeric<>65 THEN RAISE EXCEPTION 'Fixed amount varies with hours'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(claim.id,live_event,jsonb_build_array(payload->0,jsonb_set(jsonb_set(payload->0,'{starts_at}',to_jsonb((today-4)||'T20:00:00+03:00')),'{ends_at}',to_jsonb((today-4)||'T21:00:00+03:00'))),false,claim.revision);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Фиксированную работу%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Fixed work charged twice'; END IF;
  IF (claim.lines->1->>'rate')::numeric<>.80 THEN RAISE EXCEPTION 'Own car/fuel tariff wrong'; END IF;
  claim=public.employee_claim_save(claim.id,live_event,payload,true,claim.revision);
  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.employee_claim_bootstrap()->'events') x WHERE x->>'id'=cancelled_event::text) THEN RAISE EXCEPTION 'Cancelled event hidden from employee'; END IF;
@@ -66,7 +89,7 @@ BEGIN
  denied=false;BEGIN PERFORM public.employee_claim_save(paid.id,live_event,payload,true,paid.revision,person_a,'Исправление');EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Отправленную%';END;
  IF NOT denied THEN RAISE EXCEPTION 'Paid claim was editable'; END IF;
  PERFORM public.employee_claim_save(NULL,expired_event,jsonb_build_array(payload->1),true,NULL,person_a,'Позднее исправление бухгалтером');
- IF (SELECT count(*) FROM public.employee_claim_history WHERE claim_id=paid.id)<>4 THEN RAISE EXCEPTION 'Missing audit transitions'; END IF;
+ IF (SELECT count(*) FROM public.employee_claim_history WHERE claim_id=paid.id)<>5 THEN RAISE EXCEPTION 'Missing audit transitions'; END IF;
  EXECUTE 'RESET ROLE';
  IF (SELECT count(*) FROM public.payments)<>legacy_count THEN RAISE EXCEPTION 'Claims duplicated legacy payments'; END IF;
  IF has_function_privilege('anon','public.employee_claim_works(uuid)','EXECUTE') OR has_function_privilege('authenticated','public.employee_claim_works(uuid)','EXECUTE') THEN RAISE EXCEPTION 'Private work helper exposed'; END IF;

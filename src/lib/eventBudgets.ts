@@ -57,3 +57,5 @@ export async function copyEventBudget(sourceBudgetId: string, targetEventId: str
   if (error?.code === 'PGRST202') throw new Error('Для копирования в новую смету выполните миграцию 20261029030000_copy_event_budget.sql.');
   check(error); return data;
 }
+
+export async function setPrimaryEventBudget(eventId:string,budgetId:string):Promise<void>{const {error}=await supabase.rpc('set_primary_event_budget',{p_event:eventId,p_budget:budgetId});check(error);}
