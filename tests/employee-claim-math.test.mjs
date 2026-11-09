@@ -7,7 +7,11 @@ assert.equal(lineEstimate({kind:'trip',kilometers:100,own_car:true,own_fuel:true
 const night={kind:'time',work_name:'Монтаж',starts_at:'2026-11-02T18:30',ends_at:'2026-11-03T01:00',break_minutes:0};
 assert.deepEqual(lineEstimate(night,person,rates),{rate:15,minutes:390,amount:97.5});
 assert.deepEqual(lineEstimate({...night,break_minutes:30},person,rates),{rate:15,minutes:390,amount:97.5});
-assert.deepEqual(lineEstimate({...night,work_name:'Загрузка'},person,rates,false,{'Загрузка':100}),{amount:100,minutes:390,rate:15.38});
+for(const work_name of ['Загрузка','Разгрузка']){
+ assert.deepEqual(lineEstimate({...night,work_name},person,rates,false,{[work_name]:100}),{amount:65,minutes:390,rate:10});
+ assert.equal(lineEstimate({...night,work_name,ends_at:'2026-11-02T19:30'},person,rates).amount,10);
+}
+assert.deepEqual(lineEstimate({...night,work_name:'Светорежиссёр'},person,rates,false,{'Светорежиссёр':100}),{amount:100,minutes:390,rate:15.38});
 assert.equal(lineEstimate({...night,work_name:'Светорежиссёр',ends_at:'2026-11-02T19:30'},person,rates,false,{'Светорежиссёр':100}).amount,100);
 assert.equal(lineEstimate({...night,calculation:'fixed',amount:200,rate:999},person,rates,true).amount,200);
 assert.equal(lineEstimate({kind:'trip',kilometers:100,rate:.8,own_car:true,own_fuel:true},person,{...rates,driver_rate:.35},true).amount,80);
