@@ -945,6 +945,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const spacer = container.lastElementChild;
     spacer?.remove();
     const pages = paginatePdf(container.scrollHeight, contentHeight, measurePdfBlocks(container, contentHeight));
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(110);
     for (const [index, page] of pages.entries()) {
       const rect = container.getBoundingClientRect();
       // Render one page at a time to avoid browser canvas size limits on large estimates.
@@ -958,6 +961,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       });
       if (index) pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, marginY, pageWidth, (page.bottom - page.top) / pixelsPerMm);
+      pdf.text(String(index + 1), pageWidth - 8, pageHeight - 3, { align: 'right' });
     }
   } finally {
     container.remove();
