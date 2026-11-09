@@ -381,7 +381,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
         const rowBg = hexToRgba(item.marker_color, 0.26);
         return `
-          <tr style="border-bottom: 1px solid #000000;${rowBg ? ` background-color: ${rowBg};` : ''}">
+          <tr style="border-bottom: 1px solid #b8b8b8;${rowBg ? ` background-color: ${rowBg};` : ''}">
             <td style="${tableCellSpacing} font-size: 15px; color: #1a1a1a; width: 60%;">
               <div style="display: flex; align-items: flex-start;">
                 <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
@@ -406,7 +406,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       const categoryTotal = isCombinedOnlyMode ? categorySumCombined : categorySumDay1;
 
       locationHtml += `
-       <div style="margin-bottom: 12px;">
+       <div style="margin-bottom: 22px;">
         <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
           <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
           <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
@@ -424,12 +424,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           </thead>
           <tbody>
             ${rows}
-            <tr style="border-bottom: 1px solid #000000;">
+            <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
               <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ:</td>
               <td style="${tableCellSpacing} text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categoryTotal)}${currencySuffix}</td>
             </tr>
             ${!isCombinedOnlyMode && budgetDays > 1 ? `
-            <tr style="border-bottom: 1px solid #000000;">
+            <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
               <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; white-space: nowrap; color: #000000;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
               <td style="${tableCellSpacing} text-align: right; font-weight: 700; white-space: nowrap; color: #000000; font-size: 18px;">${formatMoney(categorySumCombined)}${currencySuffix}</td>
             </tr>
@@ -477,7 +477,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     </div>`;
 
     categoriesHtml += `
-      <section style="margin-bottom: 16px; padding: 14px 14px 6px; background: #ffffff; border: 1px solid #000000; border-radius: 10px;">
+      <section style="margin-bottom: 16px; padding: 14px 14px 6px; background: #ffffff;">
         ${locationHeaderHtml}
         ${locationHtml}
         ${locationTotalsHtml}
@@ -539,7 +539,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           categoryTotalCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
           
           return `
-            <tr style="border-bottom: 1px solid #000000;">
+            <tr style="border-bottom: 1px solid #b8b8b8;">
               <td style="${tableCellSpacing} font-size: 15px; color: #1a1a1a; width: 60%;">
                 <div style="display: flex; align-items: flex-start;">
                   <span style="display: inline-block; margin-right: 0.25em; white-space: nowrap; flex-shrink: 0;">${itemPrefix}</span>
@@ -556,7 +556,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const categoryTotal = isCombinedOnlyMode ? categoryTotalCombined : categoryTotalDay1;
 
         return `
-          <div style="margin-bottom: 12px;">
+          <div style="margin-bottom: 22px;">
             <div style="display: flex; align-items: center; margin-bottom: 8px; min-height: 22px;">
               <div style="width: 6px; height: 20px; background: ${grayAccent}; border-radius: 10px; margin-right: 12px; flex-shrink: 0;"></div>
               <div style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; padding: 0; min-height: 20px; line-height: 1.2; display: flex; align-items: center; position: relative; top: 0px;">
@@ -566,12 +566,12 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
             <table style="width: 100%; border-collapse: collapse;">
               <tbody>
                 ${rows}
-                <tr style="border-bottom: 1px solid #000000;">
+                <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
                   <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ:</td>
                   <td style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotal)}${currencySuffix}</td>
                 </tr>
                 ${!isCombinedOnlyMode && budgetDays > 1 ? `
-                <tr style="border-bottom: 1px solid #000000;">
+                <tr style="border-top: 1px solid #000000; border-bottom: 1px solid #000000;">
                   <td colspan="3" style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">ИТОГО ПО РАЗДЕЛУ ЗА ${budgetDays} ДН.:</td>
                   <td style="${tableCellSpacing} text-align: right; font-size: 18px; font-weight: 700; color: #000000; white-space: nowrap;">${formatMoney(categoryTotalCombined)}${currencySuffix}</td>
                 </tr>
@@ -583,7 +583,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       }).join('');
 
     extraServicesHtml = `
-      <section style="margin-top: 20px; padding: 14px 14px 6px; border: 1px solid #000000; border-radius: 10px; background: #ffffff;">
+      <section style="margin-top: 20px; padding: 14px 14px 6px; background: #ffffff;">
         ${extraCategoriesHtml}
       </section>
     `;
