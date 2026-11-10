@@ -63,13 +63,14 @@ export function buildSpecificationContents(
       const location = row.location_id || rows.find(parent => parent.id === row.parent_budget_item_id)?.location_id || '';
       const add = (id: string, quantity: number, name: string) => { if (quantity > 0) parts.push({ key: JSON.stringify([location, row.item_type, id]), quantity, name }); };
       const excluded = new Set(row.excluded_child_keys || []);
-      const expand = (id: string, quantity: number, name: string, path: Set<string>) => {
+      const expand = (id: string, quantity: number, name: string, path: Set<string>, objectType?: string) => {
         const children = compositions.get(id) || [];
         if (!children.length || path.has(id)) { add(id, quantity, name); return; }
+        if (objectType === 'physical') add(id, quantity, name);
         const visited = new Set(path).add(id);
         for (const child of children) {
           if (excluded.has(`${row.id}-comp-${child.id}${child.child_id ? `-${child.child_id}` : ''}`)) continue;
-          if (child.child_id) expand(child.child_id, quantity * child.quantity, child.child_name || name, visited);
+          if (child.child_id) expand(child.child_id, quantity * child.quantity, child.child_name || name, visited, child.child_object_type);
         }
       };
       // Unlinked child cases are packaging already represented by the parent.
@@ -78,9 +79,11 @@ export function buildSpecificationContents(
         else {
           const id = identify(row);
           const modification = row.modification_id ? modifications.get(row.modification_id) || [] : [];
-          if (id && (compositions.get(id)?.length || !modification.length)) expand(id, row.quantity, row.equipment?.name || row.name || 'Оборудование', new Set());
+          if (id && row.equipment?.object_type === 'physical') {
+            expand(id, row.quantity, row.equipment.name || row.name || 'Оборудование', new Set(), 'physical');
+          } else if (id && (compositions.get(id)?.length || !modification.length)) expand(id, row.quantity, row.equipment?.name || row.name || 'Оборудование', new Set());
           else if (!id) add(`unknown:${side}:${row.id}`, row.quantity, row.name || 'Неизвестный комплект');
-          for (const child of modification) if (child.component_equipment_id && !excluded.has(`${row.id}-mod-${child.id}-${child.component_equipment_id}`)) expand(child.component_equipment_id, row.quantity * child.quantity, child.component?.name || 'Компонент', new Set());
+          for (const child of row.equipment?.object_type === 'physical' ? [] : modification) if (child.component_equipment_id && !excluded.has(`${row.id}-mod-${child.id}-${child.component_equipment_id}`)) expand(child.component_equipment_id, row.quantity * child.quantity, child.component?.name || 'Компонент', new Set());
         }
       }
       result.set(contentRowKey(side, row.id), parts);

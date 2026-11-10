@@ -75,3 +75,40 @@ const pdf=buildSpecificationPdf({eventName:'Фестиваль в парке',bu
 assert.ok(pdf.getNumberOfPages()>2);const bytes=Buffer.from(pdf.output('arraybuffer'));assert.ok(bytes.includes(Buffer.from('/FontFile2')),'Embed a font instead of rasterizing text');fs.mkdirSync('work/spec-pdf',{recursive:true});fs.writeFileSync('work/spec-pdf/specification-test.pdf',bytes);
 assert.equal(buildSpecificationPdf({eventName:'Событие',budgetName:'Пустая спецификация',startDate:'',rows:[]}).getNumberOfPages(),1);
 console.log('PASS: composition expansion, exclusions, saved children, quantities, no work/zero rows, embedded Cyrillic fonts and multi-page PDF table.');
+
+const physicalParent = {...parent, picked:true, return_picked:true, id:'mic-row', equipment_id:'mic', quantity:2, excluded_child_keys:[], equipment:{name:'Радиомикрофон', sku:'MIC', object_type:'physical', has_composition:true, unit:'шт.'}};
+const physicalContents = new Map([['mic', [{id:'receiver-link',child_id:'receiver',quantity:1,child_name:'Приёмник',child_sku:'RX',child_unit:'шт.',child_category:'Звук'},{id:'power-link',child_id:'power',quantity:2,child_name:'Блок питания',child_unit:'шт.',child_category:'Звук'}]]]);
+const physicalRows = buildSpecificationEquipmentRows([physicalParent],physicalContents,new Map(),new Map([['sound','Звук']]),new Map([['hall','Зал']]));
+assert.deepEqual(physicalRows.map(row=>[row.name,row.quantity]),[['Радиомикрофон',2],['Приёмник',2],['Блок питания',4]]);
+assert.ok(physicalRows.every(row=>row.group==='Зал / Звук' && row.notes==='Примечание'));
+const excludedPhysical = buildSpecificationEquipmentRows([{...physicalParent,excluded_child_keys:['mic-row-comp-receiver-link-receiver']}],physicalContents,new Map(),new Map(),new Map());
+assert.deepEqual(excludedPhysical.map(row=>row.name),['Радиомикрофон','Блок питания']);
+assert.equal(buildSpecificationEquipmentRows([{...physicalParent,equipment:{...physicalParent.equipment,has_composition:false}}],physicalContents,new Map(),new Map(),new Map()).length,1);
+console.log('PASS: physical parent and linked contents, quantities, location/category, exclusions and disabled contents');
+
+// Exercise the actual UI row builder with the same composition fixtures.
+const warehouseSource=fs.readFileSync('src/components/WarehouseSpecification.tsx','utf8');
+const helperStart=warehouseSource.indexOf('        const appendContents = () =>');
+const helperEnd=warehouseSource.indexOf('\n        // Handle child items',helperStart);
+const helperJs=ts.transpile(warehouseSource.slice(helperStart,helperEnd),{target:ts.ScriptTarget.ES2022});
+const uiItems=[], compositionPartsMap={};
+const buildContents=new Function('item','compositionsByEquipmentId','items','compositionPartsMap','itemLocationId','itemLocationName','buildStableCompositionItemKey',helperJs+';return appendContents;')(physicalParent,physicalContents,uiItems,compositionPartsMap,'hall','Зал',(id,kind,link,equipment)=>`${id}-${kind}-${link}-${equipment}`);
+assert.equal(buildContents(),true);
+assert.deepEqual(uiItems.map(row=>[row.name,row.quantity]),[['Приёмник',2],['Блок питания',4]]);
+assert.ok(uiItems.every(row=>row.parentBudgetItemId==='mic-row' && row.parentName==='Радиомикрофон' && row.isFromComposition));
+assert.equal(compositionPartsMap['mic-row'].length,2);
+console.log('PASS: UI contents retain parent identity, stable keys and composition actions');
+
+assert.ok(uiItems.every(row=>row.picked===false && row.return_picked===false),'Linked equipment starts unchecked even if the parent is checked');
+const pickedStart=warehouseSource.indexOf('  const handlePickedChange = async');
+const pickedEnd=warehouseSource.indexOf('  const handleCablePickedChange',pickedStart);
+let checkboxRows=[{budgetItemId:'mic-row',picked:true},...uiItems];
+const persisted=[];
+const toggleJs=ts.transpile(warehouseSource.slice(pickedStart,pickedEnd),{target:ts.ScriptTarget.ES2022});
+const toggle=new Function('isGeneratedCompositionItemId','setExpandedItems','persistCompositionPickedState','updateSpecificationBudgetItemPicked','showNotification',toggleJs+';return handlePickedChange;')(id=>id.includes('-comp-'),update=>{checkboxRows=update(checkboxRows);},(id,patch)=>persisted.push([id,patch]),()=>{throw Error('Generated child must not update parent in database');},()=>{throw Error('Unexpected notification');});
+await toggle(uiItems[0].budgetItemId,true);
+assert.deepEqual(checkboxRows.map(row=>row.picked),[true,true,false],'Checking one child does not change its sibling or parent');
+await toggle(uiItems[0].budgetItemId,false);
+assert.deepEqual(checkboxRows.map(row=>row.picked),[true,false,false]);
+assert.equal(persisted.length,2);
+console.log('PASS: independent linked-equipment checkboxes, unchecked initial state and persisted child keys');

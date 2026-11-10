@@ -31,3 +31,13 @@ assert.ok(surplus.some(row => row.name.includes('speaker: лишнее 2')));
 assert.ok(surplus.every(row => !row.name.includes('CASE DI-BOX 1')), 'Hidden parent must not be reported as the mismatched visible item');
 assert.deepEqual(compare([], [eq('excluded-case','case',1,{excluded_child_keys:['excluded-case-comp-a-speaker','excluded-case-comp-b-stand']})]), [], 'Excluded components must not generate warnings');
 console.log('PASS: hidden parent warning identifies actual surplus components; exclusions remain respected');
+
+const physical = eq('mic-source','mic',2,{equipment:{name:'Микрофон',object_type:'physical',has_composition:true}});
+const physicalGraph = new Map([['mic',[part('receiver-link','receiver',1)]]]);
+const physicalResult = buildSpecificationContents([physical],[],physicalGraph,new Map()).get('budget:mic-source');
+assert.deepEqual(physicalResult.map(row=>[JSON.parse(row.key)[2],row.quantity]),[['mic',2],['receiver',2]],'Physical parent stays alongside its contents');
+const savedPhysical={...physical,id:'mic-saved',source_budget_item_id:'mic-source'};
+assert.deepEqual(getSpecificationDifferences([physical],[savedPhysical],buildSpecificationContents([physical],[savedPhysical],physicalGraph,new Map())),[]);
+const missingReceiver={...savedPhysical,excluded_child_keys:['mic-saved-comp-receiver-link-receiver']};
+assert.deepEqual(buildSpecificationContents([physical],[missingReceiver],physicalGraph,new Map()).get('specification:mic-saved').map(row=>JSON.parse(row.key)[2]),['mic'],'Excluding an accessory keeps the physical parent');
+console.log('PASS: physical parent identity, linked contents and missing-accessory comparison');

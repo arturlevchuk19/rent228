@@ -30,6 +30,13 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
     const parent = item.parent_budget_item_id ? items.find(row => row.id === item.parent_budget_item_id) : undefined;
     if (item.parent_budget_item_id) { add(item, item.id, item.name || 'Кейс', item.sku || '', item.quantity, parent?.equipment?.category || 'Видео', parent); continue; }
     const name = item.equipment?.name || item.name || 'Без названия';
+    if (item.equipment?.object_type === 'physical' && item.equipment.has_composition) {
+      add(item, item.id, name, item.equipment.sku || item.sku || '', item.quantity, item.equipment.category || 'Прочее', undefined, item.unit || item.equipment.unit || 'шт.');
+      for (const part of item.equipment_id ? compositions.get(item.equipment_id) || [] : []) {
+        add(item, `${item.id}-comp-${part.id}${part.child_id ? `-${part.child_id}` : ''}`, part.child_name || 'Без названия', part.child_sku || '', item.quantity * part.quantity, part.child_category, undefined, part.child_unit || 'шт.');
+      }
+      continue;
+    }
     const lower = name.toLowerCase();
     const fixedVirtual = ['светодиодный экран','сценический подиум','ступенька из сценических подиумов','тотем'].some(value => lower.includes(value)) || /п-образная (фермовая )?конструкция/.test(lower);
     if (item.equipment?.object_type === 'virtual' && !fixedVirtual) {
@@ -55,7 +62,7 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
     getBudgetEvent(eventId, budgetId), getSpecificationBudgetItems(eventId, budgetId), getCables(eventId, budgetId), getConnectors(eventId, budgetId), getOtherItems(eventId, budgetId), getCategories(), getCategoriesForEvent(eventId, budgetId), getLocationsForEvent(eventId, budgetId), getBudgetItems(eventId, budgetId)
   ]);
   const items = withBudgetUnits(frozen ? savedItems : budgetSpecificationPreview(liveItems), liveItems);
-  const equipmentIds = [...new Set(items.filter(item => !item.parent_budget_item_id && item.equipment?.object_type === 'virtual' && item.equipment_id).map(item => item.equipment_id!))];
+  const equipmentIds = [...new Set(items.filter(item => !item.parent_budget_item_id && (item.equipment?.object_type === 'virtual' || (item.equipment?.object_type === 'physical' && item.equipment.has_composition)) && item.equipment_id).map(item => item.equipment_id!))];
   const modificationIds = [...new Set(items.flatMap(item => item.modification_id ? [item.modification_id] : []))];
   const [compositionEntries, modificationEntries] = await Promise.all([
     Promise.all(equipmentIds.map(async id => [id, await getEquipmentCompositions(id)] as const)),

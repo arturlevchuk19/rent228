@@ -685,7 +685,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
       )];
       const compositionIds = [...new Set(
         budgetData
-          .filter(item => item.item_type === 'equipment' && item.equipment_id && item.equipment?.object_type !== 'physical' && !item.parent_budget_item_id)
+          .filter(item => item.item_type === 'equipment' && item.equipment_id && (item.equipment?.object_type !== 'physical' || item.equipment?.has_composition) && !item.parent_budget_item_id)
           .map(item => item.equipment_id)
           .filter((id): id is string => Boolean(id))
       )];
@@ -719,6 +719,43 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         const itemLocationId = item.location_id || null;
         const itemLocation = itemLocationId ? locationsById.get(itemLocationId) : null;
         const itemLocationName = itemLocation?.name || item.location?.name || 'Без локации';
+
+        // Physical equipment keeps its own row; contents use the same linked rows
+        // and stable keys as virtual compositions (including exclusion/pick state).
+        const appendContents = () => {
+          const compositions = item.equipment_id ? compositionsByEquipmentId.get(item.equipment_id) || [] : [];
+          for (const comp of compositions) {
+            const subKey = buildStableCompositionItemKey(item.id, 'comp', comp.id, comp.child_id);
+            items.push({
+              budgetItemId: subKey,
+              parentBudgetItemId: item.id,
+              categoryId: item.category_id || null,
+              locationId: itemLocationId,
+              locationName: itemLocationName,
+              name: comp.child_name || 'Unknown',
+              sku: comp.child_sku || '',
+              quantity: item.quantity * comp.quantity,
+              unit: comp.child_unit || 'шт.',
+              category: comp.child_category || 'Components',
+              notes: item.notes || '',
+              picked: item.equipment?.object_type === 'physical' ? false : item.picked || false,
+              return_picked: item.equipment?.object_type === 'physical' ? false : item.return_picked || false,
+              isFromComposition: true,
+              isExtra: !!item.is_extra && !item.source_budget_item_id,
+              parentName: item.equipment?.name
+            });
+            (compositionPartsMap[item.id] = compositionPartsMap[item.id] || []).push({
+              key: subKey,
+              kind: 'comp',
+              equipment_id: comp.child_id || null,
+              name: comp.child_name || 'Unknown',
+              sku: comp.child_sku || '',
+              category: comp.child_category || 'Components',
+              quantity: item.quantity * comp.quantity
+            });
+          }
+          return compositions.length > 0;
+        };
 
         // Handle child items (e.g., LED cases) - show them as composition items
         if (item.parent_budget_item_id) {
@@ -816,6 +853,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             isFromComposition: !!isSavedVirtualItem,
             isExtra: !!item.is_extra && !item.source_budget_item_id,
           });
+          if (item.equipment?.object_type === 'physical' && item.equipment.has_composition) appendContents();
         } else {
           // Virtual item - check if it's an LED screen
           if (isLedScreenBudgetItem(item)) {
@@ -887,36 +925,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 if (compositions.length > 0) {
                   hasExpandedChildren = true;
                 }
-                for (const comp of compositions) {
-                  const subKey = buildStableCompositionItemKey(item.id, 'comp', comp.id, comp.child_id);
-                  items.push({
-                    budgetItemId: subKey,
-                    parentBudgetItemId: item.id,
-                    categoryId: item.category_id || null,
-                    locationId: itemLocationId,
-                    locationName: itemLocationName,
-                    name: comp.child_name || 'Unknown',
-                    sku: comp.child_sku || '',
-                    quantity: item.quantity * comp.quantity,
-                    unit: comp.child_unit || 'шт.',
-                    category: comp.child_category || 'Components',
-                    notes: item.notes || '',
-                    picked: item.picked || false,
-                    return_picked: item.return_picked || false,
-                    isFromComposition: true,
-                    isExtra: !!item.is_extra && !item.source_budget_item_id,
-                    parentName: item.equipment?.name
-                  });
-                  (compositionPartsMap[item.id] = compositionPartsMap[item.id] || []).push({
-                    key: subKey,
-                    kind: 'comp',
-                    equipment_id: comp.child_id || null,
-                    name: comp.child_name || 'Unknown',
-                    sku: comp.child_sku || '',
-                    category: comp.child_category || 'Components',
-                    quantity: item.quantity * comp.quantity
-                  });
-                }
+                appendContents();
               } catch (error) {
                 console.error('Error loading composition for', item.equipment?.name, ':', error);
               }
