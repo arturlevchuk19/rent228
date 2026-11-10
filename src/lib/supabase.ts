@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createOfflineTransport } from './offline';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -7,7 +8,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const offlineTransport = createOfflineTransport(supabaseUrl);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: { fetch: offlineTransport.fetch },
+});
+supabase.auth.onAuthStateChange((_event, session) => {
+  offlineTransport.setAccount(session?.user.id || null, session ? {
+    apikey: supabaseAnonKey, Authorization: `Bearer ${session.access_token}`,
+  } : undefined);
+});
+window.addEventListener('online', () => { void offlineTransport.sync(); });
+window.addEventListener('focus', () => { void offlineTransport.sync(); });
+setInterval(() => { void offlineTransport.sync(); }, 30_000);
 
 export type UserRole = 'superuser' | 'admin' | 'foreman' | 'clerk' | 'staff' | 'warehouse';
 export type UserStatus = 'pending' | 'active' | 'inactive';

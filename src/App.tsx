@@ -1,3 +1,4 @@
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { PageErrorBoundary } from './components/PageErrorBoundary';
 import { useEventPageNavigation } from './hooks/useEventPageNavigation';
 import { usePageNavigation } from './hooks/usePageNavigation';
@@ -95,5 +96,5 @@ function AppContent() {
 }
 
 export default function App() {
-  return <AuthProvider><AppContent /></AuthProvider>;
+  return <AuthProvider><OfflineIndicator /><AppContent /></AuthProvider>;
 }
