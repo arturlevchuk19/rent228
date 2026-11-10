@@ -32,7 +32,7 @@ BEGIN
  IF (SELECT count(*) FROM public.event_budgets WHERE event_id=live_event AND is_primary)<>1 THEN RAISE EXCEPTION 'Primary must be unique'; END IF;
  UPDATE public.events SET project_details=jsonb_set(project_details,'{people_works}',(project_details->'people_works')||'[{"id":"warehouse","name":"Работа на складе"}]'::jsonb) WHERE id=cancelled_event;
  path=staff_a||'/receipt-test.jpg';
- INSERT INTO storage.objects(bucket_id,name) VALUES('claim-receipts',path);
+ INSERT INTO storage.objects(bucket_id,name) VALUES('claim-receipts',path),('claim-receipts',staff_a||'/meal-receipt.jpg');
  SELECT count(*) INTO legacy_count FROM public.payments;
  payload=jsonb_build_array(
   jsonb_build_object('kind','time','work_name','Светорежиссёр','starts_at',(today-4)||'T18:30:00+03:00','ends_at',(today-3)||'T01:00:00+03:00','break_minutes',30,'rate',9999,'amount',9999),
@@ -48,6 +48,11 @@ BEGIN
  denied=false;BEGIN PERFORM public.employee_claim_save(retry_id,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание','amount',5)),false);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Заявка уже%';END;
  IF NOT denied THEN RAISE EXCEPTION 'Network retry duplicated new expense'; END IF;
  IF NOT EXISTS(SELECT 1 FROM storage.objects WHERE bucket_id='claim-receipts' AND name=path) THEN RAISE EXCEPTION 'Owner cannot read receipt'; END IF;
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание','amount',12,'receipt_path',staff_b||'/not-mine.jpg')),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Прикрепите доступное фото%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Meal receipt ownership not checked'; END IF;
+ PERFORM public.employee_claim_save(NULL,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание','amount',12,'receipt_path',staff_a||'/meal-receipt.jpg')),true);
+ denied=false;BEGIN PERFORM public.employee_claim_save(NULL,NULL,jsonb_build_array(jsonb_build_object('kind','allowance','description','Питание повтор','amount',12,'receipt_path',staff_a||'/meal-receipt.jpg')),true);EXCEPTION WHEN OTHERS THEN denied=SQLERRM LIKE 'Этот чек уже%';END;
+ IF NOT denied THEN RAISE EXCEPTION 'Meal receipt reimbursed twice'; END IF;
  claim=public.employee_claim_save(NULL,live_event,payload,false);
  IF claim.work_amount<>145 OR claim.expense_amount<>50 OR claim.total<>195 THEN RAISE EXCEPTION 'Wrong time/km/expense totals: %',claim.total; END IF;
  IF (claim.lines->0->>'rate')::numeric<>10 OR (claim.lines->0->>'amount')::numeric<>65 OR (claim.lines->0->>'minutes')::numeric<>390 OR claim.lines->0->>'calculation'<>'fixed' THEN RAISE EXCEPTION 'Fixed price, unit quantity or ignored break incorrect'; END IF;
