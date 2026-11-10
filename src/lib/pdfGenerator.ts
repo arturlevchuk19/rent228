@@ -900,8 +900,9 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   container.innerHTML = `
     <header style="display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 20px; border-bottom: 1px solid #000000; padding-bottom: 15px;">
-      <div style="position: relative; width: 150px; flex-shrink: 0;">
-        <img src="${logoDataURL}" style="position: absolute; top: 0; left: 0; height: 100%; width: auto; max-width: 100%; object-fit: contain; object-position: left top;" alt="Logo" />
+      <div style="width: 150px; flex-shrink: 0;">
+        <!-- Keep intrinsic proportions in html2canvas, which does not support object-fit. -->
+        <img src="${logoDataURL}" style="display: block; width: 100%; height: auto;" alt="Logo" />
       </div>
       
       <div style="width: 350px; margin-left: 30px; display: flex; flex-direction: column; align-items: flex-start;">
