@@ -33,3 +33,31 @@ export async function writeGroupedQuantity<T extends { id: string; quantity: num
   }
   if (rows[0].quantity !== quantity) commit(await update(rows[0].id, quantity));
 }
+
+/** Keep displayed totals separate from confirmed rows while writes run in order. */
+export function createOptimisticQuantityQueue() {
+  type Entry = { latest: number; version: number; pending: number; tail: Promise<void> };
+  const entries = new Map<string, Entry>();
+  return {
+    value(key: string, confirmed: number) { return entries.get(key)?.latest ?? confirmed; },
+    hasPending() { return entries.size > 0; },
+    change(key: string, change: QuantityChange, options: { read: () => number; save: (quantity: number) => Promise<void>; notify: () => void; failed: (error: unknown) => void; settled: () => void }): Promise<void> {
+      let entry = entries.get(key);
+      if (!entry) { entry = { latest: options.read(), version: 0, pending: 0, tail: Promise.resolve() }; entries.set(key, entry); }
+      const raw = 'set' in change ? change.set : entry.latest + change.delta;
+      if (!Number.isFinite(raw)) { if (entry.pending === 0) entries.delete(key); throw new Error('Укажите корректное количество'); }
+      const target = Math.max(0, Math.trunc(raw));
+      entry.latest = target;
+      const current = entry, version = ++entry.version;
+      current.pending++;
+      options.notify();
+      const result = current.tail.then(async () => {
+        try { await options.save(target); }
+        catch (error) { if (current.version === version) { current.latest = options.read(); options.failed(error); } }
+        finally { if (--current.pending === 0) entries.delete(key); options.notify(); options.settled(); }
+      });
+      current.tail = result;
+      return result;
+    },
+  };
+}

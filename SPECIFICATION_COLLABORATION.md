@@ -53,3 +53,9 @@ the last confirmed value. Shipment/return confirmation waits for pending writes.
 Additional checks: `node tests/optimistic-specification-marks.test.mjs` and, with
 Vite running, `python tests/specification-technician.browser.py` (real component,
 slow/rejected mocked writes, technician/admin/site-lead scenarios).
+
+Accessory quantity totals also update immediately. A separate optimistic total
+overlays confirmed server rows while absolute targets are saved in order. This
+keeps rapid clicks and blur-plus-click stable, prevents duplicate inserts for an
+empty template row, and restores confirmed totals on failure. Pending quantities
+block structural reloads and shipment confirmation until they settle.

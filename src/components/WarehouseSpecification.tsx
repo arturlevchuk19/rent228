@@ -11,7 +11,7 @@ import { cableDisplayName } from '../lib/cableNames';
 import { useSpecificationNotes } from '../lib/useSpecificationNotes';
 import { BudgetScope } from './BudgetScope';
 import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
-import { createQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
+import { createOptimisticQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
 import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
 import { useState, useEffect, useRef } from 'react';
@@ -302,7 +302,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [componentDecisionQueue, setComponentDecisionQueue] = useState<ComponentDecisionGroup[]>([]);
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
   const [savingComponentChoice, setSavingComponentChoice] = useState(false);
-  const quantityQueue = useRef(createQuantityQueue());
+  const quantityQueue = useRef(createOptimisticQuantityQueue());
+  const [, refreshQuantityDisplay] = useState(0);
   const optimisticMarks = useRef(createOptimisticSpecificationMarks());
   const loadedStructure = useRef<string>();
   const cablesRef = useRef(cables);
@@ -584,8 +585,11 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     setConnectors(previous => overlayMarks('connectors', mergeSharedMarks(previous, snapshot.connectors, row => row.id), row => row.id));
     setOtherItems(previous => overlayMarks('other', mergeSharedMarks(previous, snapshot.other, row => row.id), row => row.id));
     setEventDetails(previous => previous ? { ...previous, equipment_shipped: false, equipment_returned: false, specification_confirmed: false, ...snapshot.state } : previous);
+    // Keep the optimistic quantity visible without a false remote-change banner.
+    // The last queued write schedules another read, which reconciles structure.
+    if (quantityQueue.current.hasPending()) return;
     if (structureChanged || (loadedStructure.current !== undefined && loadedStructure.current !== specificationStructureKey(snapshot))) {
-      if (optimisticMarks.current.hasPending() || modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showPodiumSpecification) setRemoteStructureChanged(true);
+      if ((optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showPodiumSpecification) setRemoteStructureChanged(true);
       else { setRemoteStructureChanged(false); void loadData(); }
     }
   });
@@ -1269,7 +1273,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const handleConnectorGroupPickedChange = (category: string, itemType: string, picked: boolean) => Promise.all(connectors.filter(row => isConnectorMatch(row, category, itemType)).map(row => changeAccessoryMark('connectors', row.id, 'picked', picked)));
 
   const handleConfirmShipment = async () => {
-    if (optimisticMarks.current.hasPending()) { showNotification('Дождитесь сохранения отметок.'); return; }
+    if ((optimisticMarks.current.hasPending() || quantityQueue.current.hasPending())) { showNotification('Дождитесь сохранения изменений.'); return; }
     if (!allPickedForShipment) {
       const pendingItems = getPendingConfirmationItems('shipment');
       if (pendingItems.length > 0) {
@@ -1292,7 +1296,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleConfirmReturn = async () => {
-    if (optimisticMarks.current.hasPending()) { showNotification('Дождитесь сохранения отметок.'); return; }
+    if ((optimisticMarks.current.hasPending() || quantityQueue.current.hasPending())) { showNotification('Дождитесь сохранения изменений.'); return; }
     if (!allPickedForReturn) {
       const pendingItems = getPendingConfirmationItems('return');
       if (pendingItems.length > 0) {
@@ -2005,27 +2009,39 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const handleSetCableQuantityFromTemplate = async (cableType: string, cableLength: string, value: number, delta = false) => {
     if (!canAdjustAccessories || eventDetails?.equipment_shipped) return;
     try {
-      await quantityQueue.current(JSON.stringify([eventId, 'cable', cableType, cableLength]), () => writeGroupedQuantity({
+      await quantityQueue.current.change(JSON.stringify([eventId, 'cable', cableType, cableLength]), delta ? { delta: value } : { set: value }, {
+        read: () => cablesRef.current.filter(row => row.cable_type === cableType && row.cable_length === cableLength).reduce((sum, row) => sum + row.quantity, 0),
+        notify: () => refreshQuantityDisplay(value => value + 1),
+        failed: () => showNotification('Не удалось сохранить количество. Восстановлено сохранённое значение.'),
+        settled: () => collaboration.refresh(),
+        save: target => writeGroupedQuantity({
         rows: cablesRef.current.filter(row => row.cable_type === cableType && row.cable_length === cableLength),
-        change: delta ? { delta: value } : { set: value },
+        change: { set: target },
         create: quantity => createCable({ event_id: eventId, budget_id: budgetId, cable_type: cableType, cable_length: cableLength, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateCable(id, { quantity }),
         commit: row => { row = overlayMarks('cables', [row], value => value.id)[0]; const next = cablesRef.current.some(item => item.id === row.id) ? cablesRef.current.map(item => item.id === row.id ? row : item) : [...cablesRef.current, row]; cablesRef.current = next; setCables(next); }
-      }));
+        }),
+      });
     } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
   const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
     if (!canAdjustAccessories || eventDetails?.equipment_shipped) return;
     try {
-      await quantityQueue.current(JSON.stringify([eventId, 'connector', category, itemType]), () => writeGroupedQuantity({
+      await quantityQueue.current.change(JSON.stringify([eventId, 'connector', category, itemType]), delta ? { delta: value } : { set: value }, {
+        read: () => connectorsRef.current.filter(row => isConnectorMatch(row, category, itemType) || (!DUPLICATE_CONNECTOR_ITEMS.has(itemType) && isLegacyConnectorMatch(row, buildConnectorScopedType(category, itemType), itemType))).reduce((sum, row) => sum + row.quantity, 0),
+        notify: () => refreshQuantityDisplay(value => value + 1),
+        failed: () => showNotification('Не удалось сохранить количество. Восстановлено сохранённое значение.'),
+        settled: () => collaboration.refresh(),
+        save: target => writeGroupedQuantity({
         rows: connectorsRef.current.filter(row => isConnectorMatch(row, category, itemType)
           || (!DUPLICATE_CONNECTOR_ITEMS.has(itemType) && isLegacyConnectorMatch(row, buildConnectorScopedType(category, itemType), itemType))),
-        change: delta ? { delta: value } : { set: value },
+        change: { set: target },
         create: quantity => createConnector({ event_id: eventId, budget_id: budgetId, connector_type: category, connector_item: itemType, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateConnector(id, { quantity }),
         commit: row => { row = overlayMarks('connectors', [row], value => value.id)[0]; const next = connectorsRef.current.some(item => item.id === row.id) ? connectorsRef.current.map(item => item.id === row.id ? row : item) : [...connectorsRef.current, row]; connectorsRef.current = next; setConnectors(next); }
-      }));
+        }),
+      });
     } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
@@ -2053,13 +2069,19 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const handleSetOtherQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
     if (!canAdjustAccessories || eventDetails?.equipment_shipped) return;
     try {
-      await quantityQueue.current(JSON.stringify([eventId, 'other', category, itemType]), () => writeGroupedQuantity({
+      await quantityQueue.current.change(JSON.stringify([eventId, 'other', category, itemType]), delta ? { delta: value } : { set: value }, {
+        read: () => otherItemsRef.current.filter(row => row.category === category && row.item_type === itemType).reduce((sum, row) => sum + row.quantity, 0),
+        notify: () => refreshQuantityDisplay(value => value + 1),
+        failed: () => showNotification('Не удалось сохранить количество. Восстановлено сохранённое значение.'),
+        settled: () => collaboration.refresh(),
+        save: target => writeGroupedQuantity({
         rows: otherItemsRef.current.filter(row => row.category === category && row.item_type === itemType),
-        change: delta ? { delta: value } : { set: value },
+        change: { set: target },
         create: quantity => createOtherItem({ event_id: eventId, budget_id: budgetId, category, item_type: itemType, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateOtherItem(id, { quantity }),
         commit: row => { row = overlayMarks('other', [row], value => value.id)[0]; const next = otherItemsRef.current.some(item => item.id === row.id) ? otherItemsRef.current.map(item => item.id === row.id ? row : item) : [...otherItemsRef.current, row]; otherItemsRef.current = next; setOtherItems(next); }
-      }));
+        }),
+      });
     } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
@@ -2164,7 +2186,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {collaboration.error && <p role="status" className="mb-3 text-sm text-amber-400">{collaboration.error}</p>}
-          {remoteStructureChanged && <p role="status" className="mb-3 text-sm text-amber-400">Другой пользователь изменил состав спецификации. Ваши несохранённые правки сохранены на экране. <button type="button" disabled={modifiedItems.size > 0 || savingChanges} onClick={() => { void loadData(); }} className="underline disabled:opacity-50">Обновить состав после сохранения правок</button></p>}
+          {remoteStructureChanged && <p role="status" className="mb-3 text-sm text-amber-400">Состав спецификации изменился. Ваши несохранённые правки сохранены на экране. <button type="button" disabled={modifiedItems.size > 0 || savingChanges} onClick={() => { void loadData(); }} className="underline disabled:opacity-50">Обновить состав после сохранения правок</button></p>}
           {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
           {!confirmedProject && <p className="mb-4 rounded-lg border border-accent-800 p-3 text-sm text-accent-300">До подтверждения мероприятия спецификация показывает актуальную смету. Ручное редактирование станет доступно после подтверждения.</p>}
           {confirmedProject && comparisonContents && !budgetSourceError && differences.length > 0 && <div className="mb-4 rounded-lg border border-amber-700 p-3 text-sm text-amber-300">Смета и спецификация различаются: {differences.length} позиций. Ручные правки не перезаписываются автоматически.{canEditMainSpecification && !eventDetails?.equipment_shipped && <button type="button" onClick={() => { setSelectedChanges(new Set(differences.filter(row => row.kind === 'add' && !row.requiresManual).map(row => row.sourceId))); setShowBudgetChanges(true); }} className="mt-2 block rounded-lg bg-gray-800 px-3 py-2 text-accent-400">Сравнить со сметой</button>}</div>}
@@ -2455,7 +2477,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                             {template.lengths.map((length) => {
                               const cableEntries = cables.filter(c => c.cable_type === template.type && c.cable_length === length);
                               const cableObj = cableEntries[0];
-                              const quantity = cableEntries.reduce((sum, item) => sum + item.quantity, 0);
+                              const quantity = quantityQueue.current.value(JSON.stringify([eventId, 'cable', template.type, length]), cableEntries.reduce((sum, item) => sum + item.quantity, 0));
                               const cableId = cableObj?.id;
                               const picked = cableObj?.picked || false;
                               const returnPicked = cableObj?.return_picked || false;
@@ -2584,7 +2606,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 return isLegacyConnectorMatch(c, connectorTypeKey, itemType);
                               });
                               const connector = connectorEntries[0];
-                              const quantity = connectorEntries.reduce((sum, c) => sum + c.quantity, 0);
+                              const quantity = quantityQueue.current.value(JSON.stringify([eventId, 'connector', template.category, itemType]), connectorEntries.reduce((sum, c) => sum + c.quantity, 0));
                               const picked = connectorEntries.length > 0 && connectorEntries.every(c => c.picked);
                               const returnPicked = connectorEntries.length > 0 && connectorEntries.every(c => c.return_picked);
                               const connectorDraftKey = buildConnectorDraftKey(connectorTypeKey);
@@ -2708,7 +2730,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               const otherEntries = otherItems.filter(i => i.category === template.category && i.item_type === itemType);
                               const otherObj = otherEntries[0];
                               const otherId = otherObj?.id;
-                              const quantity = otherEntries.reduce((sum, item) => sum + item.quantity, 0);
+                              const quantity = quantityQueue.current.value(JSON.stringify([eventId, 'other', template.category, itemType]), otherEntries.reduce((sum, item) => sum + item.quantity, 0));
                               const picked = otherObj?.picked || false;
                               const returnPicked = otherObj?.return_picked || false;
                               const otherDraftKey = buildOtherDraftKey(template.category, itemType);
@@ -2924,7 +2946,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             {canEditSpecification && !eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmShipment}
-                disabled={(confirmingShipment) || optimisticMarks.current.hasPending() || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                disabled={(confirmingShipment) || (optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForShipment ? 'Проставьте все галочки перед отгрузкой' : undefined}
                 className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -2939,7 +2961,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             {canEditSpecification && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
-                disabled={(confirmingReturn) || optimisticMarks.current.hasPending() || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                disabled={(confirmingReturn) || (optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForReturn ? 'Проставьте все галочки перед приёмкой' : undefined}
                 className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >

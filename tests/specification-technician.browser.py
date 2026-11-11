@@ -57,9 +57,20 @@ try:
      number=page.locator('input[inputmode=numeric]').first
      assert number.is_enabled(),tab+' quantity must be editable for technician'
      before=page.evaluate('window.specWrites.length');number.fill('4');number.blur()
-     page.wait_for_function('(before)=>window.specWrites.length>before',arg=before)
+     assert number.input_value()=='4','Manual quantity remains visible while server write is pending'
+     plus=number.locator('xpath=ancestor::tr').locator('button').last
+     for _ in range(3): plus.click()
+     assert number.input_value()=='7','Rapid plus clicks update the displayed quantity immediately'
+     page.evaluate('window.emitSpec()');page.wait_for_timeout(200)
+     assert number.input_value()=='7','A stale snapshot must not reset the optimistic quantity'
+     page.wait_for_function('(before)=>window.specWrites.length>=before+4',arg=before)
+     assert number.input_value()=='7'
+     page.evaluate('window.rejectNext=true');number.fill('9');number.blur()
+     assert number.input_value()=='9'
+     page.wait_for_function('window.pendingWrites===0')
+     page.wait_for_function('document.querySelector("input[inputmode=numeric]").value==="7"')
    context.close()
   browser.close()
-  print('PASS: real specification hides Main editing for technicians including assigned/custom level 3, exposes lead/admin controls and Logs, immediate marks survive stale reads and roll back on failure, all three accessory quantity tabs work')
+  print('PASS: real specification hides Main editing for technicians including assigned/custom level 3, exposes lead/admin controls and Logs, immediate marks survive stale reads and roll back on failure, instant quantities on all three tabs survive rapid clicks/stale reads and roll back on errors')
 finally:
  harness.unlink(missing_ok=True)
