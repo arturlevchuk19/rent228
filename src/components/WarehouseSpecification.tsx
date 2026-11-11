@@ -1,3 +1,5 @@
+import { createOptimisticSpecificationMarks } from '../lib/optimisticSpecificationMarks';
+import { canAdjustSpecificationAccessories } from '../lib/specificationPermissions';
 import { SpecificationLogs } from './SpecificationLogs';
 import { useSpecificationCollaboration } from '../lib/useSpecificationCollaboration';
 import { mergeSharedMarks, saveGeneratedRowMark, specificationStructureKey, type CollaborationSnapshot } from '../lib/specificationCollaboration';
@@ -254,6 +256,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const canEditSpecification = confirmedProject && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || eventDetails?.site_manager_id === user?.id);
   const canEditMainSpecification = confirmedProject && mayEditMainSpecification(user, eventDetails?.site_manager_id);
   const canMarkMainSpecification = confirmedProject && mayMarkMainSpecification(user);
+  const canAdjustAccessories = confirmedProject && canAdjustSpecificationAccessories(user, eventDetails?.site_manager_id);
   const canEditNotes = canEditSpecification;
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
@@ -300,6 +303,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
   const [savingComponentChoice, setSavingComponentChoice] = useState(false);
   const quantityQueue = useRef(createQuantityQueue());
+  const optimisticMarks = useRef(createOptimisticSpecificationMarks());
   const loadedStructure = useRef<string>();
   const cablesRef = useRef(cables);
   cablesRef.current = cables;
@@ -564,18 +568,24 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     loadData();
   }, [eventId]);
 
+  const markKey = (kind: string, id: string, field: 'picked' | 'return_picked') => JSON.stringify([kind, id, field]);
+  const overlayMarks = <T extends {picked?: boolean; return_picked?: boolean}>(kind: string, rows: T[], identify: (row: T) => string): T[] => rows.map(row => ({ ...row,
+    picked: optimisticMarks.current.overlay(markKey(kind, identify(row), 'picked'), !!row.picked),
+    return_picked: optimisticMarks.current.overlay(markKey(kind, identify(row), 'return_picked'), !!row.return_picked),
+  }));
+
   const collaboration = useSpecificationCollaboration(eventId, budgetId, !initialLoading && confirmedProject, (snapshot, structureChanged) => {
     const marks = snapshot.marks.map(row => ({ id: row.row_key, picked: row.picked, return_picked: row.return_picked }));
     const markedKeys = new Set(snapshot.marks.map(row => row.row_key));
     writeCompositionPickedSnapshot(budgetId, Object.fromEntries(snapshot.marks.map(row => [row.row_key, {picked: row.picked, return_picked: row.return_picked}])));
-    setExpandedItems(previous => mergeSharedMarks(previous.map(row => isGeneratedCompositionItemId(row.budgetItemId) && !markedKeys.has(row.budgetItemId) ? { ...row, picked: false, return_picked: false } : row), [...snapshot.equipment, ...marks], row => row.budgetItemId));
+    setExpandedItems(previous => overlayMarks('equipment', mergeSharedMarks(previous.map(row => isGeneratedCompositionItemId(row.budgetItemId) && !markedKeys.has(row.budgetItemId) ? { ...row, picked: false, return_picked: false } : row), [...snapshot.equipment, ...marks], row => row.budgetItemId), row => row.budgetItemId));
     setBudgetItems(previous => mergeSharedMarks(previous, snapshot.equipment, row => row.id));
-    setCables(previous => mergeSharedMarks(previous, snapshot.cables, row => row.id));
-    setConnectors(previous => mergeSharedMarks(previous, snapshot.connectors, row => row.id));
-    setOtherItems(previous => mergeSharedMarks(previous, snapshot.other, row => row.id));
+    setCables(previous => overlayMarks('cables', mergeSharedMarks(previous, snapshot.cables, row => row.id), row => row.id));
+    setConnectors(previous => overlayMarks('connectors', mergeSharedMarks(previous, snapshot.connectors, row => row.id), row => row.id));
+    setOtherItems(previous => overlayMarks('other', mergeSharedMarks(previous, snapshot.other, row => row.id), row => row.id));
     setEventDetails(previous => previous ? { ...previous, equipment_shipped: false, equipment_returned: false, specification_confirmed: false, ...snapshot.state } : previous);
     if (structureChanged || (loadedStructure.current !== undefined && loadedStructure.current !== specificationStructureKey(snapshot))) {
-      if (modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showPodiumSpecification) setRemoteStructureChanged(true);
+      if (optimisticMarks.current.hasPending() || modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showPodiumSpecification) setRemoteStructureChanged(true);
       else { setRemoteStructureChanged(false); void loadData(); }
     }
   });
@@ -1062,7 +1072,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             });
 
             const excludedKeys = new Set(budgetData.flatMap(item => item.excluded_child_keys || []));
-            setExpandedItems(items.filter(item => !excludedKeys.has(item.budgetItemId)));
+            setExpandedItems(overlayMarks('equipment', items.filter(item => !excludedKeys.has(item.budgetItemId)), row => row.budgetItemId));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -1226,52 +1236,40 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     collaboration.refresh();
   };
 
-  const handlePickedChange = async (budgetItemId: string, picked: boolean) => {
-    if (!canMarkEquipmentRow(budgetItemId) || eventDetails?.equipment_shipped) return;
-    try {
-      if (isGeneratedCompositionItemId(budgetItemId)) {
-        await persistCompositionPickedState(budgetItemId, { picked });
-        setExpandedItems(prev => prev.map(item =>
-          item.budgetItemId === budgetItemId ? { ...item, picked } : item
-        ));
-        return;
-      }
-
-      await updateSpecificationBudgetItemPicked(budgetItemId, picked);
-      collaboration.refresh();
-      setExpandedItems(prev => prev.map(item =>
-        item.budgetItemId === budgetItemId ? { ...item, picked } : item
-      ));
-    } catch (error) {
-      console.error('Error updating picked status:', error);
-      showNotification('Ошибка при обновлении статуса');
-    }
+  const changeEquipmentMark = (id: string, field: 'picked' | 'return_picked', value: boolean) => {
+    if (!canMarkEquipmentRow(id) || (field === 'picked' ? eventDetails?.equipment_shipped : !eventDetails?.equipment_shipped || eventDetails?.equipment_returned)) return Promise.resolve();
+    const row = expandedItems.find(item => item.budgetItemId === id);
+    return optimisticMarks.current.change(markKey('equipment', id, field), value, {
+      read: () => !!row?.[field],
+      apply: next => setExpandedItems(previous => previous.map(item => item.budgetItemId === id ? { ...item, [field]: next } : item)),
+      save: () => isGeneratedCompositionItemId(id) ? persistCompositionPickedState(id, { [field]: value }) : field === 'picked' ? updateSpecificationBudgetItemPicked(id, value) : updateSpecificationBudgetItemReturnPicked(id, value),
+      onError: () => showNotification('Не удалось сохранить отметку. Предыдущее значение восстановлено.'),
+      settled: () => collaboration.refresh(),
+    });
   };
+  const handlePickedChange = (id: string, picked: boolean) => changeEquipmentMark(id, 'picked', picked);
 
-  const handleCablePickedChange = async (id: string, picked: boolean) => {
-    try {
-      await updateCable(id, { picked });
-      setCables(cables.map(c => c.id === id ? { ...c, picked } : c));
-    } catch (error) {
-      console.error('Error updating cable picked status:', error);
-      showNotification('Ошибка при обновлении статуса');
-    }
+  const changeAccessoryMark = (kind: 'cables' | 'connectors' | 'other', id: string, field: 'picked' | 'return_picked', value: boolean) => {
+    if (!canAdjustAccessories || (field === 'picked' ? eventDetails?.equipment_shipped : !eventDetails?.equipment_shipped || eventDetails?.equipment_returned)) return Promise.resolve();
+    const rows = kind === 'cables' ? cables : kind === 'connectors' ? connectors : otherItems;
+    const row = rows.find(item => item.id === id);
+    const apply = (next: boolean) => {
+      if (kind === 'cables') setCables(previous => previous.map(item => item.id === id ? {...item, [field]: next} : item));
+      else if (kind === 'connectors') setConnectors(previous => previous.map(item => item.id === id ? {...item, [field]: next} : item));
+      else setOtherItems(previous => previous.map(item => item.id === id ? {...item, [field]: next} : item));
+    };
+    return optimisticMarks.current.change(markKey(kind, id, field), value, {
+      read: () => !!row?.[field], apply,
+      save: () => kind === 'cables' ? updateCable(id, {[field]:value}) : kind === 'connectors' ? updateConnector(id, {[field]:value}) : updateOtherItem(id, {[field]:value}),
+      onError: () => showNotification('Не удалось сохранить отметку. Предыдущее значение восстановлено.'),
+      settled: () => collaboration.refresh(),
+    });
   };
-
-  const handleConnectorGroupPickedChange = async (category: string, itemType: string, picked: boolean) => {
-    const sameTypeConnectors = connectors.filter(c => isConnectorMatch(c, category, itemType));
-    if (sameTypeConnectors.length === 0) return;
-
-    try {
-      await Promise.all(sameTypeConnectors.map(connector => updateConnector(connector.id, { picked })));
-      setConnectors(prev => prev.map(c => isConnectorMatch(c, category, itemType) ? { ...c, picked } : c));
-    } catch (error) {
-      console.error('Error updating grouped connector picked status:', error);
-      showNotification('Ошибка при обновлении статуса');
-    }
-  };
+  const handleCablePickedChange = (id: string, picked: boolean) => changeAccessoryMark('cables', id, 'picked', picked);
+  const handleConnectorGroupPickedChange = (category: string, itemType: string, picked: boolean) => Promise.all(connectors.filter(row => isConnectorMatch(row, category, itemType)).map(row => changeAccessoryMark('connectors', row.id, 'picked', picked)));
 
   const handleConfirmShipment = async () => {
+    if (optimisticMarks.current.hasPending()) { showNotification('Дождитесь сохранения отметок.'); return; }
     if (!allPickedForShipment) {
       const pendingItems = getPendingConfirmationItems('shipment');
       if (pendingItems.length > 0) {
@@ -1294,6 +1292,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleConfirmReturn = async () => {
+    if (optimisticMarks.current.hasPending()) { showNotification('Дождитесь сохранения отметок.'); return; }
     if (!allPickedForReturn) {
       const pendingItems = getPendingConfirmationItems('return');
       if (pendingItems.length > 0) {
@@ -1388,58 +1387,10 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     }
   };
 
-  const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
-    if (!canMarkEquipmentRow(budgetItemId) || !eventDetails?.equipment_shipped || eventDetails?.equipment_returned) return;
-    try {
-      if (isGeneratedCompositionItemId(budgetItemId)) {
-        await persistCompositionPickedState(budgetItemId, { return_picked });
-        setExpandedItems(prev => prev.map(item =>
-          item.budgetItemId === budgetItemId ? { ...item, return_picked } : item
-        ));
-        return;
-      }
-
-      await updateSpecificationBudgetItemReturnPicked(budgetItemId, return_picked);
-      collaboration.refresh();
-      setExpandedItems(prev => prev.map(item =>
-        item.budgetItemId === budgetItemId ? { ...item, return_picked } : item
-      ));
-    } catch (error) {
-      console.error('Error updating return picked status:', error);
-      showNotification('Ошибка при обновлении статуса');
-    }
-  };
-
-  const handleCableReturnPickedChange = async (id: string, return_picked: boolean) => {
-    try {
-      await updateCableReturnPicked(id, return_picked);
-      setCables(prev => prev.map(c => c.id === id ? { ...c, return_picked } : c));
-    } catch (error) {
-      console.error('Error updating cable return picked:', error);
-    }
-  };
-
-  const handleConnectorGroupReturnPickedChange = async (category: string, itemType: string, return_picked: boolean) => {
-    const sameTypeConnectors = connectors.filter(c => isConnectorMatch(c, category, itemType));
-    if (sameTypeConnectors.length === 0) return;
-
-    try {
-      await Promise.all(sameTypeConnectors.map(connector => updateConnectorReturnPicked(connector.id, return_picked)));
-      setConnectors(prev => prev.map(c => isConnectorMatch(c, category, itemType) ? { ...c, return_picked } : c));
-    } catch (error) {
-      console.error('Error updating grouped connector return picked:', error);
-      showNotification('Ошибка при обновлении статуса');
-    }
-  };
-
-  const handleOtherReturnPickedChange = async (id: string, return_picked: boolean) => {
-    try {
-      await updateOtherItemReturnPicked(id, return_picked);
-      setOtherItems(prev => prev.map(i => i.id === id ? { ...i, return_picked } : i));
-    } catch (error) {
-      console.error('Error updating other item return picked:', error);
-    }
-  };
+  const handleReturnPickedChange = (id: string, value: boolean) => changeEquipmentMark(id, 'return_picked', value);
+  const handleCableReturnPickedChange = (id: string, value: boolean) => changeAccessoryMark('cables', id, 'return_picked', value);
+  const handleConnectorGroupReturnPickedChange = (category: string, itemType: string, value: boolean) => Promise.all(connectors.filter(row => isConnectorMatch(row, category, itemType)).map(row => changeAccessoryMark('connectors', row.id, 'return_picked', value)));
+  const handleOtherReturnPickedChange = (id: string, value: boolean) => changeAccessoryMark('other', id, 'return_picked', value);
 
   const getPendingConfirmationItems = (mode: 'shipment' | 'return'): PendingConfirmationItem[] => {
     const isPicked = (picked: boolean, returnPicked: boolean) => mode === 'shipment' ? picked : returnPicked;
@@ -2052,20 +2003,20 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleSetCableQuantityFromTemplate = async (cableType: string, cableLength: string, value: number, delta = false) => {
-    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
+    if (!canAdjustAccessories || eventDetails?.equipment_shipped) return;
     try {
       await quantityQueue.current(JSON.stringify([eventId, 'cable', cableType, cableLength]), () => writeGroupedQuantity({
         rows: cablesRef.current.filter(row => row.cable_type === cableType && row.cable_length === cableLength),
         change: delta ? { delta: value } : { set: value },
         create: quantity => createCable({ event_id: eventId, budget_id: budgetId, cable_type: cableType, cable_length: cableLength, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateCable(id, { quantity }),
-        commit: row => { const next = cablesRef.current.some(item => item.id === row.id) ? cablesRef.current.map(item => item.id === row.id ? row : item) : [...cablesRef.current, row]; cablesRef.current = next; setCables(next); }
+        commit: row => { row = overlayMarks('cables', [row], value => value.id)[0]; const next = cablesRef.current.some(item => item.id === row.id) ? cablesRef.current.map(item => item.id === row.id ? row : item) : [...cablesRef.current, row]; cablesRef.current = next; setCables(next); }
       }));
     } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
   const handleSetConnectorQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
-    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
+    if (!canAdjustAccessories || eventDetails?.equipment_shipped) return;
     try {
       await quantityQueue.current(JSON.stringify([eventId, 'connector', category, itemType]), () => writeGroupedQuantity({
         rows: connectorsRef.current.filter(row => isConnectorMatch(row, category, itemType)
@@ -2073,7 +2024,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         change: delta ? { delta: value } : { set: value },
         create: quantity => createConnector({ event_id: eventId, budget_id: budgetId, connector_type: category, connector_item: itemType, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateConnector(id, { quantity }),
-        commit: row => { const next = connectorsRef.current.some(item => item.id === row.id) ? connectorsRef.current.map(item => item.id === row.id ? row : item) : [...connectorsRef.current, row]; connectorsRef.current = next; setConnectors(next); }
+        commit: row => { row = overlayMarks('connectors', [row], value => value.id)[0]; const next = connectorsRef.current.some(item => item.id === row.id) ? connectorsRef.current.map(item => item.id === row.id ? row : item) : [...connectorsRef.current, row]; connectorsRef.current = next; setConnectors(next); }
       }));
     } catch (error) { showNotification(getErrorMessage(error)); }
   };
@@ -2100,28 +2051,19 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleSetOtherQuantityFromTemplate = async (category: string, itemType: string, value: number, delta = false) => {
-    if (!canEditSpecification || eventDetails?.equipment_shipped) return;
+    if (!canAdjustAccessories || eventDetails?.equipment_shipped) return;
     try {
       await quantityQueue.current(JSON.stringify([eventId, 'other', category, itemType]), () => writeGroupedQuantity({
         rows: otherItemsRef.current.filter(row => row.category === category && row.item_type === itemType),
         change: delta ? { delta: value } : { set: value },
         create: quantity => createOtherItem({ event_id: eventId, budget_id: budgetId, category, item_type: itemType, quantity, notes: '', picked: false, return_picked: false }),
         update: (id, quantity) => updateOtherItem(id, { quantity }),
-        commit: row => { const next = otherItemsRef.current.some(item => item.id === row.id) ? otherItemsRef.current.map(item => item.id === row.id ? row : item) : [...otherItemsRef.current, row]; otherItemsRef.current = next; setOtherItems(next); }
+        commit: row => { row = overlayMarks('other', [row], value => value.id)[0]; const next = otherItemsRef.current.some(item => item.id === row.id) ? otherItemsRef.current.map(item => item.id === row.id ? row : item) : [...otherItemsRef.current, row]; otherItemsRef.current = next; setOtherItems(next); }
       }));
     } catch (error) { showNotification(getErrorMessage(error)); }
   };
 
-  const handleOtherPickedChange = async (id: string, picked: boolean) => {
-    try {
-      const updated = await updateOtherItem(id, { picked });
-      setOtherItems(otherItems.map(i => i.id === updated.id ? updated : i));
-    } catch (error) {
-      console.error('Error updating other item picked status:', error);
-      showNotification('Ошибка при обновлении статуса');
-    }
-  };
-
+  const handleOtherPickedChange = (id: string, value: boolean) => changeAccessoryMark('other', id, 'picked', value);
   if (initialLoading && loading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -2377,11 +2319,12 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               </div>
                             </td>
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped || item.budgetItemId.includes('-kitcase-') ? (
+                              {!canEditMainSpecification || eventDetails?.equipment_shipped || item.budgetItemId.includes('-kitcase-') ? (
                                 <span className="text-xs text-white font-bold">{item.quantity}</span>
                               ) : (
                                 <div className="flex justify-center items-center gap-1">
                                   <button
+                                    aria-label={`Уменьшить количество: ${item.name}`}
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity - 1)}
                                     disabled={!canEditMainSpecification || item.quantity === 0}
                                     className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
@@ -2390,6 +2333,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                   </button>
                                   <span className="text-xs text-white font-bold w-6 text-center">{item.quantity}</span>
                                   <button
+                                    aria-label={`Увеличить количество: ${item.name}`}
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
                                     disabled={!canEditMainSpecification}
                                     className="p-0.5 text-accent-500/50 hover:text-accent-400 transition-colors"
@@ -2410,7 +2354,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                             <td className="px-3 py-1.5 text-xs text-gray-500">{item.unit}</td>
                             {!eventDetails?.equipment_shipped && (
                               <td className="px-3 py-1.5">
-                                <button
+                                {!canEditMainSpecification ? <span className="text-xs text-gray-400">{item.notes || '—'}</span> : <button
                                   type="button"
                                   onClick={() => setOpenNote({
                                     budgetItemId: item.budgetItemId,
@@ -2422,7 +2366,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                   title={item.notes || 'Добавить примечание'}
                                 >
                                   {item.notes || 'Добавить примечание'}
-                                </button>
+                                </button>}
                               </td>
                             )}
                           </tr>
@@ -2502,7 +2446,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               )}
                               <th className="px-3 py-1.5 text-left text-xs text-gray-500">Длина</th>
                               <th className="px-3 py-1.5 text-center w-20 text-xs text-gray-500">Кол-во</th>
-                              {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                              {canAdjustAccessories && !eventDetails?.equipment_shipped && (
                                 <th className="px-3 py-1.5 text-center w-20 text-xs text-gray-500"></th>
                               )}
                             </tr>
@@ -2523,7 +2467,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <tr key={length} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                      <input disabled={!canAdjustAccessories}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleCableReturnPickedChange(cableId, e.target.checked)}
@@ -2535,7 +2479,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                         checked={picked}
                                         onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                        disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
                                       />
                                     ) : null}
                                   </td>
@@ -2544,7 +2488,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                      <input disabled={!canAdjustAccessories}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2565,17 +2509,17 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       />
                                     )}
                                   </td>
-                                  {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                                  {canAdjustAccessories && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetCableQuantityFromTemplate(template.type, length, -1, true)}
-                                          disabled={(quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                          disabled={(quantity === 0) || !canAdjustAccessories}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                        <button disabled={!canAdjustAccessories}
                                           onClick={() => handleSetCableQuantityFromTemplate(template.type, length, 1, true)}
                                           className="p-1 text-accent-500/50 hover:text-accent-400 transition-colors"
                                         >
@@ -2626,7 +2570,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               )}
                               <th className="px-3 py-1.5 text-left text-xs text-gray-500">Тип</th>
                               <th className="px-3 py-1.5 text-center w-20 text-xs text-gray-500">Кол-во</th>
-                              {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                              {canAdjustAccessories && !eventDetails?.equipment_shipped && (
                                 <th className="px-3 py-1.5 text-center w-20 text-xs text-gray-500"></th>
                               )}
                             </tr>
@@ -2651,7 +2595,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                        <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                        <input disabled={!canAdjustAccessories}
                                           type="checkbox"
                                           checked={returnPicked}
                                         onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
@@ -2663,7 +2607,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                         checked={picked}
                                         onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                        disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
                                       />
                                     ) : null}
                                   </td>
@@ -2672,7 +2616,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                      <input disabled={!canAdjustAccessories}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2693,17 +2637,17 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       />
                                     )}
                                   </td>
-                                  {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                                  {canAdjustAccessories && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, -1, true)}
-                                          disabled={(quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                          disabled={(quantity === 0) || !canAdjustAccessories}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                        <button disabled={!canAdjustAccessories}
                                           onClick={() => handleSetConnectorQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-accent-500/50 hover:text-accent-400 transition-colors"
                                         >
@@ -2754,7 +2698,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               )}
                               <th className="px-3 py-1.5 text-left text-xs text-gray-500">Предмет</th>
                               <th className="px-3 py-1.5 text-center w-20 text-xs text-gray-500">Кол-во</th>
-                              {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                              {canAdjustAccessories && !eventDetails?.equipment_shipped && (
                                 <th className="px-3 py-1.5 text-center w-20 text-xs text-gray-500"></th>
                               )}
                             </tr>
@@ -2775,7 +2719,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
                                     {otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                      <input disabled={!canAdjustAccessories}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleOtherReturnPickedChange(otherId, e.target.checked)}
@@ -2787,7 +2731,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                         checked={picked}
                                         onChange={(e) => handleOtherPickedChange(otherId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                        disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
                                       />
                                     ) : null}
                                   </td>
@@ -2796,7 +2740,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
                                     ) : (
-                                      <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                      <input disabled={!canAdjustAccessories}
                                         type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
@@ -2817,17 +2761,17 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       />
                                     )}
                                   </td>
-                                  {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                                  {canAdjustAccessories && !eventDetails?.equipment_shipped && (
                                     <td className="px-3 py-1.5 text-center">
                                       <div className="flex justify-center gap-1.5">
                                         <button
                                           onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, -1, true)}
-                                          disabled={(quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                          disabled={(quantity === 0) || !canAdjustAccessories}
                                           className="p-1 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                         >
                                           <Minus className="w-5 h-5" />
                                         </button>
-                                        <button disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                        <button disabled={!canAdjustAccessories}
                                           onClick={() => handleSetOtherQuantityFromTemplate(template.category, itemType, 1, true)}
                                           className="p-1 text-accent-500/50 hover:text-accent-400 transition-colors"
                                         >
@@ -2980,7 +2924,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             {canEditSpecification && !eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmShipment}
-                disabled={(confirmingShipment) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                disabled={(confirmingShipment) || optimisticMarks.current.hasPending() || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForShipment ? 'Проставьте все галочки перед отгрузкой' : undefined}
                 className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
@@ -2995,7 +2939,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             {canEditSpecification && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmReturn}
-                disabled={(confirmingReturn) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                disabled={(confirmingReturn) || optimisticMarks.current.hasPending() || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForReturn ? 'Проставьте все галочки перед приёмкой' : undefined}
                 className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >

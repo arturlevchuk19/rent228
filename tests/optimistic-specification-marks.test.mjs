@@ -1,0 +1,11 @@
+import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
+const exports={};new Function('exports',ts.transpile(fs.readFileSync('src/lib/optimisticSpecificationMarks.ts','utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports);
+const queue=exports.createOptimisticSpecificationMarks();
+let value=false,errors=0;const pending=[];
+const change=next=>queue.change('row:picked',next,{read:()=>value,apply:next=>value=next,save:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),onError:()=>errors++,settled(){}});
+const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+const first=change(true);assert.equal(value,true,'Immediate feedback before any network request finishes');assert.equal(queue.overlay('row:picked',false),true,'A stale realtime snapshot cannot undo a pending click');
+await tick();const second=change(false);assert.equal(value,false);assert.equal(pending.length,1,'Same checkbox writes are serialized');pending[0].resolve();await tick();assert.equal(value,false,'Old response cannot undo a newer click');pending[1].reject(Error('Rejected'));await second;await first;assert.equal(value,true,'Rollback uses the last successful server value');assert.equal(errors,1);assert.equal(queue.hasPending(),false);
+const third=change(false);await tick();pending[2].reject(Error('Offline'));await third;assert.equal(value,true);assert.equal(queue.hasPending(),false);
+const fourth=change(false);await tick();pending[3].resolve();await fourth;assert.equal(value,false);assert.equal(queue.hasPending(),false,'A rejected write does not block retries');
+console.log('PASS: immediate checkboxes, stale snapshot protection, ordered rapid clicks, rollback to confirmed value and retry');

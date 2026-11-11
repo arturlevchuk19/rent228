@@ -117,4 +117,36 @@ shared=(await db.query('SELECT * FROM specification_row_marks')).rows;
 assert.equal(shared[0].picked,false);assert.equal(shared[0].return_picked,true,'One-field updates preserve the other checkbox');
 await assert.rejects(commitActor(1,mark('picked',true)),/shipment stage/);
 console.log('PASS SQL: shared generated checkboxes, atomic fields, repeat-safe audit, verified actor, log read restrictions, immutable history, failed edits, quantity history and shipment stages');
+
+await db.exec(`
+UPDATE event_budgets SET specification_state='{}';
+DO $$ DECLARE target text; BEGIN
+ FOREACH target IN ARRAY ARRAY['warehouse_specification_cables','warehouse_specification_connectors','warehouse_specification_other'] LOOP
+  EXECUTE format('ALTER TABLE public.%I ADD COLUMN notes text DEFAULT %L, ADD COLUMN updated_at timestamptz DEFAULT now()',target,'');
+  EXECUTE format('GRANT SELECT,INSERT,UPDATE,DELETE ON public.%I TO authenticated',target);
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',target);
+  EXECUTE format('CREATE POLICY account_view ON public.%I FOR SELECT TO authenticated USING (public.app_can_access(''specifications'',1))',target);
+ END LOOP;
+END; $$;
+INSERT INTO warehouse_specification_cables(id,event_id,budget_id,quantity,cable_type,cable_length) VALUES ('60000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2,'PowerCON','10м');
+INSERT INTO warehouse_specification_connectors(id,event_id,budget_id,quantity,connector_type,connector_item) VALUES ('60000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2,'Аксессуары','Сплиттер');
+INSERT INTO warehouse_specification_other(id,event_id,budget_id,quantity,category,item_type) VALUES ('60000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',2,'Ремешки','1м');
+`);
+await db.exec(fs.readFileSync('supabase/migrations/20261111140000_strict_main_roles_and_accessory_quantities.sql','utf8'));
+await db.exec(`UPDATE app_roles SET permissions='{"specifications":3}' WHERE key='staff'; UPDATE events SET site_manager_id='00000000-0000-0000-0000-000000000001';`);
+assert.equal((await actor(1,"SELECT app_can_edit_main_specification('10000000-0000-0000-0000-000000000001') AS allowed")).rows[0].allowed,false,'Assigned technician with custom level 3 still cannot edit Main');
+await assert.rejects(commitActor(1,`UPDATE warehouse_specification_budget_items SET quantity=14 WHERE ${main}`),/assigned site lead/);
+assert.equal((await actor(1,'SELECT * FROM specification_activity')).rows.length,0,'Assigned technician is not a site lead and cannot read logs');
+await db.exec(`UPDATE events SET site_manager_id='00000000-0000-0000-0000-000000000002'; UPDATE app_roles SET permissions='{"specifications":1}' WHERE key='staff';`);
+for (const table of ['warehouse_specification_cables','warehouse_specification_connectors','warehouse_specification_other']) {
+ assert.equal(Number((await commitActor(1,`UPDATE ${table} SET quantity=5 RETURNING quantity`)).rows[0].quantity),5);
+ await assert.rejects(commitActor(1,`UPDATE ${table} SET notes='Forbidden change'`),/Only quantity and checkboxes/);
+ assert.equal((await actor(1,`DELETE FROM ${table} RETURNING id`)).rows.length,0);
+}
+assert.equal((await commitActor(1,`INSERT INTO warehouse_specification_cables(id,event_id,budget_id,quantity,cable_type,cable_length) VALUES ('60000000-0000-0000-0000-000000000004','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001',3,'XLR','5м') RETURNING id`)).rows.length,1,'Technician can set a previously empty template quantity');
+await commitActor(1,'UPDATE warehouse_specification_cables SET picked=true');
+await db.exec(`UPDATE event_budgets SET specification_state='{"equipment_shipped":true}'`);
+await assert.rejects(commitActor(1,'UPDATE warehouse_specification_cables SET quantity=8'),/shipment stage/);
+await commitActor(1,'UPDATE warehouse_specification_cables SET return_picked=true');
+console.log('PASS SQL: strict Main role despite assignment/custom grants; technician accessory quantities, creation, marks and stage/metadata restrictions');
 await db.close();

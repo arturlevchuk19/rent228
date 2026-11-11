@@ -6,6 +6,8 @@ const {canEditMainSpecification:edit,canMarkMainSpecification:mark}=load('src/li
 const user=(role,id=role,level)=>({id,role,status:'active',...(level===undefined?{}:{permissions:{specifications:level}})});
 assert.equal(mark(user('staff')),true,'Read-only technician can mark main rows');
 assert.equal(edit(user('staff'),'other'),false);
+assert.equal(edit(user('staff','tech',3),'tech'),false,'Even an assigned technician cannot edit Main');
+assert.equal(edit(user('clerk','clerk',3),'clerk'),false);
 assert.equal(edit(user('staff','tech',3),'other'),false,'Custom edit permission alone does not unlock Main');
 assert.equal(edit(user('foreman'),'foreman'),true,'Assigned lead can edit');
 assert.equal(edit(user('foreman'),'other'),false,'Other lead cannot edit');
@@ -16,17 +18,26 @@ assert.equal(mark(user('staff','staff',0)),false,'No module access means no chec
 assert.equal(mark({...user('staff'),status:'inactive'}),false);
 assert.equal(edit({...user('admin'),status:'inactive'},'admin'),false);
 assert.equal(edit(null,null),false);
+const adjust=load('src/lib/specificationPermissions.ts').canAdjustSpecificationAccessories;
+assert.equal(adjust(user('staff'),'other'),true);
+assert.equal(adjust({...user('staff'),status:'inactive'},'other'),false);
+assert.equal(adjust(user('staff','staff',0),'other'),false);
+assert.equal(adjust(user('foreman'),'other'),false);
+assert.equal(adjust(user('foreman'),'foreman'),true);
 
 // Exercise actual handlers: UI attributes alone must not be the permission boundary.
 const source=fs.readFileSync('src/components/WarehouseSpecification.tsx','utf8');
-const start=source.indexOf('  const handlePickedChange = async');
-const end=source.indexOf('  const handleCablePickedChange',start);
+const start=source.indexOf('  const changeEquipmentMark =');
+const end=source.indexOf('  const changeAccessoryMark =',start);
 const js=ts.transpile(source.slice(start,end),{target:ts.ScriptTarget.ES2022});
+const queue=load('src/lib/optimisticSpecificationMarks.ts').createOptimisticSpecificationMarks;
 async function toggle({allowed=true,shipped=false,generated=false}={}) {
   const writes=[],states=[];
-  const mocks={collaboration:{refresh(){}},canMarkEquipmentRow:()=>allowed,eventDetails:{equipment_shipped:shipped},isGeneratedCompositionItemId:()=>generated,setExpandedItems:fn=>states.push(fn([{budgetItemId:'row',picked:false},{budgetItemId:'sibling',picked:false}])),persistCompositionPickedState:(...args)=>writes.push(args),updateSpecificationBudgetItemPicked:async(...args)=>writes.push(args),showNotification:()=>{throw Error('Unexpected error');}};
+  const mocks={optimisticMarks:{current:queue()},markKey:(...parts)=>parts.join(':'),expandedItems:[{budgetItemId:'row',picked:false}],canMarkEquipmentRow:()=>allowed,eventDetails:{equipment_shipped:shipped},isGeneratedCompositionItemId:()=>generated,setExpandedItems:fn=>states.push(fn([{budgetItemId:'row',picked:false},{budgetItemId:'sibling',picked:false}])),persistCompositionPickedState:async(...args)=>writes.push(args),updateSpecificationBudgetItemPicked:async(...args)=>writes.push(args),updateSpecificationBudgetItemReturnPicked:async(...args)=>writes.push(args),collaboration:{refresh(){}},showNotification:()=>{throw Error('Unexpected error');}};
   const fn=new Function(...Object.keys(mocks),js+';return handlePickedChange')(...Object.values(mocks));
-  await fn('row',true);return {writes,states};
+  const saving=fn('row',true);
+  if(allowed&&!shipped)assert.equal(states[0][0].picked,true,'Actual handler updates before awaiting server');
+  await saving;return {writes,states};
 }
 assert.equal((await toggle({allowed:false})).writes.length,0);
 assert.equal((await toggle({shipped:true})).writes.length,0);
@@ -34,10 +45,9 @@ assert.deepEqual((await toggle()).writes,[['row',true]]);
 const generated=await toggle({generated:true});assert.deepEqual(generated.writes,[['row',{picked:true}]]);assert.deepEqual(generated.states[0].map(row=>row.picked),[true,false]);
 const main=source.slice(source.indexOf("{activeTab === 'budget' && ("),source.indexOf("{activeTab === 'cables' && ("));
 assert.ok(main.includes('!canMarkMainSpecification'));
-assert.ok(main.includes('canEditMainSpecification && isLedScreenItem'));
-assert.ok(main.includes('disabled={!canEditMainSpecification || item.budgetItemId'));
-console.log('PASS: technician marking, assigned lead/admin editing, custom permissions, disabled users, handler guards and independent child marks');
-
+assert.ok(main.includes('!canEditMainSpecification || eventDetails?.equipment_shipped'));
+assert.ok(main.includes('!canEditMainSpecification ? <span'));
+console.log('PASS: hard technician restriction, lead/admin editing, optimistic actual handlers and read-only Main rendering');
 const rowStart=source.indexOf('  const canEditEquipmentRow =');
 const rowEnd=source.indexOf('  const canMarkEquipmentRow =',rowStart);
 const rowJs=ts.transpile(source.slice(rowStart,rowEnd),{target:ts.ScriptTarget.ES2022});

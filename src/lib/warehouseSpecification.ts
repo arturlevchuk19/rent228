@@ -406,7 +406,9 @@ export async function updateSpecificationBudgetItemPicked(id: string, picked: bo
   const { error } = await supabase
     .from('warehouse_specification_budget_items')
     .update({ picked, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .single();
 
   if (error) throw error;
 }
@@ -415,7 +417,9 @@ export async function updateSpecificationBudgetItemReturnPicked(id: string, retu
   const { error } = await supabase
     .from('warehouse_specification_budget_items')
     .update({ return_picked, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .single();
 
   if (error) throw error;
 }
