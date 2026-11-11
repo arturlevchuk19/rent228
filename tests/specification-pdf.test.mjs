@@ -105,7 +105,7 @@ const pickedEnd=warehouseSource.indexOf('  const handleCablePickedChange',picked
 let checkboxRows=[{budgetItemId:'mic-row',picked:true},...uiItems];
 const persisted=[];
 const toggleJs=ts.transpile(warehouseSource.slice(pickedStart,pickedEnd),{target:ts.ScriptTarget.ES2022});
-const toggle=new Function('isGeneratedCompositionItemId','setExpandedItems','persistCompositionPickedState','updateSpecificationBudgetItemPicked','showNotification',toggleJs+';return handlePickedChange;')(id=>id.includes('-comp-'),update=>{checkboxRows=update(checkboxRows);},(id,patch)=>persisted.push([id,patch]),()=>{throw Error('Generated child must not update parent in database');},()=>{throw Error('Unexpected notification');});
+const toggle=new Function('canMarkEquipmentRow','eventDetails','isGeneratedCompositionItemId','setExpandedItems','persistCompositionPickedState','updateSpecificationBudgetItemPicked','showNotification',toggleJs+';return handlePickedChange;')(()=>true,{},id=>id.includes('-comp-'),update=>{checkboxRows=update(checkboxRows);},(id,patch)=>persisted.push([id,patch]),()=>{throw Error('Generated child must not update parent in database');},()=>{throw Error('Unexpected notification');});
 await toggle(uiItems[0].budgetItemId,true);
 assert.deepEqual(checkboxRows.map(row=>row.picked),[true,true,false],'Checking one child does not change its sibling or parent');
 await toggle(uiItems[0].budgetItemId,false);

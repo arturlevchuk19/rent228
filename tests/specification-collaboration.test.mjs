@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+import ts from 'typescript';
+import assert from 'node:assert/strict';
+const load=(file,mocks={})=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(file,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>mocks[name]||{});return exports;};
+const api=load('src/lib/specificationCollaboration.ts');
+const local=[{id:'one',quantity:17,notes:'Unsaved draft',picked:false,return_picked:false},{id:'two',quantity:3,picked:true}];
+const merged=api.mergeSharedMarks(local,[{id:'one',picked:true,return_picked:false}],row=>row.id);
+assert.equal(merged[0].quantity,17);assert.equal(merged[0].notes,'Unsaved draft');assert.equal(merged[0].picked,true);assert.equal(merged[1].picked,true);assert.equal(local[0].picked,false,'Do not mutate React state');
+const snapshot={equipment:[{id:'one',quantity:3,picked:false}],cables:[],connectors:[],other:[],marks:[],state:{}};
+assert.equal(api.specificationStructureKey(snapshot),api.specificationStructureKey({...snapshot,equipment:[{id:'one',quantity:3,picked:true,updated_at:'now'}]}));
+assert.notEqual(api.specificationStructureKey(snapshot),api.specificationStructureKey({...snapshot,equipment:[{id:'one',quantity:4}]}));
+assert.deepEqual(api.activityDescription({action:'update',changes:{picked:{old:false,new:true},quantity:{old:2,new:3}}}),['Отметил выдачу','Количество: 2 → 3']);
+assert.deepEqual(api.activityDescription({action:'update',changes:{return_picked:{old:true,new:false}}}),['Снял отметку возврата']);
+assert.deepEqual(api.activityDescription({action:'insert',changes:{picked:{old:null,new:false}}}),['Добавил позицию']);
+assert.deepEqual(api.activityDescription({action:'delete',changes:{}}),['Удалил позицию']);
+assert.ok(!api.activityDescription({action:'update',changes:{equipment_id:{old:'uuid-a',new:'uuid-b'}}})[0].includes('uuid'));
+
+const roles=load('src/lib/roles.ts');
+const permissions=load('src/lib/specificationPermissions.ts',{'./roles':roles});
+assert.equal(permissions.canViewSpecificationLogs({id:'lead',role:'foreman',status:'active'},'lead'),true);
+assert.equal(permissions.canViewSpecificationLogs({id:'other',role:'foreman',status:'active'},'lead'),false);
+assert.equal(permissions.canViewSpecificationLogs({id:'tech',role:'staff',status:'active'},'lead'),false);
+assert.equal(permissions.canViewSpecificationLogs({id:'admin',role:'admin',status:'active'},'lead'),true);
+console.log('PASS: shared marks preserve local drafts, structural changes, readable action descriptions and log visibility');

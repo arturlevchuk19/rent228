@@ -56,6 +56,25 @@ function apply(state: State, change: Change) {
   const patch = change.method === 'PATCH' ? JSON.parse(change.body) as JsonRow : {};
   for (const entry of Object.values(state.cache)) entry.body = JSON.stringify(patchTree(JSON.parse(entry.body), change, patch));
 }
+// The one offline-safe RPC changes a single checkbox idempotently. Restrict its
+// optimistic cache update to a previously loaded event/budget snapshot.
+function cacheGeneratedMark(state: State, root: string, body: Record<string, unknown>): boolean {
+  if (!['picked', 'return_picked'].includes(String(body.p_field)) || typeof body.p_value !== 'boolean') return false;
+  let cached = false;
+  for (const [key, entry] of Object.entries(state.cache)) {
+    if (!key.startsWith(`${root}specification_row_marks?`)) continue;
+    const url = new URL(key.split('|')[0]);
+    if (url.searchParams.get('event_id') !== `eq.${body.p_event_id}` || url.searchParams.get('budget_id') !== `eq.${body.p_budget_id}`) continue;
+    const rows = JSON.parse(entry.body) as Record<string, unknown>[];
+    if (!Array.isArray(rows)) continue;
+    const existing = rows.find(row => row.row_key === body.p_row_key);
+    if (existing) existing[String(body.p_field)] = body.p_value;
+    else rows.push({ row_key: body.p_row_key, parent_id: body.p_parent_id, event_id: body.p_event_id, budget_id: body.p_budget_id, label: body.p_label, picked: false, return_picked: false, [String(body.p_field)]: body.p_value });
+    entry.body = JSON.stringify(rows); cached = true;
+  }
+  return cached;
+}
+
 export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetch = fetch) {
   let account: string | null = null;
   let authHeaders = new Headers();
@@ -75,7 +94,7 @@ export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetc
           headers.set('Prefer', 'return=representation');
           const result = await nativeFetch(change.url, { method: change.method, headers, body: change.method === 'DELETE' ? undefined : change.body });
           if (!result.ok) throw new Error(`Синхронизация остановлена (${result.status}). Изменения сохранены на устройстве.`);
-          const rows = await result.json();
+          const rows = change.method === 'PATCH' ? await result.json() : null;
           if (change.method === 'PATCH' && (!Array.isArray(rows) || rows.length !== 1)) throw new Error('Запись удалена или доступ изменён. Правка сохранена на устройстве.');
           state.queue.shift();
           await write(owner, state);
@@ -117,6 +136,10 @@ export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetc
               try { await write(owner, state); } catch { publish({ error: 'Не удалось обновить локальный кэш.' }); }
             }
           }
+          if (result.ok && method === 'POST' && request.url.split('?')[0] === `${root}rpc/set_specification_row_mark`) {
+            cacheGeneratedMark(state, root, JSON.parse(await request.clone().text()));
+            try { await write(owner, state); } catch { publish({ error: 'Не удалось обновить локальный кэш отметок.' }); }
+          }
           publish({ offline: false });
           return result;
         } catch (error) {
@@ -125,6 +148,15 @@ export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetc
         }
       }
       if (method === 'GET') return state.cache[key] ? response(state.cache[key]) : failure('Эти данные ещё не сохранены на устройстве. Откройте раздел при подключённом интернете.');
+      if (method === 'POST' && request.url.split('?')[0] === `${root}rpc/set_specification_row_mark`) {
+        const body = await request.text();
+        const patch = JSON.parse(body) as Record<string, unknown>;
+        if (!cacheGeneratedMark(state, root, patch)) return failure('Сначала откройте спецификацию при подключённом интернете.');
+        state.queue.push({ id: crypto.randomUUID(), url: request.url, method, body, rowId: String(patch.p_parent_id), table: 'specification_row_marks' });
+        await write(owner, state);
+        publish({ pending: state.queue.length });
+        return new Response(null, {status: 204});
+      }
       const table = url.pathname.split('/').pop() || '';
       const rowId = url.searchParams.get('id')?.match(/^eq\.([a-zA-Z0-9-]+)$/)?.[1];
       if (!['PATCH', 'DELETE'].includes(method) || !rowId || ['users', 'app_roles'].includes(table)) return failure('Для этой операции требуется соединение с сервером.');

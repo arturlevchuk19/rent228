@@ -1,3 +1,4 @@
+import { canEditMainSpecification } from '../lib/specificationPermissions';
 import { BudgetDocumentDialog } from './BudgetDocumentDialog';
 import { EventBudgetsPanel } from './EventBudgetsPanel';
 import { getBudgetEvent, getEventBudgets, type EventBudget } from '../lib/eventBudgets';
@@ -408,7 +409,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
       const budget = budgets.find(item => item.id === budgetId);
       if (!budget) throw new Error('Спецификация не найдена. Обновите список смет.');
       const [{ loadSpecificationExport }, { saveSpecificationPdf }] = await Promise.all([import('../lib/specificationExport'), import('../lib/specificationPdf')]);
-      const initialize = canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || formData.site_manager_id === user.id);
+      const initialize = canEditMainSpecification(user, formData.site_manager_id);
       const { event: saved, rows } = await loadSpecificationExport(effectiveEventId, budgetId, initialize);
       saveSpecificationPdf({ eventName: saved.name || saved.event_type, budgetName: budget.name, startDate: saved.event_date, endDate: saved.event_end_date, venue: saved.venues?.name, rows });
     } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setGeneratingPdf(false); }

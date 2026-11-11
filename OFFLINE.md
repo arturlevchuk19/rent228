@@ -4,7 +4,7 @@ Production builds precache the application shell and lazy-loaded sections via a 
 
 Successful Supabase REST reads are stored in IndexedDB, isolated by authenticated user ID. Up to 300 query responses are retained per account. Offline reads require an exact previously cached query. External images, uploads, authentication endpoints and RPCs are not cached.
 
-PATCH and DELETE requests targeting a single cached row by `id=eq.…` are persisted in an ordered outbox and reflected in cached responses. Administrative user/role changes, inserts, bulk operations, uploads and RPCs require a connection. These return an explicit error offline. An active saved session is required; new logins require internet access.
+PATCH and DELETE requests targeting a single cached row by `id=eq.…` are persisted in an ordered outbox and reflected in cached responses. Administrative user/role changes, inserts, bulk operations, uploads and general RPCs require a connection. The idempotent `set_specification_row_mark` RPC is also queued for generated-row checkboxes after the specification has been loaded online. These return an explicit error offline. An active saved session is required; new logins require internet access.
 
 The outbox is replayed with the current account's token on reconnect, focus, every 30 seconds while the app is open, or using the retry button. Web Locks coordinate tabs. Entries are removed only after successful server acknowledgement. Authorization failures stop the queue and are shown in the status banner. Signing out keeps the queue on this browser for the same account's next session. Do not clear browser site data before synchronization.
 

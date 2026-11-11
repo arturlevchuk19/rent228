@@ -1,3 +1,8 @@
+import { SpecificationLogs } from './SpecificationLogs';
+import { useSpecificationCollaboration } from '../lib/useSpecificationCollaboration';
+import { mergeSharedMarks, saveGeneratedRowMark, specificationStructureKey, type CollaborationSnapshot } from '../lib/specificationCollaboration';
+import { canViewSpecificationLogs } from '../lib/specificationPermissions';
+import { canEditMainSpecification as mayEditMainSpecification, canMarkMainSpecification as mayMarkMainSpecification } from '../lib/specificationPermissions';
 import { withBudgetUnits } from '../lib/specificationUnits';
 import { loadSpecificationContents, type SpecificationContents } from '../lib/specificationContents';
 import { cableDisplayName } from '../lib/cableNames';
@@ -183,12 +188,8 @@ const getPersistedBudgetItemId = (budgetItemId: string) => budgetItemId.replace(
 
 const isGeneratedCompositionItemId = (budgetItemId: string) => COMPOSED_ITEM_ID_SUFFIX_REGEX.test(budgetItemId);
 
-// У виртуальных субэлементов раскладного состава (compositions/modifications) нет
-// собственной строки в БД, поэтому их состояние «отмечено» хранится локально и
-// переживает перезагрузку страницы. Отметка такого субэлемента дополнительно
-// помечает родительскую запись как изменённую — при сохранении изменений
-// субэлементы создаются в БД как обычные дочерние budget items (parent_budget_item_id),
-// после чего работают так же, как все остальные элементы спецификации.
+// Browser copy is a cache of shared generated-row checkboxes; authoritative
+// values live in specification_row_marks and are updated by the guarded RPC.
 const buildCompositionPickedStorageKey = (eventId: string) => `spec_composition_picked_${eventId}`;
 
 type CompositionPickedSnapshot = Record<string, { picked?: boolean; return_picked?: boolean }>;
@@ -229,6 +230,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
 
+  const [showLogs, setShowLogs] = useState(false);
+  const [remoteStructureChanged, setRemoteStructureChanged] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [liveBudgetItems, setLiveBudgetItems] = useState<BudgetItem[]>([]);
   const [comparisonContents, setComparisonContents] = useState<SpecificationContents | null>(null);
@@ -249,6 +252,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [eventDetails, setEventDetails] = useState<Partial<Event> | null>(null);
   const confirmedProject = specificationIsEditable(eventDetails?.status);
   const canEditSpecification = confirmedProject && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || eventDetails?.site_manager_id === user?.id);
+  const canEditMainSpecification = confirmedProject && mayEditMainSpecification(user, eventDetails?.site_manager_id);
+  const canMarkMainSpecification = confirmedProject && mayMarkMainSpecification(user);
   const canEditNotes = canEditSpecification;
   const [expandedCableTypes, setExpandedCableTypes] = useState<Record<string, boolean>>({});
   const [expandedConnectorCategories, setExpandedConnectorCategories] = useState<Record<string, boolean>>({});
@@ -295,6 +300,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [activeComponentDecisionIndex, setActiveComponentDecisionIndex] = useState(0);
   const [savingComponentChoice, setSavingComponentChoice] = useState(false);
   const quantityQueue = useRef(createQuantityQueue());
+  const loadedStructure = useRef<string>();
   const cablesRef = useRef(cables);
   cablesRef.current = cables;
   const connectorsRef = useRef(connectors);
@@ -558,6 +564,22 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     loadData();
   }, [eventId]);
 
+  const collaboration = useSpecificationCollaboration(eventId, budgetId, !initialLoading && confirmedProject, (snapshot, structureChanged) => {
+    const marks = snapshot.marks.map(row => ({ id: row.row_key, picked: row.picked, return_picked: row.return_picked }));
+    const markedKeys = new Set(snapshot.marks.map(row => row.row_key));
+    writeCompositionPickedSnapshot(budgetId, Object.fromEntries(snapshot.marks.map(row => [row.row_key, {picked: row.picked, return_picked: row.return_picked}])));
+    setExpandedItems(previous => mergeSharedMarks(previous.map(row => isGeneratedCompositionItemId(row.budgetItemId) && !markedKeys.has(row.budgetItemId) ? { ...row, picked: false, return_picked: false } : row), [...snapshot.equipment, ...marks], row => row.budgetItemId));
+    setBudgetItems(previous => mergeSharedMarks(previous, snapshot.equipment, row => row.id));
+    setCables(previous => mergeSharedMarks(previous, snapshot.cables, row => row.id));
+    setConnectors(previous => mergeSharedMarks(previous, snapshot.connectors, row => row.id));
+    setOtherItems(previous => mergeSharedMarks(previous, snapshot.other, row => row.id));
+    setEventDetails(previous => previous ? { ...previous, equipment_shipped: false, equipment_returned: false, specification_confirmed: false, ...snapshot.state } : previous);
+    if (structureChanged || (loadedStructure.current !== undefined && loadedStructure.current !== specificationStructureKey(snapshot))) {
+      if (modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showPodiumSpecification) setRemoteStructureChanged(true);
+      else { setRemoteStructureChanged(false); void loadData(); }
+    }
+  });
+
   useEffect(() => {
     if (!eventDetails) return;
     let active = true;
@@ -568,6 +590,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
       try {
         const [latest, current] = await Promise.all([getBudgetItems(eventId, budgetId), getBudgetEvent(eventId, budgetId)]);
         if (!active) return;
+        setEventDetails(current);
         if (current.status !== eventDetails.status) await loadData();
         else if (JSON.stringify(latest) !== JSON.stringify(liveBudgetItems)) {
           if (specificationIsEditable(current.status)) {
@@ -587,7 +610,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const extraCategoryIds = new Set(categories.filter(category => category.description === '__extra_service__').map(category => category.id));
   const differences = getSpecificationDifferences(liveBudgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)), budgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)), comparisonContents || undefined);
   const applyBudgetChanges = async () => {
-    if (!canEditSpecification || applyingChanges || eventDetails?.equipment_shipped || modifiedItems.size) return;
+    if (!canEditMainSpecification || applyingChanges || eventDetails?.equipment_shipped || modifiedItems.size) return;
     setApplyingChanges(true);
     try {
       const [latest, current] = await Promise.all([getBudgetItems(eventId, budgetId), getBudgetEvent(eventId, budgetId)]);
@@ -627,7 +650,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         (async () => {
           const current = await getBudgetEvent(eventId, budgetId);
           if (!specificationIsEditable(current.status)) return budgetSpecificationPreview(await getBudgetItems(eventId, budgetId));
-          if (canAccess(user, 'specifications', 2)) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
+          if (mayEditMainSpecification(user, current.site_manager_id)) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
           return getSpecificationBudgetItems(eventId, budgetId);
         })(),
         getCategories(),
@@ -640,6 +663,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         getBudgetItems(eventId, budgetId).then(items => { setBudgetSourceError(''); return items; }).catch(() => { setBudgetSourceError('Не удалось проверить актуальную смету. Откройте спецификацию повторно.'); return null; })
       ]);
 
+      loadedStructure.current = specificationStructureKey({equipment: rawBudgetData, cables: cablesData, connectors: connectorsData, other: otherData, marks: [], state: {}} as unknown as CollaborationSnapshot);
       const budgetData = withBudgetUnits(rawBudgetData, liveItems || []);
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
       if (liveItems) {
@@ -787,7 +811,9 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         const isVirtual = item.equipment?.object_type === 'virtual';
 
         if (!isVirtual) {
-          if (item.equipment?.is_component && item.equipment_id && item.component_selection !== 'separate' && specificationIsEditable(event.status) && canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id) && !event.equipment_shipped) {
+          if (item.equipment?.is_component && item.equipment_id && item.component_selection !== 'separate' && specificationIsEditable(event.status) && (item.is_extra && !item.source_budget_item_id
+            ? canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id)
+            : mayEditMainSpecification(user, event.site_manager_id)) && !event.equipment_shipped) {
             try {
               const caseOptions = caseOptionsByEquipmentId.get(item.equipment_id) || [];
               if (caseOptions.length > 0) {
@@ -1042,10 +1068,12 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     } finally {
       setLoading(false);
       setInitialLoading(false);
+      setRemoteStructureChanged(false);
     }
   };
 
   const handleLedCasesCalculated = (budgetItemId: string, cases: CalculatedCase[]) => {
+    if (!canEditMainSpecification) return;
     console.log('handleLedCasesCalculated called:', { budgetItemId, casesCount: cases.length, cases });
 
     if (cases.length === 0) {
@@ -1102,6 +1130,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handlePodiumCompositionCalculated = (budgetItemId: string, selectedModules: Array<{ id: string; child_name: string; child_sku: string; child_category: string; quantity: number }>) => {
+    if (!canEditMainSpecification) return;
     const budgetItem = budgetItems.find(b => b.id === budgetItemId);
     if (!budgetItem) return;
 
@@ -1150,7 +1179,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
   const handleComponentDecision = async (selectedCase: ComponentCaseOption | null) => {
     const group = componentDecisionQueue[activeComponentDecisionIndex];
-    if (!group || savingComponentChoice || !canEditSpecification) return;
+    if (!group || savingComponentChoice || group.items.some(item => item.isExtra ? !canEditSpecification : !canEditMainSpecification)) return;
     setSavingComponentChoice(true);
     try {
       const replacement = selectedCase ? buildCaseExpandedItems(group, selectedCase)[0] : null;
@@ -1171,41 +1200,45 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const handleComponentDecisionSeparate = () => { void handleComponentDecision(null); };
   const handleComponentDecisionUseCase = (selectedCase: ComponentCaseOption) => { void handleComponentDecision(selectedCase); };
 
-  // Сохраняет отметку виртуального субэлемента раскладного состава, чтобы она
-  // не терялась после перезагрузки страницы (у таких строк пока нет своей записи в БД).
-  // Отмеченный субэлемент дополнительно помечает родителя как изменённый — при
-  // сохранении изменений он будет создан в БД как обычная дочерняя позиция.
-  const persistCompositionPickedState = (budgetItemId: string, patch: { picked?: boolean; return_picked?: boolean }) => {
+  const canEditEquipmentRow = (id: string) => {
+    const row = expandedItems.find(item => item.budgetItemId === id);
+    if (row) return row.isExtra ? canEditSpecification : canEditMainSpecification;
+    // Virtual parents have no displayed row, but own their generated children.
+    const parent = budgetItems.find(item => item.id === id);
+    return !!parent && (parent.is_extra && !parent.source_budget_item_id ? canEditSpecification : canEditMainSpecification);
+  };
+  const canMarkEquipmentRow = (id: string) => {
+    const row = expandedItems.find(item => item.budgetItemId === id);
+    return !!row && (row.isExtra ? confirmedProject && canAccess(user, 'specifications', 2) : canMarkMainSpecification);
+  };
+
+  const persistCompositionPickedState = async (budgetItemId: string, patch: { picked?: boolean; return_picked?: boolean }) => {
+    const row = expandedItems.find(item => item.budgetItemId === budgetItemId);
+    if (!row) throw new Error('Позиция не найдена. Обновите спецификацию.');
+    const parentId = row.parentBudgetItemId || getPersistedBudgetItemId(budgetItemId);
+    for (const field of ['picked', 'return_picked'] as const) {
+      const value = patch[field];
+      if (value !== undefined) await saveGeneratedRowMark(eventId, budgetId, parentId, budgetItemId, field, value, row.name);
+    }
     const snapshot = readCompositionPickedSnapshot(budgetId);
     snapshot[budgetItemId] = { ...(snapshot[budgetItemId] || {}), ...patch };
-
-    // Подчищаем устаревший legacy-ключ с временным суффиксом (mod-<id>-<timestamp>),
-    // чтобы после смены формата ключей отметка не задваивалась.
-    if (budgetItemId.includes('-mod-')) {
-      const parentId = getPersistedBudgetItemId(budgetItemId);
-      Object.keys(snapshot).forEach((key) => {
-        if (key === budgetItemId) return;
-        if (/^.*-mod-.*-\d+$/.test(key) && getPersistedBudgetItemId(key) === parentId) {
-          delete snapshot[key];
-        }
-      });
-    }
-
     writeCompositionPickedSnapshot(budgetId, snapshot);
-    setModifiedItems(prev => new Set(prev).add(getPersistedBudgetItemId(budgetItemId)));
+    collaboration.refresh();
   };
 
   const handlePickedChange = async (budgetItemId: string, picked: boolean) => {
+    if (!canMarkEquipmentRow(budgetItemId) || eventDetails?.equipment_shipped) return;
     try {
       if (isGeneratedCompositionItemId(budgetItemId)) {
+        await persistCompositionPickedState(budgetItemId, { picked });
         setExpandedItems(prev => prev.map(item =>
           item.budgetItemId === budgetItemId ? { ...item, picked } : item
         ));
-        persistCompositionPickedState(budgetItemId, { picked });
         return;
       }
 
       await updateSpecificationBudgetItemPicked(budgetItemId, picked);
+      collaboration.refresh();
       setExpandedItems(prev => prev.map(item =>
         item.budgetItemId === budgetItemId ? { ...item, picked } : item
       ));
@@ -1283,6 +1316,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleResetSpecification = async () => {
+    if (!canEditMainSpecification) return;
     try {
       setResettingSpecification(true);
       await resetWarehouseSpecificationSnapshot(eventId, budgetId);
@@ -1310,6 +1344,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleResetAllSelections = async () => {
+    if (!canEditMainSpecification) return;
     try {
       const equipmentUpdates = expandedItems
         .filter(item => !isGeneratedCompositionItemId(item.budgetItemId))
@@ -1335,6 +1370,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         ...otherReturnUpdates
       ]);
 
+      await Promise.all(expandedItems.filter(item => isGeneratedCompositionItemId(item.budgetItemId)).map(item => persistCompositionPickedState(item.budgetItemId, {picked:false, return_picked:false})));
       const compositionSnapshot = readCompositionPickedSnapshot(budgetId);
       Object.keys(compositionSnapshot).forEach(key => {
         compositionSnapshot[key] = { picked: false, return_picked: false };
@@ -1353,16 +1389,18 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleReturnPickedChange = async (budgetItemId: string, return_picked: boolean) => {
+    if (!canMarkEquipmentRow(budgetItemId) || !eventDetails?.equipment_shipped || eventDetails?.equipment_returned) return;
     try {
       if (isGeneratedCompositionItemId(budgetItemId)) {
+        await persistCompositionPickedState(budgetItemId, { return_picked });
         setExpandedItems(prev => prev.map(item =>
           item.budgetItemId === budgetItemId ? { ...item, return_picked } : item
         ));
-        persistCompositionPickedState(budgetItemId, { return_picked });
         return;
       }
 
       await updateSpecificationBudgetItemReturnPicked(budgetItemId, return_picked);
+      collaboration.refresh();
       setExpandedItems(prev => prev.map(item =>
         item.budgetItemId === budgetItemId ? { ...item, return_picked } : item
       ));
@@ -1543,6 +1581,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleOpenModificationSelector = async (budgetItem: BudgetItem) => {
+    if (!canEditMainSpecification) return;
     const equipmentId = budgetItem.equipment_id;
     if (!equipmentId) return;
     
@@ -1570,6 +1609,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleModificationSelect = async (modification: EquipmentModification) => {
+    if (!canEditMainSpecification) return;
     setSelectedModification(modification);
     setShowModificationSelector(false);
     
@@ -1595,6 +1635,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleSaveComponents = () => {
+    if (!canEditMainSpecification) return;
     if (!selectedBudgetItemForMod || !selectedModification) return;
     
     // Add components as expanded items
@@ -1647,6 +1688,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleAddEquipment = async (equipment: EquipmentItem, quantity: number, modificationId?: string) => {
+    if (!canEditMainSpecification) return;
     try {
       const newItem = await createSpecificationBudgetItem({
         event_id: eventId, budget_id: budgetId,
@@ -1685,11 +1727,13 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const openEquipmentSelectorForCategory = (categoryId: string | null, locationId: string | null) => {
+    if (!canEditMainSpecification) return;
     setAddEquipmentTarget({ categoryId, locationId });
     setShowEquipmentSelector(true);
   };
 
   const handleQuantityChange = (budgetItemId: string, newQuantity: number) => {
+    if (!canEditEquipmentRow(budgetItemId)) return;
     const currentItem = expandedItems.find(item => item.budgetItemId === budgetItemId);
     const currentQuantity = currentItem?.quantity ?? 0;
     const normalizedQuantity = Math.max(0, newQuantity);
@@ -1707,7 +1751,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const applyQuantityChange = () => {
-    if (!pendingQuantityChange) return;
+    if (!pendingQuantityChange || !canEditEquipmentRow(pendingQuantityChange.budgetItemId)) return;
 
     setExpandedItems(expandedItems.map(item =>
       item.budgetItemId === pendingQuantityChange.budgetItemId
@@ -1726,6 +1770,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleNotesChange = (budgetItemId: string, newNotes: string) => {
+    if (!canEditEquipmentRow(budgetItemId)) return;
     setExpandedItems(expandedItems.map(item =>
       item.budgetItemId === budgetItemId ? { ...item, notes: newNotes } : item
     ));
@@ -1735,7 +1780,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleDeleteSpecificationItem = async (budgetItemId: string) => {
-    if (!canEditSpecification || !canAccess(user, 'specifications', 3) || eventDetails?.equipment_shipped) return;
+    if (!canEditEquipmentRow(budgetItemId) || !canAccess(user, 'specifications', 3) || eventDetails?.equipment_shipped) return;
     const row = expandedItems.find(item => item.budgetItemId === budgetItemId);
     if (!row) return;
     try {
@@ -1771,7 +1816,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleSaveChanges = async () => {
-    if (modifiedItems.size === 0) return;
+    if (modifiedItems.size === 0 || [...modifiedItems].some(id => !canEditEquipmentRow(id))) return;
     
     setSavingChanges(true);
     try {
@@ -2090,6 +2135,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4">
       <div className="relative bg-gray-900 border border-gray-800 md:rounded-lg shadow-xl w-full md:w-[95vw] md:max-w-[1400px] h-full md:h-auto md:max-h-[90vh] flex flex-col">
+        {showLogs && canViewSpecificationLogs(user, eventDetails?.site_manager_id) && <SpecificationLogs eventId={eventId} budgetId={budgetId} onClose={() => setShowLogs(false)} />}
         {showBudgetChanges && <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-3"><div role="dialog" aria-modal="true" aria-label="Изменения сметы" className="max-h-full w-full max-w-xl overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4"><h3 className="font-semibold text-white">Сравнение со сметой</h3><p className="my-3 text-sm text-gray-400">Выберите позиции для переноса. Изменение заменит количество и состав выбранной строки и сбросит её отметки сборки. Удаление также удалит её дочерние строки. Остальные позиции, примечания и кабели сохраняются. Частично совпадающие комплекты отмечены «Проверить содержимое»: их нужно скорректировать вручную, чтобы не добавить комплект повторно.</p>{differences.map(change => <label key={change.sourceId} className="flex items-start gap-2 border-t border-gray-800 py-3 text-sm text-gray-200"><input type="checkbox" checked={selectedChanges.has(change.sourceId)} disabled={applyingChanges || change.requiresManual || (change.kind === 'remove' && !canAccess(user, 'specifications', 3))} onChange={event => setSelectedChanges(previous => { const next = new Set(previous); if (event.target.checked) next.add(change.sourceId); else next.delete(change.sourceId); return next; })}/><span className="min-w-0 break-words">{change.requiresManual ? 'Проверить содержимое' : change.kind === 'add' ? 'Добавить' : change.kind === 'remove' ? 'Удалить' : 'Обновить'}: {change.name}{change.source && change.saved && ` (${change.saved.quantity} → ${change.source.quantity})`}</span></label>)}{modifiedItems.size > 0 && <p className="text-sm text-amber-400">Сначала сохраните ручные изменения спецификации.</p>}<div className="mt-3 flex justify-end gap-2"><button type="button" disabled={applyingChanges} onClick={() => setShowBudgetChanges(false)} className="p-2 text-gray-400">Закрыть</button><button type="button" disabled={applyingChanges || !selectedChanges.size || modifiedItems.size > 0} onClick={() => void applyBudgetChanges()} className="min-h-11 rounded-lg bg-accent-500 p-2 text-gray-950 disabled:opacity-40">Применить выбранное</button></div></div></div>}
         {loading && (
           <div className="absolute top-3 right-14 z-20 rounded-md border border-accent-700/50 bg-gray-900/90 px-2 py-1 text-xs text-accent-300">
@@ -2120,6 +2166,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {canViewSpecificationLogs(user, eventDetails?.site_manager_id) && <button type="button" onClick={() => setShowLogs(true)} className="min-h-11 rounded border border-gray-700 px-3 text-sm text-gray-300 hover:bg-gray-800">Логи</button>}
             <button
               disabled={!confirmedProject}
               onClick={() => setShowStickyNotes(!showStickyNotes)}
@@ -2174,13 +2221,15 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          {collaboration.error && <p role="status" className="mb-3 text-sm text-amber-400">{collaboration.error}</p>}
+          {remoteStructureChanged && <p role="status" className="mb-3 text-sm text-amber-400">Другой пользователь изменил состав спецификации. Ваши несохранённые правки сохранены на экране. <button type="button" disabled={modifiedItems.size > 0 || savingChanges} onClick={() => { void loadData(); }} className="underline disabled:opacity-50">Обновить состав после сохранения правок</button></p>}
           {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
           {!confirmedProject && <p className="mb-4 rounded-lg border border-accent-800 p-3 text-sm text-accent-300">До подтверждения мероприятия спецификация показывает актуальную смету. Ручное редактирование станет доступно после подтверждения.</p>}
-          {confirmedProject && comparisonContents && !budgetSourceError && differences.length > 0 && <div className="mb-4 rounded-lg border border-amber-700 p-3 text-sm text-amber-300">Смета и спецификация различаются: {differences.length} позиций. Ручные правки не перезаписываются автоматически.{canEditSpecification && !eventDetails?.equipment_shipped && <button type="button" onClick={() => { setSelectedChanges(new Set(differences.filter(row => row.kind === 'add' && !row.requiresManual).map(row => row.sourceId))); setShowBudgetChanges(true); }} className="mt-2 block rounded-lg bg-gray-800 px-3 py-2 text-accent-400">Сравнить со сметой</button>}</div>}
+          {confirmedProject && comparisonContents && !budgetSourceError && differences.length > 0 && <div className="mb-4 rounded-lg border border-amber-700 p-3 text-sm text-amber-300">Смета и спецификация различаются: {differences.length} позиций. Ручные правки не перезаписываются автоматически.{canEditMainSpecification && !eventDetails?.equipment_shipped && <button type="button" onClick={() => { setSelectedChanges(new Set(differences.filter(row => row.kind === 'add' && !row.requiresManual).map(row => row.sourceId))); setShowBudgetChanges(true); }} className="mt-2 block rounded-lg bg-gray-800 px-3 py-2 text-accent-400">Сравнить со сметой</button>}</div>}
           {activeTab === 'budget' && (
             <>
               <div className="mb-3 flex justify-between items-center">
-                {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                {canEditMainSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                   <button
                     onClick={() => openEquipmentSelectorForCategory(null, null)}
                     className="min-h-11 px-3 py-1.5 bg-accent-500 text-gray-950 text-xs rounded hover:bg-accent-400 flex items-center gap-1.5 transition-colors"
@@ -2214,7 +2263,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                           <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                             {group.categoryName}
                           </h4>
-                          {canEditSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
+                          {canEditMainSpecification && !isWarehouseUser && !eventDetails?.equipment_shipped && (
                             <button
                               onClick={() => openEquipmentSelectorForCategory(group.categoryId, locationGroup.locationId)}
                               className="p-0.5 text-accent-500 hover:text-accent-300 transition-colors"
@@ -2255,7 +2304,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                             <td className="px-3 py-1.5 text-center">
                               <>
                                   {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                    <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                    <input disabled={(!canMarkMainSpecification)}
                                       type="checkbox"
                                       checked={item.return_picked}
                                       onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
@@ -2267,7 +2316,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                       checked={item.picked}
                                       onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
                                       className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600 focus:ring-offset-gray-900"
-                                      disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                      disabled={(!!eventDetails?.equipment_shipped) || !canMarkMainSpecification}
                                     />
                                   )}
                                 </>
@@ -2293,7 +2342,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     </div>
                                   )}
                                 </div>
-                                {canEditSpecification && !eventDetails?.equipment_shipped && !item.isFromComposition && hasModifications(item.budgetItemId) && (
+                                {canEditMainSpecification && !eventDetails?.equipment_shipped && !item.isFromComposition && hasModifications(item.budgetItemId) && (
                                   <button
                                     onClick={() => {
                                       const budgetItem = budgetItems.find(b => b.id === item.budgetItemId);
@@ -2307,7 +2356,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     <Layers className="w-3.5 h-3.5" />
                                   </button>
                                 )}
-                                {isLedScreenItem(item) && (
+                                {canEditMainSpecification && isLedScreenItem(item) && (
                                   <button
                                     onClick={() => setShowLedSpecification(item.budgetItemId === showLedSpecification ? null : item.budgetItemId)}
                                     className="p-1 text-green-500 hover:text-green-400 transition-colors"
@@ -2316,7 +2365,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     <Calculator className="w-3.5 h-3.5" />
                                   </button>
                                 )}
-                                {isPodiumItem(item) && (
+                                {canEditMainSpecification && isPodiumItem(item) && (
                                   <button
                                     onClick={() => setShowPodiumSpecification(item.budgetItemId === showPodiumSpecification ? null : item.budgetItemId)}
                                     className="p-1 text-accent-500 hover:text-accent-400 transition-colors"
@@ -2334,7 +2383,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                 <div className="flex justify-center items-center gap-1">
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity - 1)}
-                                    disabled={(!canEditSpecification || item.quantity === 0) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                    disabled={!canEditMainSpecification || item.quantity === 0}
                                     className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
                                   >
                                     <Minus className="w-5 h-5" />
@@ -2342,14 +2391,14 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                   <span className="text-xs text-white font-bold w-6 text-center">{item.quantity}</span>
                                   <button
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
-                                    disabled={(!canEditSpecification) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                    disabled={!canEditMainSpecification}
                                     className="p-0.5 text-accent-500/50 hover:text-accent-400 transition-colors"
                                   >
                                     <Plus className="w-5 h-5" />
                                   </button>
                                   <button
                                     onClick={() => requestDeleteSpecificationItem(item.budgetItemId, item.name)}
-                                    disabled={(!canEditSpecification) || (!confirmedProject || !canAccess(user, 'specifications', 3))}
+                                    disabled={(!canEditMainSpecification) || (!confirmedProject || !canAccess(user, 'specifications', 3))}
                                     className="p-0.5 text-red-500/60 hover:text-red-400 transition-colors"
                                     title="Удалить элемент"
                                   >
@@ -2368,7 +2417,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                                     itemName: item.name,
                                     value: item.notes || ''
                                   })}
-                                  disabled={!canEditNotes || item.budgetItemId.includes('-kitcase-')}
+                                  disabled={!canEditMainSpecification || item.budgetItemId.includes('-kitcase-')}
                                   className="w-full min-h-[24px] px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300 text-left truncate hover:border-accent-500 focus:outline-none focus:border-accent-500 disabled:opacity-50"
                                   title={item.notes || 'Добавить примечание'}
                                 >
@@ -2394,7 +2443,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 </div>
               )}
 
-              {showLedSpecification && (
+              {canEditMainSpecification && showLedSpecification && (
                 <LedSpecificationPanel
                   budgetItemId={showLedSpecification}
                   onSaveWithCases={(cases) => handleLedCasesCalculated(showLedSpecification, cases)}
@@ -2409,7 +2458,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 />
               )}
 
-              {showPodiumSpecification && (
+              {canEditMainSpecification && showPodiumSpecification && (
                 <PodiumSpecificationPanel
                   budgetItemId={showPodiumSpecification}
                   budgetItems={budgetItems}
@@ -2906,7 +2955,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 )}
               </button>
             )}
-            {canEditSpecification && !eventDetails?.equipment_shipped && (
+            {canEditMainSpecification && !eventDetails?.equipment_shipped && (
               <>
                 <button
                   onClick={handleResetAllSelections}

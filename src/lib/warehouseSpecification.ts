@@ -169,11 +169,9 @@ export async function getCables(eventId: string, budgetId: string): Promise<Cabl
 }
 
 export async function createCable(cable: Omit<CableItem, 'id' | 'created_at' | 'updated_at'>): Promise<CableItem> {
-  const { picked, ...insertCable } = cable;
-  void picked; // client-side only flag, has no column in warehouse_specification_cables
   const { data, error } = await supabase
     .from('warehouse_specification_cables')
-    .insert(insertCable)
+    .insert(cable)
     .select()
     .single();
 
@@ -226,8 +224,7 @@ export async function getConnectors(eventId: string, budgetId: string): Promise<
 }
 
 export async function createConnector(connector: Omit<ConnectorItem, 'id' | 'created_at' | 'updated_at'>): Promise<ConnectorItem> {
-  const { picked, connector_type, connector_item, ...restConnector } = connector;
-  void picked; // client-side only flag, has no column in warehouse_specification_connectors
+  const { connector_type, connector_item, ...restConnector } = connector;
   const resolvedConnectorType = connector_type || '';
   const resolvedConnectorItem = connector_item || connector_type;
   const insertConnector = {
@@ -290,11 +287,9 @@ export async function getOtherItems(eventId: string, budgetId: string): Promise<
 }
 
 export async function createOtherItem(item: Omit<OtherItem, 'id' | 'created_at' | 'updated_at'>): Promise<OtherItem> {
-  const { picked, ...insertItem } = item;
-  void picked; // client-side only flag, has no column in warehouse_specification_other
   const { data, error } = await supabase
     .from('warehouse_specification_other')
-    .insert(insertItem)
+    .insert(item)
     .select()
     .single();
 
