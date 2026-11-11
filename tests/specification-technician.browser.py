@@ -69,6 +69,15 @@ try:
      assert number.input_value()=='9'
      page.wait_for_function('window.pendingWrites===0')
      page.wait_for_function('document.querySelector("input[inputmode=numeric]").value==="7"')
+     row=number.locator('xpath=ancestor::tr')
+     assert row.locator('input[type=checkbox]').count()==1
+     number.fill('0');number.blur()
+     assert row.locator('input[type=checkbox]').count()==0,'Zero hides checkbox before save finishes'
+     page.wait_for_function('window.pendingWrites===0')
+     assert row.locator('input[type=checkbox]').count()==0,'Saved zero stays without checkbox'
+     number.fill('2');number.blur()
+     assert row.locator('input[type=checkbox]').count()==1,'Positive quantity restores checkbox immediately'
+     page.wait_for_function('window.pendingWrites===0')
    context.close()
   browser.close()
   print('PASS: real specification hides Main editing for technicians including assigned/custom level 3, exposes lead/admin controls and Logs, immediate marks survive stale reads and roll back on failure, instant quantities on all three tabs survive rapid clicks/stale reads and roll back on errors')

@@ -489,15 +489,15 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
   const allPickedForShipment =
     pickableExpandedItems.every(item => item.picked) &&
-    cables.every(c => c.picked) &&
-    connectors.every(c => c.picked) &&
-    otherItems.every(i => i.picked);
+    cables.filter(row => row.quantity > 0).every(c => c.picked) &&
+    connectors.filter(row => row.quantity > 0).every(c => c.picked) &&
+    otherItems.filter(row => row.quantity > 0).every(i => i.picked);
 
   const allPickedForReturn =
     pickableExpandedItems.every(item => item.return_picked) &&
-    cables.every(c => c.return_picked) &&
-    connectors.every(c => c.return_picked) &&
-    otherItems.every(i => i.return_picked);
+    cables.filter(row => row.quantity > 0).every(c => c.return_picked) &&
+    connectors.filter(row => row.quantity > 0).every(c => c.return_picked) &&
+    otherItems.filter(row => row.quantity > 0).every(i => i.return_picked);
 
   const buildLocationGroups = (items: ExpandedItem[]) => {
     const categoriesById = new Map(categories.map(cat => [cat.id, cat.name]));
@@ -1424,7 +1424,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     // Keep only the first record per cable type/length pair to match how cables are rendered in the table.
     // Historical duplicated rows may exist in DB, and showing each duplicate here can produce false pending items.
     const visibleCablesByKey = new Map<string, CableItem>();
-    cables.forEach(item => {
+    cables.filter(item => item.quantity > 0).forEach(item => {
       const normalizedType = normalizeText(item.cable_type);
       const normalizedLength = normalizeText(item.cable_length);
       const key = `${normalizedType}|${normalizedLength}`;
@@ -1446,6 +1446,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
     const connectorsPendingByType = new Map<string, PendingConfirmationItem>();
     connectors
+      .filter(item => item.quantity > 0)
       .filter(item => !isPicked(item.picked, item.return_picked))
       .forEach(item => {
         const normalizedType = normalizeText(item.connector_type);
@@ -1463,7 +1464,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     // Keep only the first record per (category + item_type) pair to match template rendering in "Прочее".
     // Historical duplicated rows may exist in DB, and hidden duplicates should not block confirmation modal.
     const visibleOtherByKey = new Map<string, OtherItem>();
-    otherItems.forEach(item => {
+    otherItems.filter(item => item.quantity > 0).forEach(item => {
       const normalizedCategory = normalizeText(item.category);
       const normalizedItemType = normalizeText(item.item_type);
       const key = `${normalizedCategory}|${normalizedItemType}`;
@@ -2488,14 +2489,14 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               return (
                                 <tr key={length} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                    {quantity > 0 && cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                       <input disabled={!canAdjustAccessories}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleCableReturnPickedChange(cableId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
                                       />
-                                    ) : cableId ? (
+                                    ) : quantity > 0 && cableId ? (
                                       <input
                                         type="checkbox"
                                         checked={picked}
@@ -2616,14 +2617,14 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                    {quantity > 0 && connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                         <input disabled={!canAdjustAccessories}
                                           type="checkbox"
                                           checked={returnPicked}
                                         onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
                                       />
-                                    ) : connector ? (
+                                    ) : quantity > 0 && connector ? (
                                       <input
                                         type="checkbox"
                                         checked={picked}
@@ -2740,14 +2741,14 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                    {quantity > 0 && otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                       <input disabled={!canAdjustAccessories}
                                         type="checkbox"
                                         checked={returnPicked}
                                         onChange={(e) => handleOtherReturnPickedChange(otherId, e.target.checked)}
                                         className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
                                       />
-                                    ) : otherId ? (
+                                    ) : quantity > 0 && otherId ? (
                                       <input
                                         type="checkbox"
                                         checked={picked}
