@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2, Calculator, Check, X } from 'lucide-react';
-import { createEventBudget, deleteEventBudget, renameEventBudget, setPrimaryEventBudget, type EventBudget } from '../lib/eventBudgets';
+import { useRef, useState } from 'react';
+import { Plus, Pencil, Copy, Trash2, Calculator, Check, X } from 'lucide-react';
+import { createEventBudget, duplicateEventBudget, deleteEventBudget, renameEventBudget, setPrimaryEventBudget, type EventBudget } from '../lib/eventBudgets';
 import { ProjectSection } from './ProjectSection';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
@@ -12,10 +12,11 @@ export function EventBudgetsPanel({ eventId, budgets, onChanged, onOpen }: {
 }) {
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
+  const running = useRef(false);
   const [error, setError] = useState('');
   const [editingName, setEditingName] = useState<string>();
   const [nameDraft, setNameDraft] = useState('');
-  const run = async (task: () => Promise<void>) => { if (busy) return; setBusy(true); setError(''); try { await task(); } catch (caught) { setError(getErrorMessage(caught)); } finally { setBusy(false); } };
+  const run = async (task: () => Promise<void>) => { if (running.current) return; running.current = true; setBusy(true); setError(''); try { await task(); } catch (caught) { setError(getErrorMessage(caught)); } finally { running.current = false; setBusy(false); } };
   return <ProjectSection title="Сметы мероприятия" defaultOpen count={budgets.length} titleActions={eventId && canAccess(user, 'budgets', 2) && <button type="button" disabled={busy} onClick={() => { const name = window.prompt('Название сметы', budgets.length ? `Смета ${budgets.length + 1}` : 'Основная смета'); if (name?.trim()) void run(async () => { const budget = await createEventBudget(eventId, name, budgets.length === 0); await onChanged(); onOpen(budget.id); }); }} aria-label="Добавить смету" title="Добавить смету" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 sm:min-h-9 sm:min-w-9 text-accent-400 hover:bg-gray-800 disabled:opacity-40"><Plus className="h-4 w-4" /></button>}>
     <div className="space-y-3">
     {!eventId ? <p className="text-sm text-gray-500">Сохраните мероприятие, чтобы добавлять сметы.</p> : <>
@@ -30,9 +31,10 @@ export function EventBudgetsPanel({ eventId, budgets, onChanged, onOpen }: {
           }} className="w-full min-w-0 rounded-lg border border-accent-700 bg-gray-800 px-2 py-2 text-sm text-gray-200 outline-none" />
           <button type="button" aria-label="Сохранить название сметы" disabled={busy} onClick={() => { if (!nameDraft.trim()) { setError('Укажите название сметы'); return; } void run(async () => { await renameEventBudget(budget.id, nameDraft); await onChanged(); setEditingName(undefined); }); }} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-accent-400"><Check className="h-4 w-4" /></button>
           <button type="button" aria-label="Отменить переименование" disabled={busy} onClick={() => setEditingName(undefined)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-gray-400"><X className="h-4 w-4" /></button>
-        </div> : <div className="pointer-events-none relative flex min-w-0 flex-1 items-center gap-1"><span className="flex min-w-0 items-center gap-2 text-left text-sm text-gray-200"><Calculator className="h-4 w-4 shrink-0 text-accent-400" /><span className="[overflow-wrap:anywhere]">{budget.name}</span></span>
-        {canAccess(user, 'budgets', 2) && editingName !== budget.id && <button type="button" disabled={busy} aria-label={`Переименовать ${budget.name}`} onClick={() => { setEditingName(budget.id); setNameDraft(budget.name); setError(''); }} className="pointer-events-auto relative z-10 inline-flex h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-800 hover:text-gray-200"><Pencil className="h-3.5 w-3.5" /></button>}</div>}
-        {budget.is_primary?<span className="pointer-events-none relative text-xs font-medium text-accent-300">Основная</span>:canAccess(user,'budgets',2)&&<button type="button" disabled={busy} onClick={()=>void run(async()=>{await setPrimaryEventBudget(eventId!,budget.id);await onChanged();})} className="relative z-10 min-h-11 rounded-lg px-2 text-xs text-gray-400 hover:bg-gray-800 hover:text-accent-300">Сделать основной</button>}
+        </div> : <div className="pointer-events-none relative flex min-w-0 basis-full flex-1 items-center gap-1 sm:basis-auto"><span className="flex min-w-0 items-center gap-2 text-left text-sm text-gray-200"><Calculator className="h-4 w-4 shrink-0 text-accent-400" /><span className="[overflow-wrap:anywhere]">{budget.name}</span></span>
+        {canAccess(user, 'budgets', 2) && editingName !== budget.id && <button type="button" disabled={busy} aria-label={`Переименовать ${budget.name}`} onClick={() => { setEditingName(budget.id); setNameDraft(budget.name); setError(''); }} className="pointer-events-auto relative z-10 inline-flex h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-800 hover:text-gray-200"><Pencil className="h-3.5 w-3.5" /></button>}
+        {canAccess(user, 'budgets', 2) && <button type="button" disabled={busy} aria-label={`Копировать ${budget.name}`} title="Копировать смету" onClick={() => void run(async () => { await duplicateEventBudget(budget.id); await onChanged(); })} className="pointer-events-auto relative z-10 inline-flex h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-800 hover:text-gray-200 disabled:opacity-40"><Copy className="h-3.5 w-3.5" /></button>}</div>}
+        {budget.is_primary?<span className="pointer-events-none relative ml-auto text-xs font-medium text-accent-300 sm:ml-0">Основная</span>:canAccess(user,'budgets',2)&&<button type="button" disabled={busy} onClick={()=>void run(async()=>{await setPrimaryEventBudget(eventId!,budget.id);await onChanged();})} className="relative z-10 ml-auto min-h-11 rounded-lg px-2 text-xs text-gray-400 sm:ml-0 hover:bg-gray-800 hover:text-accent-300">Сделать основной</button>}
         {canAccess(user, 'budgets', 3) && <button type="button" disabled={busy} aria-label={`Удалить ${budget.name}`} onClick={() => { if (window.confirm(`Удалить «${budget.name}» и её спецификацию?`)) void run(async () => { await deleteEventBudget(budget.id); await onChanged(); }); }} className="relative z-10 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4" /></button>}
       </div>)}
     </>}

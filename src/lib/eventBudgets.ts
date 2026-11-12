@@ -3,7 +3,7 @@ import { getEvent, updateEvent, type Event } from './events';
 
 export interface EventBudget {
   id: string; event_id: string; name: string; is_primary: boolean;
-  settings: Partial<Event>; specification_state: Partial<Event>; created_at: string;
+  settings: Partial<Event>; specification_state: Partial<Event>; created_at: string; sort_order?: number;
 }
 const settingsKeys = ['discount_enabled','discount_percent','discount2_enabled','discount2_percent','budget_days','budget_totals_mode','budget_note','sticky_notes','budget_version','budget_payment_mode','budget_exchange_rate','show_nominal_consumption','show_max_consumption'];
 function check(error: { code?: string; message?: string } | null) {
@@ -12,7 +12,7 @@ function check(error: { code?: string; message?: string } | null) {
   throw error;
 }
 export async function getEventBudgets(eventId: string): Promise<EventBudget[]> {
-  const { data, error } = await supabase.from('event_budgets').select('*').eq('event_id', eventId).order('is_primary', { ascending: false }).order('created_at');
+  const { data, error } = await supabase.from('event_budgets').select('*').eq('event_id', eventId).order('is_primary', { ascending: false }).order('sort_order').order('created_at').order('id');
   check(error); return data || [];
 }
 export async function createEventBudget(eventId: string, name: string, primary = false): Promise<EventBudget> {
@@ -59,3 +59,9 @@ export async function copyEventBudget(sourceBudgetId: string, targetEventId: str
 }
 
 export async function setPrimaryEventBudget(eventId:string,budgetId:string):Promise<void>{const {error}=await supabase.rpc('set_primary_event_budget',{p_event:eventId,p_budget:budgetId});check(error);}
+
+/** Duplicate within the same event and persist placement directly below the source. */
+export async function duplicateEventBudget(sourceBudgetId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('duplicate_event_budget', { p_source_budget_id: sourceBudgetId });
+  check(error); return data;
+}

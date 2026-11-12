@@ -1,0 +1,35 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+for(const file of ['tests/event-budgets.bootstrap.sql','supabase/migrations/20261029020000_event_budgets.sql','supabase/migrations/20261029030000_copy_event_budget.sql','tests/event-budget-copy.integration.sql'])await db.exec(fs.readFileSync(file,'utf8'));
+await db.exec("SET test.budgets='3'; CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT 'authenticated'::text $$;");
+await db.exec(fs.readFileSync('supabase/migrations/20261112120000_event_budget_duplicate_order.sql','utf8'));
+const event='11111111-1111-4111-8111-111111111111';
+const list=async()=> (await db.query('SELECT * FROM event_budgets WHERE event_id=$1 ORDER BY is_primary DESC,sort_order,created_at,id',[event])).rows;
+let before=await list();
+const source=before.find(row=>!row.is_primary);
+assert.ok(source);
+const sourceItems=(await db.query('SELECT count(*)::int AS count FROM budget_items WHERE budget_id=$1',[source.id])).rows[0].count;
+const duplicate=async id=>(await db.query('SELECT duplicate_event_budget($1) AS id',[id])).rows[0].id;
+const first=await duplicate(source.id);
+let rows=await list();assert.equal(rows[rows.findIndex(row=>row.id===source.id)+1].id,first,'Copy is directly below the selected secondary budget');
+assert.equal(rows.find(row=>row.id===first).is_primary,false);assert.equal(rows.find(row=>row.id===first).name,source.name+' (копия)');
+assert.deepEqual(rows.find(row=>row.id===first).settings,source.settings);assert.deepEqual(rows.find(row=>row.id===first).specification_state,{});
+assert.equal((await db.query('SELECT count(*)::int AS count FROM budget_items WHERE budget_id=$1',[first])).rows[0].count,sourceItems);
+const second=await duplicate(source.id);rows=await list();assert.equal(rows[rows.findIndex(row=>row.id===source.id)+1].id,second);assert.equal(rows.find(row=>row.id===second).name,source.name+' (копия 2)');
+// Switching the primary changes display ordering; normalization must still place its copy next.
+await db.query('UPDATE event_budgets SET is_primary=false WHERE event_id=$1',[event]);await db.query('UPDATE event_budgets SET is_primary=true WHERE id=$1',[first]);
+const primaryCopy=await duplicate(first);rows=await list();assert.equal(rows[0].id,first);assert.equal(rows[1].id,primaryCopy);
+const lastId=(await db.query("INSERT INTO event_budgets(event_id,name) VALUES ($1,'New appended budget') RETURNING id",[event])).rows[0].id;
+assert.equal((await list()).at(-1).id,lastId,'Ordinary new budgets still append');
+const snapshot=await list();
+await db.exec("SET test.budgets='1'");
+await assert.rejects(duplicate(source.id),/No permission to copy/);await assert.rejects(db.query('UPDATE event_budgets SET sort_order=99 WHERE id=$1',[source.id]),/No permission to reorder/);
+await db.exec("SET test.budgets='3'");assert.deepEqual(await list(),snapshot);
+// Failure copying items must roll back ordering changes as well as the new document.
+const failSource=before.find(row=>row.is_primary);
+await db.exec("CREATE FUNCTION test_duplicate_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.name='FAIL' THEN RAISE EXCEPTION 'Copy failed'; END IF; RETURN NEW; END $$; CREATE TRIGGER test_duplicate_failure BEFORE INSERT ON budget_items FOR EACH ROW EXECUTE FUNCTION test_duplicate_failure();");
+const oldOrder=await list();await assert.rejects(duplicate(failSource.id),/Copy failed/);assert.deepEqual(await list(),oldOrder,'Failed copy preserves names, order and existing rows');
+console.log('PASS: full copy, adjacent persistent order, repeated names, primary switch, ordinary append, permissions and atomic rollback');
+await db.close();
