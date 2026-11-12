@@ -2543,7 +2543,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-base font-semibold text-gray-200 break-words group-hover:text-gray-950 md:truncate md:text-xs md:font-medium">{item.name}</p>
+                          <p className="text-base font-semibold text-gray-200 break-words group-hover:text-gray-100 md:truncate md:text-xs md:font-medium">{item.name}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 ml-3">
@@ -2570,7 +2570,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
                       className="group touch-pan-y select-none [-webkit-touch-callout:none] flex min-h-20 items-center justify-between rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-4 transition-colors hover:bg-accent-500/5 md:min-h-0 md:rounded-none md:border-0 md:bg-transparent md:py-2"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-base font-semibold text-gray-200 break-words group-hover:text-gray-950 md:truncate md:text-xs md:font-medium">{item.name}</p>
+                        <p className="text-base font-semibold text-gray-200 break-words group-hover:text-gray-100 md:truncate md:text-xs md:font-medium">{item.name}</p>
                         <p className="mt-1 text-sm text-gray-500 md:mt-0 md:text-xs">Ед. измерения: {item.unit}</p>
                       </div>
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors group-hover:bg-accent-600 group-hover:text-gray-950 md:h-auto md:w-auto md:p-1 md:text-gray-500">
