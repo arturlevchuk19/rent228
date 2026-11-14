@@ -71,7 +71,8 @@ export function UShapeUnifiedDialog({
     supportLengthNum: number,
     hoist: HoistType
   ): number => {
-    const hoistPrice = hoist === 'manual' ? 20 : 80;
+    // Two lifting systems, one on each side of the structure.
+    const hoistPrice = 2 * (hoist === 'manual' ? 20 : 80);
     if (supportCountNum > 0) {
       return widthNum * 7 + heightNum * 2 * 5 + supportCountNum * supportLengthNum * 5 + 10 + 5 + hoistPrice;
     } else {

@@ -43,7 +43,8 @@ export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShap
     if (supportCountNum > 0 && !supportLength) return;
 
     const supportLengthNum = supportCountNum > 0 ? parseFloat(supportLength) : 0;
-    const hoistPrice = hoistType === 'manual' ? 20 : 80;
+    // Two lifting systems, one on each side of the structure.
+    const hoistPrice = 2 * (hoistType === 'manual' ? 20 : 80);
 
     let totalPrice: number;
     if (supportCountNum > 0) {
@@ -78,7 +79,8 @@ export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShap
     const widthNum = parseFloat(width);
     const heightNum = parseFloat(height);
     const supportLengthNum = supportCountNum > 0 ? parseFloat(supportLength) : 0;
-    const hoistPrice = hoistType === 'manual' ? 20 : 80;
+    // Two lifting systems, one on each side of the structure.
+    const hoistPrice = 2 * (hoistType === 'manual' ? 20 : 80);
 
     let calculatedPrice: number;
     if (supportCountNum > 0) {
