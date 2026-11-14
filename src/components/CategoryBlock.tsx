@@ -1,3 +1,4 @@
+import { BudgetNoteDialog } from './BudgetNoteDialog';
 import { budgetEquipmentDisplayName } from '../lib/budgetDisplayName';
 import { BudgetConsumption } from './BudgetConsumption';
 import { useRef, useState } from 'react';
@@ -79,6 +80,7 @@ export function CategoryBlock({
   headerStyle,
   headerClassName
 }: CategoryBlockProps) {
+  const [mobileNote, setMobileNote] = useState<BudgetItem | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(categoryName);
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
@@ -694,7 +696,10 @@ export function CategoryBlock({
 
                   <button
                     type="button"
-                    onClick={() => setNoteEditorsOpen(prev => ({ ...prev, [item.id]: !isNoteEditorOpen }))}
+                    onClick={() => {
+                      if (window.matchMedia('(max-width: 639px)').matches) setMobileNote(item);
+                      else setNoteEditorsOpen(prev => ({ ...prev, [item.id]: !isNoteEditorOpen }));
+                    }}
                     className={`transition-opacity w-5 flex justify-center flex-shrink-0 ${isNoteEditorOpen || item.notes ? 'text-accent-500 hover:text-accent-400 opacity-100' : 'text-gray-500 hover:text-gray-300 opacity-0 group-hover:opacity-100'}`}
                     title="Примечание"
                   >
@@ -713,6 +718,11 @@ export function CategoryBlock({
                   {/* Notes row */}
                   {isNoteEditorOpen && (
                     <div className="px-1.5 py-0.5 bg-gray-800/30 pl-4 border-b border-gray-800/30 flex items-center gap-1">
+                      <button type="button" onClick={() => setMobileNote(item)}
+                        className="min-h-11 min-w-0 flex-1 truncate text-left text-xs text-gray-300 sm:hidden"
+                        aria-label="Открыть примечание">
+                        {draftValues[item.id + '_notes'] ?? item.notes ?? 'Примечание'}
+                      </button>
                       <input
                         type="text"
                         value={draftValues[item.id + '_notes'] ?? item.notes ?? ''}
@@ -722,7 +732,7 @@ export function CategoryBlock({
                           if (draftValues[item.id + '_notes'] !== undefined) void saveNote(item, e.target.value);
                         }}
                         placeholder="Примечание"
-                        className="flex-1 bg-transparent text-xs text-gray-300 placeholder-gray-400 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
+                        className="hidden sm:block min-w-0 flex-1 bg-transparent text-xs text-gray-300 placeholder-gray-400 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
                       />
                       <button
                         type="button"
@@ -758,6 +768,19 @@ export function CategoryBlock({
           </div>
         </div>
       )}
+      {mobileNote && <BudgetNoteDialog
+        key={mobileNote.id}
+        text={draftValues[mobileNote.id + '_notes'] ?? mobileNote.notes ?? ''}
+        onClose={() => setMobileNote(null)}
+        onSave={async value => {
+          const saved = await onUpdateItem(mobileNote.id, { notes: value });
+          if (saved) {
+            setDraftValues(current => { const next = { ...current }; delete next[mobileNote.id + '_notes']; return next; });
+            setNoteEditorsOpen(current => ({ ...current, [mobileNote.id]: Boolean(value) }));
+          }
+          return saved;
+        }}
+      />}
     </div>
   );
 }

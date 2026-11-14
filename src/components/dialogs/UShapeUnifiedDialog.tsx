@@ -90,7 +90,7 @@ export function UShapeUnifiedDialog({
     hoist: HoistType
   ): string => {
     const hoistLabel = hoist === 'manual' ? 'ручных талей' : 'электрических лебёдок';
-    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}, верхняя ферма K4-${widthTruss}`;
+    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}`;
     if (supportCountNum === 2) {
       return `${baseLabel} и двумя упорами длиной ${supportLengthNum}м`;
     } else if (supportCountNum === 4) {

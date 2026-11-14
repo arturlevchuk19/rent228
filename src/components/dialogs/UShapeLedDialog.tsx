@@ -49,7 +49,7 @@ export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShap
     const totalPrice = calculateLiftingPrice(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType, widthTruss);
 
     const hoistLabel = hoistType === 'manual' ? 'ручных талей' : 'электрических лебёдок';
-    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}, верхняя ферма K4-${widthTruss}`;
+    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}`;
     let customName = baseLabel;
     if (supportCountNum === 2) {
       customName = `${baseLabel} с двумя упорами длиной ${supportLengthNum}м`;

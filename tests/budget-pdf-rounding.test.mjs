@@ -59,9 +59,10 @@ assert.ok(pageLabels.length>0 && pageLabels.every(label=>label==='Страниц
 const liftingName = 'П-образная фермовая конструкция с системой подъема';
 const liftingNotes = 'размером 5x5м, оснащенная системой подъёма на базе ручных талей и четырьмя упорами длиной 2.5м';
 for (const extra of [false, true]) {
- await generateBudgetPDF({...data,budgetItems:[{category_id:'c',equipment:{name:liftingName},notes:liftingNotes,quantity:1,price:100,is_extra:extra}]});
+ await generateBudgetPDF({...data,budgetItems:[{category_id:'c',equipment:{name:liftingName},notes:liftingNotes + ', верхняя ферма K4-290',quantity:1,price:100,is_extra:extra}]});
  assert.ok(html.includes('П-образная фермовая конструкция ' + liftingNotes));
  assert.ok(!html.includes(liftingName));
+ assert.ok(!html.includes('верхняя ферма'));
 }
 globalThis.setTimeout=nativeTimeout;
 console.log('PASS: actual PDF HTML main/extra rows in USD/BYN cash/noncash; zero coefficient equals first day; displayed unit × quantity equals amount; floating point boundary and nonzero coefficient');
