@@ -1,3 +1,4 @@
+import { budgetEquipmentDisplayName } from '../lib/budgetDisplayName';
 import { BudgetConsumption } from './BudgetConsumption';
 import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, Copy, MessageSquarePlus, Highlighter } from 'lucide-react';
@@ -478,7 +479,7 @@ export function CategoryBlock({
                     draggable
                     data-budget-drag-type="item"
                     data-budget-drag-id={item.id}
-                    data-budget-drag-label={item.equipment?.name || item.work_item?.name || 'Без названия'}
+                    data-budget-drag-label={budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || 'Без названия'}
                     title="Перетащить позицию"
                     onDragStart={(e) => {
                       e.stopPropagation();
@@ -495,7 +496,7 @@ export function CategoryBlock({
                     style={{ gridTemplateColumns: tableTemplateColumns }}
                   >
                     <div className="text-gray-300 whitespace-normal break-words pr-2">
-                      {item.equipment?.name || item.work_item?.name || 'Без названия'}
+                      {budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || 'Без названия'}
                     </div>
 
                     <div data-mobile-label="Ед. изм." className="relative flex justify-center">
@@ -536,7 +537,7 @@ export function CategoryBlock({
                     <div data-mobile-label="Количество" className="flex justify-center">
                       <div className="flex items-center justify-center">
                         <button
-                          aria-label={`Уменьшить количество: ${item.equipment?.name || item.work_item?.name || item.name || "Позиция"}`}
+                          aria-label={`Уменьшить количество: ${budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || item.name || "Позиция"}`}
                           onClick={() => onUpdateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
                           className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-xs"
                         >
@@ -545,7 +546,7 @@ export function CategoryBlock({
                         <input
                           type="text"
                           inputMode="numeric"
-                          aria-label={`Количество: ${item.equipment?.name || item.work_item?.name || 'Позиция'}`}
+                          aria-label={`Количество: ${budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || 'Позиция'}`}
                           value={draftValues[item.id + '_quantity'] ?? String(item.quantity)}
                           onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_quantity']: e.target.value }))}
                           onBlur={(e) => {
@@ -557,7 +558,7 @@ export function CategoryBlock({
                           onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                         />
                         <button
-                          aria-label={`Увеличить количество: ${item.equipment?.name || item.work_item?.name || item.name || "Позиция"}`}
+                          aria-label={`Увеличить количество: ${budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || item.name || "Позиция"}`}
                           onClick={() => onUpdateItem(item.id, { quantity: item.quantity + 1 })}
                           className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded text-xs"
                         >
@@ -570,7 +571,7 @@ export function CategoryBlock({
                       <input
                         type="text"
                         inputMode="decimal"
-                        aria-label={`Цена: ${item.equipment?.name || item.work_item?.name || 'Позиция'}`}
+                        aria-label={`Цена: ${budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || 'Позиция'}`}
                         value={draftValues[item.id + '_price'] ?? String(editablePrice)}
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
                         onBlur={(e) => {

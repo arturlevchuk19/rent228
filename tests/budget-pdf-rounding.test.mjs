@@ -7,7 +7,7 @@ globalThis.Image=class { width=10;height=10;set src(value){queueMicrotask(()=>th
 globalThis.document={documentElement:{clientWidth:1200},fonts:{ready:Promise.resolve()},createElement:tag=>tag==='canvas'?{getContext:()=>({drawImage:()=>{}}),toDataURL:()=> 'data:image/png;base64,AA'}:{style:{},innerHTML:'',scrollHeight:1000,getBoundingClientRect:()=>({width:800,top:0,left:0}),remove:()=>{}},body:{appendChild:element=>{html=element.innerHTML;}}};
 globalThis.requestAnimationFrame=callback=>{callback();return 1;};
 const cache=new Map();
-function load(file){if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);new Function('exports','require',ts.transpile(fs.readFileSync(file,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}))(exports,name=>name==='jspdf'?class{addImage(){}addPage(){}addFileToVFS(){}addFont(){}setFont(){}setFontSize(){}setTextColor(){}text(label){pageLabels.push(label);}save(){}}:name==='html2canvas'?async()=>({width:1000,height:1000,toDataURL:()=> 'data:image/png;base64,AA'}):name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):name==='./specificationPdfFonts'?{regularFont:''}:name==='./pdfPagination'?{...load('src/lib/pdfPagination.ts'),measurePdfBlocks:()=>[]}:{});return exports;}
+function load(file){if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);new Function('exports','require',ts.transpile(fs.readFileSync(file,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}))(exports,name=>name==='jspdf'?class{addImage(){}addPage(){}addFileToVFS(){}addFont(){}setFont(){}setFontSize(){}setTextColor(){}text(label){pageLabels.push(label);}save(){}}:name==='html2canvas'?async()=>({width:1000,height:1000,toDataURL:()=> 'data:image/png;base64,AA'}):name==='./budgetDisplayName'?load('src/lib/budgetDisplayName.ts'):name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):name==='./specificationPdfFonts'?{regularFont:''}:name==='./pdfPagination'?{...load('src/lib/pdfPagination.ts'),measurePdfBlocks:()=>[]}:{});return exports;}
 const {generateBudgetPDF}=load('src/lib/pdfGenerator.ts');const {ceilCurrencyUnit,calcCombinedTotal,roundBudgetTotalDown}=load('src/lib/budgetPricing.ts');
 assert.equal(ceilCurrencyUnit(3.0000000000000004),3);assert.equal(ceilCurrencyUnit(3.001),4);assert.equal(ceilCurrencyUnit(0),0);assert.equal(roundBudgetTotalDown(294),290);assert.equal(roundBudgetTotalDown(322),320);assert.equal(roundBudgetTotalDown(325),325);
 const rows=(extra=false,coefficient=0)=>[{category_id:'c',equipment:{name:'Жидкость',category:'Расходные материалы'},quantity:7,price:10,total:70,multi_day_rate_override:coefficient,is_extra:extra},{category_id:'c',equipment:{name:'Батарейки',category:'Расходные материалы'},quantity:28,price:1.1,total:30.8,multi_day_rate_override:coefficient,is_extra:extra}];
@@ -55,5 +55,13 @@ const locationItems=[
 await generateBudgetPDF({...data,budgetItems:locationItems,categories:[{id:'c',name:'Категория A'},{id:'second',name:'Категория B'}],locations:[{id:'hall',name:'Зал'},{id:'foyer',name:'Фойе'}]});
 for(const heading of ['1.1 Категория A','1.2 Категория B','2.1 Категория A','1. Категория A'])assert.ok(html.includes(heading),heading);
 assert.ok(pageLabels.length>0 && pageLabels.every(label=>label==='Страница 1'),'Each generated single-page estimate has its page number');
+// Configured lifting construction names omit the duplicated catalog qualifier.
+const liftingName = 'П-образная фермовая конструкция с системой подъема';
+const liftingNotes = 'размером 5x5м, оснащенная системой подъёма на базе ручных талей и четырьмя упорами длиной 2.5м';
+for (const extra of [false, true]) {
+ await generateBudgetPDF({...data,budgetItems:[{category_id:'c',equipment:{name:liftingName},notes:liftingNotes,quantity:1,price:100,is_extra:extra}]});
+ assert.ok(html.includes('П-образная фермовая конструкция ' + liftingNotes));
+ assert.ok(!html.includes(liftingName));
+}
 globalThis.setTimeout=nativeTimeout;
 console.log('PASS: actual PDF HTML main/extra rows in USD/BYN cash/noncash; zero coefficient equals first day; displayed unit × quantity equals amount; floating point boundary and nonzero coefficient');

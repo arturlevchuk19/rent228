@@ -1,3 +1,4 @@
+import { budgetEquipmentDisplayName } from './budgetDisplayName';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { measurePdfBlocks, paginatePdf } from './pdfPagination';
@@ -355,7 +356,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
       let categorySumCombined = 0;
       const rows = items.map((item, itemIdx) => {
         const itemPrefix = `${itemIdx + 1}. `;
-        const name = item.equipment?.name || item.work_item?.name || '—';
+        const name = budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || '—';
         const notes = item.notes?.trim();
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
@@ -493,7 +494,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         let categoryTotalCombined = 0;
         const rows = items.map((item, itemIdx) => {
           const itemPrefix = `${itemIdx + 1}. `;
-          const name = item.equipment?.name || item.work_item?.name || '—';
+          const name = budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || '—';
           const notes = item.notes?.trim();
           const displayName = notes ? `${name} ${notes}` : name;
           const qty = item.quantity || 0;
