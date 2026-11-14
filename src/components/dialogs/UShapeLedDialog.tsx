@@ -1,3 +1,4 @@
+import { calculateLiftingPrice, type WidthTruss } from '../../lib/uShapePricing';
 import { useState } from 'react';
 import { X, Calculator } from 'lucide-react';
 import { EquipmentItem } from '../../lib/equipment';
@@ -16,6 +17,7 @@ interface UShapeLedDialogProps {
 }
 
 export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShapeLedDialogProps) {
+  const [widthTruss, setWidthTruss] = useState<WidthTruss>('390');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
   const [supportCount, setSupportCount] = useState('0');
@@ -26,6 +28,7 @@ export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShap
 
   const handleClose = () => {
     setWidth('');
+    setWidthTruss('390');
     setHeight('');
     setSupportCount('0');
     setSupportLength('');
@@ -43,18 +46,10 @@ export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShap
     if (supportCountNum > 0 && !supportLength) return;
 
     const supportLengthNum = supportCountNum > 0 ? parseFloat(supportLength) : 0;
-    // Two lifting systems, one on each side of the structure.
-    const hoistPrice = 2 * (hoistType === 'manual' ? 20 : 80);
-
-    let totalPrice: number;
-    if (supportCountNum > 0) {
-      totalPrice = widthNum * 7 + heightNum * 2 * 5 + supportCountNum * supportLengthNum * 5 + 10 + 5 + hoistPrice;
-    } else {
-      totalPrice = widthNum * 7 + heightNum * 2 * 5 + 10 + 10 + 5 + hoistPrice;
-    }
+    const totalPrice = calculateLiftingPrice(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType, widthTruss);
 
     const hoistLabel = hoistType === 'manual' ? 'ручных талей' : 'электрических лебёдок';
-    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}`;
+    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}, верхняя ферма K4-${widthTruss}`;
     let customName = baseLabel;
     if (supportCountNum === 2) {
       customName = `${baseLabel} с двумя упорами длиной ${supportLengthNum}м`;
@@ -79,17 +74,7 @@ export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShap
     const widthNum = parseFloat(width);
     const heightNum = parseFloat(height);
     const supportLengthNum = supportCountNum > 0 ? parseFloat(supportLength) : 0;
-    // Two lifting systems, one on each side of the structure.
-    const hoistPrice = 2 * (hoistType === 'manual' ? 20 : 80);
-
-    let calculatedPrice: number;
-    if (supportCountNum > 0) {
-      calculatedPrice = widthNum * 7 + heightNum * 2 * 5 + supportCountNum * supportLengthNum * 5 + 10 + 5 + hoistPrice;
-    } else {
-      calculatedPrice = widthNum * 7 + heightNum * 2 * 5 + 10 + 10 + 5 + hoistPrice;
-    }
-
-    return calculatedPrice;
+    return calculateLiftingPrice(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType, widthTruss);
   })();
 
   const isValid = width !== '' && height !== '' && (supportCountNum <= 0 || supportLength !== '');
@@ -116,9 +101,20 @@ export function UShapeLedDialog({ equipment, isOpen, onClose, onConfirm }: UShap
           </div>
 
           <div className="space-y-3">
+            <label className="text-xs text-gray-400 block">
+              Верхняя ферма
+              <select
+                value={widthTruss}
+                onChange={(e) => setWidthTruss(e.target.value as WidthTruss)}
+                className="mt-2 w-full min-h-11 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none"
+              >
+                <option value="390">K4-390 — 7 $/м</option>
+                <option value="290">K4-290 — 5 $/м</option>
+              </select>
+            </label>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-2">Ширина(м) K4-390</label>
+                <label className="text-xs text-gray-400 block mb-2">Ширина (м) K4-{widthTruss}</label>
                 <input
                   type="number"
                   step="0.1"

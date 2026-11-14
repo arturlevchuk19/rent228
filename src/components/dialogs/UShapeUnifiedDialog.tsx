@@ -1,3 +1,4 @@
+import { calculateLiftingPrice, type WidthTruss } from '../../lib/uShapePricing';
 import { useState, useEffect } from 'react';
 import { X, Calculator } from 'lucide-react';
 import { EquipmentItem } from '../../lib/equipment';
@@ -29,6 +30,7 @@ export function UShapeUnifiedDialog({
   initialMode = 'standard'
 }: UShapeUnifiedDialogProps) {
   const [mode, setMode] = useState<UShapeMode>(initialMode);
+  const [widthTruss, setWidthTruss] = useState<WidthTruss>('390');
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
   const [supportCount, setSupportCount] = useState('0');
@@ -45,6 +47,7 @@ export function UShapeUnifiedDialog({
 
   const handleClose = () => {
     setWidth('');
+    setWidthTruss('390');
     setHeight('');
     setSupportCount('0');
     setSupportLength('');
@@ -62,22 +65,6 @@ export function UShapeUnifiedDialog({
       ? (widthNum + (heightNum * 2) + 4 + (supportCountNum * supportLengthNum)) * 5
       : (widthNum + (heightNum * 2) + 2) * 5 + 10;
     return roundToFive(baseTotal);
-  };
-
-  const calculateLiftingPrice = (
-    widthNum: number,
-    heightNum: number,
-    supportCountNum: number,
-    supportLengthNum: number,
-    hoist: HoistType
-  ): number => {
-    // Two lifting systems, one on each side of the structure.
-    const hoistPrice = 2 * (hoist === 'manual' ? 20 : 80);
-    if (supportCountNum > 0) {
-      return widthNum * 7 + heightNum * 2 * 5 + supportCountNum * supportLengthNum * 5 + 10 + 5 + hoistPrice;
-    } else {
-      return widthNum * 7 + heightNum * 2 * 5 + 10 + 10 + 5 + hoistPrice;
-    }
   };
 
   const buildStandardName = (
@@ -103,7 +90,7 @@ export function UShapeUnifiedDialog({
     hoist: HoistType
   ): string => {
     const hoistLabel = hoist === 'manual' ? 'ручных талей' : 'электрических лебёдок';
-    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}`;
+    const baseLabel = `размером ${widthNum}x${heightNum}м, оснащенная системой подъёма на базе ${hoistLabel}, верхняя ферма K4-${widthTruss}`;
     if (supportCountNum === 2) {
       return `${baseLabel} и двумя упорами длиной ${supportLengthNum}м`;
     } else if (supportCountNum === 4) {
@@ -130,7 +117,7 @@ export function UShapeUnifiedDialog({
       totalPrice = calculateStandardPrice(widthNum, heightNum, supportCountNum, supportLengthNum);
       customName = buildStandardName(widthNum, heightNum, supportCountNum, supportLengthNum);
     } else {
-      totalPrice = calculateLiftingPrice(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType);
+      totalPrice = calculateLiftingPrice(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType, widthTruss);
       customName = buildLiftingName(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType);
     }
 
@@ -156,7 +143,7 @@ export function UShapeUnifiedDialog({
     if (mode === 'standard') {
       return calculateStandardPrice(widthNum, heightNum, supportCountNum, supportLengthNum);
     } else {
-      return calculateLiftingPrice(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType);
+      return calculateLiftingPrice(widthNum, heightNum, supportCountNum, supportLengthNum, hoistType, widthTruss);
     }
   })();
 
@@ -213,9 +200,22 @@ export function UShapeUnifiedDialog({
           </div>
 
           <div className="space-y-3">
+            {mode === 'lifting' && (
+            <label className="text-xs text-gray-400 block">
+              Верхняя ферма
+              <select
+                value={widthTruss}
+                onChange={(e) => setWidthTruss(e.target.value as WidthTruss)}
+                className="mt-2 w-full min-h-11 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-accent-500 outline-none"
+              >
+                <option value="390">K4-390 — 7 $/м</option>
+                <option value="290">K4-290 — 5 $/м</option>
+              </select>
+            </label>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-2">Ширина (м) {mode === 'standard' ? 'K4-290' : 'K4-390'}</label>
+                <label className="text-xs text-gray-400 block mb-2">Ширина (м) {mode === 'standard' ? 'K4-290' : `K4-${widthTruss}`}</label>
                 <input
                   type="number"
                   step="0.1"
