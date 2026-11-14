@@ -13,12 +13,13 @@ export function calculateLiftingPrice(
   const karetka = 15;
   const base = 15;
   const head = 10;
-  const corner = 5;
+  const corner = 5; // Угловой/Т-образный блок.
   if (supportCount > 0) {
     return width * widthRate + height * 2 * 5 + corner
       + supportCount * supportLength * 5
       + (karetka + head) * 2 + 2 * hoistPrice;
   }
   return width * widthRate + height * 2 * 5
+    + corner * 2
     + (karetka + base + head) * 2 + 2 * hoistPrice;
 }
