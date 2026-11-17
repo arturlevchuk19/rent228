@@ -1,5 +1,6 @@
 import { canEditMainSpecification } from '../lib/specificationPermissions';
 import { BudgetDocumentDialog } from './BudgetDocumentDialog';
+import { EventPdfMenu } from './EventPdfMenu';
 import { EventBudgetsPanel } from './EventBudgetsPanel';
 import { getBudgetEvent, getEventBudgets, type EventBudget } from '../lib/eventBudgets';
 import { eventProgress } from '../lib/eventProgress';
@@ -524,7 +525,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => onClose(effectiveEventId)} className="inline-flex min-h-11 items-center gap-2 text-sm text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Назад</button>
           <div className="ml-auto flex items-center gap-2">
-          <button type="button" disabled={!effectiveEventId || !budgets.length || generatingPdf || !canAccess(user, 'specifications')} onClick={() => requestDocument('pdf')} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileText className="h-4 w-4" />{generatingPdf ? 'Создание PDF...' : 'PDF'}</button>
+          <EventPdfMenu disabled={!effectiveEventId || !budgets.length || generatingPdf || !canAccess(user, 'specifications')} generating={generatingPdf} onSpecification={() => requestDocument('pdf')} />
           <button type="button" disabled={!effectiveEventId || !budgets.length || !canAccess(user, 'budgets')} onClick={() => requestDocument('contract')} aria-label="Договор" title="Договор" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40"><FileSignature className="h-4 w-4" /><span className="hidden sm:inline">Договор</span></button>
           <button type="button" disabled={!effectiveEventId || !canAccess(user, 'budgets', 2)} onClick={() => setShowCopyDialog(true)} aria-label="Копировать смету из мероприятия" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 p-2 text-gray-400 hover:text-accent-400 disabled:opacity-40"><Copy className="h-5 w-5" /></button>
           {canAccess(user, 'events', 3) && effectiveEventId && <button type="button" disabled={saving} onClick={async () => { if (!window.confirm('Удалить это мероприятие и его смету?')) return; try { setSaving(true); await deleteEvent(effectiveEventId); onDirtyChange?.(false); onDeleted?.(); } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setSaving(false); } }} aria-label="Удалить мероприятие" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-900 bg-red-950/20 p-2 text-red-400 hover:bg-red-900/30 disabled:opacity-40"><Trash2 className="h-5 w-5" /></button>}
