@@ -1,3 +1,4 @@
+import './warehouseSpecification.css';
 import { createOptimisticSpecificationMarks } from '../lib/optimisticSpecificationMarks';
 import { canAdjustSpecificationAccessories } from '../lib/specificationPermissions';
 import { SpecificationLogs } from './SpecificationLogs';
@@ -15,7 +16,7 @@ import { createOptimisticQuantityQueue, writeGroupedQuantity } from '../lib/spec
 import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
 import { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Package, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
+import { X, Plus, Minus, Package, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { budgetSpecificationPreview, specificationIsEditable, isBudgetSpecificationItem, getSpecificationDifferences } from '../lib/specificationServices';
 import { getBudgetItems, type BudgetItem, type Event } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
@@ -310,6 +311,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
   const otherItemsRef = useRef(otherItems);
   connectorsRef.current = connectors;
   otherItemsRef.current = otherItems;
+  const [showResetActions, setShowResetActions] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
   const [resettingSelections, setResettingSelections] = useState(false);
@@ -2129,16 +2131,16 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             Обновление...
           </div>
         )}
-        <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-gray-800 px-2 py-3 sm:px-4">
+        <div className="flex shrink-0 items-start justify-between gap-2 border-b border-gray-800 px-2 py-2 sm:px-4 sm:py-3">
           <div className="min-w-0">
-            <h2 id="specification-heading" className="break-words text-lg font-semibold leading-tight text-white">
+            <h2 id="specification-heading" className="break-words text-sm font-semibold leading-tight text-white sm:text-lg">
               {eventDetails?.name || 'Мероприятие'} · {budgetName}
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
               {eventDetails && (
                 <>
-                  <p className="text-xs text-gray-500">
-                    {eventDetails.venues?.name} • {new Date(eventDetails.event_date ?? '').toLocaleDateString('ru-RU')}
+                  <p className="text-xs text-gray-400">
+                    {[eventDetails.venues?.name, eventDetails.event_date && new Date(eventDetails.event_date).toLocaleDateString('ru-RU')].filter(Boolean).join(' · ')}
                   </p>
                   {eventDetails.specification_confirmed && (
                     <span className="px-1.5 py-0.5 bg-green-900/30 text-green-400 border border-green-600/30 rounded text-xs font-medium flex items-center gap-1">
@@ -2150,12 +2152,12 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {canViewSpecificationLogs(user, eventDetails?.site_manager_id) && <button type="button" onClick={() => setShowLogs(true)} className="min-h-11 rounded border border-gray-700 px-3 text-sm text-gray-300 hover:bg-gray-800">Логи</button>}
             <button
               disabled={!confirmedProject}
               onClick={() => setShowStickyNotes(!showStickyNotes)}
-              className={`p-1.5 hover:bg-gray-800 hover:text-yellow-400 rounded transition-colors ${stickyNotes.some(note => note.content.trim()) ? 'text-yellow-400' : 'text-gray-400'}`}
+              className={`flex min-h-11 min-w-11 items-center justify-center sm:min-h-0 sm:min-w-0 sm:p-1.5 hover:bg-gray-800 hover:text-yellow-400 rounded transition-colors ${stickyNotes.some(note => note.content.trim()) ? 'text-yellow-400' : 'text-gray-400'}`}
               title="Заметки"
             >
               <StickyNote className="w-5 h-5" />
@@ -2164,12 +2166,12 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         </div>
 
         <div className="border-b border-gray-800 bg-gray-900/50">
-          <div className="flex gap-2 px-4 overflow-x-auto">
+          <div className="flex overflow-x-auto sm:gap-2 sm:px-4">
             {(['budget', 'cables', 'connectors', 'other'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-2 px-3 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${
+                className={`min-h-11 grow px-2 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition-colors sm:grow-0 sm:px-3 ${
                   activeTab === tab
                     ? 'border-accent-500 text-accent-400'
                     : 'border-transparent text-gray-500 hover:text-gray-300'
@@ -2181,7 +2183,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             {eventDetails?.equipment_shipped && (
               <button
                 onClick={() => setActiveTab('extra')}
-                className={`py-2 px-3 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${
+                className={`min-h-11 grow px-2 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition-colors sm:grow-0 sm:px-3 ${
                   activeTab === 'extra'
                     ? 'border-orange-500 text-orange-400'
                     : 'border-transparent text-orange-500/60 hover:text-orange-400'
@@ -2198,7 +2200,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto p-2 custom-scrollbar sm:p-4">
+        <div className="min-h-0 flex-1 overflow-auto px-1 py-2 custom-scrollbar sm:p-4">
           {collaboration.error && <p role="status" className="mb-3 text-sm text-amber-400">{collaboration.error}</p>}
           {remoteStructureChanged && <p role="status" className="mb-3 text-sm text-amber-400">Состав спецификации изменился. Ваши несохранённые правки сохранены на экране. <button type="button" disabled={modifiedItems.size > 0 || savingChanges} onClick={() => { void loadData(); }} className="underline disabled:opacity-50">Обновить состав после сохранения правок</button></p>}
           {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
@@ -2253,7 +2255,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                         </div>
                       </div>
                       <div className="overflow-x-auto rounded border border-gray-800">
-                        <table className="w-full border-collapse">
+                        <table className="spec-equipment-grid w-full border-collapse">
                       <thead>
                         <tr className="bg-gray-800/50 border-b border-gray-800">
                           {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
@@ -2280,24 +2282,28 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                           return (
                           <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-accent-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
-                              <>
-                                  {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                    <input disabled={(!canMarkMainSpecification)}
-                                      type="checkbox"
-                                      checked={item.return_picked}
-                                      onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
-                                      className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
-                                    />
-                                  ) : (
-                                    <input
-                                      type="checkbox"
-                                      checked={item.picked}
-                                      onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
-                                      className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600 focus:ring-offset-gray-900"
-                                      disabled={(!!eventDetails?.equipment_shipped) || !canMarkMainSpecification}
-                                    />
-                                  )}
-                                </>
+                              <label className="spec-mark-target">
+                                <>
+                                    {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                      <input disabled={(!canMarkMainSpecification)}
+                                        type="checkbox"
+                                        aria-label={`Отметка: ${item.name}`}
+                                        checked={item.return_picked}
+                                        onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
+                                        className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600 focus:ring-offset-gray-900"
+                                      />
+                                    ) : (
+                                      <input
+                                        type="checkbox"
+                                        aria-label={`Отметка: ${item.name}`}
+                                        checked={item.picked}
+                                        onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
+                                        className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600 focus:ring-offset-gray-900"
+                                        disabled={(!!eventDetails?.equipment_shipped) || !canMarkMainSpecification}
+                                      />
+                                    )}
+                                  </>
+                              </label>
                             </td>
                             <td className="px-3 py-1.5">
                               <div className="flex items-center gap-2">
@@ -2363,7 +2369,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                     aria-label={`Уменьшить количество: ${item.name}`}
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity - 1)}
                                     disabled={!canEditMainSpecification || item.quantity === 0}
-                                    className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors"
+                                    className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors max-md:rounded-md max-md:bg-gray-800 max-md:enabled:text-red-400"
                                   >
                                     <Minus className="w-5 h-5" />
                                   </button>
@@ -2372,7 +2378,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                     aria-label={`Увеличить количество: ${item.name}`}
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
                                     disabled={!canEditMainSpecification}
-                                    className="p-0.5 text-accent-500/50 hover:text-accent-400 transition-colors"
+                                    className="p-0.5 text-accent-500/50 hover:text-accent-400 transition-colors max-md:rounded-md max-md:bg-gray-800 max-md:enabled:text-accent-400"
                                   >
                                     <Plus className="w-5 h-5" />
                                   </button>
@@ -2472,7 +2478,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
 
                     {expandedCableTypes[template.type] && (
                       <div className="p-2">
-                        <table className="w-full border-collapse">
+                        <table className="spec-supply-grid w-full border-collapse">
                           <thead>
                             <tr className="border-b border-gray-800">
                               {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
@@ -2502,22 +2508,26 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                               return (
                                 <tr key={length} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {quantity > 0 && cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input disabled={!canAdjustAccessories}
-                                        type="checkbox"
-                                        checked={returnPicked}
-                                        onChange={(e) => handleCableReturnPickedChange(cableId, e.target.checked)}
-                                        className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
-                                      />
-                                    ) : quantity > 0 && cableId ? (
-                                      <input
-                                        type="checkbox"
-                                        checked={picked}
-                                        onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
-                                        className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
-                                      />
-                                    ) : null}
+                                    <label className="spec-mark-target">
+                                      {quantity > 0 && cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                        <input disabled={!canAdjustAccessories}
+                                          type="checkbox"
+                                          aria-label={`Отметка: ${length}`}
+                                          checked={returnPicked}
+                                          onChange={(e) => handleCableReturnPickedChange(cableId, e.target.checked)}
+                                          className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
+                                        />
+                                      ) : quantity > 0 && cableId ? (
+                                        <input
+                                          type="checkbox"
+                                          aria-label={`Отметка: ${length}`}
+                                          checked={picked}
+                                          onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
+                                          className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
+                                          disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
+                                        />
+                                      ) : null}
+                                    </label>
                                   </td>
                                   <td className="px-3 py-1.5 text-xs text-white">{length}</td>
                                   <td className="px-3 py-1.5 text-center">
@@ -2596,7 +2606,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
 
                     {expandedConnectorCategories[template.category] && (
                       <div className="p-2">
-                        <table className="w-full border-collapse">
+                        <table className="spec-supply-grid w-full border-collapse">
                           <thead>
                             <tr className="border-b border-gray-800">
                               {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
@@ -2630,22 +2640,26 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {quantity > 0 && connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                        <input disabled={!canAdjustAccessories}
+                                    <label className="spec-mark-target">
+                                      {quantity > 0 && connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                          <input disabled={!canAdjustAccessories}
+                                            type="checkbox"
+                                            aria-label={`Отметка: ${itemType}`}
+                                            checked={returnPicked}
+                                          onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
+                                          className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
+                                        />
+                                      ) : quantity > 0 && connector ? (
+                                        <input
                                           type="checkbox"
-                                          checked={returnPicked}
-                                        onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
-                                        className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
-                                      />
-                                    ) : quantity > 0 && connector ? (
-                                      <input
-                                        type="checkbox"
-                                        checked={picked}
-                                        onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
-                                        className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
-                                      />
-                                    ) : null}
+                                          aria-label={`Отметка: ${itemType}`}
+                                          checked={picked}
+                                          onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
+                                          className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
+                                          disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
+                                        />
+                                      ) : null}
+                                    </label>
                                   </td>
                                   <td className="px-3 py-1.5 text-xs text-white">{itemType}</td>
                                   <td className="px-3 py-1.5 text-center">
@@ -2724,7 +2738,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
 
                     {expandedOtherCategories[template.category] && (
                       <div className="p-2">
-                        <table className="w-full border-collapse">
+                        <table className="spec-supply-grid w-full border-collapse">
                           <thead>
                             <tr className="border-b border-gray-800">
                               {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
@@ -2754,22 +2768,26 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                               return (
                                 <tr key={itemType} className="hover:bg-gray-800 transition-colors">
                                   <td className="px-3 py-1.5 text-center">
-                                    {quantity > 0 && otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                      <input disabled={!canAdjustAccessories}
-                                        type="checkbox"
-                                        checked={returnPicked}
-                                        onChange={(e) => handleOtherReturnPickedChange(otherId, e.target.checked)}
-                                        className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
-                                      />
-                                    ) : quantity > 0 && otherId ? (
-                                      <input
-                                        type="checkbox"
-                                        checked={picked}
-                                        onChange={(e) => handleOtherPickedChange(otherId, e.target.checked)}
-                                        className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
-                                        disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
-                                      />
-                                    ) : null}
+                                    <label className="spec-mark-target">
+                                      {quantity > 0 && otherId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                        <input disabled={!canAdjustAccessories}
+                                          type="checkbox"
+                                          aria-label={`Отметка: ${itemType}`}
+                                          checked={returnPicked}
+                                          onChange={(e) => handleOtherReturnPickedChange(otherId, e.target.checked)}
+                                          className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
+                                        />
+                                      ) : quantity > 0 && otherId ? (
+                                        <input
+                                          type="checkbox"
+                                          aria-label={`Отметка: ${itemType}`}
+                                          checked={picked}
+                                          onChange={(e) => handleOtherPickedChange(otherId, e.target.checked)}
+                                          className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
+                                          disabled={(!!eventDetails?.equipment_shipped) || !canAdjustAccessories}
+                                        />
+                                      ) : null}
+                                    </label>
                                   </td>
                                   <td className="px-3 py-1.5 text-xs text-white">{itemType}</td>
                                   <td className="px-3 py-1.5 text-center">
@@ -2856,7 +2874,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                     <div key={`${locationGroup.locationId || 'no-location'}-extra-${group.categoryName}`} className="mb-3">
                       <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">{group.categoryName}</h4>
                       <div className="overflow-x-auto rounded border border-orange-900/40">
-                    <table className="w-full border-collapse">
+                    <table className="spec-equipment-grid w-full border-collapse">
                       <thead>
                         <tr className="bg-orange-900/10 border-b border-orange-900/30">
                           {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
@@ -2873,22 +2891,26 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                         {group.items.map((item, index) => (
                           <tr key={`${item.budgetItemId}-${index}`} className="bg-orange-900/5 hover:bg-orange-900/15 transition-colors">
                             <td className="px-3 py-1.5 text-center">
-                              {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
-                                <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
-                                  type="checkbox"
-                                  checked={item.return_picked}
-                                  onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
-                                  className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
-                                />
-                              ) : (
-                                <input
-                                  type="checkbox"
-                                  checked={item.picked}
-                                  onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
-                                  className="w-4 h-4 cursor-pointer rounded border-orange-700 bg-gray-800 text-orange-600"
-                                  disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
-                                />
-                              )}
+                              <label className="spec-mark-target">
+                                {eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
+                                  <input disabled={(!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                    type="checkbox"
+                                    aria-label={`Отметка: ${item.name}`}
+                                    checked={item.return_picked}
+                                    onChange={(e) => handleReturnPickedChange(item.budgetItemId, e.target.checked)}
+                                    className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
+                                  />
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Отметка: ${item.name}`}
+                                    checked={item.picked}
+                                    onChange={(e) => handlePickedChange(item.budgetItemId, e.target.checked)}
+                                    className="w-4 h-4 cursor-pointer rounded border-orange-700 bg-gray-800 text-orange-600"
+                                    disabled={(!!eventDetails?.equipment_shipped) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
+                                  />
+                                )}
+                              </label>
                             </td>
                             <td className="px-3 py-1.5">
                               <div className="text-xs text-white font-medium">{item.name}</div>
@@ -2917,8 +2939,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
           )}
         </div>
 
-        <div className="border-t border-gray-800 p-3 bg-gray-900/80 flex flex-wrap justify-end items-center gap-2">
-          <div className="flex flex-wrap gap-2 w-full justify-end">
+        <div className="relative flex shrink-0 flex-wrap justify-end gap-2 border-t border-gray-800 bg-gray-900/80 px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] empty:hidden sm:p-3">
             {modifiedItems.size > 0 && !eventDetails?.equipment_shipped && (
               <button
                 onClick={handleSaveChanges}
@@ -2937,21 +2958,31 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             )}
             {canEditMainSpecification && !eventDetails?.equipment_shipped && (
               <>
-                <button
-                  onClick={handleResetAllSelections}
-                  disabled={resettingSelections || resettingSpecification || loading}
-                  aria-busy={resettingSelections}
-                  className="px-3 py-1.5 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
-                >
-                  {resettingSelections ? 'Сброс выделений…' : 'Сбросить все выделения'}
+                <button type="button" aria-expanded={showResetActions} aria-controls="spec-reset-actions" onClick={() => setShowResetActions(open => !open)}
+                  className="flex min-h-11 items-center gap-1 rounded-lg border border-gray-700 px-2.5 text-xs text-gray-200 sm:hidden">
+                  <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+                  {resettingSelections ? 'Сброс…' : 'Ещё'}
                 </button>
-                <button
-                  onClick={() => setShowResetDialog(true)}
-                  disabled={resettingSelections}
-                  className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
-                >
-                  Сбросить спецификацию
-                </button>
+                {showResetActions && <button type="button" onClick={() => setShowResetActions(false)}
+                  className="fixed inset-0 z-20 bg-black/40 sm:hidden" aria-label="Закрыть действия" />}
+                <div id="spec-reset-actions" onKeyDown={event => { if (event.key === 'Escape') setShowResetActions(false); }}
+                  className={`${showResetActions ? 'flex' : 'hidden'} absolute bottom-full right-0 z-30 w-max max-w-full flex-col gap-1 rounded-lg border border-gray-700 bg-gray-900 p-1 shadow-lg sm:static sm:flex sm:flex-row sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none`}>
+                  <button
+                    onClick={() => { setShowResetActions(false); void handleResetAllSelections(); }}
+                    disabled={resettingSelections || resettingSpecification || loading}
+                    aria-busy={resettingSelections}
+                    className="min-h-11 px-3 py-1.5 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+                  >
+                    {resettingSelections ? 'Сброс выделений…' : 'Сбросить все выделения'}
+                  </button>
+                  <button
+                    onClick={() => { setShowResetActions(false); setShowResetDialog(true); }}
+                    disabled={resettingSelections}
+                    className="min-h-11 px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
+                  >
+                    Сбросить спецификацию
+                  </button>
+                </div>
               </>
             )}
             {canEditSpecification && !eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
@@ -2959,7 +2990,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                 onClick={handleConfirmShipment}
                 disabled={(confirmingShipment) || (optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForShipment ? 'Проставьте все галочки перед отгрузкой' : undefined}
-                className="px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                className="min-h-11 px-2 sm:px-3 py-1.5 bg-red-700 text-white text-xs rounded hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 {confirmingShipment ? <>...</> : (
                   <>
@@ -2974,7 +3005,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                 onClick={handleConfirmReturn}
                 disabled={(confirmingReturn) || (optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || (!confirmedProject || !canAccess(user, 'specifications', 2))}
                 title={!allPickedForReturn ? 'Проставьте все галочки перед приёмкой' : undefined}
-                className="px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                className="min-h-11 px-2 sm:px-3 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               >
                 {confirmingReturn ? <>...</> : (
                   <>
@@ -2984,7 +3015,6 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                 )}
               </button>
             )}
-          </div>
         </div>
       </div>
 

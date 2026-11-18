@@ -80,11 +80,11 @@ function AppContent() {
   };
 
   return <>
-    <Layout currentPage={currentPage} pageHeading={specification ? 'Спецификация' : eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) navigate(page); }}>
+    <Layout currentPage={currentPage} onMobileBack={specification ? closeSpecification : undefined} pageHeading={specification ? 'Спецификация' : eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) navigate(page); }}>
       <div hidden={eventPage.open || !!specification} className="h-full"><PageErrorBoundary key={currentPage}><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></PageErrorBoundary></div>
       {eventPage.open && <div hidden={!!specification}><EventPage event={eventPage.event} loading={eventPage.loading} error={eventPage.error} onDirtyChange={eventPage.setDirty} onBack={eventId => { if (eventPage.close() && eventId && !eventPage.event) setLastCreatedEventId(eventId); }} onSave={eventId => { eventPage.saved(eventId); handleRefresh(eventId); }} onSpecificationOpen={handleSpecificationOpen} onDeleted={() => { eventPage.setDirty(false); eventPage.close(); handleRefresh(); }} /></div>}
       {specification && <div className="flex h-full min-h-0 flex-col">
-        <div className="shrink-0 py-2">
+        <div className="hidden shrink-0 py-2 sm:block">
           <button type="button" onClick={closeSpecification} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 text-sm text-gray-300 hover:bg-gray-800">
             <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Назад
           </button>

@@ -6,6 +6,7 @@ import { canAccess, ROLE_NAMES, type AppModule } from '../lib/roles';
 import { AccountDialog } from './AccountDialog';
 import type { LucideIcon } from 'lucide-react';
 import {
+  ArrowLeft,
   LayoutDashboard,
   FileText,
   Package,
@@ -30,10 +31,11 @@ interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
   pageHeading?: string;
+  onMobileBack?: () => void;
   onNavigate: (page: string) => void;
 }
 
-export function Layout({ children, currentPage, onNavigate, pageHeading }: LayoutProps) {
+export function Layout({ children, currentPage, onNavigate, pageHeading, onMobileBack }: LayoutProps) {
   const { user } = useAuth();
   const [accountTab, setAccountTab] = useState<'profile' | 'users' | 'roles' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -95,6 +97,9 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
+            {onMobileBack && <button type="button" onClick={onMobileBack} aria-label="Назад" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 sm:hidden">
+              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+            </button>}
             <div ref={setMobileTitle} className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
               <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
               <div ref={setMobileAfterTitle} className="flex shrink-0 items-center" />
@@ -168,7 +173,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading }: Layou
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'events' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-1' : 'overflow-y-auto p-4 lg:p-6'}`}>
+        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'events' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? `overflow-y-auto pt-1 lg:px-6 lg:pb-6 ${onMobileBack ? 'px-2 pb-0 sm:px-4 sm:pb-4' : 'px-4 pb-4'}` : 'overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
         </div>

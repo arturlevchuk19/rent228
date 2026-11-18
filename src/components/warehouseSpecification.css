@@ -1,0 +1,111 @@
+.spec-mark-target {
+  display: contents;
+}
+
+@media (max-width: 767px) {
+  :is(.spec-equipment-grid, .spec-supply-grid),
+  :is(.spec-equipment-grid, .spec-supply-grid) > tbody {
+    display: block;
+  }
+
+  :is(.spec-equipment-grid, .spec-supply-grid) > thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  :is(.spec-equipment-grid, .spec-supply-grid) > tbody > tr {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  :is(.spec-equipment-grid, .spec-supply-grid) > tbody > tr > td {
+    min-width: 0;
+    padding: 0;
+  }
+
+  .spec-mark-target {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+  }
+
+  .spec-mark-target input {
+    width: 22px;
+    height: 22px;
+  }
+
+  :is(.spec-equipment-grid, .spec-supply-grid) td:nth-child(2) {
+    grid-column: 2 / -1;
+    overflow-wrap: anywhere;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  .spec-equipment-grid td:nth-child(2) .text-xs {
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  .spec-equipment-grid td:nth-child(2) > div {
+    flex-wrap: wrap;
+  }
+
+  .spec-equipment-grid td:nth-child(2) button {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  :is(.spec-equipment-grid, .spec-supply-grid) td:nth-child(3) {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :is(.spec-equipment-grid, .spec-supply-grid) td:nth-child(3) :is(span, .text-xs) {
+    font-size: 0.875rem;
+  }
+
+  .spec-equipment-grid td:nth-child(4) {
+    grid-column: 3;
+    color: rgb(156 163 175);
+  }
+
+  .spec-supply-grid td:nth-child(3) input {
+    width: 3.5rem;
+    min-height: 44px;
+    font-size: 1rem;
+  }
+
+  .spec-supply-grid td:nth-child(4) {
+    grid-column: 3;
+  }
+
+  :is(.spec-equipment-grid td:nth-child(3), .spec-supply-grid td:nth-child(4)) button {
+    display: inline-grid;
+    min-width: 44px;
+    min-height: 44px;
+    place-items: center;
+  }
+
+  .spec-equipment-grid td:nth-child(5) {
+    grid-column: 2 / -1;
+  }
+
+  .spec-equipment-grid td:nth-child(5) button {
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
