@@ -99,7 +99,7 @@ export const CABLE_TEMPLATES: CableTemplate[] = [
   },
   {
     type: 'Кабель 63А 5P',
-    lengths: ['30м', '20м', '10м']
+    lengths: ['30м', '20м', '15м', '10м']
   },
   {
     type: 'Кабель 32А 4P',

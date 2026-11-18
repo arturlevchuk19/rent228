@@ -314,9 +314,10 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
   connectorsRef.current = connectors;
   otherItemsRef.current = otherItems;
   const [showResetActions, setShowResetActions] = useState(false);
-  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetDialog, setResetDialog] = useState<'selections' | 'specification' | null>(null);
   const [resettingSpecification, setResettingSpecification] = useState(false);
   const [resettingSelections, setResettingSelections] = useState(false);
+  const resetInProgress = resettingSpecification || resettingSelections;
   const selectionResetInFlight = useRef(false);
   const [collapsedParentItems, setCollapsedParentItems] = useState<Set<string>>(new Set());
 
@@ -1378,7 +1379,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
   };
 
   const handleResetSpecification = async () => {
-    if (!canEditMainSpecification) return;
+    if (!canEditMainSpecification || !canAccess(user, 'specifications', 3) || eventDetails?.equipment_shipped || resetInProgress) return;
     try {
       setResettingSpecification(true);
       await resetWarehouseSpecificationSnapshot(eventId, budgetId);
@@ -1394,7 +1395,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
       setPodiumItemsWithComposition(new Set());
       setComponentDecisionQueue([]);
       setActiveComponentDecisionIndex(0);
-      setShowResetDialog(false);
+      setResetDialog(null);
       await loadData();
       showNotification('Спецификация сброшена до состояния сметы', 'success');
     } catch (error) {
@@ -1424,6 +1425,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
       setCables(clearMarks);
       setConnectors(clearMarks);
       setOtherItems(clearMarks);
+      setResetDialog(null);
       showNotification('Все выделения сброшены', 'success');
     } catch (error) {
       console.error('Error resetting all selections:', error);
@@ -3040,15 +3042,15 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                 <div id="spec-reset-actions" onKeyDown={event => { if (event.key === 'Escape') setShowResetActions(false); }}
                   className={`${showResetActions ? 'flex' : 'hidden'} absolute bottom-full right-0 z-30 w-max max-w-full flex-col gap-1 rounded-lg border border-gray-700 bg-gray-900 p-1 shadow-lg sm:static sm:flex sm:flex-row sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none`}>
                   <button
-                    onClick={() => { setShowResetActions(false); void handleResetAllSelections(); }}
-                    disabled={resettingSelections || resettingSpecification || loading}
+                    onClick={() => { setShowResetActions(false); setResetDialog('selections'); }}
+                    disabled={resetInProgress || loading}
                     aria-busy={resettingSelections}
                     className="min-h-11 px-3 py-1.5 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
                   >
                     {resettingSelections ? 'Сброс выделений…' : 'Сбросить все выделения'}
                   </button>
                   <button
-                    onClick={() => { setShowResetActions(false); setShowResetDialog(true); }}
+                    onClick={() => { setShowResetActions(false); setResetDialog('specification'); }}
                     disabled={resettingSelections}
                     className="min-h-11 px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
                   >
@@ -3337,29 +3339,29 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         />
       )}
 
-      {showResetDialog && (
+      {resetDialog && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
-              Сбросить спецификацию
+          <div role="alertdialog" aria-modal="true" aria-labelledby="spec-reset-title" aria-describedby="spec-reset-message"
+            onKeyDown={event => { if (event.key === 'Escape' && !resetInProgress) setResetDialog(null); }}
+            className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md p-4">
+            <h3 id="spec-reset-title" className="mb-3 text-base font-semibold text-white">
+              {resetDialog === 'selections' ? 'Сбросить все выделения?' : 'Сбросить спецификацию?'}
             </h3>
-            <p className="text-sm text-gray-300 mb-5">
-              Вернуть спецификацию к исходному состоянию из сметы? Все несохранённые изменения в текущей спецификации будут удалены.
+            <p id="spec-reset-message" className="mb-5 text-sm text-gray-300">
+              {resetDialog === 'selections'
+                ? 'Все отметки о сборке и возврате в выбранной спецификации будут сняты.'
+                : 'Позиции спецификации будут пересозданы из текущей сметы. Правки, внесённые в эти позиции, будут удалены.'}
             </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowResetDialog(false)}
-                disabled={resettingSpecification}
-                className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
-              >
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" autoFocus onClick={() => setResetDialog(null)} disabled={resetInProgress}
+                className="min-h-11 rounded border border-gray-700 px-3 text-sm text-gray-300 hover:bg-gray-800 disabled:opacity-50">
                 Отмена
               </button>
-              <button
-                onClick={handleResetSpecification}
-                disabled={(resettingSpecification) || (!confirmedProject || !canAccess(user, 'specifications', 3))}
-                className="px-3 py-1.5 text-xs bg-amber-700 text-white rounded hover:bg-amber-600 transition-colors disabled:opacity-50"
-              >
-                {resettingSpecification ? 'Сброс...' : 'Да, сбросить'}
+              <button type="button" onClick={resetDialog === 'selections' ? handleResetAllSelections : handleResetSpecification}
+                disabled={resetInProgress || loading || !canEditMainSpecification || !!eventDetails?.equipment_shipped ||
+                  (resetDialog === 'specification' && !canAccess(user, 'specifications', 3))}
+                className="min-h-11 rounded bg-amber-700 px-3 text-sm text-white hover:bg-amber-600 disabled:opacity-50">
+                {resetInProgress ? 'Сброс…' : 'Да, сбросить'}
               </button>
             </div>
           </div>
