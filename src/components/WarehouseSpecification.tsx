@@ -2134,14 +2134,16 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-gray-800 px-2 py-2 sm:px-4 sm:py-3">
           <div className="min-w-0">
             <h2 id="specification-heading" className="break-words text-sm font-semibold leading-tight text-white sm:text-lg">
-              {eventDetails?.name || 'Мероприятие'} · {budgetName}
+              {budgetName}
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
               {eventDetails && (
                 <>
-                  <p className="text-xs text-gray-400">
-                    {[eventDetails.venues?.name, eventDetails.event_date && new Date(eventDetails.event_date).toLocaleDateString('ru-RU')].filter(Boolean).join(' · ')}
-                  </p>
+                  {eventDetails.event_date && (
+                    <p className="text-xs text-gray-400">
+                      {new Date(eventDetails.event_date).toLocaleDateString('ru-RU')}
+                    </p>
+                  )}
                   {eventDetails.specification_confirmed && (
                     <span className="px-1.5 py-0.5 bg-green-900/30 text-green-400 border border-green-600/30 rounded text-xs font-medium flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" />
