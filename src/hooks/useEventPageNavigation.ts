@@ -28,6 +28,12 @@ export function useEventPageNavigation(enabled: boolean) {
       finally { if (active && sequence === request.current) setLoading(false); }
     };
     const pop = () => {
+      // Opening or closing a specification over the same event keeps its editor mounted.
+      const nextUrl = new URL(window.location.href);
+      if (nextUrl.searchParams.get('event') === new URL(currentUrl.current).searchParams.get('event')) {
+        currentUrl.current = nextUrl.href;
+        return;
+      }
       if (!discard()) { window.history.pushState({ eventPage: true }, '', currentUrl.current); return; }
       void sync();
     };

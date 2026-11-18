@@ -22,7 +22,6 @@ import { Location, createLocation, getLocationsForEvent, updateLocation, deleteL
 import { CategoryBlock, type BudgetDragTarget } from './CategoryBlock';
 import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
-import { WarehouseSpecification } from './WarehouseSpecification';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
 import { generateContractDocx } from '../lib/contractGenerator';
 import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
@@ -40,7 +39,6 @@ import { StickyNotePanel } from './StickyNotePanel';
 interface BudgetEditorProps {
   budgetId?: string;
   eventId: string;
-  eventName: string;
   onClose: () => void;
 }
 
@@ -80,9 +78,9 @@ const parseGroupId = (groupId: string): { locationId: string | null; categoryId:
 };
 
 export function BudgetEditor(props: BudgetEditorProps) {
-  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedBudgetEditor key={id} {...props} eventName={`${props.eventName} · ${name}`} budgetName={name} budgetId={id} />}</BudgetScope>;
+  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedBudgetEditor key={id} {...props} budgetName={name} budgetId={id} />}</BudgetScope>;
 }
-function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId }: BudgetEditorProps & { budgetId: string; budgetName: string }) {
+function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEditorProps & { budgetId: string; budgetName: string }) {
   const getEvent = (id: string) => getBudgetEvent(id, budgetId);
   const { user } = useAuth();
   const [quantityTarget, setQuantityTarget] = useState<string | null>(null);
@@ -123,7 +121,6 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
   const [activeCategoryIds, setActiveCategoryIds] = useState<Set<string>>(new Set());
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showWarehouseSpec, setShowWarehouseSpec] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
   const [showLedSizeDialog, setShowLedSizeDialog] = useState(false);
   const [selectedLedEquipment, setSelectedLedEquipment] = useState<EquipmentItem | null>(null);
@@ -2926,14 +2923,7 @@ function ScopedBudgetEditor({ eventId, eventName, budgetName, onClose, budgetId 
         />
       )}
 
-      {showWarehouseSpec && (
-        <WarehouseSpecification
-          budgetId={budgetId}
-          eventId={eventId}
-          eventName={eventName}
-          onClose={() => setShowWarehouseSpec(false)}
-        />
-      )}
+
 
       <AddLocationDialog
         isOpen={showLocationDialog}

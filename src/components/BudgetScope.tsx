@@ -5,7 +5,7 @@ import { canAccess } from '../lib/roles';
 import { getErrorMessage } from '../lib/errors';
 
 /** Legacy entry points resolve one budget before mounting any editor or specification. */
-export function BudgetScope({ eventId, budgetId, onClose, children }: { eventId: string; budgetId?: string; onClose: () => void; children: (id: string, name: string) => ReactNode }) {
+export function BudgetScope({ eventId, budgetId, onClose, presentation = 'modal', children }: { eventId: string; budgetId?: string; onClose?: () => void; presentation?: 'modal' | 'page'; children: (id: string, name: string) => ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id;
   const canCreateBudget = canAccess(user, 'budgets', 2);
@@ -26,12 +26,15 @@ export function BudgetScope({ eventId, budgetId, onClose, children }: { eventId:
           }
         } catch { /* Storage restrictions must not block the editor. */ }
       }
-      if (active) { if (primary) setResolved({ id: primary.id, name: primary.name }); else setError('У мероприятия пока нет смет.'); }
+      if (active) { if (primary) setResolved({ id: primary.id, name: primary.name }); else setError(budgetId ? 'Смета не найдена или недоступна.' : 'У мероприятия пока нет смет.'); }
     })().catch(caught => { if (active) setError(getErrorMessage(caught)); });
     return () => { active = false; };
   // Auth refreshes on window focus return a new user object for the same account.
   // Only a different account, budget or effective permission needs resolution.
   }, [eventId, budgetId, userId, canCreateBudget]);
+  if (!resolved && presentation === 'page') {
+    return <p role={error ? 'alert' : 'status'} className="p-4 text-sm text-gray-300">{error || 'Загрузка сметы…'}</p>;
+  }
   if (!resolved) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><p role={error ? 'alert' : 'status'} className="rounded-xl border border-gray-700 bg-gray-900 p-5 text-gray-300">{error || 'Загрузка сметы...'}<button type="button" onClick={onClose} className="ml-3 text-accent-400">Закрыть</button></p></div>;
   return children(resolved.id, resolved.name);
 }

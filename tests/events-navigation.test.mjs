@@ -27,3 +27,43 @@ for (const [query, expected] of [['', 'events'], ['?page=calendar', 'events'], [
   }
 }
 console.log('PASS: unified events entry, legacy calendar URLs/navigation, unrelated routes and history state');
+
+const eventId = '11111111-1111-4111-8111-111111111111';
+const budgetId = '22222222-2222-4222-8222-222222222222';
+const eventUrl = `https://example.com/?page=events&event=${eventId}`;
+let location = new URL(eventUrl);
+let historyState = { eventPage: true };
+let backCalls = 0;
+const updateLocation = (state, _title, url) => {
+  historyState = state;
+  location = new URL(url);
+};
+globalThis.window = {
+  get location() { return location; },
+  history: {
+    get state() { return historyState; },
+    pushState: updateLocation,
+    replaceState: updateLocation,
+    back() { backCalls++; },
+  },
+};
+const exports = {};
+new Function('exports', 'require', code)(exports, () => ({ useEffect: () => {}, useState: read => [read(), () => {}] }));
+const nav = exports.usePageNavigation();
+assert.equal(nav.specification, null);
+nav.openSpecification(eventId, budgetId);
+assert.equal(location.searchParams.get('event'), eventId);
+assert.equal(location.searchParams.get('specification'), eventId);
+assert.equal(location.searchParams.get('specificationBudget'), budgetId);
+assert.deepEqual(exports.usePageNavigation().specification, { eventId, budgetId });
+nav.closeSpecification();
+assert.equal(backCalls, 1);
+historyState = null; // Directly opened link.
+nav.closeSpecification();
+assert.equal(location.href, eventUrl);
+assert.equal(backCalls, 1);
+nav.openSpecification(eventId, budgetId);
+nav.navigate('events');
+assert.equal(location.searchParams.has('specification'), false);
+assert.equal(location.searchParams.has('specificationBudget'), false);
+console.log('PASS: specification URL scopes the budget and supports return and direct links.');

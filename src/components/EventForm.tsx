@@ -862,7 +862,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
         <BudgetEditor
           budgetId={selectedBudgetId}
           eventId={effectiveEventId}
-          eventName={formData.name || 'Мероприятие'}
           onClose={() => {
             setShowBudgetEditor(false);
             checkBudgetItems();

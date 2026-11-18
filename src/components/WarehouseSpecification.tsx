@@ -61,8 +61,6 @@ import { StickyNotePanel } from './StickyNotePanel';
 interface WarehouseSpecificationProps {
   budgetId?: string;
   eventId: string;
-  eventName: string;
-  onClose: () => void;
 }
 
 interface ExpandedItem {
@@ -223,9 +221,9 @@ const buildStableCompositionItemKey = (
 ) => `${parentBudgetItemId}-${kind}-${sourceId}${childEquipmentId ? `-${childEquipmentId}` : ''}`;
 
 export function WarehouseSpecification(props: WarehouseSpecificationProps) {
-  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} onClose={props.onClose}>{(id, name) => <ScopedWarehouseSpecification key={id} {...props} eventName={`${props.eventName} · ${name}`} budgetId={id} />}</BudgetScope>;
+  return <BudgetScope eventId={props.eventId} budgetId={props.budgetId} presentation="page">{(id, name) => <ScopedWarehouseSpecification key={id} {...props} budgetName={name} budgetId={id} />}</BudgetScope>;
 }
-function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }: WarehouseSpecificationProps & { budgetId: string }) {
+function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: WarehouseSpecificationProps & { budgetId: string; budgetName: string }) {
   const { user } = useAuth();
   const isWarehouseUser = isWarehouse(user);
 
@@ -247,6 +245,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showEquipmentSelector, setShowEquipmentSelector] = useState(false);
   const [eventDetails, setEventDetails] = useState<Partial<Event> | null>(null);
   const confirmedProject = specificationIsEditable(eventDetails?.status);
@@ -662,6 +661,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
+      setLoadError(false);
       const eventRequest = getBudgetEvent(eventId, budgetId);
       const liveItemsRequest = getBudgetItems(eventId, budgetId).then(items => {
         setBudgetSourceError('');
@@ -1096,6 +1096,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             setExpandedItems(overlayMarks('equipment', items.filter(item => !excludedKeys.has(item.budgetItemId)), row => row.budgetItemId));
     } catch (error) {
       console.error('Error loading data:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
       setInitialLoading(false);
@@ -2109,18 +2110,18 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
   const handleOtherPickedChange = (id: string, value: boolean) => changeAccessoryMark('other', id, 'picked', value);
   if (initialLoading && loading) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <div className="text-center text-gray-400">Загрузка спецификации...</div>
-        </div>
-      </div>
-    );
+    return <p role="status" className="p-4 text-sm text-gray-300">Загрузка спецификации…</p>;
+  }
+  if (loadError && !eventDetails) {
+    return <div role="alert" className="space-y-3 p-4 text-sm text-gray-300">
+      <p>Не удалось загрузить спецификацию.</p>
+      <button type="button" onClick={() => void loadData()} disabled={loading} className="min-h-11 rounded-lg border border-gray-700 px-3 hover:bg-gray-800 disabled:opacity-50">Повторить</button>
+    </div>;
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4">
-      <div className="relative bg-gray-900 border border-gray-800 md:rounded-lg shadow-xl w-full md:w-[95vw] md:max-w-[1400px] h-full md:h-auto md:max-h-[90vh] flex flex-col">
+    <section aria-labelledby="specification-heading" className="flex h-full min-h-0 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         {showLogs && canViewSpecificationLogs(user, eventDetails?.site_manager_id) && <SpecificationLogs eventId={eventId} budgetId={budgetId} onClose={() => setShowLogs(false)} />}
         {showBudgetChanges && <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-3"><div role="dialog" aria-modal="true" aria-label="Изменения сметы" className="max-h-full w-full max-w-xl overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4"><h3 className="font-semibold text-white">Сравнение со сметой</h3><p className="my-3 text-sm text-gray-400">Выберите позиции для переноса. Изменение заменит количество и состав выбранной строки и сбросит её отметки сборки. Удаление также удалит её дочерние строки. Остальные позиции, примечания и кабели сохраняются. Частично совпадающие комплекты отмечены «Проверить содержимое»: их нужно скорректировать вручную, чтобы не добавить комплект повторно.</p>{differences.map(change => <label key={change.sourceId} className="flex items-start gap-2 border-t border-gray-800 py-3 text-sm text-gray-200"><input type="checkbox" checked={selectedChanges.has(change.sourceId)} disabled={applyingChanges || change.requiresManual || (change.kind === 'remove' && !canAccess(user, 'specifications', 3))} onChange={event => setSelectedChanges(previous => { const next = new Set(previous); if (event.target.checked) next.add(change.sourceId); else next.delete(change.sourceId); return next; })}/><span className="min-w-0 break-words">{change.requiresManual ? 'Проверить содержимое' : change.kind === 'add' ? 'Добавить' : change.kind === 'remove' ? 'Удалить' : 'Обновить'}: {change.name}{change.source && change.saved && ` (${change.saved.quantity} → ${change.source.quantity})`}</span></label>)}{modifiedItems.size > 0 && <p className="text-sm text-amber-400">Сначала сохраните ручные изменения спецификации.</p>}<div className="mt-3 flex justify-end gap-2"><button type="button" disabled={applyingChanges} onClick={() => setShowBudgetChanges(false)} className="p-2 text-gray-400">Закрыть</button><button type="button" disabled={applyingChanges || !selectedChanges.size || modifiedItems.size > 0} onClick={() => void applyBudgetChanges()} className="min-h-11 rounded-lg bg-accent-500 p-2 text-gray-950 disabled:opacity-40">Применить выбранное</button></div></div></div>}
         {loading && (
@@ -2128,14 +2129,12 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             Обновление...
           </div>
         )}
-        <div className="flex justify-between items-center px-4 py-3 border-b border-gray-800">
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2 leading-tight">
-              <Package className="w-5 h-5 text-accent-500" />
-              Спецификация
+        <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-gray-800 px-2 py-3 sm:px-4">
+          <div className="min-w-0">
+            <h2 id="specification-heading" className="break-words text-lg font-semibold leading-tight text-white">
+              {eventDetails?.name || 'Мероприятие'} · {budgetName}
             </h2>
-            <div className="flex items-center gap-3 mt-0.5">
-              <p className="text-xs text-gray-400 font-medium truncate max-w-[300px]">{eventName}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
               {eventDetails && (
                 <>
                   <p className="text-xs text-gray-500">
@@ -2160,13 +2159,6 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               title="Заметки"
             >
               <StickyNote className="w-5 h-5" />
-            </button>
-            <button
-              onClick={onClose}
-              aria-label="Закрыть спецификацию"
-              className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-white rounded transition-colors"
-            >
-              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -2206,7 +2198,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <div className="min-h-0 flex-1 overflow-auto p-2 custom-scrollbar sm:p-4">
           {collaboration.error && <p role="status" className="mb-3 text-sm text-amber-400">{collaboration.error}</p>}
           {remoteStructureChanged && <p role="status" className="mb-3 text-sm text-amber-400">Состав спецификации изменился. Ваши несохранённые правки сохранены на экране. <button type="button" disabled={modifiedItems.size > 0 || savingChanges} onClick={() => { void loadData(); }} className="underline disabled:opacity-50">Обновить состав после сохранения правок</button></p>}
           {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
@@ -2962,12 +2954,6 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 </button>
               </>
             )}
-            <button
-              onClick={onClose}
-              className="px-3 py-1.5 text-xs text-gray-400 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
-            >
-              Закрыть
-            </button>
             {canEditSpecification && !eventDetails?.equipment_shipped && !eventDetails?.equipment_returned && (
               <button
                 onClick={handleConfirmShipment}
@@ -3417,6 +3403,6 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         isOpen={showStickyNotes}
         storageKey={`spec_sticky_notes_${budgetId}`}
       />
-    </div>
+    </section>
   );
 }
