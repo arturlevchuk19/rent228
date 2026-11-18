@@ -2,7 +2,7 @@ import { createOptimisticSpecificationMarks } from '../lib/optimisticSpecificati
 import { canAdjustSpecificationAccessories } from '../lib/specificationPermissions';
 import { SpecificationLogs } from './SpecificationLogs';
 import { useSpecificationCollaboration } from '../lib/useSpecificationCollaboration';
-import { mergeSharedMarks, saveGeneratedRowMark, specificationStructureKey, type CollaborationSnapshot } from '../lib/specificationCollaboration';
+import { mergeSharedMarks, resetWarehouseSpecificationMarks, saveGeneratedRowMark, specificationStructureKey, type CollaborationSnapshot } from '../lib/specificationCollaboration';
 import { canViewSpecificationLogs } from '../lib/specificationPermissions';
 import { canEditMainSpecification as mayEditMainSpecification, canMarkMainSpecification as mayMarkMainSpecification } from '../lib/specificationPermissions';
 import { withBudgetUnits } from '../lib/specificationUnits';
@@ -38,15 +38,12 @@ import {
   getCables,
   createCable,
   updateCable,
-  updateCableReturnPicked,
   getConnectors,
   createConnector,
   updateConnector,
-  updateConnectorReturnPicked,
   getOtherItems,
   createOtherItem,
   updateOtherItem,
-  updateOtherItemReturnPicked,
   getSpecificationBudgetItems,
   saveSpecificationComponentChoice,
   excludeSpecificationChild,
@@ -316,6 +313,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   otherItemsRef.current = otherItems;
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [resettingSpecification, setResettingSpecification] = useState(false);
+  const [resettingSelections, setResettingSelections] = useState(false);
+  const selectionResetInFlight = useRef(false);
   const [collapsedParentItems, setCollapsedParentItems] = useState<Set<string>>(new Set());
 
   const showNotification = (message: string, type: CustomNotification['type'] = 'error') => {
@@ -578,6 +577,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   }));
 
   const collaboration = useSpecificationCollaboration(eventId, budgetId, !initialLoading && confirmedProject, snapshot => {
+    if (selectionResetInFlight.current) return;
     const marks = snapshot.marks.map(row => ({ id: row.row_key, picked: row.picked, return_picked: row.return_picked }));
     const markedKeys = new Set(snapshot.marks.map(row => row.row_key));
     writeCompositionPickedSnapshot(budgetId, Object.fromEntries(snapshot.marks.map(row => [row.row_key, {picked: row.picked, return_picked: row.return_picked}])));
@@ -1277,7 +1277,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const changeEquipmentMark = (id: string, field: 'picked' | 'return_picked', value: boolean) => {
-    if (!canMarkEquipmentRow(id) || (field === 'picked' ? eventDetails?.equipment_shipped : !eventDetails?.equipment_shipped || eventDetails?.equipment_returned)) return Promise.resolve();
+    if (selectionResetInFlight.current || !canMarkEquipmentRow(id) || (field === 'picked' ? eventDetails?.equipment_shipped : !eventDetails?.equipment_shipped || eventDetails?.equipment_returned)) return Promise.resolve();
     const row = expandedItems.find(item => item.budgetItemId === id);
     return optimisticMarks.current.change(markKey('equipment', id, field), value, {
       read: () => !!row?.[field],
@@ -1290,7 +1290,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const handlePickedChange = (id: string, picked: boolean) => changeEquipmentMark(id, 'picked', picked);
 
   const changeAccessoryMark = (kind: 'cables' | 'connectors' | 'other', id: string, field: 'picked' | 'return_picked', value: boolean) => {
-    if (!canAdjustAccessories || (field === 'picked' ? eventDetails?.equipment_shipped : !eventDetails?.equipment_shipped || eventDetails?.equipment_returned)) return Promise.resolve();
+    if (selectionResetInFlight.current || !canAdjustAccessories || (field === 'picked' ? eventDetails?.equipment_shipped : !eventDetails?.equipment_shipped || eventDetails?.equipment_returned)) return Promise.resolve();
     const rows = kind === 'cables' ? cables : kind === 'connectors' ? connectors : otherItems;
     const row = rows.find(item => item.id === id);
     const apply = (next: boolean) => {
@@ -1383,47 +1383,32 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   };
 
   const handleResetAllSelections = async () => {
-    if (!canEditMainSpecification) return;
+    if (!canEditMainSpecification || eventDetails?.equipment_shipped || selectionResetInFlight.current) return;
+    if (optimisticMarks.current.hasPending()) {
+      showNotification('Дождитесь сохранения отметок и повторите сброс.');
+      return;
+    }
+    selectionResetInFlight.current = true;
+    setResettingSelections(true);
     try {
-      const equipmentUpdates = expandedItems
-        .filter(item => !isGeneratedCompositionItemId(item.budgetItemId))
-        .map(item => updateSpecificationBudgetItemPicked(item.budgetItemId, false));
-      const returnEquipmentUpdates = expandedItems
-        .filter(item => !isGeneratedCompositionItemId(item.budgetItemId))
-        .map(item => updateSpecificationBudgetItemReturnPicked(item.budgetItemId, false));
-      const cableUpdates = cables.map(item => updateCable(item.id, { picked: false }));
-      const cableReturnUpdates = cables.map(item => updateCableReturnPicked(item.id, false));
-      const connectorUpdates = connectors.map(item => updateConnector(item.id, { picked: false }));
-      const connectorReturnUpdates = connectors.map(item => updateConnectorReturnPicked(item.id, false));
-      const otherUpdates = otherItems.map(item => updateOtherItem(item.id, { picked: false }));
-      const otherReturnUpdates = otherItems.map(item => updateOtherItemReturnPicked(item.id, false));
+      await resetWarehouseSpecificationMarks(eventId, budgetId);
 
-      await Promise.all([
-        ...equipmentUpdates,
-        ...returnEquipmentUpdates,
-        ...cableUpdates,
-        ...cableReturnUpdates,
-        ...connectorUpdates,
-        ...connectorReturnUpdates,
-        ...otherUpdates,
-        ...otherReturnUpdates
-      ]);
-
-      await Promise.all(expandedItems.filter(item => isGeneratedCompositionItemId(item.budgetItemId)).map(item => persistCompositionPickedState(item.budgetItemId, {picked:false, return_picked:false})));
-      const compositionSnapshot = readCompositionPickedSnapshot(budgetId);
-      Object.keys(compositionSnapshot).forEach(key => {
-        compositionSnapshot[key] = { picked: false, return_picked: false };
-      });
-      writeCompositionPickedSnapshot(budgetId, compositionSnapshot);
-
-      setExpandedItems(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
-      setCables(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
-      setConnectors(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
-      setOtherItems(prev => prev.map(item => ({ ...item, picked: false, return_picked: false })));
+      writeCompositionPickedSnapshot(budgetId, {});
+      const clearMarks = <T extends { picked?: boolean; return_picked?: boolean },>(rows: T[]): T[] =>
+        rows.map(row => row.picked || row.return_picked ? { ...row, picked: false, return_picked: false } : row);
+      setExpandedItems(clearMarks);
+      setBudgetItems(clearMarks);
+      setCables(clearMarks);
+      setConnectors(clearMarks);
+      setOtherItems(clearMarks);
       showNotification('Все выделения сброшены', 'success');
     } catch (error) {
       console.error('Error resetting all selections:', error);
       showNotification('Ошибка при сбросе выделений');
+    } finally {
+      selectionResetInFlight.current = false;
+      setResettingSelections(false);
+      collaboration.refresh();
     }
   };
 
@@ -2962,12 +2947,15 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               <>
                 <button
                   onClick={handleResetAllSelections}
-                  className="px-3 py-1.5 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 flex items-center gap-1.5 transition-colors"
+                  disabled={resettingSelections || resettingSpecification || loading}
+                  aria-busy={resettingSelections}
+                  className="px-3 py-1.5 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
                 >
-                  Сбросить все выделения
+                  {resettingSelections ? 'Сброс выделений…' : 'Сбросить все выделения'}
                 </button>
                 <button
                   onClick={() => setShowResetDialog(true)}
+                  disabled={resettingSelections}
                   className="px-3 py-1.5 bg-amber-700 text-white text-xs rounded hover:bg-amber-600 flex items-center gap-1.5 transition-colors"
                 >
                   Сбросить спецификацию

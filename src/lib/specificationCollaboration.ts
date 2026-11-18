@@ -61,3 +61,8 @@ export function activityDescription(entry: SpecificationActivity): string[] {
   }
   return lines.length ? lines : ['Изменил параметры позиции'];
 }
+
+export async function resetWarehouseSpecificationMarks(eventId: string, budgetId: string): Promise<void> {
+  const { error } = await supabase.rpc('reset_warehouse_specification_marks', { p_event_id: eventId, p_budget_id: budgetId });
+  if (error) throw error;
+}

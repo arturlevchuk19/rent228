@@ -190,4 +190,28 @@ assert.equal(resetSnapshot[1].parent_budget_item_id, resetSnapshot[0].id);
 assert.equal(resetSnapshot[2].parent_budget_item_id, resetSnapshot[1].id);
 assert.equal((await db.query(`SELECT id FROM public.warehouse_specification_budget_items WHERE ${main}`)).rows.length, 1);
 console.log('PASS SQL: specification snapshot permissions, nested links, idempotent initialization, atomic rollback and budget isolation');
+await db.exec(fs.readFileSync('supabase/migrations/20261118130000_reset_warehouse_specification_marks.sql','utf8'));
+const resetMarks = `SELECT public.reset_warehouse_specification_marks(
+ '10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001')`;
+await assert.rejects(commitActor(1, resetMarks), /No permission/);
+await assert.rejects(commitActor(4, resetMarks), /before shipment/);
+await db.exec(`
+ UPDATE event_budgets SET specification_state='{}';
+ UPDATE warehouse_specification_budget_items SET picked=true,return_picked=true;
+ UPDATE warehouse_specification_cables SET picked=true,return_picked=true;
+ UPDATE warehouse_specification_connectors SET picked=true,return_picked=true;
+ UPDATE warehouse_specification_other SET picked=true,return_picked=true;
+ UPDATE specification_row_marks SET picked=true,return_picked=true;
+`);
+await commitActor(2, resetMarks);
+for (const table of ['warehouse_specification_budget_items', 'warehouse_specification_cables',
+ 'warehouse_specification_connectors', 'warehouse_specification_other', 'specification_row_marks']) {
+ const {rows} = await db.query(`SELECT picked, return_picked FROM ${table}
+  WHERE budget_id='20000000-0000-0000-0000-000000000001'`);
+ assert.ok(rows.length > 0, table);
+ assert.ok(rows.every(row => !row.picked && !row.return_picked), table);
+}
+assert.ok((await db.query(`SELECT picked FROM warehouse_specification_budget_items
+ WHERE budget_id='20000000-0000-0000-0000-000000000002'`)).rows.every(row => row.picked));
+console.log('PASS SQL: bulk reset checks role and shipment stage, clears persisted and generated marks, and isolates other budgets');
 await db.close();

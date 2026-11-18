@@ -31,16 +31,17 @@ const start=source.indexOf('  const changeEquipmentMark =');
 const end=source.indexOf('  const changeAccessoryMark =',start);
 const js=ts.transpile(source.slice(start,end),{target:ts.ScriptTarget.ES2022});
 const queue=load('src/lib/optimisticSpecificationMarks.ts').createOptimisticSpecificationMarks;
-async function toggle({allowed=true,shipped=false,generated=false}={}) {
+async function toggle({allowed=true,shipped=false,generated=false,resetting=false}={}) {
   const writes=[],states=[];
-  const mocks={optimisticMarks:{current:queue()},markKey:(...parts)=>parts.join(':'),expandedItems:[{budgetItemId:'row',picked:false}],canMarkEquipmentRow:()=>allowed,eventDetails:{equipment_shipped:shipped},isGeneratedCompositionItemId:()=>generated,setExpandedItems:fn=>states.push(fn([{budgetItemId:'row',picked:false},{budgetItemId:'sibling',picked:false}])),persistCompositionPickedState:async(...args)=>writes.push(args),updateSpecificationBudgetItemPicked:async(...args)=>writes.push(args),updateSpecificationBudgetItemReturnPicked:async(...args)=>writes.push(args),collaboration:{refresh(){}},showNotification:()=>{throw Error('Unexpected error');}};
+  const mocks={selectionResetInFlight:{current:resetting},optimisticMarks:{current:queue()},markKey:(...parts)=>parts.join(':'),expandedItems:[{budgetItemId:'row',picked:false}],canMarkEquipmentRow:()=>allowed,eventDetails:{equipment_shipped:shipped},isGeneratedCompositionItemId:()=>generated,setExpandedItems:fn=>states.push(fn([{budgetItemId:'row',picked:false},{budgetItemId:'sibling',picked:false}])),persistCompositionPickedState:async(...args)=>writes.push(args),updateSpecificationBudgetItemPicked:async(...args)=>writes.push(args),updateSpecificationBudgetItemReturnPicked:async(...args)=>writes.push(args),collaboration:{refresh(){}},showNotification:()=>{throw Error('Unexpected error');}};
   const fn=new Function(...Object.keys(mocks),js+';return handlePickedChange')(...Object.values(mocks));
   const saving=fn('row',true);
-  if(allowed&&!shipped)assert.equal(states[0][0].picked,true,'Actual handler updates before awaiting server');
+  if(allowed&&!shipped&&!resetting)assert.equal(states[0][0].picked,true,'Actual handler updates before awaiting server');
   await saving;return {writes,states};
 }
 assert.equal((await toggle({allowed:false})).writes.length,0);
 assert.equal((await toggle({shipped:true})).writes.length,0);
+assert.equal((await toggle({resetting:true})).writes.length,0);
 assert.deepEqual((await toggle()).writes,[['row',true]]);
 const generated=await toggle({generated:true});assert.deepEqual(generated.writes,[['row',{picked:true}]]);assert.deepEqual(generated.states[0].map(row=>row.picked),[true,false]);
 const main=source.slice(source.indexOf("{activeTab === 'budget' && ("),source.indexOf("{activeTab === 'cables' && ("));
