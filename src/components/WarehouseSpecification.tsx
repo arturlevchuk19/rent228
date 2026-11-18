@@ -306,6 +306,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const [, refreshQuantityDisplay] = useState(0);
   const optimisticMarks = useRef(createOptimisticSpecificationMarks());
   const loadedStructure = useRef<string>();
+  const loadedSnapshot = useRef<CollaborationSnapshot>();
+  const componentChoiceInFlight = useRef(false);
   const cablesRef = useRef(cables);
   cablesRef.current = cables;
   const connectorsRef = useRef(connectors);
@@ -575,7 +577,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     return_picked: optimisticMarks.current.overlay(markKey(kind, identify(row), 'return_picked'), !!row.return_picked),
   }));
 
-  const collaboration = useSpecificationCollaboration(eventId, budgetId, !initialLoading && confirmedProject, (snapshot, structureChanged) => {
+  const collaboration = useSpecificationCollaboration(eventId, budgetId, !initialLoading && confirmedProject, snapshot => {
     const marks = snapshot.marks.map(row => ({ id: row.row_key, picked: row.picked, return_picked: row.return_picked }));
     const markedKeys = new Set(snapshot.marks.map(row => row.row_key));
     writeCompositionPickedSnapshot(budgetId, Object.fromEntries(snapshot.marks.map(row => [row.row_key, {picked: row.picked, return_picked: row.return_picked}])));
@@ -587,8 +589,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
     setEventDetails(previous => previous ? { ...previous, equipment_shipped: false, equipment_returned: false, specification_confirmed: false, ...snapshot.state } : previous);
     // Keep the optimistic quantity visible without a false remote-change banner.
     // The last queued write schedules another read, which reconciles structure.
-    if (quantityQueue.current.hasPending()) return;
-    if (structureChanged || (loadedStructure.current !== undefined && loadedStructure.current !== specificationStructureKey(snapshot))) {
+    if (quantityQueue.current.hasPending() || componentChoiceInFlight.current || loading) return;
+    if (loadedStructure.current !== undefined && loadedStructure.current !== specificationStructureKey(snapshot)) {
       if ((optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showPodiumSpecification) setRemoteStructureChanged(true);
       else { setRemoteStructureChanged(false); void loadData(); }
     }
@@ -691,7 +693,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         liveItemsRequest,
       ]);
 
-      loadedStructure.current = specificationStructureKey({equipment: rawBudgetData, cables: cablesData, connectors: connectorsData, other: otherData, marks: [], state: {}} as unknown as CollaborationSnapshot);
+      loadedSnapshot.current = {equipment: rawBudgetData, cables: cablesData, connectors: connectorsData, other: otherData, marks: [], state: {}} as unknown as CollaborationSnapshot;
+      loadedStructure.current = specificationStructureKey(loadedSnapshot.current);
       const budgetData = withBudgetUnits(rawBudgetData, liveItems || []);
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
       setCategories(mergedCategories);
@@ -739,7 +742,8 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
           .filter((id): id is string => Boolean(id))
       )];
       const componentIds = [...new Set(budgetData.flatMap(item =>
-        item.item_type === 'equipment' && item.equipment_id && item.equipment?.is_component ? [item.equipment_id] : []
+        item.item_type === 'equipment' && item.equipment_id && item.equipment?.is_component &&
+        !item.parent_budget_item_id && item.component_selection !== 'separate' ? [item.equipment_id] : []
       ))];
       const compositionRequests = new Map<string, ReturnType<typeof getEquipmentCompositions>>();
       const modificationRequests = new Map<string, ReturnType<typeof getModificationComponents>>();
@@ -1206,20 +1210,39 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
   const handleComponentDecision = async (selectedCase: ComponentCaseOption | null) => {
     const group = componentDecisionQueue[activeComponentDecisionIndex];
-    if (!group || savingComponentChoice || group.items.some(item => item.isExtra ? !canEditSpecification : !canEditMainSpecification)) return;
+    if (!group || loading || componentChoiceInFlight.current || group.items.some(item => item.isExtra ? !canEditSpecification : !canEditMainSpecification)) return;
+    componentChoiceInFlight.current = true;
     setSavingComponentChoice(true);
     try {
       const replacement = selectedCase ? buildCaseExpandedItems(group, selectedCase)[0] : null;
       if (selectedCase && !replacement) return;
-      await saveSpecificationComponentChoice(eventId, group.items.map(item => item.budgetItemId), replacement);
-      // Preserve unrelated edits while replacing this group's virtual rows with database IDs.
+      const itemIds = group.items.map(item => item.budgetItemId);
+      await saveSpecificationComponentChoice(eventId, itemIds, replacement);
+      setActiveComponentDecisionIndex(index => index + 1);
+      showNotification('Выбор сохранён', 'success');
+
+      if (!replacement) {
+        const selectedIds = new Set(itemIds);
+        const markSeparate = <T extends { id: string },>(rows: T[]) =>
+          rows.map(row => selectedIds.has(row.id) ? { ...row, component_selection: 'separate' as const } : row);
+        setBudgetItems(markSeparate);
+        const snapshot = loadedSnapshot.current;
+        if (snapshot) {
+          snapshot.equipment = markSeparate(snapshot.equipment);
+          loadedStructure.current = specificationStructureKey(snapshot);
+        }
+        return;
+      }
+
+      // The server allocates the replacement row ID. Refresh after advancing the
+      // dialog and preserve unrelated changes while the new row loads.
       const changed = expandedItems.filter(item => modifiedItems.has(item.budgetItemId))
         .map(item => ({ id: item.budgetItemId, quantity: item.quantity, notes: item.notes }));
-      showNotification('Выбор сохранён', 'success');
       await loadData(changed);
     } catch (error) {
       showNotification(getErrorMessage(error));
     } finally {
+      componentChoiceInFlight.current = false;
       setSavingComponentChoice(false);
     }
   };
@@ -3084,7 +3107,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
                 {componentDecisionQueue[activeComponentDecisionIndex].caseOptions.map(option => (
                   <button
                     key={option.caseId}
-                    disabled={savingComponentChoice}
+                    disabled={savingComponentChoice || loading}
                     onClick={() => handleComponentDecisionUseCase(option)}
                     className="w-full text-left px-3 py-2 bg-gray-800 border border-gray-700 rounded hover:bg-gray-700 transition-colors min-h-11"
                   >
@@ -3097,10 +3120,11 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
               </div>
             </div>
 
-            <div className="px-4 py-3 border-t border-gray-800 flex justify-end">
+            <div className="px-4 py-3 border-t border-gray-800 flex items-center justify-end gap-3">
+              {savingComponentChoice && <span role="status" className="text-xs text-gray-400">{loading ? 'Обновление позиций…' : 'Сохранение выбора…'}</span>}
               <button
                 onClick={handleComponentDecisionSeparate}
-                disabled={savingComponentChoice}
+                disabled={savingComponentChoice || loading}
                 className="px-3 py-1.5 text-xs text-gray-300 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
               >
                 Взять отдельно

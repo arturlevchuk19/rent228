@@ -13,14 +13,44 @@ const group={items:[{budgetItemId:'one',equipmentId:'mic',name:'Микрофон
 const kit={caseId:'kit',caseName:'Кейс микрофонов',caseSku:'MIC',componentQuantityInCase:4};
 assert.equal(build(group,kit)[0].quantity,2);
 async function run({selected=null,fail=false,allowed=true,busy=false}={}){
- const writes=[],reloads=[],notices=[];let saving=false;
- const mocks={componentDecisionQueue:[group],activeComponentDecisionIndex:0,savingComponentChoice:busy,canEditMainSpecification:allowed,canEditSpecification:allowed,setSavingComponentChoice:v=>saving=v,buildCaseExpandedItems:build,eventId:'event',saveSpecificationComponentChoice:async(...args)=>{writes.push(args);if(fail)throw Error('Database unavailable');},expandedItems:[{budgetItemId:'unrelated',quantity:3,notes:'Keep edits'}],modifiedItems:new Set(['unrelated']),showNotification:(...args)=>notices.push(args),loadData:async(...args)=>reloads.push(args),getErrorMessage:e=>e.message};
- const handler=new Function(...Object.keys(mocks),choiceCode+';return handleComponentDecision;')(...Object.values(mocks));await handler(selected);return {writes,reloads,notices,saving};
+ const writes=[],reloads=[],notices=[];
+ let saving=false, activeIndex=0;
+ let budgetRows=[{id:'one',component_selection:null},{id:'two',component_selection:null},{id:'unrelated',component_selection:null}];
+ const loadedSnapshot={current:{equipment:budgetRows}};
+ const loadedStructure={current:JSON.stringify(loadedSnapshot.current)};
+ const mocks={
+  componentDecisionQueue:[group], activeComponentDecisionIndex:0, loading:false,
+  componentChoiceInFlight:{current:busy}, canEditMainSpecification:allowed, canEditSpecification:allowed,
+  setSavingComponentChoice:value=>saving=value, setActiveComponentDecisionIndex:update=>activeIndex=update(activeIndex),
+  setBudgetItems:update=>budgetRows=update(budgetRows), loadedSnapshot, loadedStructure, specificationStructureKey:JSON.stringify,
+  buildCaseExpandedItems:build, eventId:'event',
+  saveSpecificationComponentChoice:async(...args)=>{writes.push(args);if(fail)throw Error('Database unavailable');},
+  expandedItems:[{budgetItemId:'unrelated',quantity:3,notes:'Keep edits'}], modifiedItems:new Set(['unrelated']),
+  showNotification:(...args)=>notices.push(args), loadData:async(...args)=>{reloads.push(args);assert.equal(activeIndex,1);},
+  getErrorMessage:error=>error.message,
+ };
+ const handler=new Function(...Object.keys(mocks),choiceCode+';return handleComponentDecision;')(...Object.values(mocks));
+ await handler(selected);
+ return {writes,reloads,notices,saving,activeIndex,budgetRows,loadedStructure};
 }
-const separate=await run();assert.deepEqual(separate.writes,[['event',['one','two'],null]]);assert.equal(separate.reloads.length,1);assert.equal(separate.saving,false);
-const replaced=await run({selected:kit});assert.equal(replaced.writes[0][2].name,'Кейс микрофонов');assert.equal(replaced.writes[0][2].quantity,2);assert.equal(replaced.reloads[0][0][0].notes,'Keep edits');
-const failed=await run({selected:kit,fail:true});assert.equal(failed.reloads.length,0);assert.equal(failed.saving,false);assert.match(failed.notices[0][0],/Database unavailable/);
-assert.equal((await run({allowed:false})).writes.length,0);assert.equal((await run({busy:true})).writes.length,0);
+const separate=await run();
+assert.deepEqual(separate.writes,[['event',['one','two'],null]]);
+assert.equal(separate.reloads.length,0);
+assert.equal(separate.activeIndex,1);
+assert.equal(separate.saving,false);
+assert.deepEqual(separate.budgetRows.map(row=>row.component_selection),['separate','separate',null]);
+assert.deepEqual(JSON.parse(separate.loadedStructure.current).equipment,separate.budgetRows);
+const replaced=await run({selected:kit});
+assert.equal(replaced.writes[0][2].name,'Кейс микрофонов');
+assert.equal(replaced.writes[0][2].quantity,2);
+assert.equal(replaced.reloads[0][0][0].notes,'Keep edits');
+const failed=await run({selected:kit,fail:true});
+assert.equal(failed.reloads.length,0);
+assert.equal(failed.activeIndex,0);
+assert.equal(failed.saving,false);
+assert.match(failed.notices[0][0],/Database unavailable/);
+assert.equal((await run({allowed:false})).writes.length,0);
+assert.equal((await run({busy:true})).writes.length,0);
 // Exercise the actual database adapter, including explicit migration errors.
 const lib=fs.readFileSync('src/lib/warehouseSpecification.ts','utf8');const start=lib.indexOf('export async function saveSpecificationComponentChoice');
 const code=ts.transpile(lib.slice(start),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022});
