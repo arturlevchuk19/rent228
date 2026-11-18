@@ -8,7 +8,7 @@ const load=(file,mocks={})=>{if(cache.has(file))return cache.get(file);const exp
 const scopeCalls=[];
 const mocks=Object.fromEntries(['./eventBudgets','./equipmentCompositions','./equipment','./categories','./locations','./warehouseSpecification'].map(name=>[name,{}]));
 Object.assign(mocks, {
- './supabase':{supabase:{}},
+ './supabase':{supabase:{from:()=>({select:()=>({in:async()=>({data:[],error:null})})})}},
  './events':{getBudgetItems:async(event,budget)=>{scopeCalls.push(['services',event,budget]);return [{id:'service1',item_type:'work',quantity:2,work_item:{name:'Доставка',unit:'рейс'},notes:'После монтажа'}];}},
  './eventBudgets':{getBudgetEvent:async(event,budget)=>{scopeCalls.push(['event',event,budget]);return {name:'Событие',status:'Подтверждено'};}},
  './equipmentCompositions':{getEquipmentCompositions:async()=>[]}, './equipment':{getModificationComponents:async()=>[]},
@@ -101,3 +101,20 @@ console.log('PASS: UI contents retain parent identity, stable keys and compositi
 
 assert.ok(uiItems.every(row=>row.picked===false && row.return_picked===false),'Linked equipment starts unchecked even if the parent is checked');
 console.log('PASS: physical contents start unchecked independently of their parent');
+
+// PDF export must warn using the same comparison as the specification screen.
+const exportItem={id:'budget-speaker',item_type:'equipment',equipment_id:'speaker',quantity:4,equipment:{name:'Колонка',object_type:'physical',has_composition:false}};
+let exportStatus='Подтверждено';
+let exportSaved=[{...exportItem,id:'saved-speaker',source_budget_item_id:exportItem.id,quantity:2}];
+mocks['./eventBudgets'].getBudgetEvent=async()=>({name:'Событие',status:exportStatus});
+mocks['./events'].getBudgetItems=async()=>[exportItem];
+mocks['./warehouseSpecification'].getSpecificationBudgetItems=async()=>exportSaved;
+assert.equal((await loadSpecificationExport('event-A','budget-B',false)).differences.length,1,'Confirmed snapshot with a shortage triggers PDF warning');
+exportSaved=[{...exportSaved[0],quantity:4}];
+assert.equal((await loadSpecificationExport('event-A','budget-B',false)).differences.length,0,'Matching snapshot needs no warning');
+exportSaved=[];
+exportStatus='Запрос';
+assert.equal((await loadSpecificationExport('event-A','budget-B',false)).differences.length,0,'Unconfirmed budget exports its preview without a stale snapshot warning');
+exportStatus='Выполнено';
+assert.equal((await loadSpecificationExport('event-A','budget-B',false)).differences.length,1,'Completed events also warn about snapshot differences');
+console.log('PASS: PDF differences for confirmed, matching, preview and completed specifications');

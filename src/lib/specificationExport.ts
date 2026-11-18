@@ -1,6 +1,7 @@
 import { withBudgetUnits } from './specificationUnits';
 import { cableDisplayName } from './cableNames';
-import { budgetSpecificationPreview, specificationIsEditable } from './specificationServices';
+import { budgetSpecificationPreview, specificationIsEditable, getSpecificationDifferences, isBudgetSpecificationItem } from './specificationServices';
+import { loadSpecificationContents } from './specificationContents';
 import { getBudgetItems, type BudgetItem } from './events';
 import { getBudgetEvent } from './eventBudgets';
 import { getEquipmentCompositions, type EquipmentComposition } from './equipmentCompositions';
@@ -62,6 +63,15 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
     getBudgetEvent(eventId, budgetId), getSpecificationBudgetItems(eventId, budgetId), getCables(eventId, budgetId), getConnectors(eventId, budgetId), getOtherItems(eventId, budgetId), getCategories(), getCategoriesForEvent(eventId, budgetId), getLocationsForEvent(eventId, budgetId), getBudgetItems(eventId, budgetId)
   ]);
   const items = withBudgetUnits(frozen ? savedItems : budgetSpecificationPreview(liveItems), liveItems);
+  // Use the same content-aware comparison as the specification screen: a kit
+  // replaced by equivalent components must not produce a false warning.
+  const extraCategoryIds = new Set([...globalCategories, ...categories].filter(row => row.description === '__extra_service__').map(row => row.id));
+  const contents = frozen ? await loadSpecificationContents(liveItems, items) : undefined;
+  const differences = frozen ? getSpecificationDifferences(
+    liveItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
+    items.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
+    contents,
+  ) : [];
   const equipmentIds = [...new Set(items.filter(item => !item.parent_budget_item_id && (item.equipment?.object_type === 'virtual' || (item.equipment?.object_type === 'physical' && item.equipment.has_composition)) && item.equipment_id).map(item => item.equipment_id!))];
   const modificationIds = [...new Set(items.flatMap(item => item.modification_id ? [item.modification_id] : []))];
   const [compositionEntries, modificationEntries] = await Promise.all([
@@ -97,5 +107,5 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
     add(`Коннекторы / ${category}`, row.connector_item || legacyName.join('::') || row.connector_type, row.quantity, row.notes);
   });
   others.forEach(row => add(`Прочее / ${row.category}`, row.item_type, row.quantity, row.notes));
-  return { event, rows: [...rows, ...accessories.values()] };
+  return { event, rows: [...rows, ...accessories.values()], differences };
 }

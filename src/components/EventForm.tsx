@@ -411,7 +411,8 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
       if (!budget) throw new Error('Спецификация не найдена. Обновите список смет.');
       const [{ loadSpecificationExport }, { saveSpecificationPdf }] = await Promise.all([import('../lib/specificationExport'), import('../lib/specificationPdf')]);
       const initialize = canEditMainSpecification(user, formData.site_manager_id);
-      const { event: saved, rows } = await loadSpecificationExport(effectiveEventId, budgetId, initialize);
+      const { event: saved, rows, differences } = await loadSpecificationExport(effectiveEventId, budgetId, initialize);
+      if (differences.length > 0 && !window.confirm(`Смета уже была подтверждена и создана спецификация.\n\nСмета и спецификация различаются: ${differences.length} позиций.\n\n(Необходимо сбросить спецификацию либо добавить недостающие пункты вручную.)\n\nСохранить текущую спецификацию в PDF?`)) return;
       saveSpecificationPdf({ eventName: saved.name || saved.event_type, budgetName: budget.name, startDate: saved.event_date, endDate: saved.event_end_date, venue: saved.venues?.name, rows });
     } catch (caught) { setPageError(getErrorMessage(caught)); } finally { setGeneratingPdf(false); }
   };
