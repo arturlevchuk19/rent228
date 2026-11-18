@@ -9,7 +9,11 @@ export const contentRowKey = (side: 'budget' | 'specification', id: string) => `
 
 // Older case replacements stored SKU/name rather than equipment_id. Resolve only
 // an exact unique identity; ambiguous names never count as matching equipment.
-export async function loadSpecificationContents(budget: BudgetItem[], specification: BudgetItem[]): Promise<SpecificationContents> {
+export async function loadSpecificationContents(
+  budget: BudgetItem[],
+  specification: BudgetItem[],
+  loaders = { compositions: getEquipmentCompositions, modificationComponents: getModificationComponents },
+): Promise<SpecificationContents> {
   const all = [...budget, ...specification];
   const unidentified = all.filter(row => row.item_type === 'equipment' && !row.equipment_id);
   const skus = [...new Set(unidentified.flatMap(row => row.sku ? [row.sku] : []))];
@@ -29,24 +33,23 @@ export async function loadSpecificationContents(budget: BudgetItem[], specificat
   const compositions = new Map<string, Awaited<ReturnType<typeof getEquipmentCompositions>>>();
   for (const row of all) if (row.equipment_id && row.equipment?.has_composition === false) compositions.set(row.equipment_id, []);
   for (const row of inventory) if (row.has_composition === false) compositions.set(row.id, []);
-  let next = [...new Set(all.map(identify).filter((id): id is string => !!id))];
-  while (next.length) {
-    const batch = next.filter(id => !compositions.has(id));
-    if (!batch.length) break;
-    const loaded = await Promise.all(batch.map(async id => [id, await getEquipmentCompositions(id)] as const));
-    loaded.forEach(([id, rows]) => compositions.set(id, rows));
-    next = [...new Set(loaded.flatMap(([, rows]) => rows.flatMap(row => row.child_id ? [row.child_id] : [])))];
-  }
-  const mods = new Map(await Promise.all([...new Set(all.flatMap(row => row.modification_id ? [row.modification_id] : []))].map(async id => [id, await getModificationComponents(id)] as const)));
-  // Modification components may themselves contain nested equipment.
-  next = [...new Set([...mods.values()].flatMap(rows => rows.flatMap(row => row.component_equipment_id ? [row.component_equipment_id] : [])))];
-  while (next.length) {
-    const batch = next.filter(id => !compositions.has(id));
-    if (!batch.length) break;
-    const loaded = await Promise.all(batch.map(async id => [id, await getEquipmentCompositions(id)] as const));
-    loaded.forEach(([id, rows]) => compositions.set(id, rows));
-    next = [...new Set(loaded.flatMap(([, rows]) => rows.flatMap(row => row.child_id ? [row.child_id] : [])))];
-  }
+  const loadCompositions = async (ids: (string | undefined)[]) => {
+    let next = [...new Set(ids.filter((id): id is string => !!id))];
+    while (next.length) {
+      const batch = next.filter(id => !compositions.has(id));
+      if (!batch.length) break;
+      const loaded = await Promise.all(batch.map(async id => [id, await loaders.compositions(id)] as const));
+      loaded.forEach(([id, rows]) => compositions.set(id, rows));
+      next = [...new Set(loaded.flatMap(([, rows]) => rows.flatMap(row => row.child_id ? [row.child_id] : [])))];
+    }
+  };
+  const modificationIds = [...new Set(all.flatMap(row => row.modification_id ? [row.modification_id] : []))];
+  const [modificationEntries] = await Promise.all([
+    Promise.all(modificationIds.map(async id => [id, await loaders.modificationComponents(id)] as const)),
+    loadCompositions(all.map(identify)),
+  ]);
+  const mods = new Map(modificationEntries);
+  await loadCompositions([...mods.values()].flatMap(rows => rows.map(row => row.component_equipment_id)));
   return buildSpecificationContents(budget, specification, compositions, mods, identify);
 }
 
@@ -58,9 +61,10 @@ export function buildSpecificationContents(
 ): SpecificationContents {
   const result: SpecificationContents = new Map();
   for (const [side, rows] of [['budget', budget], ['specification', specification]] as const) {
+    const rowsById = new Map(rows.map(row => [row.id, row]));
     for (const row of rows) {
       const parts: ContentPart[] = [];
-      const location = row.location_id || rows.find(parent => parent.id === row.parent_budget_item_id)?.location_id || '';
+      const location = row.location_id || rowsById.get(row.parent_budget_item_id || '')?.location_id || '';
       const add = (id: string, quantity: number, name: string) => { if (quantity > 0) parts.push({ key: JSON.stringify([location, row.item_type, id]), quantity, name }); };
       const excluded = new Set(row.excluded_child_keys || []);
       const expand = (id: string, quantity: number, name: string, path: Set<string>, objectType?: string) => {

@@ -29,8 +29,10 @@ export async function deleteEventBudget(id: string): Promise<void> {
   const { error } = await supabase.from('event_budgets').delete().eq('id', id); check(error);
 }
 export async function getBudgetEvent(eventId: string, budgetId: string): Promise<Event> {
-  const event = await getEvent(eventId);
-  const { data, error } = await supabase.from('event_budgets').select('*').eq('event_id', eventId).eq('id', budgetId).single();
+  const [event, { data, error }] = await Promise.all([
+    getEvent(eventId),
+    supabase.from('event_budgets').select('*').eq('event_id', eventId).eq('id', budgetId).single(),
+  ]);
   check(error); return { ...event, ...data.settings, equipment_shipped: false, equipment_shipped_at: undefined, equipment_returned: false, equipment_returned_at: undefined, specification_confirmed: false, specification_confirmed_at: undefined, specification_confirmed_by: undefined, ...data.specification_state, id: event.id };
 }
 export async function updateBudgetEvent(eventId: string, budgetId: string, patch: Partial<Event>): Promise<Event> {

@@ -149,4 +149,45 @@ await db.exec(`UPDATE event_budgets SET specification_state='{"equipment_shipped
 await assert.rejects(commitActor(1,'UPDATE warehouse_specification_cables SET quantity=8'),/shipment stage/);
 await commitActor(1,'UPDATE warehouse_specification_cables SET return_picked=true');
 console.log('PASS SQL: strict Main role despite assignment/custom grants; technician accessory quantities, creation, marks and stage/metadata restrictions');
+await db.exec(`
+ALTER TABLE public.warehouse_specification_budget_items
+ ADD COLUMN parent_budget_item_id uuid REFERENCES public.warehouse_specification_budget_items(id) ON DELETE CASCADE,
+ ADD COLUMN item_type text, ADD COLUMN work_item_id uuid, ADD COLUMN price numeric, ADD COLUMN total numeric,
+ ADD COLUMN exchange_rate numeric, ADD COLUMN multi_day_rate_override numeric, ADD COLUMN category_id uuid,
+ ADD COLUMN location_id uuid, ADD COLUMN sort_order integer, ADD COLUMN sku text, ADD COLUMN created_at timestamptz,
+ ADD CONSTRAINT nonnegative_snapshot_quantity CHECK (quantity >= 0);
+CREATE TABLE public.budget_items (LIKE public.warehouse_specification_budget_items INCLUDING DEFAULTS);
+GRANT SELECT ON public.events,public.event_budgets,public.budget_items TO authenticated;
+INSERT INTO public.event_budgets VALUES
+ ('20000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','{}');
+INSERT INTO public.budget_items(id,event_id,budget_id,parent_budget_item_id,name,quantity) VALUES
+ ('70000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002',NULL,'Parent',1),
+ ('70000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000001','Child',2),
+ ('70000000-0000-0000-0000-000000000003','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002','70000000-0000-0000-0000-000000000002','Grandchild',3);
+`);
+await db.exec(fs.readFileSync('supabase/migrations/20261118120000_rebuild_warehouse_specification_snapshot.sql','utf8'));
+const rebuild = reset => `SELECT public.rebuild_warehouse_specification_snapshot('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002',${reset})`;
+const readSnapshot = async () => (await db.query(`SELECT id, name, parent_budget_item_id, quantity
+ FROM public.warehouse_specification_budget_items WHERE budget_id='20000000-0000-0000-0000-000000000002'
+ ORDER BY source_budget_item_id`)).rows;
+await assert.rejects(commitActor(1, rebuild(false)), /No permission/);
+await commitActor(2, rebuild(false));
+const firstSnapshot = await readSnapshot();
+assert.equal(firstSnapshot.length, 3);
+assert.equal(firstSnapshot[1].parent_budget_item_id, firstSnapshot[0].id);
+assert.equal(firstSnapshot[2].parent_budget_item_id, firstSnapshot[1].id);
+await commitActor(2, rebuild(false));
+assert.deepEqual(await readSnapshot(), firstSnapshot);
+await assert.rejects(commitActor(2, rebuild(true)), /No permission/);
+await db.exec("UPDATE public.budget_items SET quantity=-1 WHERE name='Child'");
+await assert.rejects(commitActor(4, rebuild(true)), /nonnegative_snapshot_quantity/);
+assert.deepEqual(await readSnapshot(), firstSnapshot);
+await db.exec("UPDATE public.budget_items SET quantity=4 WHERE name='Child'");
+await commitActor(4, rebuild(true));
+const resetSnapshot = await readSnapshot();
+assert.equal(resetSnapshot[1].quantity, '4');
+assert.equal(resetSnapshot[1].parent_budget_item_id, resetSnapshot[0].id);
+assert.equal(resetSnapshot[2].parent_budget_item_id, resetSnapshot[1].id);
+assert.equal((await db.query(`SELECT id FROM public.warehouse_specification_budget_items WHERE ${main}`)).rows.length, 1);
+console.log('PASS SQL: specification snapshot permissions, nested links, idempotent initialization, atomic rollback and budget isolation');
 await db.close();

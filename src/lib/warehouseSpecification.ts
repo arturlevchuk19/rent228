@@ -433,111 +433,21 @@ export async function deleteSpecificationBudgetItem(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function ensureWarehouseSpecificationSnapshot(eventId: string, budgetId: string): Promise<void> {
-  const { count, error: countError } = await supabase
-    .from('warehouse_specification_budget_items')
-    .select('id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('budget_id', budgetId);
-
-  if (countError) throw countError;
-  if ((count || 0) > 0) return;
-
-  const { data: budgetItems, error: budgetError } = await supabase
-    .from('budget_items')
-    .select('*')
-    .eq('event_id', eventId)
-    .eq('budget_id', budgetId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  if (budgetError) throw budgetError;
-  if (!budgetItems || budgetItems.length === 0) return;
-
-  const parentRows = budgetItems.filter(item => !item.parent_budget_item_id);
-  const childRows = budgetItems.filter(item => item.parent_budget_item_id);
-  const sourceToSpecId = new Map<string, string>();
-
-  for (const source of parentRows) {
-    const { data: created, error: createError } = await supabase
-      .from('warehouse_specification_budget_items')
-      .insert({
-        event_id: source.event_id,
-        budget_id: budgetId,
-        source_budget_item_id: source.id,
-        parent_budget_item_id: null,
-        item_type: source.item_type,
-        equipment_id: source.equipment_id,
-        modification_id: source.modification_id,
-        work_item_id: source.work_item_id,
-        quantity: source.quantity,
-        price: source.price,
-        total: source.total,
-        notes: source.notes || '',
-        exchange_rate: source.exchange_rate ?? 1,
-        multi_day_rate_override: source.multi_day_rate_override ?? null,
-        category_id: source.category_id,
-        location_id: source.location_id,
-        sort_order: source.sort_order ?? 0,
-        picked: source.picked ?? false,
-        return_picked: source.return_picked ?? false,
-        is_extra: source.is_extra ?? false,
-        name: source.name,
-        sku: source.sku
-      })
-      .select('id, source_budget_item_id')
-      .single();
-
-    if (createError) throw createError;
-    sourceToSpecId.set(created.source_budget_item_id, created.id);
-  }
-
-  for (const source of childRows) {
-    const parentSpecId = source.parent_budget_item_id ? sourceToSpecId.get(source.parent_budget_item_id) : null;
-    const { data: created, error: createError } = await supabase
-      .from('warehouse_specification_budget_items')
-      .insert({
-        event_id: source.event_id,
-        budget_id: budgetId,
-        source_budget_item_id: source.id,
-        parent_budget_item_id: parentSpecId || null,
-        item_type: source.item_type,
-        equipment_id: source.equipment_id,
-        modification_id: source.modification_id,
-        work_item_id: source.work_item_id,
-        quantity: source.quantity,
-        price: source.price,
-        total: source.total,
-        notes: source.notes || '',
-        exchange_rate: source.exchange_rate ?? 1,
-        multi_day_rate_override: source.multi_day_rate_override ?? null,
-        category_id: source.category_id,
-        location_id: source.location_id,
-        sort_order: source.sort_order ?? 0,
-        picked: source.picked ?? false,
-        return_picked: source.return_picked ?? false,
-        is_extra: source.is_extra ?? false,
-        name: source.name,
-        sku: source.sku
-      })
-      .select('id, source_budget_item_id')
-      .single();
-
-    if (createError) throw createError;
-    sourceToSpecId.set(created.source_budget_item_id, created.id);
-  }
+async function rebuildWarehouseSpecificationSnapshot(eventId: string, budgetId: string, reset: boolean): Promise<void> {
+  const { error } = await supabase.rpc('rebuild_warehouse_specification_snapshot', {
+    p_event_id: eventId,
+    p_budget_id: budgetId,
+    p_reset: reset,
+  });
+  if (error) throw error;
 }
 
-export async function resetWarehouseSpecificationSnapshot(eventId: string, budgetId: string): Promise<void> {
-  const { error } = await supabase
-    .from('warehouse_specification_budget_items')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('budget_id', budgetId);
+export function ensureWarehouseSpecificationSnapshot(eventId: string, budgetId: string): Promise<void> {
+  return rebuildWarehouseSpecificationSnapshot(eventId, budgetId, false);
+}
 
-  if (error) throw error;
-
-  await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
+export function resetWarehouseSpecificationSnapshot(eventId: string, budgetId: string): Promise<void> {
+  return rebuildWarehouseSpecificationSnapshot(eventId, budgetId, true);
 }
 
 /** Save the choice atomically so a failed replacement cannot remove components. */

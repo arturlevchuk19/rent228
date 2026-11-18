@@ -567,7 +567,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
   useEffect(() => {
     loadData();
-  }, [eventId]);
+  }, [eventId, budgetId]);
 
   const markKey = (kind: string, id: string, field: 'picked' | 'return_picked') => JSON.stringify([kind, id, field]);
   const overlayMarks = <T extends {picked?: boolean; return_picked?: boolean}>(kind: string, rows: T[], identify: (row: T) => string): T[] => rows.map(row => ({ ...row,
@@ -660,30 +660,40 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
   const loadData = async (pendingChanges?: { id: string; quantity?: number; notes?: string }[]) => {
     try {
       setLoading(true);
+      const eventRequest = getBudgetEvent(eventId, budgetId);
+      const liveItemsRequest = getBudgetItems(eventId, budgetId).then(items => {
+        setBudgetSourceError('');
+        return items;
+      }).catch(() => {
+        setBudgetSourceError('Не удалось проверить актуальную смету. Откройте спецификацию повторно.');
+        return null;
+      });
+      const snapshotRequest = eventRequest.then(async current => {
+        if (!specificationIsEditable(current.status)) {
+          const items = await liveItemsRequest;
+          if (!items) throw new Error('Не удалось загрузить смету для предпросмотра спецификации.');
+          return budgetSpecificationPreview(items);
+        }
+        const items = await getSpecificationBudgetItems(eventId, budgetId);
+        if (items.length || !mayEditMainSpecification(user, current.site_manager_id) || (await liveItemsRequest)?.length === 0) return items;
+        await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
+        return getSpecificationBudgetItems(eventId, budgetId);
+      });
       const [rawBudgetData, globalCategoriesData, eventCategoriesData, locationsData, event, cablesData, connectorsData, otherData, liveItems] = await Promise.all([
-        (async () => {
-          const current = await getBudgetEvent(eventId, budgetId);
-          if (!specificationIsEditable(current.status)) return budgetSpecificationPreview(await getBudgetItems(eventId, budgetId));
-          if (mayEditMainSpecification(user, current.site_manager_id)) await ensureWarehouseSpecificationSnapshot(eventId, budgetId);
-          return getSpecificationBudgetItems(eventId, budgetId);
-        })(),
+        snapshotRequest,
         getCategories(),
         getCategoriesForEvent(eventId, budgetId),
         getLocationsForEvent(eventId, budgetId),
-        getBudgetEvent(eventId, budgetId),
+        eventRequest,
         getCables(eventId, budgetId),
         getConnectors(eventId, budgetId),
         getOtherItems(eventId, budgetId),
-        getBudgetItems(eventId, budgetId).then(items => { setBudgetSourceError(''); return items; }).catch(() => { setBudgetSourceError('Не удалось проверить актуальную смету. Откройте спецификацию повторно.'); return null; })
+        liveItemsRequest,
       ]);
 
       loadedStructure.current = specificationStructureKey({equipment: rawBudgetData, cables: cablesData, connectors: connectorsData, other: otherData, marks: [], state: {}} as unknown as CollaborationSnapshot);
       const budgetData = withBudgetUnits(rawBudgetData, liveItems || []);
       const mergedCategories = [...globalCategoriesData, ...eventCategoriesData];
-      if (liveItems) {
-        try { setComparisonContents(await loadSpecificationContents(liveItems, budgetData)); }
-        catch { setComparisonContents(null); setBudgetSourceError('Не удалось проверить содержимое комплектов. Откройте спецификацию повторно.'); }
-      }
       setCategories(mergedCategories);
       setLocations(locationsData || []);
       setEventDetails(event);
@@ -692,9 +702,6 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
       setCables(cablesData || []);
       setConnectors(connectorsData || []);
       setOtherItems(otherData || []);
-
-      // Initialize empty modifications map - will load on demand
-      setEquipmentModifications({});
 
       const items: ExpandedItem[] = [];
       const pendingComponentDecisions: ComponentDecisionGroup[] = [];
@@ -709,18 +716,16 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
         quantity: number;
       }>> = {};
 
-      console.log('Loading warehouse specification for event:', eventId);
-
       const locationsById = new Map(locationsData.map(location => [location.id, location]));
 
       // Предзагружаем связанные данные параллельно. Раньше запросы выполнялись
       // последовательно внутри цикла по каждой позиции спецификации.
-      const equipmentIds = [...new Set(
+      const equipmentIds = specificationIsEditable(event.status) && mayEditMainSpecification(user, event.site_manager_id) ? [...new Set(
         budgetData
           .filter(item => item.item_type === 'equipment' && item.equipment_id)
           .map(item => item.equipment_id)
           .filter((id): id is string => Boolean(id))
-      )];
+      )] : [];
       const compositionIds = [...new Set(
         budgetData
           .filter(item => item.item_type === 'equipment' && item.equipment_id && (item.equipment?.object_type !== 'physical' || item.equipment?.has_composition) && !item.parent_budget_item_id)
@@ -733,21 +738,43 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
           .map(item => item.modification_id)
           .filter((id): id is string => Boolean(id))
       )];
-      const caseLookupEntries = await Promise.all(
-        equipmentIds
-          .filter(id => budgetData.some(item => item.equipment_id === id && item.equipment?.is_component))
-          .map(async (id) => [id, await findCasesContainingComponent(id)] as const)
-      );
-      const compositionEntries = await Promise.all(
-        compositionIds.map(async (id) => [id, await getEquipmentCompositions(id)] as const)
-      );
-      const modificationComponentEntries = await Promise.all(
-        modificationIds.map(async (id) => [id, await getModificationComponents(id)] as const)
-      );
+      const componentIds = [...new Set(budgetData.flatMap(item =>
+        item.item_type === 'equipment' && item.equipment_id && item.equipment?.is_component ? [item.equipment_id] : []
+      ))];
+      const compositionRequests = new Map<string, ReturnType<typeof getEquipmentCompositions>>();
+      const modificationRequests = new Map<string, ReturnType<typeof getModificationComponents>>();
+      const loaders = {
+        compositions(id: string) {
+          const request = compositionRequests.get(id) ?? getEquipmentCompositions(id);
+          compositionRequests.set(id, request);
+          return request;
+        },
+        modificationComponents(id: string) {
+          const request = modificationRequests.get(id) ?? getModificationComponents(id);
+          modificationRequests.set(id, request);
+          return request;
+        },
+      };
+      const [caseLookupEntries, compositionEntries, modificationComponentEntries, modificationEntries, contents] = await Promise.all([
+        Promise.all(componentIds.map(async id => [id, await findCasesContainingComponent(id)] as const)),
+        Promise.all(compositionIds.map(async id => [id, await loaders.compositions(id)] as const)),
+        Promise.all(modificationIds.map(async id => [id, await loaders.modificationComponents(id)] as const)),
+        Promise.all(equipmentIds.map(async id => [id, await getEquipmentModifications(id)] as const)).catch(error => {
+          console.error('Error pre-loading modifications:', error);
+          return [];
+        }),
+        liveItems ? loadSpecificationContents(liveItems, budgetData, loaders).catch(() => {
+          setBudgetSourceError('Не удалось проверить содержимое комплектов. Откройте спецификацию повторно.');
+          return null;
+        }) : null,
+      ]);
+      setEquipmentModifications(Object.fromEntries(modificationEntries));
+      setComparisonContents(contents);
       const caseOptionsByEquipmentId = new Map(caseLookupEntries);
       const compositionsByEquipmentId = new Map(compositionEntries);
       const modificationComponentsById = new Map(modificationComponentEntries);
 
+      const budgetItemsById = new Map(budgetData.map(item => [item.id, item]));
       for (const item of budgetData) {
         if (item.item_type === 'work') {
           if (mergedCategories.find(category => category.id === item.category_id)?.description !== '__extra_service__') continue;
@@ -797,7 +824,7 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
 
         // Handle child items (e.g., LED cases) - show them as composition items
         if (item.parent_budget_item_id) {
-          const parentItem = budgetData.find(b => b.id === item.parent_budget_item_id);
+          const parentItem = budgetItemsById.get(item.parent_budget_item_id);
           const locationId = item.location_id || parentItem?.location_id || null;
           const location = locationId ? locationsById.get(locationId) : null;
 
@@ -1039,20 +1066,6 @@ function ScopedWarehouseSpecification({ eventId, eventName, onClose, budgetId }:
             setComponentDecisionQueue(pendingComponentDecisions);
             setActiveComponentDecisionIndex(0);
             setCompositionPartsByParentId(compositionPartsMap);
-
-            // Reuse the preloaded equipment IDs for modification lookup.
-            if (equipmentIds.length > 0) {
-              try {
-                const modificationEntries = await Promise.all(
-                  equipmentIds.map(async (equipmentId) => (
-                    [equipmentId, await getEquipmentModifications(equipmentId)] as const
-                  ))
-                );
-                setEquipmentModifications(Object.fromEntries(modificationEntries));
-              } catch (error) {
-                console.error('Error pre-loading modifications:', error);
-              }
-            }
 
             if (pendingChanges && pendingChanges.length > 0) {
               for (const change of pendingChanges) {
