@@ -103,9 +103,15 @@
     grid-column: 2 / -1;
   }
 
-  .spec-equipment-grid td:nth-child(5) button {
-    min-height: 44px;
-    white-space: normal;
-    overflow-wrap: anywhere;
+  .spec-equipment-name {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+}
+
+@media (min-width: 768px) {
+  .spec-note-icon {
+    display: none;
   }
 }

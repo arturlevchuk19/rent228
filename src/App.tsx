@@ -1,4 +1,3 @@
-import { ArrowLeft } from 'lucide-react';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PageErrorBoundary } from './components/PageErrorBoundary';
 import { useEventPageNavigation } from './hooks/useEventPageNavigation';
@@ -46,9 +45,12 @@ function AppContent() {
   const eventPage = useEventPageNavigation(!!user && canAccess(user, 'events'));
 
   if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white text-xl">Загрузка...</div>;
-  if (!user) return authMode === 'login'
-    ? <Login onSuccess={() => {}} onSwitchToRegister={() => setAuthMode('register')} />
-    : <Register onSuccess={() => setAuthMode('login')} onSwitchToLogin={() => setAuthMode('login')} />;
+  if (!user) return <>
+    <OfflineIndicator />
+    {authMode === 'login'
+      ? <Login onSuccess={() => {}} onSwitchToRegister={() => setAuthMode('register')} />
+      : <Register onSuccess={() => setAuthMode('login')} onSwitchToLogin={() => setAuthMode('login')} />}
+  </>;
 
   const handleRefresh = (eventId?: string) => {
     setRefreshKey(value => value + 1);
@@ -79,16 +81,12 @@ function AppContent() {
     }
   };
 
-  return <>
-    <Layout currentPage={currentPage} onMobileBack={specification ? closeSpecification : undefined} pageHeading={specification ? 'Спецификация' : eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) navigate(page); }}>
+  return <div className="flex h-dvh flex-col overflow-hidden overscroll-none">
+    <OfflineIndicator />
+    <Layout currentPage={currentPage} onPageBack={specification ? closeSpecification : undefined} pageHeading={specification ? 'Спецификация' : eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) navigate(page); }}>
       <div hidden={eventPage.open || !!specification} className="h-full"><PageErrorBoundary key={currentPage}><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></PageErrorBoundary></div>
       {eventPage.open && <div hidden={!!specification}><EventPage event={eventPage.event} loading={eventPage.loading} error={eventPage.error} onDirtyChange={eventPage.setDirty} onBack={eventId => { if (eventPage.close() && eventId && !eventPage.event) setLastCreatedEventId(eventId); }} onSave={eventId => { eventPage.saved(eventId); handleRefresh(eventId); }} onSpecificationOpen={handleSpecificationOpen} onDeleted={() => { eventPage.setDirty(false); eventPage.close(); handleRefresh(); }} /></div>}
       {specification && <div className="flex h-full min-h-0 flex-col">
-        <div className="hidden shrink-0 py-2 sm:block">
-          <button type="button" onClick={closeSpecification} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 text-sm text-gray-300 hover:bg-gray-800">
-            <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Назад
-          </button>
-        </div>
         <div className="min-h-0 flex-1">
           <PageErrorBoundary key={`${specification.eventId}:${specification.budgetId ?? ''}`}>
             <Suspense fallback={<PageFallback />}>
@@ -104,9 +102,9 @@ function AppContent() {
     </Layout>
     {clientFormOpen && <ClientForm client={editingClient} onClose={() => { setClientFormOpen(false); setEditingClient(undefined); }} onSave={handleRefresh} />}
     {venueFormOpen && <VenueForm venue={editingVenue} onClose={() => { setVenueFormOpen(false); setEditingVenue(undefined); }} onSave={handleRefresh} />}
-  </>;
+  </div>;
 }
 
 export default function App() {
-  return <AuthProvider><OfflineIndicator /><AppContent /></AuthProvider>;
+  return <AuthProvider><AppContent /></AuthProvider>;
 }

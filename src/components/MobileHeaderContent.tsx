@@ -9,10 +9,11 @@ export const MobileHeaderContext = createContext<{
 }>({ title: null, actions: null });
 
 // Move the actual control, preserving page state, permissions and click handlers.
-export function MobileHeaderContent({ children, slot = 'actions' }: {
+export function MobileHeaderContent({ children, slot = 'actions', page = false }: {
   children: ReactNode;
   slot?: 'title' | 'actions' | 'afterTitle';
+  page?: boolean;
 }) {
   const targets = useContext(MobileHeaderContext);
-  return targets.active !== false && targets[slot] ? createPortal(children, targets[slot]) : null;
+  return (page || targets.active !== false) && targets[slot] ? createPortal(children, targets[slot]) : null;
 }

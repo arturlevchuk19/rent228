@@ -31,11 +31,11 @@ interface LayoutProps {
   children: React.ReactNode;
   currentPage: string;
   pageHeading?: string;
-  onMobileBack?: () => void;
+  onPageBack?: () => void;
   onNavigate: (page: string) => void;
 }
 
-export function Layout({ children, currentPage, onNavigate, pageHeading, onMobileBack }: LayoutProps) {
+export function Layout({ children, currentPage, onNavigate, pageHeading, onPageBack }: LayoutProps) {
   const { user } = useAuth();
   const [accountTab, setAccountTab] = useState<'profile' | 'users' | 'roles' | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -83,25 +83,28 @@ export function Layout({ children, currentPage, onNavigate, pageHeading, onMobil
   return (
     <MobileHeaderContext.Provider value={{ active: !pageOpen, title: mobile ? mobileTitle : pageTitle, actions: mobile ? mobileActions : pageActions, afterTitle: mobile ? mobileAfterTitle : pageAfterTitle }}>
     <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-accent-500 focus:px-4 focus:py-3 focus:text-gray-950">Перейти к содержимому</a>
-    <div className="h-dvh flex flex-col bg-gray-950 overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-950">
       <div className="relative z-20 flex h-14 shrink-0 border-b border-gray-800 bg-gray-900">
         <div className="hidden w-64 shrink-0 items-center border-r border-gray-800 px-6 lg:flex">
           <span className="text-lg font-bold text-white">RentMaster</span>
         </div>
         <header className="flex min-w-0 flex-1 items-center justify-between gap-2 px-4 lg:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
-            <button
-              aria-label={mobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white lg:hidden"
-            >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-            {onMobileBack && <button type="button" onClick={onMobileBack} aria-label="Назад" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 sm:hidden">
-              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-            </button>}
+            {onPageBack ? (
+              <button type="button" onClick={onPageBack} aria-label="Назад" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800">
+                <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+              </button>
+            ) : (
+              <button
+                aria-label={mobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white lg:hidden"
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            )}
             <div ref={setMobileTitle} className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
-              <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-white">{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <h1 className={`min-w-0 truncate text-base font-semibold text-white ${onPageBack ? '' : 'flex-1'}`}>{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
               <div ref={setMobileAfterTitle} className="flex shrink-0 items-center" />
             </div>
             <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
@@ -124,7 +127,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading, onMobil
         </header>
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {mobileMenuOpen && (
           <div
             className="fixed inset-0 bg-black/50 z-10 lg:hidden"
@@ -173,7 +176,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading, onMobil
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${currentPage === 'events' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? `overflow-y-auto pt-1 lg:px-6 lg:pb-6 ${onMobileBack ? 'px-2 pb-0 sm:px-4 sm:pb-4' : 'px-4 pb-4'}` : 'overflow-y-auto p-4 lg:p-6'}`}>
+        <main id="main-content" tabIndex={-1} ref={main} onScroll={() => { if (!pageOpen && main.current) listScroll.current = main.current.scrollTop; }} className={`min-h-0 min-w-0 flex-1 ${onPageBack ? 'overflow-clip overscroll-none px-2 pt-1 sm:px-4 lg:px-6' : currentPage === 'events' && !pageOpen ? 'overflow-hidden p-2 sm:p-4 lg:p-6' : pageOpen ? 'overflow-x-hidden overflow-y-auto px-4 pb-4 pt-1 lg:px-6 lg:pb-6' : 'overflow-x-hidden overflow-y-auto p-4 lg:p-6'}`}>
           {children}
         </main>
         </div>

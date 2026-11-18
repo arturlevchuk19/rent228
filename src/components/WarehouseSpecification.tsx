@@ -1,4 +1,5 @@
 import './warehouseSpecification.css';
+import { MobileHeaderContent } from './MobileHeaderContent';
 import { createOptimisticSpecificationMarks } from '../lib/optimisticSpecificationMarks';
 import { canAdjustSpecificationAccessories } from '../lib/specificationPermissions';
 import { SpecificationLogs } from './SpecificationLogs';
@@ -15,8 +16,8 @@ import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
 import { createOptimisticQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
 import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
-import { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Package, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { X, Plus, Minus, Package, MoreHorizontal, AlertCircle, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { budgetSpecificationPreview, specificationIsEditable, isBudgetSpecificationItem, getSpecificationDifferences } from '../lib/specificationServices';
 import { getBudgetItems, type BudgetItem, type Event } from '../lib/events';
 import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
@@ -234,6 +235,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
   const [liveBudgetItems, setLiveBudgetItems] = useState<BudgetItem[]>([]);
   const [comparisonContents, setComparisonContents] = useState<SpecificationContents | null>(null);
   const [showBudgetChanges, setShowBudgetChanges] = useState(false);
+  const checkedOpeningDifferences = useRef(false);
   const [selectedChanges, setSelectedChanges] = useState<Set<string>>(new Set());
   const [applyingChanges, setApplyingChanges] = useState(false);
   const [budgetSourceError, setBudgetSourceError] = useState('');
@@ -624,8 +626,26 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); };
   }, [eventId, budgetId, eventDetails?.status, liveBudgetItems]);
 
-  const extraCategoryIds = new Set(categories.filter(category => category.description === '__extra_service__').map(category => category.id));
-  const differences = getSpecificationDifferences(liveBudgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)), budgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)), comparisonContents || undefined);
+  const extraCategoryIds = useMemo(() => new Set(
+    categories.filter(category => category.description === '__extra_service__').map(category => category.id)
+  ), [categories]);
+  const differences = useMemo(() => getSpecificationDifferences(
+    liveBudgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
+    budgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
+    comparisonContents || undefined,
+  ), [liveBudgetItems, budgetItems, extraCategoryIds, comparisonContents]);
+  const canReviewSpecification = canViewSpecificationLogs(user, eventDetails?.site_manager_id);
+  const canApplyBudgetChanges = canEditMainSpecification && !eventDetails?.equipment_shipped;
+  const hasBudgetDifferences = canReviewSpecification && confirmedProject && !!comparisonContents && !budgetSourceError && differences.length > 0;
+  const openBudgetChanges = useCallback(() => {
+    setSelectedChanges(new Set(differences.filter(row => row.kind === 'add' && !row.requiresManual).map(row => row.sourceId)));
+    setShowBudgetChanges(true);
+  }, [differences]);
+  useEffect(() => {
+    if (checkedOpeningDifferences.current || !canReviewSpecification || initialLoading || !comparisonContents || budgetSourceError) return;
+    checkedOpeningDifferences.current = true;
+    if (hasBudgetDifferences) openBudgetChanges();
+  }, [canReviewSpecification, initialLoading, comparisonContents, budgetSourceError, hasBudgetDifferences, openBudgetChanges]);
   const applyBudgetChanges = async () => {
     if (!canEditMainSpecification || applyingChanges || eventDetails?.equipment_shipped || modifiedItems.size) return;
     setApplyingChanges(true);
@@ -2125,7 +2145,51 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     <section aria-labelledby="specification-heading" className="flex h-full min-h-0 flex-col">
       <div className="relative flex min-h-0 flex-1 flex-col">
         {showLogs && canViewSpecificationLogs(user, eventDetails?.site_manager_id) && <SpecificationLogs eventId={eventId} budgetId={budgetId} onClose={() => setShowLogs(false)} />}
-        {showBudgetChanges && <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-3"><div role="dialog" aria-modal="true" aria-label="Изменения сметы" className="max-h-full w-full max-w-xl overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4"><h3 className="font-semibold text-white">Сравнение со сметой</h3><p className="my-3 text-sm text-gray-400">Выберите позиции для переноса. Изменение заменит количество и состав выбранной строки и сбросит её отметки сборки. Удаление также удалит её дочерние строки. Остальные позиции, примечания и кабели сохраняются. Частично совпадающие комплекты отмечены «Проверить содержимое»: их нужно скорректировать вручную, чтобы не добавить комплект повторно.</p>{differences.map(change => <label key={change.sourceId} className="flex items-start gap-2 border-t border-gray-800 py-3 text-sm text-gray-200"><input type="checkbox" checked={selectedChanges.has(change.sourceId)} disabled={applyingChanges || change.requiresManual || (change.kind === 'remove' && !canAccess(user, 'specifications', 3))} onChange={event => setSelectedChanges(previous => { const next = new Set(previous); if (event.target.checked) next.add(change.sourceId); else next.delete(change.sourceId); return next; })}/><span className="min-w-0 break-words">{change.requiresManual ? 'Проверить содержимое' : change.kind === 'add' ? 'Добавить' : change.kind === 'remove' ? 'Удалить' : 'Обновить'}: {change.name}{change.source && change.saved && ` (${change.saved.quantity} → ${change.source.quantity})`}</span></label>)}{modifiedItems.size > 0 && <p className="text-sm text-amber-400">Сначала сохраните ручные изменения спецификации.</p>}<div className="mt-3 flex justify-end gap-2"><button type="button" disabled={applyingChanges} onClick={() => setShowBudgetChanges(false)} className="p-2 text-gray-400">Закрыть</button><button type="button" disabled={applyingChanges || !selectedChanges.size || modifiedItems.size > 0} onClick={() => void applyBudgetChanges()} className="min-h-11 rounded-lg bg-accent-500 p-2 text-gray-950 disabled:opacity-40">Применить выбранное</button></div></div></div>}
+        {hasBudgetDifferences && (
+          <MobileHeaderContent slot="afterTitle" page>
+            <button type="button" onClick={openBudgetChanges} aria-label="Расхождения со сметой" title="Расхождения со сметой"
+              className="grid h-11 w-11 place-items-center rounded-lg text-yellow-400 hover:bg-gray-800">
+              <AlertCircle aria-hidden="true" className="h-5 w-5" />
+            </button>
+          </MobileHeaderContent>
+        )}
+        {showBudgetChanges && canReviewSpecification && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-3">
+            <div role="dialog" aria-modal="true" aria-label="Расхождения со сметой"
+              onKeyDown={event => { if (event.key === 'Escape' && !applyingChanges) setShowBudgetChanges(false); }}
+              className="max-h-full w-full max-w-xl overflow-y-auto overscroll-contain rounded-xl border border-gray-700 bg-gray-900 p-4">
+              <h3 className="font-semibold text-white">Расхождения со сметой</h3>
+              <p className="my-3 text-sm text-gray-300">
+                {differences.length ? `Количество расхождений: ${differences.length}.` : 'Смета и спецификация совпадают.'}
+                {canApplyBudgetChanges && differences.length > 0 && ' Выберите позиции, чтобы перенести изменения из сметы. Обновление сбросит отметки сборки позиции, а удаление также удалит её дочерние строки.'}
+              </p>
+              <ul>
+                {differences.map(change => (
+                  <li key={change.sourceId} className="flex items-start gap-2 border-t border-gray-800 py-3 text-sm text-gray-200">
+                    <label className="flex w-full items-start gap-2">
+                      {canApplyBudgetChanges && <input type="checkbox" checked={selectedChanges.has(change.sourceId)} disabled={applyingChanges || change.requiresManual || (change.kind === 'remove' && !canAccess(user, 'specifications', 3))}
+                        onChange={event => setSelectedChanges(previous => {
+                          const next = new Set(previous);
+                          if (event.target.checked) next.add(change.sourceId);
+                          else next.delete(change.sourceId);
+                          return next;
+                        })} />}
+                      <span className="min-w-0 break-words">
+                        {change.requiresManual ? 'Проверить содержимое' : change.kind === 'add' ? 'Добавить' : change.kind === 'remove' ? 'Удалить' : 'Обновить'}: {change.name}
+                        {change.source && change.saved && ` (${change.saved.quantity} → ${change.source.quantity})`}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {canApplyBudgetChanges && modifiedItems.size > 0 && <p className="text-sm text-amber-400">Сначала сохраните ручные изменения спецификации.</p>}
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                <button type="button" autoFocus disabled={applyingChanges} onClick={() => setShowBudgetChanges(false)} className="min-h-11 px-3 text-sm text-gray-300">Закрыть</button>
+                {canApplyBudgetChanges && differences.length > 0 && <button type="button" disabled={applyingChanges || !selectedChanges.size || modifiedItems.size > 0} onClick={() => void applyBudgetChanges()} className="min-h-11 rounded-lg bg-accent-500 px-3 text-sm text-gray-950 disabled:opacity-40">Применить выбранное</button>}
+              </div>
+            </div>
+          </div>
+        )}
         {loading && (
           <div className="absolute top-3 right-14 z-20 rounded-md border border-accent-700/50 bg-gray-900/90 px-2 py-1 text-xs text-accent-300">
             Обновление...
@@ -2155,7 +2219,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            {canViewSpecificationLogs(user, eventDetails?.site_manager_id) && <button type="button" onClick={() => setShowLogs(true)} className="min-h-11 rounded border border-gray-700 px-3 text-sm text-gray-300 hover:bg-gray-800">Логи</button>}
+            {canReviewSpecification && <button type="button" onClick={() => setShowLogs(true)} className="min-h-11 rounded border border-gray-700 px-3 text-sm text-gray-300 hover:bg-gray-800">Логи</button>}
             <button
               disabled={!confirmedProject}
               onClick={() => setShowStickyNotes(!showStickyNotes)}
@@ -2202,12 +2266,11 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto px-1 py-2 custom-scrollbar sm:p-4">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-1 py-2 custom-scrollbar sm:p-4">
           {collaboration.error && <p role="status" className="mb-3 text-sm text-amber-400">{collaboration.error}</p>}
           {remoteStructureChanged && <p role="status" className="mb-3 text-sm text-amber-400">Состав спецификации изменился. Ваши несохранённые правки сохранены на экране. <button type="button" disabled={modifiedItems.size > 0 || savingChanges} onClick={() => { void loadData(); }} className="underline disabled:opacity-50">Обновить состав после сохранения правок</button></p>}
           {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
           {!confirmedProject && <p className="mb-4 rounded-lg border border-accent-800 p-3 text-sm text-accent-300">До подтверждения мероприятия спецификация показывает актуальную смету. Ручное редактирование станет доступно после подтверждения.</p>}
-          {confirmedProject && comparisonContents && !budgetSourceError && differences.length > 0 && <div className="mb-4 rounded-lg border border-amber-700 p-3 text-sm text-amber-300">Смета и спецификация различаются: {differences.length} позиций. Ручные правки не перезаписываются автоматически.{canEditMainSpecification && !eventDetails?.equipment_shipped && <button type="button" onClick={() => { setSelectedChanges(new Set(differences.filter(row => row.kind === 'add' && !row.requiresManual).map(row => row.sourceId))); setShowBudgetChanges(true); }} className="mt-2 block rounded-lg bg-gray-800 px-3 py-2 text-accent-400">Сравнить со сметой</button>}</div>}
           {activeTab === 'budget' && (
             <>
               <div className="mb-3 flex justify-between items-center">
@@ -2281,6 +2344,8 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                             return null;
                           }
 
+                          const hasNote = !!item.notes?.trim();
+                          const openItemNote = () => setOpenNote({ budgetItemId: item.budgetItemId, itemName: item.name, value: item.notes || '' });
                           return (
                           <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-accent-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
@@ -2307,7 +2372,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                   </>
                               </label>
                             </td>
-                            <td className="px-3 py-1.5">
+                            <td className="spec-equipment-name px-3 py-1.5">
                               <div className="flex items-center gap-2">
                                 <div>
                                   <div className="text-xs text-white font-medium flex items-center gap-1.5">
@@ -2361,6 +2426,12 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                   </button>
                                 )}
                               </div>
+                              {canEditMainSpecification && !eventDetails?.equipment_shipped && !item.budgetItemId.includes('-kitcase-') && (
+                                <button type="button" onClick={openItemNote} aria-label={`${hasNote ? 'Изменить примечание' : 'Добавить примечание'}: ${item.name}`}
+                                  className={`spec-note-icon max-md:rounded-lg hover:bg-gray-800 ${hasNote ? 'text-accent-400' : 'text-gray-400'}`}>
+                                  <StickyNote aria-hidden="true" className="h-[18px] w-[18px]" />
+                                </button>
+                              )}
                             </td>
                             <td className="px-3 py-1.5 text-center">
                               {!canEditMainSpecification || eventDetails?.equipment_shipped || item.budgetItemId.includes('-kitcase-') ? (
@@ -2371,7 +2442,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                     aria-label={`Уменьшить количество: ${item.name}`}
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity - 1)}
                                     disabled={!canEditMainSpecification || item.quantity === 0}
-                                    className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors max-md:rounded-md max-md:bg-gray-800 max-md:enabled:text-red-400"
+                                    className="p-0.5 text-red-500/50 hover:text-red-400 disabled:text-gray-700 transition-colors max-md:enabled:text-red-400"
                                   >
                                     <Minus className="w-5 h-5" />
                                   </button>
@@ -2380,7 +2451,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                     aria-label={`Увеличить количество: ${item.name}`}
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
                                     disabled={!canEditMainSpecification}
-                                    className="p-0.5 text-accent-500/50 hover:text-accent-400 transition-colors max-md:rounded-md max-md:bg-gray-800 max-md:enabled:text-accent-400"
+                                    className="p-0.5 text-accent-500/50 hover:text-accent-400 transition-colors max-md:enabled:text-accent-400"
                                   >
                                     <Plus className="w-5 h-5" />
                                   </button>
@@ -2397,16 +2468,13 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                             </td>
                             <td className="px-3 py-1.5 text-xs text-gray-500">{item.unit}</td>
                             {!eventDetails?.equipment_shipped && (
-                              <td className="px-3 py-1.5">
-                                {!canEditMainSpecification ? <span className="text-xs text-gray-400">{item.notes || '—'}</span> : <button
+                              <td className={`px-3 py-1.5 ${hasNote ? '' : 'max-md:hidden'}`}>
+                                {hasNote && <span className="break-words text-xs text-gray-300 md:hidden">{item.notes}</span>}
+                                {!canEditMainSpecification ? <span className="hidden text-xs text-gray-400 md:inline">{item.notes || '—'}</span> : <button
                                   type="button"
-                                  onClick={() => setOpenNote({
-                                    budgetItemId: item.budgetItemId,
-                                    itemName: item.name,
-                                    value: item.notes || ''
-                                  })}
+                                  onClick={openItemNote}
                                   disabled={!canEditMainSpecification || item.budgetItemId.includes('-kitcase-')}
-                                  className="w-full min-h-[24px] px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300 text-left truncate hover:border-accent-500 focus:outline-none focus:border-accent-500 disabled:opacity-50"
+                                  className="hidden w-full min-h-[24px] truncate rounded border border-gray-700 bg-gray-800 px-2 py-0.5 text-left text-xs text-gray-300 hover:border-accent-500 focus:border-accent-500 focus:outline-none disabled:opacity-50 md:block"
                                   title={item.notes || 'Добавить примечание'}
                                 >
                                   {item.notes || 'Добавить примечание'}
