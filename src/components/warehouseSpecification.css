@@ -99,8 +99,21 @@
     place-items: center;
   }
 
-  .spec-equipment-grid td:nth-child(5) {
+  .spec-equipment-grid > tbody > tr:has(.spec-equipment-name) {
+    padding-block: 0.125rem;
+  }
+
+  .spec-equipment-grid .spec-equipment-quantity {
     grid-column: 2 / -1;
+  }
+
+  .spec-item-note {
+    display: block;
+    margin-top: 0.125rem;
+    color: rgb(156 163 175);
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    white-space: pre-wrap;
   }
 
   .spec-equipment-name {

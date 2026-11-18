@@ -2392,6 +2392,9 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                       ↳ {item.parentName}
                                     </div>
                                   )}
+                                  {hasNote && !eventDetails?.equipment_shipped && (
+                                    <span className="spec-item-note md:hidden">{item.notes}</span>
+                                  )}
                                 </div>
                                 {canEditMainSpecification && !eventDetails?.equipment_shipped && !item.isFromComposition && hasModifications(item.budgetItemId) && (
                                   <button
@@ -2433,9 +2436,9 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                 </button>
                               )}
                             </td>
-                            <td className="px-3 py-1.5 text-center">
+                            <td className="spec-equipment-quantity px-3 py-1.5 text-center">
                               {!canEditMainSpecification || eventDetails?.equipment_shipped || item.budgetItemId.includes('-kitcase-') ? (
-                                <span className="text-xs text-white font-bold">{item.quantity}</span>
+                                <span className="text-xs font-bold text-white">{item.quantity} <span className="font-normal text-gray-400 md:hidden">{item.unit}</span></span>
                               ) : (
                                 <div className="flex justify-center items-center gap-1">
                                   <button
@@ -2446,7 +2449,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                   >
                                     <Minus className="w-5 h-5" />
                                   </button>
-                                  <span className="text-xs text-white font-bold w-6 text-center">{item.quantity}</span>
+                                  <span className="whitespace-nowrap text-center text-xs font-bold text-white md:w-6">{item.quantity} <span className="font-normal text-gray-400 md:hidden">{item.unit}</span></span>
                                   <button
                                     aria-label={`Увеличить количество: ${item.name}`}
                                     onClick={() => handleQuantityChange(item.budgetItemId, item.quantity + 1)}
@@ -2466,10 +2469,9 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 py-1.5 text-xs text-gray-500">{item.unit}</td>
+                            <td className="hidden px-3 py-1.5 text-xs text-gray-500 md:table-cell">{item.unit}</td>
                             {!eventDetails?.equipment_shipped && (
-                              <td className={`px-3 py-1.5 ${hasNote ? '' : 'max-md:hidden'}`}>
-                                {hasNote && <span className="break-words text-xs text-gray-300 md:hidden">{item.notes}</span>}
+                              <td className="hidden px-3 py-1.5 md:table-cell">
                                 {!canEditMainSpecification ? <span className="hidden text-xs text-gray-400 md:inline">{item.notes || '—'}</span> : <button
                                   type="button"
                                   onClick={openItemNote}
