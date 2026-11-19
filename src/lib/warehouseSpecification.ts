@@ -55,6 +55,7 @@ export const CABLE_TEMPLATES: CableTemplate[] = [
   },
   {
     type: 'PowerCON 1м - 10м',
+    // Preserve the saved length key; cableLengthDisplayName supplies the label.
     lengths: ['1м (10шт)', '2м (5шт)', '3м (8шт)', '5м', '10м']
   },
    {

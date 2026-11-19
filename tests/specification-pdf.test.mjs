@@ -16,7 +16,7 @@ Object.assign(mocks, {
  './warehouseSpecification':{
   ensureWarehouseSpecificationSnapshot:async(event,budget)=>scopeCalls.push(['initialize',event,budget]),
   getSpecificationBudgetItems:async(event,budget)=>{scopeCalls.push(['items',event,budget]);return [];},
-  getCables:async(event,budget)=>{scopeCalls.push(['cables',event,budget]);return [{cable_type:'PowerCON',cable_length:'10м',quantity:2,notes:'A'},{cable_type:'PowerCON',cable_length:'10м',quantity:3,notes:'B'}];},
+  getCables:async(event,budget)=>{scopeCalls.push(['cables',event,budget]);return [{cable_type:'PowerCON',cable_length:'10м',quantity:2,notes:'A'},{cable_type:'PowerCON',cable_length:'10м',quantity:3,notes:'B'},{cable_type:'PowerCON 1м - 10м',cable_length:'3м (8шт)',quantity:2,notes:''}];},
   getConnectors:async(event,budget)=>{scopeCalls.push(['connectors',event,budget]);return [{connector_type:'Аксессуары::Сплиттер X6',quantity:4,notes:''}];},
   getOtherItems:async(event,budget)=>{scopeCalls.push(['other',event,budget]);return [{category:'Ремешки',item_type:'0.5м',quantity:1,notes:''},{category:'Ремешки',item_type:'1м',quantity:0,notes:''}];}
  }
@@ -33,6 +33,7 @@ assert.ok(rows.every(row => !row.group.startsWith('Оборудование /') 
 const loaded=await loadSpecificationExport('event-A','budget-B',true);
 assert.ok(scopeCalls.every(([,event,budget])=>event==='event-A'&&budget==='budget-B'));
 assert.equal(loaded.rows.find(row=>row.name==='10м').quantity,5);assert.equal(loaded.rows.find(row=>row.name==='10м').notes,'A\nB');
+assert.equal(loaded.rows.find(row=>row.name==='3м (5шт)').quantity,2);
 assert.equal(loaded.rows.find(row=>row.name==='Сплиттер X6').quantity,4);assert.ok(loaded.rows.some(row=>row.name==='0.5м'));assert.ok(!loaded.rows.some(row=>row.name==='1м'));
 assert.ok(!loaded.rows.some(row=>row.name==='Доставка'),'No standalone all-services block');
 // Export must use the budget category/location order, even when snapshot rows

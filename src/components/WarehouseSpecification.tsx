@@ -9,7 +9,7 @@ import { canViewSpecificationLogs } from '../lib/specificationPermissions';
 import { canEditMainSpecification as mayEditMainSpecification, canMarkMainSpecification as mayMarkMainSpecification } from '../lib/specificationPermissions';
 import { withBudgetUnits } from '../lib/specificationUnits';
 import { loadSpecificationContents, type SpecificationContents } from '../lib/specificationContents';
-import { cableDisplayName } from '../lib/cableNames';
+import { cableDisplayName, cableLengthDisplayName } from '../lib/cableNames';
 import { useSpecificationNotes } from '../lib/useSpecificationNotes';
 import { BudgetScope } from './BudgetScope';
 import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
@@ -1484,7 +1484,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
       .map(item => ({
         id: `cable-${item.id}`,
         name: fallbackName(
-          `${normalizeText(item.cable_type)} ${normalizeText(item.cable_length)}`.trim(),
+          `${normalizeText(item.cable_type)} ${cableLengthDisplayName(normalizeText(item.cable_type), normalizeText(item.cable_length))}`.trim(),
           `Кабель #${item.id.slice(0, 8)}`
         ),
         group: 'cables' as const
@@ -2569,6 +2569,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.lengths.map((length) => {
+                              const lengthLabel = cableLengthDisplayName(template.type, length);
                               const cableEntries = cables.filter(c => c.cable_type === template.type && c.cable_length === length);
                               const cableObj = cableEntries[0];
                               const quantity = quantityQueue.current.value(JSON.stringify([eventId, 'cable', template.type, length]), cableEntries.reduce((sum, item) => sum + item.quantity, 0));
@@ -2586,7 +2587,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                       {quantity > 0 && cableId && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                         <input disabled={!canAdjustAccessories}
                                           type="checkbox"
-                                          aria-label={`Отметка: ${length}`}
+                                          aria-label={`Отметка: ${lengthLabel}`}
                                           checked={returnPicked}
                                           onChange={(e) => handleCableReturnPickedChange(cableId, e.target.checked)}
                                           className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
@@ -2594,7 +2595,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                       ) : quantity > 0 && cableId ? (
                                         <input
                                           type="checkbox"
-                                          aria-label={`Отметка: ${length}`}
+                                          aria-label={`Отметка: ${lengthLabel}`}
                                           checked={picked}
                                           onChange={(e) => handleCablePickedChange(cableId, e.target.checked)}
                                           className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
@@ -2603,7 +2604,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                       ) : null}
                                     </label>
                                   </td>
-                                  <td className="px-3 py-1.5 text-xs text-white">{length}</td>
+                                  <td className="px-3 py-1.5 text-xs text-white">{lengthLabel}</td>
                                   <td className="px-3 py-1.5 text-center">
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>
