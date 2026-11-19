@@ -1,7 +1,15 @@
 import { supabase } from './supabase';
 import type { BudgetItem } from './events';
-import { getEquipmentCompositions } from './equipmentCompositions';
-import { getModificationComponents } from './equipment';
+import { getEquipmentCompositionsForParents, type EquipmentComposition } from './equipmentCompositions';
+import { getComponentsForModifications, type ModificationComponent } from './equipment';
+import { createCatalogLookup } from './catalogLookup';
+
+export function createSpecificationCatalog() {
+  return {
+    compositions: createCatalogLookup(getEquipmentCompositionsForParents, row => row.parent_id),
+    modificationComponents: createCatalogLookup(getComponentsForModifications, row => row.modification_id),
+  };
+}
 
 export interface ContentPart { key: string; quantity: number; name: string; }
 export type SpecificationContents = Map<string, ContentPart[]>;
@@ -12,7 +20,7 @@ export const contentRowKey = (side: 'budget' | 'specification', id: string) => `
 export async function loadSpecificationContents(
   budget: BudgetItem[],
   specification: BudgetItem[],
-  loaders = { compositions: getEquipmentCompositions, modificationComponents: getModificationComponents },
+  loaders = createSpecificationCatalog(),
 ): Promise<SpecificationContents> {
   const all = [...budget, ...specification];
   const unidentified = all.filter(row => row.item_type === 'equipment' && !row.equipment_id);
@@ -30,7 +38,7 @@ export async function loadSpecificationContents(
     const ids = [...new Set(matches.map(item => item.id))];
     return ids.length === 1 ? ids[0] : undefined;
   };
-  const compositions = new Map<string, Awaited<ReturnType<typeof getEquipmentCompositions>>>();
+  const compositions = new Map<string, EquipmentComposition[]>();
   for (const row of all) if (row.equipment_id && row.equipment?.has_composition === false) compositions.set(row.equipment_id, []);
   for (const row of inventory) if (row.has_composition === false) compositions.set(row.id, []);
   const loadCompositions = async (ids: (string | undefined)[]) => {
@@ -38,25 +46,24 @@ export async function loadSpecificationContents(
     while (next.length) {
       const batch = next.filter(id => !compositions.has(id));
       if (!batch.length) break;
-      const loaded = await Promise.all(batch.map(async id => [id, await loaders.compositions(id)] as const));
-      loaded.forEach(([id, rows]) => compositions.set(id, rows));
-      next = [...new Set(loaded.flatMap(([, rows]) => rows.flatMap(row => row.child_id ? [row.child_id] : [])))];
+      const loaded = await loaders.compositions(batch);
+      loaded.forEach((rows, id) => compositions.set(id, rows));
+      next = [...new Set([...loaded.values()].flatMap(rows => rows.flatMap(row => row.child_id ? [row.child_id] : [])))];
     }
   };
   const modificationIds = [...new Set(all.flatMap(row => row.modification_id ? [row.modification_id] : []))];
-  const [modificationEntries] = await Promise.all([
-    Promise.all(modificationIds.map(async id => [id, await loaders.modificationComponents(id)] as const)),
+  const [mods] = await Promise.all([
+    loaders.modificationComponents(modificationIds),
     loadCompositions(all.map(identify)),
   ]);
-  const mods = new Map(modificationEntries);
   await loadCompositions([...mods.values()].flatMap(rows => rows.map(row => row.component_equipment_id)));
   return buildSpecificationContents(budget, specification, compositions, mods, identify);
 }
 
 export function buildSpecificationContents(
   budget: BudgetItem[], specification: BudgetItem[],
-  compositions: Map<string, Awaited<ReturnType<typeof getEquipmentCompositions>>>,
-  modifications: Map<string, Awaited<ReturnType<typeof getModificationComponents>>>,
+  compositions: Map<string, EquipmentComposition[]>,
+  modifications: Map<string, ModificationComponent[]>,
   identify: (row: BudgetItem) => string | undefined = row => row.equipment_id || undefined,
 ): SpecificationContents {
   const result: SpecificationContents = new Map();

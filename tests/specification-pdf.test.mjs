@@ -11,7 +11,7 @@ Object.assign(mocks, {
  './supabase':{supabase:{from:()=>({select:()=>({in:async()=>({data:[],error:null})})})}},
  './events':{getBudgetItems:async(event,budget)=>{scopeCalls.push(['services',event,budget]);return [{id:'service1',item_type:'work',quantity:2,work_item:{name:'Доставка',unit:'рейс'},notes:'После монтажа'}];}},
  './eventBudgets':{getBudgetEvent:async(event,budget)=>{scopeCalls.push(['event',event,budget]);return {name:'Событие',status:'Подтверждено'};}},
- './equipmentCompositions':{getEquipmentCompositions:async()=>[]}, './equipment':{getModificationComponents:async()=>[]},
+ './equipmentCompositions':{getEquipmentCompositionsForParents:async()=>[]}, './equipment':{getComponentsForModifications:async()=>[]},
  './categories':{getCategories:async()=>[],getCategoriesForEvent:async()=>[]}, './locations':{getLocationsForEvent:async()=>[]},
  './warehouseSpecification':{
   ensureWarehouseSpecificationSnapshot:async(event,budget)=>scopeCalls.push(['initialize',event,budget]),

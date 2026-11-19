@@ -8,7 +8,7 @@ import { mergeSharedMarks, resetWarehouseSpecificationMarks, saveGeneratedRowMar
 import { canViewSpecificationLogs } from '../lib/specificationPermissions';
 import { canEditMainSpecification as mayEditMainSpecification, canMarkMainSpecification as mayMarkMainSpecification } from '../lib/specificationPermissions';
 import { withBudgetUnits } from '../lib/specificationUnits';
-import { loadSpecificationContents, type SpecificationContents } from '../lib/specificationContents';
+import { createSpecificationCatalog, loadSpecificationContents, type SpecificationContents } from '../lib/specificationContents';
 import { cableDisplayName, cableLengthDisplayName } from '../lib/cableNames';
 import { connectorDisplayName } from '../lib/connectorNames';
 import { useSpecificationNotes } from '../lib/useSpecificationNotes';
@@ -21,8 +21,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { X, Plus, Minus, Package, MoreHorizontal, AlertCircle, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { budgetSpecificationPreview, specificationIsEditable, isBudgetSpecificationItem, getSpecificationDifferences } from '../lib/specificationServices';
 import { getBudgetItems, type BudgetItem, type Event } from '../lib/events';
-import { EquipmentItem, getEquipmentModifications, EquipmentModification, ModificationComponent } from '../lib/equipment';
-import { getEquipmentCompositions, findCasesContainingComponent, ComponentCaseOption } from '../lib/equipmentCompositions';
+import { EquipmentItem, getEquipmentModifications, getModificationsForEquipment, EquipmentModification, ModificationComponent } from '../lib/equipment';
+import { findCasesContainingComponents, ComponentCaseOption } from '../lib/equipmentCompositions';
 import { Category, getCategories, getCategoriesForEvent } from '../lib/categories';
 import { Location, getLocationsForEvent } from '../lib/locations';
 import { CalculatedCase } from './LedSpecificationPanel';
@@ -59,6 +59,7 @@ import {
   resetWarehouseSpecificationSnapshot
 } from '../lib/warehouseSpecification';
 import { getModificationComponents } from '../lib/equipment';
+import { createCatalogLookup } from '../lib/catalogLookup';
 import { StickyNotePanel } from './StickyNotePanel';
 
 interface WarehouseSpecificationProps {
@@ -615,7 +616,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         if (current.status !== eventDetails.status) await loadData();
         else if (JSON.stringify(latest) !== JSON.stringify(liveBudgetItems)) {
           if (specificationIsEditable(current.status)) {
-            const contents = await loadSpecificationContents(latest, budgetItems);
+            const contents = canViewSpecificationLogs(user, current.site_manager_id) ? await loadSpecificationContents(latest, budgetItems) : null;
             if (active) { setComparisonContents(contents); setLiveBudgetItems(latest); }
           }
           else await loadData();
@@ -765,42 +766,35 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
           .map(item => item.modification_id)
           .filter((id): id is string => Boolean(id))
       )];
-      const componentIds = [...new Set(budgetData.flatMap(item =>
-        item.item_type === 'equipment' && item.equipment_id && item.equipment?.is_component &&
-        !item.parent_budget_item_id && item.component_selection !== 'separate' ? [item.equipment_id] : []
-      ))];
-      const compositionRequests = new Map<string, ReturnType<typeof getEquipmentCompositions>>();
-      const modificationRequests = new Map<string, ReturnType<typeof getModificationComponents>>();
-      const loaders = {
-        compositions(id: string) {
-          const request = compositionRequests.get(id) ?? getEquipmentCompositions(id);
-          compositionRequests.set(id, request);
-          return request;
-        },
-        modificationComponents(id: string) {
-          const request = modificationRequests.get(id) ?? getModificationComponents(id);
-          modificationRequests.set(id, request);
-          return request;
-        },
-      };
-      const [caseLookupEntries, compositionEntries, modificationComponentEntries, modificationEntries, contents] = await Promise.all([
-        Promise.all(componentIds.map(async id => [id, await findCasesContainingComponent(id)] as const)),
-        Promise.all(compositionIds.map(async id => [id, await loaders.compositions(id)] as const)),
-        Promise.all(modificationIds.map(async id => [id, await loaders.modificationComponents(id)] as const)),
-        Promise.all(equipmentIds.map(async id => [id, await getEquipmentModifications(id)] as const)).catch(error => {
+      const mayChooseCase = (item: BudgetItem) =>
+        item.equipment?.is_component && item.equipment.object_type !== 'virtual' && item.equipment_id &&
+        !item.parent_budget_item_id && item.component_selection !== 'separate' &&
+        specificationIsEditable(event.status) && !event.equipment_shipped &&
+        (item.is_extra && !item.source_budget_item_id
+          ? canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id)
+          : mayEditMainSpecification(user, event.site_manager_id));
+      const componentIds = budgetData.flatMap(item =>
+        item.item_type === 'equipment' && item.equipment_id && mayChooseCase(item) ? [item.equipment_id] : []
+      );
+      const catalog = createSpecificationCatalog();
+      const lookupCases = createCatalogLookup(findCasesContainingComponents, row => row.componentId);
+      const lookupModifications = createCatalogLookup(getModificationsForEquipment, row => row.equipment_id);
+      const canReviewBudget = canViewSpecificationLogs(user, event.site_manager_id);
+      const [caseOptionsByEquipmentId, compositionsByEquipmentId, modificationComponentsById, modificationEntries, contents] = await Promise.all([
+        lookupCases(componentIds),
+        catalog.compositions(compositionIds),
+        catalog.modificationComponents(modificationIds),
+        lookupModifications(equipmentIds).catch(error => {
           console.error('Error pre-loading modifications:', error);
-          return [];
+          return new Map<string, EquipmentModification[]>();
         }),
-        liveItems ? loadSpecificationContents(liveItems, budgetData, loaders).catch(() => {
+        liveItems && canReviewBudget && specificationIsEditable(event.status) ? loadSpecificationContents(liveItems, budgetData, catalog).catch(() => {
           setBudgetSourceError('Не удалось проверить содержимое комплектов. Откройте спецификацию повторно.');
           return null;
         }) : null,
       ]);
       setEquipmentModifications(Object.fromEntries(modificationEntries));
       setComparisonContents(contents);
-      const caseOptionsByEquipmentId = new Map(caseLookupEntries);
-      const compositionsByEquipmentId = new Map(compositionEntries);
-      const modificationComponentsById = new Map(modificationComponentEntries);
 
       const budgetItemsById = new Map(budgetData.map(item => [item.id, item]));
       for (const item of budgetData) {
@@ -880,9 +874,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         const isVirtual = item.equipment?.object_type === 'virtual';
 
         if (!isVirtual) {
-          if (item.equipment?.is_component && item.equipment_id && item.component_selection !== 'separate' && specificationIsEditable(event.status) && (item.is_extra && !item.source_budget_item_id
-            ? canAccess(user, 'specifications', 2) && (user?.role !== 'foreman' || event.site_manager_id === user.id)
-            : mayEditMainSpecification(user, event.site_manager_id)) && !event.equipment_shipped) {
+          if (item.equipment_id && mayChooseCase(item)) {
             try {
               const caseOptions = caseOptionsByEquipmentId.get(item.equipment_id) || [];
               if (caseOptions.length > 0) {

@@ -2,11 +2,11 @@ import { withBudgetUnits } from './specificationUnits';
 import { cableDisplayName, cableLengthDisplayName } from './cableNames';
 import { connectorDisplayName } from './connectorNames';
 import { budgetSpecificationPreview, specificationIsEditable, getSpecificationDifferences, isBudgetSpecificationItem } from './specificationServices';
-import { loadSpecificationContents } from './specificationContents';
+import { createSpecificationCatalog, loadSpecificationContents } from './specificationContents';
 import { getBudgetItems, type BudgetItem } from './events';
 import { getBudgetEvent } from './eventBudgets';
-import { getEquipmentCompositions, type EquipmentComposition } from './equipmentCompositions';
-import { getModificationComponents, type ModificationComponent } from './equipment';
+import type { EquipmentComposition } from './equipmentCompositions';
+import type { ModificationComponent } from './equipment';
 import { getCategories, getCategoriesForEvent } from './categories';
 import { getLocationsForEvent } from './locations';
 import { ensureWarehouseSpecificationSnapshot, getSpecificationBudgetItems, getCables, getConnectors, getOtherItems } from './warehouseSpecification';
@@ -67,7 +67,8 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
   // Use the same content-aware comparison as the specification screen: a kit
   // replaced by equivalent components must not produce a false warning.
   const extraCategoryIds = new Set([...globalCategories, ...categories].filter(row => row.description === '__extra_service__').map(row => row.id));
-  const contents = frozen ? await loadSpecificationContents(liveItems, items) : undefined;
+  const catalog = createSpecificationCatalog();
+  const contents = frozen ? await loadSpecificationContents(liveItems, items, catalog) : undefined;
   const differences = frozen ? getSpecificationDifferences(
     liveItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
     items.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
@@ -75,9 +76,9 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
   ) : [];
   const equipmentIds = [...new Set(items.filter(item => !item.parent_budget_item_id && (item.equipment?.object_type === 'virtual' || (item.equipment?.object_type === 'physical' && item.equipment.has_composition)) && item.equipment_id).map(item => item.equipment_id!))];
   const modificationIds = [...new Set(items.flatMap(item => item.modification_id ? [item.modification_id] : []))];
-  const [compositionEntries, modificationEntries] = await Promise.all([
-    Promise.all(equipmentIds.map(async id => [id, await getEquipmentCompositions(id)] as const)),
-    Promise.all(modificationIds.map(async id => [id, await getModificationComponents(id)] as const))
+  const [compositions, modifications] = await Promise.all([
+    catalog.compositions(equipmentIds),
+    catalog.modificationComponents(modificationIds),
   ]);
   // Match the budget's location/category order before expanding virtual equipment.
   // Item sort_order only orders positions within a category, not categories themselves.
@@ -93,7 +94,7 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
       || (parentA.sort_order || 0) - (parentB.sort_order || 0)
       || new Date(parentA.created_at || 0).getTime() - new Date(parentB.created_at || 0).getTime();
   });
-  const rows = buildSpecificationEquipmentRows(orderedItems, new Map(compositionEntries), new Map(modificationEntries), new Map([...globalCategories, ...categories].map(row => [row.id, row.name])), new Map(locations.map(row => [row.id, row.name])), new Set([...globalCategories, ...categories].filter(row => row.description === '__extra_service__').map(row => row.id)));
+  const rows = buildSpecificationEquipmentRows(orderedItems, compositions, modifications, new Map([...globalCategories, ...categories].map(row => [row.id, row.name])), new Map(locations.map(row => [row.id, row.name])), new Set([...globalCategories, ...categories].filter(row => row.description === '__extra_service__').map(row => row.id)));
 
   const accessories = new Map<string, SpecificationRow>();
   const add = (group: string, name: string, quantity: number, notes: string) => {

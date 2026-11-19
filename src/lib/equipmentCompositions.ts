@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { readCatalogRows } from './catalogLookup';
 
 export interface EquipmentComposition {
   id: string;
@@ -71,34 +72,35 @@ interface CompositionCaseRow {
   parent: CompositionParentEquipment | null;
 }
 
-export async function getEquipmentCompositions(parentId: string, filterForLedModules: boolean = false): Promise<EquipmentComposition[]> {
-  const { data, error } = await supabase
-    .from('equipment_compositions')
-    .select(`
-      id,
-      parent_id,
-      child_id,
-      quantity,
-      created_at,
-      child:equipment_items!equipment_compositions_child_id_fkey (
-        name,
-        unit,
-        sku,
-        category,
-        type,
-        object_type,
-        note,
-        subtype
-      )
-    `)
-    .eq('parent_id', parentId)
-    .order('created_at', { ascending: true });
+export async function getEquipmentCompositionsForParents(parentIds: string[]): Promise<EquipmentComposition[]> {
+  const rows = await readCatalogRows(parentIds, async (ids, from, to) => {
+    const { data, error } = await supabase
+      .from('equipment_compositions')
+      .select(`
+        id,
+        parent_id,
+        child_id,
+        quantity,
+        created_at,
+        child:equipment_items!equipment_compositions_child_id_fkey (
+          name,
+          unit,
+          sku,
+          category,
+          type,
+          object_type,
+          note,
+          subtype
+        )
+      `)
+      .in('parent_id', ids)
+      .order('created_at')
+      .order('id')
+      .range(from, to);
+    return { data: data as unknown as CompositionChildRow[] | null, error };
+  });
 
-  if (error) throw error;
-
-  const rows = (data || []) as unknown as CompositionChildRow[];
-
-  const compositions = rows.map(item => ({
+  return rows.map(item => ({
     id: item.id,
     parent_id: item.parent_id,
     child_id: item.child_id,
@@ -113,7 +115,10 @@ export async function getEquipmentCompositions(parentId: string, filterForLedMod
     child_subtype: item.child.subtype,
     created_at: item.created_at
   }));
+}
 
+export async function getEquipmentCompositions(parentId: string, filterForLedModules = false): Promise<EquipmentComposition[]> {
+  const compositions = await getEquipmentCompositionsForParents([parentId]);
   // Filter to only LED modules, excluding cases (only when explicitly requested)
   if (filterForLedModules) {
     return compositions.filter(comp => {
@@ -264,45 +269,35 @@ export interface ComponentCaseOption {
   componentQuantityInCase: number;
 }
 
-export async function findCasesContainingComponent(componentId: string): Promise<ComponentCaseOption[]> {
-  const { data, error } = await supabase
-    .from('equipment_compositions')
-    .select(`
-      parent_id,
-      quantity,
-      parent:equipment_items!equipment_compositions_parent_id_fkey (
-        id,
-        name,
-        sku,
-        category,
-        type,
-        object_type,
-        has_composition
-      )
-    `)
-    .eq('child_id', componentId);
+export async function findCasesContainingComponents(componentIds: string[]) {
+  const rows = await readCatalogRows(componentIds, async (ids, from, to) => {
+    const { data, error } = await supabase
+      .from('equipment_compositions')
+      .select(`
+        child_id,
+        quantity,
+        parent:equipment_items!equipment_compositions_parent_id_fkey (
+          id, name, sku, category, type, object_type, has_composition
+        )
+      `)
+      .in('child_id', ids)
+      .order('id')
+      .range(from, to);
+    return { data: data as unknown as CompositionCaseRow[] | null, error };
+  });
 
-  if (error) throw error;
-
-  const rows = (data || []) as unknown as Array<{ quantity: number; parent: CompositionParentEquipment | null }>;
-
-  return rows
-    .map((item) => {
-      const parent = item.parent;
-      if (!parent) return null;
-      if (parent.object_type !== 'physical') return null;
-      if (!parent.has_composition) return null;
-
-      return {
-        caseId: parent.id,
-        caseName: parent.name || 'Кейс',
-        caseSku: parent.sku || '',
-        caseCategory: parent.category || '',
-        caseType: parent.type || '',
-        componentQuantityInCase: Number(item.quantity) || 1
-      } satisfies ComponentCaseOption;
-    })
-    .filter((item): item is ComponentCaseOption => Boolean(item));
+  return rows.flatMap(({ child_id, quantity, parent }) => {
+    if (parent?.object_type !== 'physical' || !parent.has_composition) return [];
+    return [{
+      componentId: child_id,
+      caseId: parent.id,
+      caseName: parent.name || 'Кейс',
+      caseSku: parent.sku || '',
+      caseCategory: parent.category || '',
+      caseType: parent.type || '',
+      componentQuantityInCase: Number(quantity) || 1,
+    } satisfies ComponentCaseOption & { componentId: string }];
+  });
 }
 
 export async function findCasesForModules(moduleIds: string[]): Promise<ModuleCase[]> {

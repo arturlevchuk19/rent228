@@ -1,3 +1,4 @@
+import { readCatalogRows } from './catalogLookup';
 import { cleanupEquipmentPhoto } from './equipmentMedia';
 import { parseConsumption, validateConsumptionInput } from './budgetConsumption';
 import { supabase } from './supabase';
@@ -265,26 +266,36 @@ export interface ModificationComponent {
   component?: EquipmentItem;
 }
 
-export async function getEquipmentModifications(equipmentId: string): Promise<EquipmentModification[]> {
-  const { data, error } = await supabase
+export function getModificationsForEquipment(equipmentIds: string[]): Promise<EquipmentModification[]> {
+  return readCatalogRows(equipmentIds, (ids, from, to) => supabase
     .from('equipment_modifications')
     .select('*')
-    .eq('equipment_id', equipmentId)
-    .order('sort_order, name');
-
-  if (error) throw error;
-  return data || [];
+    .in('equipment_id', ids)
+    .order('sort_order')
+    .order('name')
+    .order('id')
+    .range(from, to));
 }
 
-export async function getModificationComponents(modificationId: string): Promise<ModificationComponent[]> {
-  const { data, error } = await supabase
-    .from('modification_components')
-    .select('*, component:equipment_items!component_equipment_id(*)')
-    .eq('modification_id', modificationId)
-    .order('created_at');
+export function getEquipmentModifications(equipmentId: string): Promise<EquipmentModification[]> {
+  return getModificationsForEquipment([equipmentId]);
+}
 
-  if (error) throw error;
-  return data || [];
+export function getComponentsForModifications(modificationIds: string[]): Promise<ModificationComponent[]> {
+  return readCatalogRows(modificationIds, async (ids, from, to) => {
+    const { data, error } = await supabase
+      .from('modification_components')
+      .select('*, component:equipment_items!component_equipment_id(*)')
+      .in('modification_id', ids)
+      .order('created_at')
+      .order('id')
+      .range(from, to);
+    return { data: data as unknown as ModificationComponent[] | null, error };
+  });
+}
+
+export function getModificationComponents(modificationId: string): Promise<ModificationComponent[]> {
+  return getComponentsForModifications([modificationId]);
 }
 
 export async function createEquipmentModification(
