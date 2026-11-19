@@ -143,6 +143,14 @@ export const OTHER_TEMPLATES: OtherTemplate[] = [
     items: ['Clamp Black X1', 'Clamp Black X2', 'Clamp Silver X1', 'Clamp Silver X2', 'Клэмп с полуконнектором']
   },
   {
+    category: 'Коннекторы',
+    items: ['12шт', '20шт', '44шт']
+  },
+  {
+    category: 'Полуконнекторы',
+    items: ['24шт', '32шт']
+  },
+  {
     category: 'Ремешки',
     items: ['0.5м', '1м', '2м', '3м']
   },
