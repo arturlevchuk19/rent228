@@ -1,5 +1,6 @@
 import { withBudgetUnits } from './specificationUnits';
 import { cableDisplayName, cableLengthDisplayName } from './cableNames';
+import { connectorDisplayName } from './connectorNames';
 import { budgetSpecificationPreview, specificationIsEditable, getSpecificationDifferences, isBudgetSpecificationItem } from './specificationServices';
 import { loadSpecificationContents } from './specificationContents';
 import { getBudgetItems, type BudgetItem } from './events';
@@ -104,7 +105,7 @@ export async function loadSpecificationExport(eventId: string, budgetId: string,
   cables.forEach(row => add(`Кабели / ${cableDisplayName(row.cable_type)}`, cableLengthDisplayName(row.cable_type, row.cable_length), row.quantity, row.notes));
   connectors.forEach(row => {
     const [category, ...legacyName] = row.connector_type.split('::');
-    add(`Коннекторы / ${category}`, row.connector_item || legacyName.join('::') || row.connector_type, row.quantity, row.notes);
+    add(`Коннекторы / ${category}`, connectorDisplayName(row.connector_item || legacyName.join('::') || row.connector_type), row.quantity, row.notes);
   });
   others.forEach(row => add(`Прочее / ${row.category}`, row.item_type, row.quantity, row.notes));
   return { event, rows: [...rows, ...accessories.values()], differences };

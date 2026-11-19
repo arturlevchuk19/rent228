@@ -10,6 +10,7 @@ import { canEditMainSpecification as mayEditMainSpecification, canMarkMainSpecif
 import { withBudgetUnits } from '../lib/specificationUnits';
 import { loadSpecificationContents, type SpecificationContents } from '../lib/specificationContents';
 import { cableDisplayName, cableLengthDisplayName } from '../lib/cableNames';
+import { connectorDisplayName } from '../lib/connectorNames';
 import { useSpecificationNotes } from '../lib/useSpecificationNotes';
 import { BudgetScope } from './BudgetScope';
 import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
@@ -1500,7 +1501,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         if (!connectorsPendingByType.has(key)) {
           connectorsPendingByType.set(key, {
             id: `connector-${key}`,
-            name: fallbackName(parseConnectorScopedType(normalizedType).itemType, `Коннектор #${item.id.slice(0, 8)}`),
+            name: fallbackName(connectorDisplayName(parseConnectorScopedType(normalizedType).itemType), `Коннектор #${item.id.slice(0, 8)}`),
             group: 'connectors'
           });
         }
@@ -2698,6 +2699,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {template.items.map((itemType) => {
+                              const itemLabel = connectorDisplayName(itemType);
                               const connectorTypeKey = buildConnectorScopedType(template.category, itemType);
                               const connectorEntries = connectors.filter(c => {
                                 if (isConnectorMatch(c, template.category, itemType)) return true;
@@ -2719,7 +2721,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                       {quantity > 0 && connector && eventDetails?.equipment_shipped && !eventDetails?.equipment_returned ? (
                                           <input disabled={!canAdjustAccessories}
                                             type="checkbox"
-                                            aria-label={`Отметка: ${itemType}`}
+                                            aria-label={`Отметка: ${itemLabel}`}
                                             checked={returnPicked}
                                           onChange={(e) => handleConnectorGroupReturnPickedChange(template.category, itemType, e.target.checked)}
                                           className="w-4 h-4 cursor-pointer rounded border-green-700 bg-gray-800 text-green-600"
@@ -2727,7 +2729,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                       ) : quantity > 0 && connector ? (
                                         <input
                                           type="checkbox"
-                                          aria-label={`Отметка: ${itemType}`}
+                                          aria-label={`Отметка: ${itemLabel}`}
                                           checked={picked}
                                           onChange={(e) => handleConnectorGroupPickedChange(template.category, itemType, e.target.checked)}
                                           className="w-4 h-4 cursor-pointer rounded border-gray-700 bg-gray-800 text-accent-600"
@@ -2736,7 +2738,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                       ) : null}
                                     </label>
                                   </td>
-                                  <td className="px-3 py-1.5 text-xs text-white">{itemType}</td>
+                                  <td className="px-3 py-1.5 text-xs text-white">{itemLabel}</td>
                                   <td className="px-3 py-1.5 text-center">
                                     {(isWarehouseUser || eventDetails?.equipment_shipped) ? (
                                       <div className="text-xs text-white font-bold">{quantity}</div>

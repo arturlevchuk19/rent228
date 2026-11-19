@@ -120,6 +120,7 @@ export interface ConnectorTemplate {
 export const CONNECTOR_TEMPLATES: ConnectorTemplate[] = [
   {
     category: 'Аксессуары',
+    // Connector templates use the stored keys; connectorDisplayName supplies the label.
     items: ['Сплиттер X6', 'Карабулька X2', 'Состыковка','Брейк PowerCon-Shuko']
   },
   {
