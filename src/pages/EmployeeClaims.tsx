@@ -7,12 +7,15 @@ import { getErrorMessage } from '../lib/errors';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { claimBootstrap,claimWorks,listClaims,saveClaim,reviewClaim,claimHistory,saveClaimRates,uploadClaimReceipt,openClaimReceipt,minskToday,minskInput,lineEstimate,claimLineError,sumClaimAmounts,CLAIM_STATES,type EmployeeClaim,type ClaimBootstrap,type ClaimLine,type ClaimKind,type ClaimRates } from '../lib/employeeClaims';
 import Payments from './Payments';
+import { dayNumber } from '../lib/calendar';
 import { searchInputProps } from '../lib/searchInput';
 const input='min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-accent-500';
 const primary='min-h-11 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40';
 const secondary='min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40';
 const money=(value:number)=>value.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
 const date=(value:string)=>new Date(value).toLocaleString('ru-RU',{timeZone:'Europe/Minsk'});
+const eventLabel = (venue: string | null | undefined, name: string, eventDate: string) =>
+  [venue?.trim() || name, dayNumber(eventDate) === null ? '' : eventDate.split('-').reverse().join('/')].filter(Boolean).join(' ');
 const lineNames:Record<ClaimKind,string>={warehouse:'Работа на складе',time:'Рабочее время',trip:'Поездка (водитель)',expense:'Хозрасход с чеком',allowance:'Питание / другая выплата'};
 export function Accounting(){const [tab,setTab]=useState<'claims'|'payments'>('claims');return <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" aria-pressed={tab==='claims'} className={tab==='claims'?primary:secondary} onClick={()=>setTab('claims')}>Заявки сотрудников</button><button type="button" aria-pressed={tab==='payments'} className={tab==='payments'?primary:secondary} onClick={()=>setTab('payments')}>Ранее созданные выплаты</button></div>{tab==='claims'?<EmployeeClaims review/>:<Payments/>}</div>;}
 export function EmployeeClaims({review=false}:{review?:boolean}){
@@ -22,6 +25,8 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
  const load=useCallback(async()=>{setLoading(true);try{const [context,claims]=await Promise.all([claimBootstrap(),listClaims(review?undefined:user?.id)]);setBoot(context);setRows(claims);setError('');}catch(caught){setError(getErrorMessage(caught));}finally{setLoading(false);}},[review,user?.id]);
  useEffect(()=>{void load();},[load]); // Stable identity; auth focus refreshes must not erase drafts.
  const visible=rows.filter(row=>(filter==='all'||row.state===filter)&&`${row.employee_name} ${row.event_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
+ const assignments = (boot?.assignments || []).filter(row =>
+   `${row.venue || ''} ${row.event_name} ${row.work_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
  const buttons=<><button type="button" aria-label={review?'Добавить заявку':'Подать данные'} title={review?'Добавить заявку':'Подать данные'} disabled={!boot||(!manager&&!boot.personnel)} className={primary} onClick={()=>setEditor({claim:null})}><Plus className="mr-1 inline h-4 w-4"/><span className="hidden md:inline">{review?'Добавить заявку':'Подать данные'}</span></button><button type="button" aria-label="Расходы" title="Расходы" disabled={!boot||(!manager&&!boot.personnel)} className={secondary} onClick={()=>setEditor({claim:null,kind:'expense'})}><Receipt className="mr-1 inline h-4 w-4"/><span className="hidden md:inline">Расходы</span></button></>;
  return <div className="space-y-4">
   <MobileHeaderContent>{buttons}</MobileHeaderContent>
@@ -30,6 +35,13 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]"><input {...searchInputProps} aria-label="Поиск заявок" value={search} onChange={event=>setSearch(event.target.value)} placeholder={review?'Сотрудник или мероприятие…':'Поиск мероприятия…'} className={input}/><select aria-label="Статус заявки" value={filter} onChange={event=>setFilter(event.target.value)} className={input}><option value="all">Все статусы</option>{Object.entries(CLAIM_STATES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></div>
   {!loading&&<div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl bg-gray-900 p-4 text-sm tabular-nums text-gray-300"><span>Работы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.work_amount)))} BYN</strong></span><span>Расходы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.expense_amount)))} BYN</strong></span><span>Утверждено к выплате: <strong className="text-accent-300">{money(sumClaimAmounts(visible.filter(row=>row.state==='approved').map(row=>row.total)))} BYN</strong></span></div>}
+  {!review && !loading && assignments.length > 0 && <section aria-labelledby="claim-assigned-work" className="space-y-2 rounded-xl border border-gray-800 bg-gray-900 p-4">
+    <h2 id="claim-assigned-work" className="font-semibold text-gray-100">Назначенные работы</h2>
+    <ul className="divide-y divide-gray-800">{assignments.map((row, index) => <li key={`${row.event_id}:${row.id}:${index}`} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
+      <div><p className="text-gray-100">{row.work_name}</p><p className="text-xs text-gray-400">{eventLabel(row.venue, row.event_name, row.event_date)}</p></div>
+      {row.hours && <span className="text-gray-300">{row.hours} ч</span>}
+    </li>)}</ul>
+  </section>}
   {loading?<p role="status" className="py-10 text-center text-gray-400">Загрузка заявок…</p>:<div className="space-y-2">{visible.map(row=><button type="button" key={row.id} onClick={()=>setEditor({claim:row})} className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4 text-left hover:border-accent-700"><span className="min-w-0"><span className="block break-words font-semibold text-gray-100">{row.event_name}</span>{review&&<span className="block text-sm text-gray-300">{row.employee_name}</span>}<span className="mt-1 block text-xs text-gray-400">{CLAIM_STATES[row.state]} · {date(row.updated_at)}</span></span><span className="text-right tabular-nums"><span className="block font-semibold text-gray-100">{money(row.total)} BYN</span><span className="block text-xs text-gray-400">Работы {money(row.work_amount)} · расходы {money(row.expense_amount)}</span></span></button>)}{!visible.length&&<p className="rounded-xl bg-gray-900 p-8 text-center text-sm text-gray-400">Заявок пока нет. Подайте время или добавьте расходы.</p>}</div>}
   {editor&&boot&&<ClaimEditor claim={editor.claim} initialKind={editor.kind} boot={boot} manager={manager} onClose={()=>setEditor(null)} onSaved={()=>{setEditor(null);void load();}}/>}
   {ratesOpen&&boot&&<RatesDialog rates={boot.settings} onClose={()=>setRatesOpen(false)} onSaved={()=>{setRatesOpen(false);void load();}}/>}
@@ -42,7 +54,14 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const [note,setNote]=useState(claim?.review_note||''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false),[history,setHistory]=useState<Awaited<ReturnType<typeof claimHistory>>|null>(null),[receiptPreview,setReceiptPreview]=useState('');
  const person=boot.people.find(row=>row.id===personId)||(boot.personnel?.id===personId?boot.personnel:null)||(manager&&claim?{id:claim.personnel_id,full_name:claim.employee_name,installation_rate:0,warehouse_rate:0}:null);
  const selectedEvent=boot.events.find(row=>row.id===eventId);
- const expired=Boolean(eventId&&(!selectedEvent?.deadline||minskToday()>selectedEvent.deadline));
+ const today = minskToday();
+ const currentDay = dayNumber(today);
+ const eventOptions = claim ? (selectedEvent ? [selectedEvent] : []) : boot.events.filter(row => {
+   if (row.id === eventId) return true;
+   const eventDay = dayNumber(row.event_date);
+   return currentDay !== null && eventDay !== null && Math.abs(eventDay - currentDay) <= 5;
+ });
+ const expired=Boolean(eventId&&(!selectedEvent?.deadline||today>selectedEvent.deadline));
  const ownClaim=!claim||claim.user_id===user?.id;
  const editable=claim?.state!=='paid'&&(manager||(ownClaim&&!expired&&(!claim||claim.state==='draft'||claim.state==='rejected')));
  const close=()=>{if(busy)return;if(!dirty||window.confirm('Закрыть без сохранения изменений?'))onClose();};
@@ -62,7 +81,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
    {error&&<p role="alert" className="rounded-lg border border-red-900 p-3 text-sm text-red-300">{error}</p>}
    <fieldset disabled={busy||Boolean(claim&&!editable)} className="space-y-4">
     {manager&&<label className="block space-y-1 text-sm text-gray-300">Сотрудник<select aria-label="Сотрудник" disabled={Boolean(claim)} value={personId} onChange={event=>{setPersonId(event.target.value);setDirty(true);}} className={input}><option value="">Выберите сотрудника</option>{claim&&!boot.people.some(row=>row.id===claim.personnel_id)&&<option value={claim.personnel_id}>{claim.employee_name}</option>}{boot.people.map(row=><option key={row.id} value={row.id}>{row.full_name}</option>)}</select></label>}
-    <label className="block space-y-1 text-sm text-gray-300">Мероприятие<select aria-label="Мероприятие" disabled={Boolean(claim)||lines.some(line=>line.kind==='warehouse')} value={eventId} onChange={event=>{if(lines.some(line=>line.kind==='time'||line.kind==='trip')&&!window.confirm('При смене мероприятия строки работ будут удалены. Продолжить?'))return;setEventId(event.target.value);setLines(current=>current.filter(line=>line.kind==='expense'||line.kind==='allowance'));setDirty(true);}} className={input}><option value="">Без мероприятия — склад и расходы</option>{boot.events.map(row=><option key={row.id} value={row.id}>{row.name} · {row.event_date}{row.status==='Отменено'?' · отменено':''}{row.deadline&&minskToday()>row.deadline?' · срок подачи истёк':''}</option>)}</select></label>
+    <label className="block space-y-1 text-sm text-gray-300">Мероприятие<select aria-label="Мероприятие" disabled={Boolean(claim)||lines.some(line=>line.kind==='warehouse')} value={eventId} onChange={event=>{if(lines.some(line=>line.kind==='time'||line.kind==='trip')&&!window.confirm('При смене мероприятия строки работ будут удалены. Продолжить?'))return;setEventId(event.target.value);setLines(current=>current.filter(line=>line.kind==='expense'||line.kind==='allowance'));setDirty(true);}} className={input}><option value="">Без мероприятия — склад и расходы</option>{claim?.event_id && !selectedEvent && <option value={claim.event_id}>{claim.event_name}</option>}{eventOptions.map(row => <option key={row.id} value={row.id}>{eventLabel(row.venue, row.name, row.event_date)}</option>)}</select></label>
    </fieldset>
    {lines.some(line=>line.kind==='warehouse')&&<p className="text-xs text-gray-400">Работа на складе подаётся отдельно от мероприятий. Укажите время и выполненную работу; сумма рассчитывается по вашей ставке работы на складе.</p>}
    {eventId&&<p className={`text-sm ${expired?'text-accent-300':'text-gray-400'}`}>{selectedEvent?.deadline?`Подать до ${selectedEvent.deadline.split('-').reverse().join('.')} включительно, до 23:59 по Минску.`:'У мероприятия не указана корректная дата окончания.'}{expired&&!manager&&' Срок истёк. Исправления может внести бухгалтер.'}</p>}

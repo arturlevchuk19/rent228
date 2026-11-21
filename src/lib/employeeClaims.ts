@@ -8,10 +8,11 @@ export interface ClaimLine {
  description?:string; receipt_path?:string; amount?:number|string; rate?:number|string; minutes?:number; calculation?:'fixed'|'hourly'; budget_id?:string;
 }
 export interface ClaimPerson {id:string;full_name:string;account_user_id?:string;installation_rate:number;warehouse_rate:number;warehouse_work_rate?:number;}
-export interface ClaimEvent {id:string;name:string;event_date:string;event_end_date?:string;deadline:string|null;status?:string;}
+export interface ClaimEvent {id:string;name:string;event_date:string;venue?:string|null;event_end_date?:string;deadline:string|null;status?:string;}
 export interface ClaimRates {driver_rate:number;car_rate:number;fuel_rate:number;}
 export interface EmployeeClaim {id:string;user_id:string;personnel_id:string;employee_name:string;event_id:string|null;event_name:string;state:ClaimState;lines:ClaimLine[];work_amount:number;expense_amount:number;total:number;revision:number;review_note:string;created_at:string;updated_at:string;}
-export interface ClaimBootstrap {personnel:ClaimPerson|null;people:ClaimPerson[];events:ClaimEvent[];settings:ClaimRates;today:string;}
+export interface ClaimAssignment { id: string; event_id: string; event_name: string; event_date: string; venue: string | null; work_name: string; hours: string | null; }
+export interface ClaimBootstrap {personnel:ClaimPerson|null;people:ClaimPerson[];events:ClaimEvent[];settings:ClaimRates;today:string;assignments?:ClaimAssignment[];}
 export const CLAIM_STATES:Record<ClaimState,string>={draft:'Черновик',submitted:'На проверке',approved:'Утверждено',paid:'Выплачено',rejected:'Отклонено'};
 export async function claimBootstrap():Promise<ClaimBootstrap>{const {data,error}=await supabase.rpc('employee_claim_bootstrap');if(error)throw error;return data;}
 export async function claimWorks(eventId:string):Promise<{works:string[];fixed_rates:Record<string,number>;budget_name?:string}>{const {data,error}=await supabase.rpc('employee_claim_context',{p_event:eventId});if(error)throw error;return {...data,fixed_rates:data.fixed_rates||{}};}
