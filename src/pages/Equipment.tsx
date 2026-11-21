@@ -17,6 +17,7 @@ import { EquipmentDetails } from '../components/EquipmentDetails';
 
 export function Equipment() {
   const { user } = useAuth();
+  const showPriceAndActions = user?.role === 'admin' || user?.role === 'superuser';
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,18 +204,22 @@ export function Equipment() {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Кол-во
                 </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
-                  Цена $
-                </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
-                  Действия
-                </th>
+                {showPriceAndActions && (
+                  <>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
+                      Цена $
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
+                      Действия
+                    </th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
               {filteredItems.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={showPriceAndActions ? 5 : 3} className="px-4 py-8 text-center text-gray-500 text-sm">
                     Оборудование не найдено
                   </td>
                 </tr>
@@ -236,27 +241,31 @@ export function Equipment() {
                     <td className="px-4 py-2">
                       <div className="text-white font-medium text-sm">{item.quantity} {item.unit}</div>
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-100 text-sm tabular-nums">
-                      {item.rental_price > 0 ? `${item.rental_price}` : '-'}
-                    </td>
-                    <td className="px-4 py-2 text-right" onClick={event => event.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        <button disabled={!canAccess(user, 'equipment', 2)}
-                          onClick={() => handleEdit(item)}
-                          className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors"
-                          title="Редактировать"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button disabled={!canAccess(user, 'equipment', 3)}
-                          onClick={() => handleDelete(item.id)}
-                          className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                          title="Удалить"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    {showPriceAndActions && (
+                      <>
+                        <td className="px-4 py-2 text-right text-gray-100 text-sm tabular-nums">
+                          {item.rental_price > 0 ? `${item.rental_price}` : '-'}
+                        </td>
+                        <td className="px-4 py-2 text-right" onClick={event => event.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <button disabled={!canAccess(user, 'equipment', 2)}
+                              onClick={() => handleEdit(item)}
+                              className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors"
+                              title="Редактировать"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button disabled={!canAccess(user, 'equipment', 3)}
+                              onClick={() => handleDelete(item.id)}
+                              className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors"
+                              title="Удалить"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               )}
@@ -276,14 +285,16 @@ export function Equipment() {
                     <div className="text-white font-medium text-sm leading-snug">{item.name}</div>
                     {item.note && <div className="text-xs text-gray-400 leading-tight mt-0.5">{item.note}</div>}
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0" onClick={event => event.stopPropagation()}>
-                    <button aria-label={`Редактировать ${item.name}`} disabled={!canAccess(user, 'equipment', 2)} onClick={() => handleEdit(item)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button aria-label={`Удалить ${item.name}`} disabled={!canAccess(user, 'equipment', 3)} onClick={() => handleDelete(item.id)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {showPriceAndActions && (
+                    <div className="flex items-center gap-1 flex-shrink-0" onClick={event => event.stopPropagation()}>
+                      <button aria-label={`Редактировать ${item.name}`} disabled={!canAccess(user, 'equipment', 2)} onClick={() => handleEdit(item)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button aria-label={`Удалить ${item.name}`} disabled={!canAccess(user, 'equipment', 3)} onClick={() => handleDelete(item.id)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-red-400 hover:bg-red-900/30 rounded transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 text-xs">
                   <span className="text-gray-400">{item.category}</span>
@@ -292,7 +303,7 @@ export function Equipment() {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm tabular-nums">
                   <span className="text-gray-400">Кол-во: <span className="text-white font-medium">{item.quantity} {item.unit}</span></span>
-                  {item.rental_price > 0 && (
+                  {showPriceAndActions && item.rental_price > 0 && (
                     <span className="text-gray-400">Цена: <span className="text-gray-100 font-medium tabular-nums">${item.rental_price}</span></span>
                   )}
                 </div>
