@@ -60,8 +60,8 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
       const statuses = { active: 'Активен', inactive: 'Отключён', pending: 'Ожидает активации' };
       return <div key={target.id} className="rounded-xl border-b border-gray-800 bg-gray-800/10 p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0 flex-1"><p className="break-words font-medium text-white">{target.full_name}{target.id === user.id && <span className="ml-2 text-xs text-accent-400">Вы</span>}</p><p className="mt-1 break-all text-sm text-gray-400">{target.email}</p><span className={`mt-2 inline-block rounded px-2 py-1 text-xs ${target.status === 'active' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-gray-800 text-gray-400'}`}>{statuses[target.status]}</span></div>
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="min-w-0 grow basis-64"><p className="break-words font-medium text-white">{target.full_name}{target.id === user.id && <span className="ml-2 text-xs text-accent-400">Вы</span>}</p><p className="mt-1 break-words text-sm text-gray-400">{target.email}</p><span className={`mt-2 inline-block rounded px-2 py-1 text-xs ${target.status === 'active' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-gray-800 text-gray-400'}`}>{statuses[target.status]}</span></div>
+          <div className="flex w-full max-w-full flex-wrap items-center gap-2 sm:w-auto">
             <select aria-label={`Роль: ${target.full_name}`} value={target.role} disabled={!editable || busy} onChange={event => { void perform(() => updateAccountUser(target.id, event.target.value as UserRole, target.status), 'Роль изменена.'); }} className={`${accountInput} w-full sm:w-48`}>
               {!assignable.includes(target.role) && <option value={target.role}>{roleName(target.role)}</option>}{assignable.map(key => <option key={key} value={key}>{roleName(key)}</option>)}
             </select>
