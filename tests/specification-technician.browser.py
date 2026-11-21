@@ -15,9 +15,20 @@ window.specUser={id:role==='foreman'?'lead':'tech',role,status:'active',...(para
 const event={id:'event',name:'Тест',event_date:'2026-11-12',status:'Подтверждено',site_manager_id:params.has('assigned')?'tech':'lead'};
 const main={id:'main-row',event_id:'event',budget_id:'budget',source_budget_item_id:'source',equipment_id:'equipment',equipment:inventory,item_type:'equipment',quantity:1,price:100,notes:'',picked:false,return_picked:false,is_extra:false,excluded_child_keys:[]};
 window.specData={events:[event],event_budgets:[{id:'budget',event_id:'event',name:'Основная смета',is_primary:true,settings:{},specification_state:{}}],warehouse_specification_budget_items:[main],budget_items:[{...main,id:'source'}],equipment_items:[inventory],warehouse_specification_cables:[{id:'cable',event_id:'event',budget_id:'budget',cable_type:'PowerCON 15м - 30м',cable_length:'15м',quantity:2,notes:'',picked:false,return_picked:false}],warehouse_specification_connectors:[],warehouse_specification_other:[],specification_row_marks:[],specification_activity:[]};
+if(params.has('slowComparison')){
+ for(let i=0;i<1000;i++){
+  const row={...main,id:'saved-'+i,source_budget_item_id:'source-'+i};
+  window.specData.warehouse_specification_budget_items.push(row);
+  window.specData.budget_items.push({...row,id:row.source_budget_item_id});
+ }
+ window.specData.budget_items.push({...main,id:'legacy-source',equipment_id:null,equipment:null,sku:'MON',name:'Дополнительный монитор'});
+}
 window.specWrites=[];window.pendingWrites=0;window.rejectNext=false;window.channels=[];
 window.mockSupabase={auth:{getUser:async()=>({data:{user:window.specUser}})},from(table){const q={table,filters:[],one:false};const b={select(){return b},eq(k,v){q.filters.push([k,v]);return b},in(k,v){q.filters.push([k,v]);return b},range(from,to){q.range=[from,to];return b},is(){return b},or(){return b},not(){return b},order(){return b},limit(){return b},lt(){return b},single(){q.one=true;return b},maybeSingle(){q.one=true;return b},update(patch){q.op='update';q.patch=patch;return b},insert(patch){q.op='insert';q.patch=patch;return b},delete(){q.op='delete';return b},then(resolve,reject){
  const read=()=>{const matched=(window.specData[table]||[]).filter(row=>q.filters.every(([k,v])=>Array.isArray(v)?v.includes(row[k]):row[k]===v));const rows=q.range?matched.slice(q.range[0],q.range[1]+1):matched;return {data:q.one?(rows[0]||null):structuredClone(rows),error:null,count:rows.length}};
+ if(!q.op && params.has('slowComparison') && table==='equipment_items' && q.filters.some(([key])=>key==='sku')){
+  return new Promise(done=>{window.releaseComparison=()=>done(read());}).then(resolve,reject);
+ }
  if(!q.op)return Promise.resolve(read()).then(resolve,reject);
  window.pendingWrites++;const fail=window.rejectNext;window.rejectNext=false;
  return new Promise(done=>setTimeout(()=>{window.pendingWrites--;if(fail){done({data:null,error:{message:'Rejected for test'}});return;}
@@ -29,7 +40,7 @@ window.emitSpec=()=>window.channels.flat().forEach(fn=>fn());
 try:
  with sync_playwright() as p:
   browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
-  for query in ['', '?assigned', '?role=admin', '?role=foreman']:
+  for query in ['', '?assigned', '?role=admin', '?role=foreman', '?role=admin&slowComparison']:
    context=browser.new_context(viewport={'width':390,'height':844})
    context.add_init_script(mock)
    context.route('**/src/lib/supabase.ts*',lambda route:route.fulfill(content_type='text/javascript',body='export const supabase=window.mockSupabase;'))
@@ -37,7 +48,17 @@ try:
    page=context.new_page();page.set_default_timeout(15000)
    page.on('pageerror',lambda error:print('BROWSER ERROR:',str(error)[:1000]))
    page.on('console',lambda message:print('CONSOLE:',message.text[:1000]) if message.type=='error' else None)
-   page.goto('http://127.0.0.1:5173/work/specification-technician-harness.html'+query)
+   page.goto('http://127.0.0.1:5173/work/specification-technician-harness.html'+query,wait_until='commit')
+   if 'slowComparison' in query:
+    page.wait_for_function("typeof window.releaseComparison === 'function'")
+    page.get_by_text('Тестовый монитор',exact=True).first.wait_for()
+    assert page.get_by_text('Тестовый монитор',exact=True).count()==1001
+    differences=page.get_by_role('dialog',name='Расхождения со сметой')
+    assert not differences.is_visible()
+    page.evaluate('window.releaseComparison()')
+    differences.get_by_text('Добавить: Дополнительный монитор',exact=True).wait_for()
+    context.close()
+    continue
    page.get_by_text('Тестовый монитор',exact=True).wait_for()
    permitted='role=' in query
    assert page.get_by_role('button',name='Увеличить количество: Тестовый монитор',exact=True).count()==(1 if permitted else 0)
@@ -80,6 +101,7 @@ try:
      page.wait_for_function('window.pendingWrites===0')
    context.close()
   browser.close()
+  print('PASS: confirmed specification shows 1001 rows before a delayed comparison and opens the differences after it completes')
   print('PASS: real specification hides Main editing for technicians including assigned/custom level 3, exposes lead/admin controls and Logs, immediate marks survive stale reads and roll back on failure, instant quantities on all three tabs survive rapid clicks/stale reads and roll back on errors')
 finally:
  harness.unlink(missing_ok=True)

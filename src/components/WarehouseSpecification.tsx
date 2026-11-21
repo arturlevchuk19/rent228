@@ -17,7 +17,7 @@ import { getBudgetEvent, updateBudgetSpecification } from '../lib/eventBudgets';
 import { createOptimisticQuantityQueue, writeGroupedQuantity } from '../lib/specificationQuantity';
 import { getErrorMessage } from '../lib/errors';
 import { canAccess } from '../lib/roles';
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { X, Plus, Minus, Package, MoreHorizontal, AlertCircle, ChevronDown, ChevronRight, CheckCircle, Layers, Calculator, Save, Truck, Trash2, StickyNote } from 'lucide-react';
 import { budgetSpecificationPreview, specificationIsEditable, isBudgetSpecificationItem, getSpecificationDifferences } from '../lib/specificationServices';
 import { getBudgetItems, type BudgetItem, type Event } from '../lib/events';
@@ -84,6 +84,16 @@ interface ExpandedItem {
   isFromComposition: boolean;
   isExtra?: boolean;
   parentName?: string;
+}
+
+function indexChildRows(items: ExpandedItem[]) {
+  const parentIds = new Set<string>();
+  const legacyParentNames = new Set<string>();
+  for (const item of items) {
+    if (item.parentBudgetItemId) parentIds.add(item.parentBudgetItemId);
+    else if (item.parentName !== undefined) legacyParentNames.add(item.parentName);
+  }
+  return (item: ExpandedItem) => parentIds.has(item.budgetItemId) || legacyParentNames.has(item.name);
 }
 
 interface QuantityChangeRequest {
@@ -235,13 +245,27 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
   const [remoteStructureChanged, setRemoteStructureChanged] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('budget');
   const [liveBudgetItems, setLiveBudgetItems] = useState<BudgetItem[]>([]);
-  const [comparisonContents, setComparisonContents] = useState<SpecificationContents | null>(null);
+  const [comparisonRequest, setComparisonRequest] = useState<{
+    budget: BudgetItem[];
+    specification: BudgetItem[];
+    catalog?: ReturnType<typeof createSpecificationCatalog>;
+  } | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<{
+    request: NonNullable<typeof comparisonRequest>;
+    contents: SpecificationContents | null;
+  } | null>(null);
+  const currentComparison = comparisonResult?.request === comparisonRequest ? comparisonResult : null;
+  const comparisonContents = currentComparison?.contents;
+  const comparisonError = currentComparison && !comparisonContents
+    ? 'Не удалось проверить содержимое комплектов. Откройте спецификацию повторно.'
+    : '';
   const [showBudgetChanges, setShowBudgetChanges] = useState(false);
   const checkedOpeningDifferences = useRef(false);
   const [selectedChanges, setSelectedChanges] = useState<Set<string>>(new Set());
   const [applyingChanges, setApplyingChanges] = useState(false);
   const [budgetSourceError, setBudgetSourceError] = useState('');
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
+  const budgetItemsById = useMemo(() => new Map(budgetItems.map(item => [item.id, item])), [budgetItems]);
   const [expandedItems, setExpandedItems] = useState<ExpandedItem[]>([]);
   const [cables, setCables] = useState<CableItem[]>([]);
   const [connectors, setConnectors] = useState<ConnectorItem[]>([]);
@@ -402,7 +426,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     }
     
     // Find the budget item
-    const budgetItem = budgetItems.find(item => item.id === budgetItemId);
+    const budgetItem = budgetItemsById.get(budgetItemId);
     if (!budgetItem?.equipment_id) return false;
     
     // Check if we already know this equipment has no modifications
@@ -412,27 +436,6 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     
     // If not loaded yet, we need to check
     return false;
-  };
-
-  const mainItems = expandedItems.filter(item => !item.isExtra);
-  const extraItems = expandedItems.filter(item => item.isExtra);
-
-  const hasChildItems = (items: ExpandedItem[], parentItem: ExpandedItem) =>
-    items.some((candidate) => (
-      candidate.parentBudgetItemId
-        ? candidate.parentBudgetItemId === parentItem.budgetItemId
-        : candidate.parentName === parentItem.name
-    ));
-
-  const isChildRowHidden = (items: ExpandedItem[], rowItem: ExpandedItem) => {
-    if (!rowItem.parentName) return false;
-    const parent = items.find((candidate) => (
-      rowItem.parentBudgetItemId
-        ? candidate.budgetItemId === rowItem.parentBudgetItemId
-        : candidate.name === rowItem.parentName
-    ));
-    if (!parent) return false;
-    return collapsedParentItems.has(parent.budgetItemId);
   };
 
   const toggleParentRow = (parentBudgetItemId: string) => {
@@ -449,15 +452,10 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
 
   const orderItemsWithChildren = (items: ExpandedItem[]) => {
     const childrenByParentId = new Map<string, ExpandedItem[]>();
-    const orphanChildren: ExpandedItem[] = [];
     const parentIds = new Set(items.map(item => item.budgetItemId));
 
     items.forEach((item) => {
-      if (!item.parentBudgetItemId) return;
-      if (!parentIds.has(item.parentBudgetItemId)) {
-        orphanChildren.push(item);
-        return;
-      }
+      if (!item.parentBudgetItemId || !parentIds.has(item.parentBudgetItemId)) return;
 
       const siblings = childrenByParentId.get(item.parentBudgetItemId) || [];
       siblings.push(item);
@@ -483,16 +481,13 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
       if (insertedChildIds.has(item.budgetItemId)) return;
       ordered.push(item);
     });
-    orphanChildren.forEach((item) => {
-      if (!ordered.some(orderedItem => orderedItem.budgetItemId === item.budgetItemId)) {
-        ordered.push(item);
-      }
-    });
-
     return ordered;
   };
 
-  const pickableExpandedItems = expandedItems.filter(item => !hasChildItems(expandedItems, item));
+  const pickableExpandedItems = useMemo(() => {
+    const hasChildren = indexChildRows(expandedItems);
+    return expandedItems.filter(item => !hasChildren(item));
+  }, [expandedItems]);
 
   const allPickedForShipment =
     pickableExpandedItems.every(item => item.picked) &&
@@ -506,7 +501,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     connectors.filter(row => row.quantity > 0).every(c => c.return_picked) &&
     otherItems.filter(row => row.quantity > 0).every(i => i.return_picked);
 
-  const buildLocationGroups = (items: ExpandedItem[]) => {
+  const buildLocationGroups = useCallback((items: ExpandedItem[]) => {
     const categoriesById = new Map(categories.map(cat => [cat.id, cat.name]));
     const locationsById = new Map(locations.map(location => [location.id, location]));
 
@@ -567,10 +562,18 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         }))
       };
     });
-  };
+  }, [categories, locations]);
 
-  const locationGroups = buildLocationGroups(mainItems);
-  const extraLocationGroups = buildLocationGroups(extraItems);
+  const { mainItems, extraItems, locationGroups, extraLocationGroups } = useMemo(() => {
+    const mainItems = expandedItems.filter(item => !item.isExtra);
+    const extraItems = expandedItems.filter(item => item.isExtra);
+    return {
+      mainItems,
+      extraItems,
+      locationGroups: buildLocationGroups(mainItems),
+      extraLocationGroups: buildLocationGroups(extraItems),
+    };
+  }, [buildLocationGroups, expandedItems]);
 
   useEffect(() => {
     loadData();
@@ -603,7 +606,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
   });
 
   useEffect(() => {
-    if (!eventDetails) return;
+    if (!eventDetails || loading) return;
     let active = true;
     let refreshing = false;
     const refresh = async () => {
@@ -616,8 +619,10 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         if (current.status !== eventDetails.status) await loadData();
         else if (JSON.stringify(latest) !== JSON.stringify(liveBudgetItems)) {
           if (specificationIsEditable(current.status)) {
-            const contents = canViewSpecificationLogs(user, current.site_manager_id) ? await loadSpecificationContents(latest, budgetItems) : null;
-            if (active) { setComparisonContents(contents); setLiveBudgetItems(latest); }
+            setComparisonRequest(canViewSpecificationLogs(user, current.site_manager_id)
+              ? { budget: latest, specification: budgetItems }
+              : null);
+            setLiveBudgetItems(latest);
           }
           else await loadData();
         }
@@ -627,16 +632,27 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     const timer = window.setInterval(() => void refresh(), 30000);
     window.addEventListener('focus', refresh);
     return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh); };
-  }, [eventId, budgetId, eventDetails?.status, liveBudgetItems]);
+  }, [eventId, budgetId, eventDetails?.status, liveBudgetItems, loading]);
+
+  useEffect(() => {
+    if (!comparisonRequest) return;
+    let active = true;
+    const { budget, specification, catalog } = comparisonRequest;
+    const finish = (contents: SpecificationContents | null) => {
+      if (active) startTransition(() => setComparisonResult({ request: comparisonRequest, contents }));
+    };
+    void loadSpecificationContents(budget, specification, catalog).then(finish, () => finish(null));
+    return () => { active = false; };
+  }, [comparisonRequest]);
 
   const extraCategoryIds = useMemo(() => new Set(
     categories.filter(category => category.description === '__extra_service__').map(category => category.id)
   ), [categories]);
-  const differences = useMemo(() => getSpecificationDifferences(
+  const differences = useMemo(() => comparisonContents ? getSpecificationDifferences(
     liveBudgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
     budgetItems.filter(item => isBudgetSpecificationItem(item, extraCategoryIds)),
-    comparisonContents || undefined,
-  ), [liveBudgetItems, budgetItems, extraCategoryIds, comparisonContents]);
+    comparisonContents,
+  ) : [], [liveBudgetItems, budgetItems, extraCategoryIds, comparisonContents]);
   const canReviewSpecification = canViewSpecificationLogs(user, eventDetails?.site_manager_id);
   const canApplyBudgetChanges = canEditMainSpecification && !eventDetails?.equipment_shipped;
   const hasBudgetDifferences = canReviewSpecification && confirmedProject && !!comparisonContents && !budgetSourceError && differences.length > 0;
@@ -650,7 +666,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     if (hasBudgetDifferences) openBudgetChanges();
   }, [canReviewSpecification, initialLoading, comparisonContents, budgetSourceError, hasBudgetDifferences, openBudgetChanges]);
   const applyBudgetChanges = async () => {
-    if (!canEditMainSpecification || applyingChanges || eventDetails?.equipment_shipped || modifiedItems.size) return;
+    if (!canEditMainSpecification || !comparisonContents || budgetSourceError || applyingChanges || eventDetails?.equipment_shipped || modifiedItems.size) return;
     setApplyingChanges(true);
     try {
       const [latest, current] = await Promise.all([getBudgetItems(eventId, budgetId), getBudgetEvent(eventId, budgetId)]);
@@ -687,6 +703,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     try {
       setLoading(true);
       setLoadError(false);
+      setComparisonRequest(null);
       const eventRequest = getBudgetEvent(eventId, budgetId);
       const liveItemsRequest = getBudgetItems(eventId, budgetId).then(items => {
         setBudgetSourceError('');
@@ -780,7 +797,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
       const lookupCases = createCatalogLookup(findCasesContainingComponents, row => row.componentId);
       const lookupModifications = createCatalogLookup(getModificationsForEquipment, row => row.equipment_id);
       const canReviewBudget = canViewSpecificationLogs(user, event.site_manager_id);
-      const [caseOptionsByEquipmentId, compositionsByEquipmentId, modificationComponentsById, modificationEntries, contents] = await Promise.all([
+      const [caseOptionsByEquipmentId, compositionsByEquipmentId, modificationComponentsById, modificationEntries] = await Promise.all([
         lookupCases(componentIds),
         catalog.compositions(compositionIds),
         catalog.modificationComponents(modificationIds),
@@ -788,13 +805,8 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
           console.error('Error pre-loading modifications:', error);
           return new Map<string, EquipmentModification[]>();
         }),
-        liveItems && canReviewBudget && specificationIsEditable(event.status) ? loadSpecificationContents(liveItems, budgetData, catalog).catch(() => {
-          setBudgetSourceError('Не удалось проверить содержимое комплектов. Откройте спецификацию повторно.');
-          return null;
-        }) : null,
       ]);
       setEquipmentModifications(Object.fromEntries(modificationEntries));
-      setComparisonContents(contents);
 
       const budgetItemsById = new Map(budgetData.map(item => [item.id, item]));
       for (const item of budgetData) {
@@ -1110,6 +1122,9 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
 
             const excludedKeys = new Set(budgetData.flatMap(item => item.excluded_child_keys || []));
             setExpandedItems(overlayMarks('equipment', items.filter(item => !excludedKeys.has(item.budgetItemId)), row => row.budgetItemId));
+            if (liveItems && canReviewBudget && specificationIsEditable(event.status)) {
+              setComparisonRequest({ budget: liveItems, specification: budgetData, catalog });
+            }
     } catch (error) {
       console.error('Error loading data:', error);
       setLoadError(true);
@@ -1440,9 +1455,8 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     const normalizeText = (value?: string | null) => (value || '').trim();
     const fallbackName = (value: string, fallback: string) => value.length > 0 ? value : fallback;
 
-    const equipmentPending = expandedItems
+    const equipmentPending = pickableExpandedItems
       .filter(item => !item.isExtra)
-      .filter(item => !hasChildItems(expandedItems, item))
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `eq-${item.budgetItemId}`,
@@ -1450,9 +1464,8 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         group: 'equipment' as const
       }));
 
-    const extraPending = expandedItems
+    const extraPending = pickableExpandedItems
       .filter(item => item.isExtra)
-      .filter(item => !hasChildItems(expandedItems, item))
       .filter(item => !isPicked(item.picked, item.return_picked))
       .map(item => ({
         id: `extra-${item.budgetItemId}`,
@@ -2148,7 +2161,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             </button>
           </MobileHeaderContent>
         )}
-        {showBudgetChanges && canReviewSpecification && (
+        {showBudgetChanges && canReviewSpecification && comparisonContents && !budgetSourceError && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 p-3">
             <div role="dialog" aria-modal="true" aria-label="Расхождения со сметой"
               onKeyDown={event => { if (event.key === 'Escape' && !applyingChanges) setShowBudgetChanges(false); }}
@@ -2264,7 +2277,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-1 py-2 custom-scrollbar sm:p-4">
           {collaboration.error && <p role="status" className="mb-3 text-sm text-amber-400">{collaboration.error}</p>}
           {remoteStructureChanged && <p role="status" className="mb-3 text-sm text-amber-400">Состав спецификации изменился. Ваши несохранённые правки сохранены на экране. <button type="button" disabled={modifiedItems.size > 0 || savingChanges} onClick={() => { void loadData(); }} className="underline disabled:opacity-50">Обновить состав после сохранения правок</button></p>}
-          {budgetSourceError && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError}</p>}
+          {(budgetSourceError || comparisonError) && <p role="alert" className="mb-4 rounded-lg border border-amber-700 bg-amber-900/20 p-3 text-sm text-amber-300">{budgetSourceError || comparisonError}</p>}
           {!confirmedProject && <p className="mb-4 rounded-lg border border-accent-800 p-3 text-sm text-accent-300">До подтверждения мероприятия спецификация показывает актуальную смету. Ручное редактирование станет доступно после подтверждения.</p>}
           {activeTab === 'budget' && (
             <>
@@ -2296,7 +2309,15 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                       </h3>
                     </div>
                   )}
-                  {locationGroup.categories.map((group) => (
+                  {locationGroup.categories.map((group) => {
+                    const hasChildren = indexChildRows(group.items);
+                    const rowsById = new Map<string, ExpandedItem>();
+                    const rowsByName = new Map<string, ExpandedItem>();
+                    for (const row of group.items) {
+                      if (!rowsById.has(row.budgetItemId)) rowsById.set(row.budgetItemId, row);
+                      if (!rowsByName.has(row.name)) rowsByName.set(row.name, row);
+                    }
+                    return (
                     <div key={`${locationGroup.locationId || 'no-location'}-${group.categoryName}`} className="mb-3">
                       <div className="mb-2 px-2">
                         <div className="flex items-center gap-1.5">
@@ -2333,11 +2354,12 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                       </thead>
                       <tbody className="divide-y divide-gray-800">
                         {orderItemsWithChildren(group.items).map((item, index) => {
-                          const rowHasChildren = hasChildItems(group.items, item);
+                          const rowHasChildren = hasChildren(item);
                           const rowIsCollapsed = collapsedParentItems.has(item.budgetItemId);
-                          if (isChildRowHidden(group.items, item)) {
-                            return null;
-                          }
+                          const parent = item.parentName && (item.parentBudgetItemId
+                            ? rowsById.get(item.parentBudgetItemId)
+                            : rowsByName.get(item.parentName));
+                          if (parent && collapsedParentItems.has(parent.budgetItemId)) return null;
 
                           const hasNote = !!item.notes?.trim();
                           const openItemNote = () => setOpenNote({ budgetItemId: item.budgetItemId, itemName: item.name, value: item.notes || '' });
@@ -2394,7 +2416,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                 {canEditMainSpecification && !eventDetails?.equipment_shipped && !item.isFromComposition && hasModifications(item.budgetItemId) && (
                                   <button
                                     onClick={() => {
-                                      const budgetItem = budgetItems.find(b => b.id === item.budgetItemId);
+                                      const budgetItem = budgetItemsById.get(item.budgetItemId);
                                       if (budgetItem) {
                                         handleOpenModificationSelector(budgetItem);
                                       }
@@ -2485,7 +2507,8 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                         </table>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ))}
 

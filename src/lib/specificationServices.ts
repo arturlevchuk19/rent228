@@ -54,10 +54,14 @@ export function getSpecificationDifferences(budget: BudgetItem[], specification:
     filtered.push({ ...change, name: safe ? change.name : manualName(parts, change.name), requiresManual: !safe });
     if (safe) for (const [key, value] of delta) balance.set(key, (balance.get(key) || 0) - value);
   }
+  const reportedIds = new Set(filtered.flatMap(change => change.saved ? [change.saved.id] : []));
   for (const row of specification) {
-    if (filtered.some(change => change.saved?.id === row.id)) continue;
+    if (reportedIds.has(row.id)) continue;
     const parts = contents.get(contentRowKey('specification', row.id)) || [];
-    if (parts.some(part => (balance.get(part.key) || 0) < -epsilon)) filtered.push({ sourceId: `content:${row.id}`, name: manualName(parts, row.name || row.equipment?.name || 'Комплект'), kind: 'update', saved: row, requiresManual: true });
+    if (parts.some(part => (balance.get(part.key) || 0) < -epsilon)) {
+      filtered.push({ sourceId: `content:${row.id}`, name: manualName(parts, row.name || row.equipment?.name || 'Комплект'), kind: 'update', saved: row, requiresManual: true });
+      reportedIds.add(row.id);
+    }
   }
   return filtered;
 }
