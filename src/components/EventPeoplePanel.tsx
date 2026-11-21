@@ -37,7 +37,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     const group = groups.get(key) || { name: person.work_name || 'Ранее добавленные участники', rows: [], budgetAmount: 0, inBudget: false };
     group.rows.push(person); groups.set(key, group);
   }
-  const orderedGroups = [...groups].filter(([, group]) => editable || showPrices || group.rows.length > 0).sort((a, b) => {
+  const orderedGroups = [...groups].sort((a, b) => {
     return peopleWorkPriority(a[1].name) - peopleWorkPriority(b[1].name) || a[1].name.localeCompare(b[1].name, 'ru');
   });
   const automatic = assigned.filter(person => !people.some(row => row.personnel_id === person.id));
@@ -57,7 +57,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     setWork(next); setSelected(new Set()); setNewWorkId('');
   };
   return <ProjectSection title="Люди" count={people.length + automatic.length} defaultOpen titleActions={editable && <button type="button" onClick={() => open()} className="inline-flex min-h-11 items-center gap-1 rounded-lg p-2 text-sm text-accent-400 hover:bg-gray-800"><Plus className="h-4 w-4" />Добавить</button>}>
-    {showPrices && budgets.length > 1 && <label className="mb-4 block space-y-1 text-xs text-gray-400">Смета для сравнения<select aria-label="Смета для сравнения работ" disabled={!editable || loadingWorks} value={selectedBudgetId} onChange={event => onBudgetChange?.(event.target.value)} className={input}>{budgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}</select></label>}
+    {budgets.length > 1 && <label className="mb-4 block space-y-1 text-xs text-gray-400">{showPrices ? 'Смета для сравнения' : 'Смета для списка работ'}<select aria-label="Смета для сравнения работ" disabled={!editable || loadingWorks} value={selectedBudgetId} onChange={event => onBudgetChange?.(event.target.value)} className={input}>{budgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}</select></label>}
     {error && <p role="alert" className="mb-3 text-xs text-amber-400">{error}</p>}
     {loadingWorks && <p role="status" className="mb-3 text-xs text-gray-500">Загрузка работ из сметы…</p>}
     {showPrices && <p className="mb-3 text-xs text-gray-500">В заголовке: сумма по людям / сумма в смете (остаток). Все суммы в BYN.</p>}

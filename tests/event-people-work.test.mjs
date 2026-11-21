@@ -17,7 +17,7 @@ new Function('exports','require',ts.transpile(fs.readFileSync('src/components/Ev
  if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-dom')return {createPortal:x=>x};
  if(name.endsWith('eventPeople'))return peopleAPI;if(name.endsWith('eventProject'))return {newProjectId:next};return {};
 });
-const render=(showPrices=true)=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance,{...staff,id:'office',full_name:'Бухгалтер',show_in_budgets:false}],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable:true,showPrices,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
+const render=(showPrices=true,editable=true)=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance,{...staff,id:'office',full_name:'Бухгалтер',show_in_budgets:false}],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable,showPrices,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
 const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children),...nodes(n.props?.titleActions)]:[];
 const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(n.props?.children):typeof n==='string'?n:'';
 let tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить')).props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.props?.role==='tab'&&text(n)==='Фриланс').props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить выбранных')).props.onClick();assert.equal(currentRows.length,2);assert.deepEqual(currentRows.map(x=>x.work_name),['Монтаж','Монтаж']);assert(currentRows.some(x=>x.group==='freelance'));assert.equal(states[0],false);
@@ -64,3 +64,11 @@ assert(!tree.some(node=>text(node).includes('BYN')));
 const hours=tree.find(node=>node.type==='label'&&text(node)==='Количество часов');
 assert.equal(hours.props.children[1].props.disabled,false);
 console.log('PASS: assigned lead can add personnel and edit hours without visible rates or totals');
+
+// A lead with read-only event access can still see work groups before anyone is assigned.
+states=[];currentRows=[];
+tree=nodes(render(false,false));
+assert(tree.some(node=>node.type==='button'&&node.props['aria-expanded']===false&&text(node).startsWith('Монтаж')));
+assert(tree.some(node=>node.type==='button'&&node.props['aria-expanded']===false&&text(node).startsWith('Звукорежиссёр')));
+assert(!tree.some(node=>text(node).includes('BYN')));
+console.log('PASS: unassigned estimate jobs stay visible for a read-only lead without prices');
