@@ -23,6 +23,9 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
   const [role, setRole] = useState<UserRole>('staff');
   const [passwordTarget, setPasswordTarget] = useState<string | null>(null);
   const [replacementPassword, setReplacementPassword] = useState('');
+  const [passwordErrorMessage, setPasswordErrorMessage] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordSavedFor, setPasswordSavedFor] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<User | null>(null);
   const reload = async () => { const [rows, people] = await Promise.all([listAccountUsers(), canAccess(user, 'users', 2) ? listAccountPersonnel() : Promise.resolve([])]); setUsers(rows); setPersonnelChoices(people); };
   useEffect(() => {
@@ -39,6 +42,26 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
     setBusy(true); setError(''); setMessage('');
     try { await action(); await reload(); setMessage(success); }
     catch (caught) { setError(getErrorMessage(caught)); await reload().catch(() => {}); } finally { setBusy(false); }
+  };
+  const savePassword = async (targetId: string) => {
+    if (busy) return;
+    const invalid = passwordError(replacementPassword);
+    setPasswordErrorMessage(invalid ?? '');
+    if (invalid) return;
+
+    setBusy(true);
+    setSavingPassword(true);
+    try {
+      await resetAccountPassword(targetId, replacementPassword);
+      setPasswordTarget(null);
+      setReplacementPassword('');
+      setPasswordSavedFor(targetId);
+    } catch (caught) {
+      setPasswordErrorMessage(getErrorMessage(caught));
+    } finally {
+      setSavingPassword(false);
+      setBusy(false);
+    }
   };
   return <div className="space-y-5">
     {error && <p role="alert" className="rounded-lg border border-red-800 bg-red-900/20 p-3 text-sm text-red-300">{error}<button type="button" disabled={busy} onClick={() => { void perform(reload, 'Список обновлён.'); }} className="ml-2 underline">Повторить</button></p>}
@@ -69,15 +92,32 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
             {editable && <>
               <button type="button" disabled={busy} onClick={() => setEditTarget(target)} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-200 hover:bg-gray-800 hover:text-accent-300 disabled:opacity-50"><Pencil className="h-3.5 w-3.5" />Редактировать</button>
               <button type="button" disabled={busy} onClick={() => { void perform(() => updateAccountUser(target.id, target.role, target.status === 'active' ? 'inactive' : 'active'), 'Статус изменён.'); }} className="min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50">{target.status === 'active' ? 'Отключить' : 'Активировать'}</button>
-              <button type="button" disabled={busy} onClick={() => { setPasswordTarget(passwordTarget === target.id ? null : target.id); setReplacementPassword(''); }} className="min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50">Сменить пароль</button>
+              <button type="button" disabled={busy} aria-expanded={passwordTarget === target.id} onClick={() => {
+                setPasswordTarget(passwordTarget === target.id ? null : target.id);
+                setReplacementPassword('');
+                setPasswordErrorMessage('');
+                setPasswordSavedFor(null);
+              }} className="min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50">Сменить пароль</button>
               {canAccess(user, 'users', 3) && <button type="button" disabled={busy} onClick={() => { if (window.confirm(`Удалить пользователя «${target.full_name}»?`)) void perform(() => deleteAccountUser(target.id), 'Пользователь удалён.'); }} className="min-h-11 rounded-lg border border-red-900 px-3 py-2 text-xs text-red-400 hover:bg-red-900/30 disabled:opacity-50">Удалить</button>}
             </>}
           </div>
         </div>
-        {editable && passwordTarget === target.id && <form className="mt-4 flex flex-col items-end gap-3 border-t border-gray-800 pt-4 sm:flex-row" onSubmit={event => {
-          event.preventDefault(); const invalid = passwordError(replacementPassword); if (invalid) { setError(invalid); return; }
-          void perform(async () => { await resetAccountPassword(target.id, replacementPassword); setPasswordTarget(null); setReplacementPassword(''); }, 'Пароль пользователя изменён.');
-        }}><div className="w-full flex-1"><PasswordField label="Новый пароль" value={replacementPassword} onChange={setReplacementPassword} disabled={busy} /></div><button disabled={busy} className={accountButton}>Сохранить пароль</button></form>}
+        {editable && passwordTarget === target.id && <form noValidate className="mt-4 space-y-2 border-t border-gray-800 pt-4" onSubmit={event => {
+          event.preventDefault();
+          void savePassword(target.id);
+        }}>
+          <div className="flex flex-col items-end gap-3 sm:flex-row">
+            <div className="w-full flex-1">
+              <PasswordField label="Новый пароль" value={replacementPassword} onChange={value => {
+                setReplacementPassword(value);
+                setPasswordErrorMessage('');
+              }} disabled={busy} />
+            </div>
+            <button type="submit" disabled={busy} className={accountButton}>{savingPassword ? 'Сохраняем…' : 'Сохранить пароль'}</button>
+          </div>
+          {passwordErrorMessage && <p role="alert" className="text-sm text-red-300">{passwordErrorMessage}</p>}
+        </form>}
+        {passwordSavedFor === target.id && <p role="status" className="mt-3 text-sm text-emerald-400">Пароль пользователя изменён.</p>}
       </div>;
     })}{!users.length && !error && <p className="text-sm text-gray-400">Пользователи не найдены.</p>}</div>}
     {editTarget && <AccountUserEditDialog key={editTarget.id} target={editTarget} personnel={personnelChoices} roles={assignable} roleName={roleName} onClose={() => { if (!busy) setEditTarget(null); }} onSave={async values => {
