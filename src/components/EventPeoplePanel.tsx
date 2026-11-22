@@ -9,6 +9,7 @@ import { addWorkPeople, peopleWorkRate, personWorkAmount, personWorkHours, peopl
 import { ProjectSection } from './ProjectSection';
 
 const input = 'min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-accent-500';
+const emptyPeriod = { starts_at: '', ends_at: '' };
 const insetInput = `${input} block min-h-14 pt-6 pb-1.5`;
 const insetLabel = 'pointer-events-none absolute inset-x-3 top-1.5 truncate text-xs text-gray-400';
 const money = (value: number) => value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -30,6 +31,9 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   const [newWorkId, setNewWorkId] = useState('');
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
   const [copySource, setCopySource] = useState<string | null>(null);
+  const [editingPeriod, setEditingPeriod] = useState(false);
+  const [period, setPeriod] = useState(emptyPeriod);
+  const validPeriod = personWorkHours(period) > 0;
   const workOptions = withLoadingWorks([...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: 0 }))]);
   const groups = new Map<string, { name: string; rows: ProjectPerson[]; budgetAmount: number; inBudget: boolean }>();
   for (const option of workOptions) groups.set(option.id, { name: option.name, rows: [], budgetAmount: option.budgetAmount || 0, inBudget: works.some(row => row.id === option.id) });
@@ -44,10 +48,10 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   });
   const automatic = assigned.filter(person => !people.some(row => row.personnel_id === person.id));
   const patch = (id: string, updates: Partial<ProjectPerson>) => onChange(people.map(person => person.id === id ? { ...person, ...updates } : person));
-  const open = (selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setAdding(true); };
+  const open = (selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setPeriod(emptyPeriod); setEditingPeriod(false); setAdding(true); };
   const addSelected = () => {
-    if (!work || !selected.size || !editable) return;
-    onChange(addWorkPeople(people, personnel.filter(person => selected.has(person.id)), work, newProjectId));
+    if (!work || !selected.size || !editable || !validPeriod) return;
+    onChange(addWorkPeople(people, personnel.filter(person => selected.has(person.id)), work, newProjectId, period));
     setExpanded(current => new Set(current).add(work.id)); setAdding(false);
   };
   const createCustomWork = () => {
@@ -120,13 +124,20 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
         setExpanded(current => new Set(current).add(key)); setCopySource(null);
       }} className="flex w-full items-center gap-2 rounded-xl border border-gray-700 px-4 py-3 text-left text-sm text-gray-200 hover:border-accent-600"><Copy className="h-4 w-4 text-accent-400" />{group.name}</button>)}</div>
     </PeoplePicker>}
-    {editable && adding && <PeoplePicker onClose={() => setAdding(false)} title={work ? work.name : 'Выберите работу'}>
-      {work ? <>
+    {editable && adding && <PeoplePicker onClose={() => setAdding(false)} title={editingPeriod ? 'Время работы' : work ? work.name : 'Выберите работу'}>
+      {work && editingPeriod ? <form className="space-y-3" onSubmit={event => { event.preventDefault(); event.stopPropagation(); addSelected(); }}>
+        <button type="button" onClick={() => setEditingPeriod(false)} className="inline-flex min-h-11 items-center gap-2 text-sm text-accent-400"><ArrowLeft className="h-4 w-4" />К выбору сотрудников</button>
+        <p className="text-sm text-gray-300">{work.name} · Выбрано сотрудников: {selected.size}</p>
+        <label className="relative block min-w-0"><span className={insetLabel}>С</span><input aria-label="С — общее начало работы" type="datetime-local" autoFocus required value={period.starts_at} onChange={event => setPeriod(current => ({ ...current, starts_at: event.target.value }))} className={`${insetInput} min-w-0 appearance-none`} /></label>
+        <label className="relative block min-w-0"><span className={insetLabel}>По</span><input aria-label="По — общее окончание работы" type="datetime-local" required value={period.ends_at} onChange={event => setPeriod(current => ({ ...current, ends_at: event.target.value }))} className={`${insetInput} min-w-0 appearance-none`} /></label>
+        {period.starts_at && period.ends_at && !validPeriod && <p role="alert" className="text-sm text-red-300">Окончание должно быть позже начала. Для ночной смены укажите следующую дату.</p>}
+        <button type="submit" disabled={!validPeriod} className="w-full min-h-11 rounded-lg bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40">Добавить выбранных ({selected.size})</button>
+      </form> : work ? <>
         <button type="button" onClick={() => { setWork(null); setSelected(new Set()); setSearch(''); }} className="mb-3 inline-flex min-h-11 items-center gap-2 text-sm text-accent-400"><ArrowLeft className="h-4 w-4" />К списку работ</button>
         <div role="tablist" aria-label="Тип сотрудников" className="mb-3 flex gap-2">{(['staff', 'freelance'] as const).map(type => <button type="button" key={type} role="tab" aria-selected={tab === type} onClick={() => setTab(type)} className={`min-h-11 rounded-lg px-4 py-2 text-sm ${tab === type ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-400'}`}>{type === 'staff' ? 'Штат' : 'Фриланс'}</button>)}</div>
         <input aria-label="Поиск сотрудника" placeholder="Поиск по ФИО" {...searchInputProps} value={search} onChange={event => setSearch(event.target.value)} className={`${input} mb-3`} />
         <div className="max-h-[40dvh] overflow-y-auto">{personnel.filter(person => isAssignablePersonnel(person) && (person.employment_type || 'staff') === tab && person.full_name.toLowerCase().includes(search.toLowerCase())).map(person => { const exists = people.some(row => row.personnel_id === person.id && (row.work_id === work.id || sameName(row.work_name || '', work.name))); return <label key={person.id} className="flex min-h-12 items-center gap-3 border-b border-gray-800 py-3 text-sm text-gray-200"><input type="checkbox" disabled={exists} checked={exists || selected.has(person.id)} onChange={event => setSelected(current => { const next = new Set(current); if (event.target.checked) next.add(person.id); else next.delete(person.id); return next; })} className="h-4 w-4 accent-accent-500" /><span className="min-w-0 flex-1 break-words">{person.full_name}</span>{(exists || showPrices) && <span className="shrink-0 text-xs text-gray-500">{exists ? 'Добавлен' : `${peopleWorkRate(person, work.name)} BYN/час`}</span>}</label>; })}{!personnel.some(person => isAssignablePersonnel(person) && (person.employment_type || 'staff') === tab && person.full_name.toLowerCase().includes(search.toLowerCase())) && <p className="py-6 text-center text-sm text-gray-500">Сотрудники не найдены</p>}</div>
-        <button type="button" disabled={!selected.size} onClick={addSelected} className="mt-4 w-full min-h-11 rounded-lg bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40">Добавить выбранных ({selected.size})</button>
+        <button type="button" disabled={!selected.size} onClick={() => setEditingPeriod(true)} className="mt-4 w-full min-h-11 rounded-lg bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40">Далее ({selected.size})</button>
       </> : <div className="space-y-3">
         {loadingWorks ? <p className="text-sm text-gray-400">Загрузка работ…</p> : workOptions.map(row => <button type="button" key={row.id} onClick={() => { setWork(row); setSelected(new Set()); }} className="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-700 px-4 py-3 text-left text-sm text-gray-200 hover:border-accent-600"><span>{row.name}</span>{showPrices && <span className="text-xs text-gray-500">{money(row.budgetAmount || 0)} BYN</span>}</button>)}
         {!workOptions.length && !loadingWorks && <p className="text-sm text-gray-500">В выбранной смете нет работ.</p>}

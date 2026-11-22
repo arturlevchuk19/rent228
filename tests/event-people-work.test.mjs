@@ -20,7 +20,21 @@ new Function('exports','require',ts.transpile(fs.readFileSync('src/components/Ev
 const render=(showPrices=true,editable=true)=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance,{...staff,id:'office',full_name:'Бухгалтер',show_in_budgets:false}],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable,showPrices,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
 const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children),...nodes(n.props?.titleActions)]:[];
 const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(n.props?.children):typeof n==='string'?n:'';
-let tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить')).props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.props?.role==='tab'&&text(n)==='Фриланс').props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить выбранных')).props.onClick();assert.equal(currentRows.length,2);assert.deepEqual(currentRows.map(x=>x.work_name),['Монтаж','Монтаж']);assert(currentRows.some(x=>x.group==='freelance'));assert.equal(states[0],false);
+const commonStart = '2026-11-22T22:30';
+const commonEnd = '2026-11-23T01:15';
+const confirmPeriod = (showPrices = true) => {
+ let stage = nodes(render(showPrices));
+ stage.find(n=>n.type==='button'&&text(n).startsWith('Далее')).props.onClick();
+ stage = nodes(render(showPrices));
+ assert.equal(stage.find(n=>n.props?.type==='submit').props.disabled,true);
+ stage.find(n=>n.props?.['aria-label']==='С — общее начало работы').props.onChange({target:{value:commonStart}});
+ stage = nodes(render(showPrices));
+ stage.find(n=>n.props?.['aria-label']==='По — общее окончание работы').props.onChange({target:{value:commonEnd}});
+ stage = nodes(render(showPrices));
+ assert.equal(stage.find(n=>n.props?.type==='submit').props.disabled,false);
+ stage.find(n=>n.type==='form').props.onSubmit({preventDefault(){},stopPropagation(){}});
+};
+let tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить')).props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.props?.role==='tab'&&text(n)==='Фриланс').props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());confirmPeriod();assert.equal(currentRows.length,2);assert(currentRows.every(row=>row.starts_at===commonStart&&row.ends_at===commonEnd));assert.deepEqual(currentRows.map(x=>x.work_name),['Монтаж','Монтаж']);assert(currentRows.some(x=>x.group==='freelance'));assert.equal(states[0],false);
 console.log('PASS: job ordering, staff/freelance defaults, warehouse/install rates, deduplication, separate jobs, hours persistence/validation and two-step multi-tab checkbox picker');
 
 // New work creation is part of the event, not an unrelated catalogue entry.
@@ -30,13 +44,13 @@ console.log('PASS: custom work is saved to event and opens employee selection');
 assert.equal(customWorks[0].id,'catalog-new','Added work must keep the directory ID');
 // Editing a total adjusts the hourly rate rather than changing the hours.
 states[0]=false;
-currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',rate:'10'}:row);
+currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',starts_at:undefined,ends_at:undefined,rate:'10'}:row);
 tree=nodes(render());const amountInput=tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван');assert(amountInput);assert.equal(amountInput.props.disabled,false);amountInput.props.onChange({target:{value:'100'}});assert.equal(currentRows[0].hours,'3');assert.equal(peopleAPI.personWorkAmount(currentRows[0]),100);assert(Math.abs(Number(currentRows[0].rate)-100/3)<1e-10);
 currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'0'}:row);tree=nodes(render());assert.equal(tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван').props.disabled,true);
 console.log('PASS: directory selection, manual total updates hourly rate with division precision and zero-hour protection');
 
 // Copy employees through the actual per-work button and target dialog.
-currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',rate:'10'}:row);states[0]=false;
+currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',starts_at:undefined,ends_at:undefined,rate:'10'}:row);states[0]=false;
 tree=nodes(render());tree.find(n=>n.type==='button'&&n.props['aria-label']==='Скопировать людей из работы Монтаж').props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Демонтаж'&&n.props['aria-expanded']===undefined).props.onClick();assert.equal(currentRows.filter(row=>row.work_name==='Демонтаж').length,2);assert(currentRows.find(row=>row.work_name==='Демонтаж'&&row.name==='Иван').hours==='3');
 console.log('PASS: per-work copy button opens target selection and copies employees');
 
@@ -57,7 +71,7 @@ tree=nodes(render(false));
 assert(!tree.some(node=>text(node).includes('BYN')));
 tree.find(node=>node.type==='input'&&node.props.type==='checkbox').props.onChange({target:{checked:true}});
 tree=nodes(render(false));
-tree.find(node=>node.type==='button'&&text(node).includes('Добавить выбранных')).props.onClick();
+confirmPeriod(false);
 tree=nodes(render(false));
 assert.equal(currentRows[0].name,'Иван');
 assert(!tree.some(node=>text(node).includes('BYN')));

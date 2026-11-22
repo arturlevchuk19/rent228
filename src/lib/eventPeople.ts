@@ -16,11 +16,11 @@ export function orderedPeopleWorks(works: WorkItem[]): PeopleWork[] {
 export function peopleWorkRate(person: PeopleDirectoryEntry, workName: string): string {
   return String(/загрузка|разгрузка/i.test(workName) ? person.warehouse_rate ?? 0 : /склад/i.test(workName) ? person.warehouse_work_rate ?? 10 : person.installation_rate ?? 0);
 }
-export function addWorkPeople(current: ProjectPerson[], selected: PeopleDirectoryEntry[], work: PeopleWork, id: () => string): ProjectPerson[] {
+export function addWorkPeople(current: ProjectPerson[], selected: PeopleDirectoryEntry[], work: PeopleWork, id: () => string, period?: Required<Pick<ProjectPerson, 'starts_at' | 'ends_at'>>): ProjectPerson[] {
   return [...current, ...selected.filter(person => isAssignablePersonnel(person) && !current.some(row => row.personnel_id === person.id && (row.work_id === work.id || (!row.work_id && row.work_name === work.name)))).map(person => ({
     id: id(), personnel_id: person.id, name: person.full_name,
     group: person.employment_type === 'freelance' ? 'freelance' as const : 'team' as const,
-    work_id: work.id, work_name: work.name, rate: peopleWorkRate(person, work.name), hours: '',
+    work_id: work.id, work_name: work.name, rate: peopleWorkRate(person, work.name), ...(period || { hours: '' }),
   }))];
 }
 
