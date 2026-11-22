@@ -5,14 +5,14 @@ import { Plus, Trash2, X, ArrowLeft, Copy, ChevronDown } from 'lucide-react';
 import { isAssignablePersonnel, type Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
 import { newProjectId, type ProjectPerson } from '../lib/eventProject';
-import { addWorkPeople, peopleWorkRate, personWorkAmount, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork } from '../lib/eventPeople';
+import { addWorkPeople, peopleWorkRate, personWorkAmount, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
 import { ProjectSection } from './ProjectSection';
 
 const input = 'min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-accent-500';
 const money = (value: number) => value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
 export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true }: {
-  people: ProjectPerson[]; personnel: Personnel[]; assigned: Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]; works: BudgetPeopleWork[];
+  people: ProjectPerson[]; personnel: PeopleDirectoryEntry[]; assigned: Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]; works: BudgetPeopleWork[];
   catalogWorks?: PeopleWork[];
   showPrices?: boolean;
   editable: boolean; error: string; onChange: (people: ProjectPerson[]) => void;

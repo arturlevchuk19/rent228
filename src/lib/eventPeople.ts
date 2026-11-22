@@ -4,16 +4,18 @@ import type { BudgetItem, Event } from './events';
 import { budgetLineAmount, roundBudgetPrice, ceilCurrencyUnit, calcCombinedTotal } from './budgetPricing';
 import type { ProjectPerson } from './eventProject';
 
+export type PeopleDirectoryEntry = Pick<Personnel, 'id' | 'full_name' | 'employment_type' | 'show_in_budgets' | 'warehouse_rate' | 'warehouse_work_rate' | 'installation_rate'>;
+
 export interface PeopleWork { id: string; name: string; }
 const normalized = (name: string) => name.trim().toLocaleLowerCase('ru-RU');
 export function orderedPeopleWorks(works: WorkItem[]): PeopleWork[] {
   const first = ['Монтаж', 'Демонтаж'].map((name, index) => works.find(work => normalized(work.name) === normalized(name)) || { id: `default-work-${index}`, name });
   return [...first, ...works.filter(work => !first.some(row => row.id === work.id)).sort((a, b) => a.name.localeCompare(b.name, 'ru'))];
 }
-export function peopleWorkRate(person: Personnel, workName: string): string {
+export function peopleWorkRate(person: PeopleDirectoryEntry, workName: string): string {
   return String(/загрузка|разгрузка/i.test(workName) ? person.warehouse_rate ?? 0 : /склад/i.test(workName) ? person.warehouse_work_rate ?? 10 : person.installation_rate ?? 0);
 }
-export function addWorkPeople(current: ProjectPerson[], selected: Personnel[], work: PeopleWork, id: () => string): ProjectPerson[] {
+export function addWorkPeople(current: ProjectPerson[], selected: PeopleDirectoryEntry[], work: PeopleWork, id: () => string): ProjectPerson[] {
   return [...current, ...selected.filter(person => isAssignablePersonnel(person) && !current.some(row => row.personnel_id === person.id && (row.work_id === work.id || (!row.work_id && row.work_name === work.name)))).map(person => ({
     id: id(), personnel_id: person.id, name: person.full_name,
     group: person.employment_type === 'freelance' ? 'freelance' as const : 'team' as const,

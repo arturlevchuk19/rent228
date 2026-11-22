@@ -1,10 +1,10 @@
 import { getEventBudgets, type EventBudget } from '../lib/eventBudgets';
 import { getBudgetItems, type BudgetItem } from '../lib/events';
-import { documentPeopleWorks } from '../lib/eventPeople';
+import { documentPeopleWorks, type BudgetPeopleWork, type PeopleDirectoryEntry, type PeopleWork } from '../lib/eventPeople';
 import { EventPeoplePanel } from './EventPeoplePanel';
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Truck } from 'lucide-react';
-import { getPersonnel, getWorkItems, type Personnel, type WorkItem } from '../lib/personnel';
+import { getPersonnel, getWorkItems, type Personnel } from '../lib/personnel';
 import { useAuth } from '../contexts/authContext';
 import { supabase } from '../lib/supabase';
 import { newProjectId, type EventProjectDetails } from '../lib/eventProject';
@@ -21,9 +21,11 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
   const { user } = useAuth();
   const showPrices = user?.role === 'admin' || user?.role === 'superuser';
   const showPeople = showPrices || Boolean(user && user.id === siteManagerId);
-  const editPeople = showPeople && editable;
-  const [personnel, setPersonnel] = useState<Personnel[]>([]);
-  const [catalogWorks, setCatalogWorks] = useState<WorkItem[]>([]);
+  const assignedLead = Boolean(eventId && user?.status === 'active' && user.id === siteManagerId);
+  const leadOnly = assignedLead && !editable;
+  const editPeople = (showPeople && editable) || leadOnly;
+  const [personnel, setPersonnel] = useState<PeopleDirectoryEntry[]>([]);
+  const [catalogWorks, setCatalogWorks] = useState<PeopleWork[]>([]);
   const [peopleBudgets, setPeopleBudgets] = useState<EventBudget[]>([]);
   const [peopleBudgetItems, setPeopleBudgetItems] = useState<BudgetItem[]>([]);
   const [budgetWorksError, setBudgetWorksError] = useState('');
@@ -31,14 +33,30 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
   const [directoryError, setDirectoryError] = useState('');
   const [assigned, setAssigned] = useState<Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]>([]);
   const [peopleError, setPeopleError] = useState('');
+  const [leadWorks, setLeadWorks] = useState<BudgetPeopleWork[]>([]);
   useEffect(() => {
-    if (!editPeople) return;
+    if (!leadOnly) return;
+    let active = true;
+    setLoadingBudgetWorks(true);
+    setDirectoryError('');
+    void supabase.rpc('assigned_event_people_options', { p_event: eventId }).then(({ data, error }) => {
+      if (!active) return;
+      setLoadingBudgetWorks(false);
+      if (error) { setDirectoryError('Не удалось загрузить сотрудников и работы.'); return; }
+      setPersonnel(data.personnel);
+      setCatalogWorks(data.catalog);
+      setLeadWorks(data.works);
+    });
+    return () => { active = false; };
+  }, [leadOnly, eventId, refreshSignal]);
+  useEffect(() => {
+    if (!editPeople || leadOnly) return;
     let active = true;
     Promise.all([getPersonnel(), getWorkItems()]).then(([people, jobs]) => { if (active) { setPersonnel(people); setCatalogWorks(jobs); setDirectoryError(''); } }).catch(() => { if (active) setDirectoryError('Не удалось загрузить справочники сотрудников и работ. Обновите страницу.'); });
     return () => { active = false; };
-  }, [editPeople]);
+  }, [editPeople, leadOnly]);
   useEffect(() => {
-    if (!eventId || !showPeople) return;
+    if (!eventId || !showPeople || leadOnly) return;
     let active = true;
     setAssigned([]);
     supabase.from('budget_item_personnel').select('personnel:personnel_id(id, full_name, employment_type), budget_item:budget_item_id!inner(event_id)').eq('budget_item.event_id', eventId).then(({ data, error }) => {
@@ -50,20 +68,20 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
       setAssigned([...unique.values()]);
     });
     return () => { active = false; };
-  }, [eventId, refreshSignal, showPeople]);
+  }, [eventId, refreshSignal, showPeople, leadOnly]);
   useEffect(() => {
     let active = true;
     setPeopleBudgets([]); setPeopleBudgetItems([]); setBudgetWorksError('');
-    if (!eventId || !showPeople) return;
+    if (!eventId || !showPeople || leadOnly) return;
     setLoadingBudgetWorks(true);
     Promise.all([getEventBudgets(eventId), getBudgetItems(eventId)]).then(([documents, items]) => {
       if (active) { setPeopleBudgets(documents); setPeopleBudgetItems(items); }
     }).catch(() => { if (active) setBudgetWorksError('Не удалось загрузить работы и суммы из сметы.'); })
       .finally(() => { if (active) setLoadingBudgetWorks(false); });
     return () => { active = false; };
-  }, [eventId, refreshSignal, showPeople]);
+  }, [eventId, refreshSignal, showPeople, leadOnly]);
   const peopleBudget = peopleBudgets.find(budget => budget.id === value.people_budget_id) || peopleBudgets.find(budget => budget.is_primary) || peopleBudgets[0];
-  const works = peopleBudget ? documentPeopleWorks(peopleBudgetItems, peopleBudget) : [];
+  const works = leadOnly ? leadWorks : peopleBudget ? documentPeopleWorks(peopleBudgetItems, peopleBudget) : [];
   const update = <K extends keyof EventProjectDetails>(key: K, data: EventProjectDetails[K]) => onChange({ ...value, [key]: data });
   const textEditor = (key: 'description' | 'sound' | 'light' | 'media' | 'io') => <div className="space-y-2"><textarea aria-label={key === 'description' ? 'Описание мероприятия' : `Заметки: ${key}`} rows={8} maxLength={30000} value={value[key]} onChange={event => update(key, event.target.value)} className={`${input} resize-y`} /><p className="text-xs text-gray-500"># Заголовок · **жирный текст** · - список · ==выделение==. Изменения сохраняются кнопкой «Сохранить».</p></div>;
   const days = [...new Set(value.schedule.map(row => row.date))].sort();

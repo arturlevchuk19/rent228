@@ -22,7 +22,7 @@ import { calcGrandTotals } from '../lib/budgetPricing';
 import { getLocationsForEvent } from '../lib/locations';
 import { getCategoriesForEvent, getCategories } from '../lib/categories';
 import { getActiveUsers } from '../lib/auth';
-import type { User } from '../lib/supabase';
+import { supabase, type User } from '../lib/supabase';
 import {
   createEvent,
   deleteEvent,
@@ -138,6 +138,9 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   });
 
   const [project, setProject] = useState(() => normalizeProjectDetails(event?.project_details));
+  const previousPeopleDetails = useRef(event?.project_details || {});
+  const editEvent = canAccess(user, 'events', 2);
+  const editAssignedPeople = Boolean(presentation === 'page' && event && user?.status === 'active' && user.id === event.site_manager_id);
   const projectBaseline = useRef(JSON.stringify(project));
   const baseline = useRef(JSON.stringify({ formData, project }));
   const dirty = JSON.stringify({ formData, project }) !== baseline.current;
@@ -240,7 +243,36 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canAccess(user, 'events', 2)) return;
+    if (saving) return;
+    if (!editEvent) {
+      if (!editAssignedPeople || !event) return;
+      const validation = validateProjectDetails(project, formData.event_date, formData.event_end_date);
+      if (validation) { setPageError(validation); return; }
+      setSaving(true);
+      try {
+        const { data, error } = await supabase.rpc('save_assigned_event_people', {
+          p_event: event.id,
+          p_previous: previousPeopleDetails.current,
+          p_people: project.people,
+          p_works: project.people_works || [],
+        });
+        if (error) throw error;
+        const savedProject = normalizeProjectDetails(data);
+        previousPeopleDetails.current = data;
+        projectBaseline.current = JSON.stringify(savedProject);
+        baseline.current = JSON.stringify({ formData, project: savedProject });
+        setProject(savedProject);
+        setPageError('');
+        setSaveMessage('Назначения сохранены.');
+        onDirtyChange?.(false);
+        onSave(event.id);
+      } catch (error) {
+        setPageError(getErrorMessage(error));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     if (formData.event_date && !isValidDate(dateParts.day, dateParts.month, dateParts.year)) {
       alert('Укажите корректную дату мероприятия');
@@ -835,7 +867,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
               </button>
               <button
                 type="submit"
-                disabled={saving || !canAccess(user, 'events', 2)}
+                disabled={saving || (!editEvent && (!editAssignedPeople || !dirty))}
                 className="min-h-11 px-6 py-2 text-sm font-semibold bg-accent-500 hover:bg-accent-400 text-gray-950 rounded transition-colors disabled:opacity-50"
               >
                 {saving ? 'Сохранение...' : 'Сохранить'}
