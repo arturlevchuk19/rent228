@@ -6,6 +6,7 @@ import { isAssignablePersonnel, type Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
 import { newProjectId, type ProjectPerson } from '../lib/eventProject';
 import { addWorkPeople, peopleWorkRate, personWorkAmount, personWorkHours, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
+import { dayNumber } from '../lib/calendar';
 import { ProjectSection } from './ProjectSection';
 
 const input = 'min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-accent-500';
@@ -14,10 +15,11 @@ const insetInput = `${input} block min-h-14 pt-6 pb-1.5`;
 const insetLabel = 'pointer-events-none absolute inset-x-3 top-1.5 truncate text-xs text-gray-400';
 const money = (value: number) => value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
-export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true }: {
+export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true, eventDate = '' }: {
   people: ProjectPerson[]; personnel: PeopleDirectoryEntry[]; assigned: Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]; works: BudgetPeopleWork[];
   catalogWorks?: PeopleWork[];
   showPrices?: boolean;
+  eventDate?: string;
   editable: boolean; error: string; onChange: (people: ProjectPerson[]) => void;
   budgets?: EventBudget[]; selectedBudgetId?: string; onBudgetChange?: (id: string) => void;
   customWorks?: PeopleWork[]; onCustomWorksChange?: (works: PeopleWork[]) => void; loadingWorks?: boolean;
@@ -33,6 +35,27 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   const [copySource, setCopySource] = useState<string | null>(null);
   const [editingPeriod, setEditingPeriod] = useState(false);
   const [period, setPeriod] = useState(emptyPeriod);
+  const [activeDate, setActiveDate] = useState<string | null>(null);
+  const suggestedDate = dayNumber(eventDate) === null ? '' : `${eventDate}T00:00`;
+  const dateField = (id: string, caption: string, accessibleLabel: string, value: string, onChange: (value: string) => void, required = false) => {
+    const suggestion = activeDate === id && !value ? suggestedDate : '';
+    return <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-gray-700 bg-gray-950/50 px-2.5 focus-within:border-accent-500">
+      <span className="w-6 shrink-0 text-xs text-gray-400">{caption}</span>
+      <input aria-label={accessibleLabel} type="datetime-local" required={required} disabled={!editable}
+        value={value || suggestion}
+        onPointerDown={() => setActiveDate(id)}
+        onFocus={() => setActiveDate(id)}
+        onBlur={() => setActiveDate(current => current === id ? null : current)}
+        onChange={event => onChange(event.target.value)}
+        onKeyDown={event => {
+          if (event.key === 'Enter' && suggestion) {
+            event.preventDefault();
+            onChange(suggestion);
+          }
+        }}
+        className="block min-h-11 w-full min-w-0 flex-1 appearance-none bg-transparent py-1.5 text-sm text-gray-200 outline-none [color-scheme:dark] [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left" />
+    </label>;
+  };
   const validPeriod = personWorkHours(period) > 0;
   const workOptions = withLoadingWorks([...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: 0 }))]);
   const groups = new Map<string, { name: string; rows: ProjectPerson[]; budgetAmount: number; inBudget: boolean }>();
@@ -48,7 +71,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   });
   const automatic = assigned.filter(person => !people.some(row => row.personnel_id === person.id));
   const patch = (id: string, updates: Partial<ProjectPerson>) => onChange(people.map(person => person.id === id ? { ...person, ...updates } : person));
-  const open = (selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setPeriod(emptyPeriod); setEditingPeriod(false); setAdding(true); };
+  const open = (selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setPeriod(emptyPeriod); setActiveDate(null); setEditingPeriod(false); setAdding(true); };
   const addSelected = () => {
     if (!work || !selected.size || !editable || !validPeriod) return;
     onChange(addWorkPeople(people, personnel.filter(person => selected.has(person.id)), work, newProjectId, period));
@@ -82,28 +105,28 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
           return <div key={person.id} className="space-y-2 rounded-lg border border-gray-800 p-3">
           <div className="flex items-start gap-2">
           {editable ? <div className="min-w-0 flex-1 space-y-2"><label className="relative block">
-            <span className={insetLabel}>ФИО</span><select value={person.personnel_id} onChange={event => {
+            <select aria-label="Сотрудник" value={person.personnel_id} onChange={event => {
               const next = personnel.find(row => row.id === event.target.value);
               if (!next) { patch(person.id, { personnel_id: '' }); return; }
               patch(person.id, { personnel_id: next.id, name: next.full_name, group: next.employment_type === 'freelance' ? 'freelance' : 'team', rate: peopleWorkRate(next, person.work_name || '') });
-            }} className={insetInput}><option value="">Указать вручную</option>{person.personnel_id && !personnel.some(row => row.id === person.personnel_id) && <option value={person.personnel_id}>{person.name}</option>}{personnel.filter(row => row.id === person.personnel_id || (isAssignablePersonnel(row) && !group.rows.some(existing => existing.personnel_id === row.id))).map(row => <option key={row.id} value={row.id}>{row.full_name} — {row.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</option>)}</select>
+            }} className={`${input} block`}><option value="">Указать вручную</option>{person.personnel_id && !personnel.some(row => row.id === person.personnel_id) && <option value={person.personnel_id}>{person.name}</option>}{personnel.filter(row => row.id === person.personnel_id || (isAssignablePersonnel(row) && !group.rows.some(existing => existing.personnel_id === row.id))).map(row => <option key={row.id} value={row.id}>{row.full_name} — {row.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</option>)}</select>
           </label>{!person.personnel_id && <input aria-label="ФИО вручную" placeholder="ФИО вручную" value={person.name} onChange={event => patch(person.id, { name: event.target.value })} className={input} />}</div> : <p className="text-sm text-gray-200">{person.name}</p>}
           {editable && <button type="button" aria-label={`Удалить ${person.name} из работы ${group.name}`} onClick={() => onChange(people.filter(row => row.id !== person.id))} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4" /></button>}
           </div>
           <div className="grid grid-cols-1 gap-2 min-[540px]:grid-cols-2">
-            <label className="relative block min-w-0"><span className={insetLabel}>С</span><input aria-label="С — начало работы" type="datetime-local" disabled={!editable} value={person.starts_at || ''} onChange={event => patch(person.id, { starts_at: event.target.value, hours: undefined })} className={`${insetInput} min-w-0 appearance-none`} /></label>
-            <label className="relative block min-w-0"><span className={insetLabel}>По</span><input aria-label="По — окончание работы" type="datetime-local" disabled={!editable} value={person.ends_at || ''} onChange={event => patch(person.id, { ends_at: event.target.value, hours: undefined })} className={`${insetInput} min-w-0 appearance-none`} /></label>
+            {dateField(`${person.id}:start`, 'С', 'С — начало работы', person.starts_at || '', starts_at => patch(person.id, { starts_at, hours: undefined }))}
+            {dateField(`${person.id}:end`, 'По', 'По — окончание работы', person.ends_at || '', ends_at => patch(person.id, { ends_at, hours: undefined }))}
           </div>
-          {hours > 0 && <p className="text-xs tabular-nums text-gray-400">{Math.floor(Math.round(hours * 60) / 60)} ч {Math.round(hours * 60) % 60} мин</p>}
           {showPrices && <div className="grid grid-cols-2 gap-2">
             <label className="relative block min-w-0"><span className={insetLabel}>Ставка, BYN/час</span><input type="number" inputMode="decimal" min="0" step="any" disabled={!editable} value={person.rate} onChange={event => patch(person.id, { rate: event.target.value })} className={insetInput} /></label>
             <label className="relative block min-w-0"><span className={insetLabel}>Сумма, BYN</span><input
               aria-label={`Сумма: ${person.name || 'новый участник'}`}
-              type="number" inputMode="decimal" min="0" step="0.01"
+              type="number" inputMode="numeric" min="0" step="1"
               disabled={!editable || hours <= 0}
-              value={amountDrafts[person.id] ?? String(personWorkAmount(person))}
+              value={amountDrafts[person.id] ?? String(Math.round(personWorkAmount(person)))}
               onChange={event => {
-                const value = event.target.value;
+                const raw = event.target.value;
+                const value = raw === '' ? '' : String(Math.round(Number(raw)));
                 setAmountDrafts(current => ({ ...current, [person.id]: value }));
                 const rate = value.trim() ? rateForWorkAmount(Number(value), String(hours)) : null;
                 if (rate !== null) patch(person.id, { rate });
@@ -128,8 +151,8 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
       {work && editingPeriod ? <form className="space-y-3" onSubmit={event => { event.preventDefault(); event.stopPropagation(); addSelected(); }}>
         <button type="button" onClick={() => setEditingPeriod(false)} className="inline-flex min-h-11 items-center gap-2 text-sm text-accent-400"><ArrowLeft className="h-4 w-4" />К выбору сотрудников</button>
         <p className="text-sm text-gray-300">{work.name} · Выбрано сотрудников: {selected.size}</p>
-        <label className="relative block min-w-0"><span className={insetLabel}>С</span><input aria-label="С — общее начало работы" type="datetime-local" autoFocus required value={period.starts_at} onChange={event => setPeriod(current => ({ ...current, starts_at: event.target.value }))} className={`${insetInput} min-w-0 appearance-none`} /></label>
-        <label className="relative block min-w-0"><span className={insetLabel}>По</span><input aria-label="По — общее окончание работы" type="datetime-local" required value={period.ends_at} onChange={event => setPeriod(current => ({ ...current, ends_at: event.target.value }))} className={`${insetInput} min-w-0 appearance-none`} /></label>
+        {dateField('shared:start', 'С', 'С — общее начало работы', period.starts_at, starts_at => setPeriod(current => ({ ...current, starts_at })), true)}
+        {dateField('shared:end', 'По', 'По — общее окончание работы', period.ends_at, ends_at => setPeriod(current => ({ ...current, ends_at })), true)}
         {period.starts_at && period.ends_at && !validPeriod && <p role="alert" className="text-sm text-red-300">Окончание должно быть позже начала. Для ночной смены укажите следующую дату.</p>}
         <button type="submit" disabled={!validPeriod} className="w-full min-h-11 rounded-lg bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40">Добавить выбранных ({selected.size})</button>
       </form> : work ? <>

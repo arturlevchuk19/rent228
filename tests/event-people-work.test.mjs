@@ -14,10 +14,11 @@ let states=[],index=0,currentRows=[],customWorks=[];const exports={};const jsx=(
 new Function('exports','require',ts.transpile(fs.readFileSync('src/components/EventPeoplePanel.tsx','utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>{
  if(name==='react')return {useState:value=>{const i=index++;if(!(i in states))states[i]=value;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];},useEffect:()=>{},useRef:value=>({current:value})};
  if(name.endsWith('/personnel'))return {isAssignablePersonnel:person=>person.show_in_budgets!==false};
+ if(name.endsWith('/calendar'))return {dayNumber:value=>value==='2026-11-22'?1:null};
  if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-dom')return {createPortal:x=>x};
  if(name.endsWith('eventPeople'))return peopleAPI;if(name.endsWith('eventProject'))return {newProjectId:next};return {};
 });
-const render=(showPrices=true,editable=true)=>{index=0;return exports.EventPeoplePanel({people:currentRows,personnel:[staff,freelance,{...staff,id:'office',full_name:'Бухгалтер',show_in_budgets:false}],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable,showPrices,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
+const render=(showPrices=true,editable=true)=>{index=0;return exports.EventPeoplePanel({people:currentRows,eventDate:'2026-11-22',personnel:[staff,freelance,{...staff,id:'office',full_name:'Бухгалтер',show_in_budgets:false}],assigned:[],works,catalogWorks:[{id:'catalog-new',name:'Новая работа'}],editable,showPrices,error:'',onChange:rows=>currentRows=rows,customWorks,onCustomWorksChange:rows=>customWorks=rows});};
 const nodes=n=>Array.isArray(n)?n.flatMap(nodes):n&&typeof n==='object'?[n,...nodes(n.props?.children),...nodes(n.props?.titleActions)]:[];
 const text=n=>Array.isArray(n)?n.map(text).join(''):n&&typeof n==='object'?text(n.props?.children):typeof n==='string'?n:'';
 const commonStart = '2026-11-22T22:30';
@@ -26,6 +27,10 @@ const confirmPeriod = (showPrices = true) => {
  let stage = nodes(render(showPrices));
  stage.find(n=>n.type==='button'&&text(n).startsWith('Далее')).props.onClick();
  stage = nodes(render(showPrices));
+ assert.equal(stage.find(n=>n.props?.type==='submit').props.disabled,true);
+ stage.find(n=>n.props?.['aria-label']==='С — общее начало работы').props.onFocus();
+ stage = nodes(render(showPrices));
+ assert.equal(stage.find(n=>n.props?.['aria-label']==='С — общее начало работы').props.value,'2026-11-22T00:00');
  assert.equal(stage.find(n=>n.props?.type==='submit').props.disabled,true);
  stage.find(n=>n.props?.['aria-label']==='С — общее начало работы').props.onChange({target:{value:commonStart}});
  stage = nodes(render(showPrices));
@@ -45,7 +50,7 @@ assert.equal(customWorks[0].id,'catalog-new','Added work must keep the directory
 // Editing a total adjusts the hourly rate rather than changing the hours.
 states[0]=false;
 currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',starts_at:undefined,ends_at:undefined,rate:'10'}:row);
-tree=nodes(render());const amountInput=tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван');assert(amountInput);assert.equal(amountInput.props.disabled,false);amountInput.props.onChange({target:{value:'100'}});assert.equal(currentRows[0].hours,'3');assert.equal(peopleAPI.personWorkAmount(currentRows[0]),100);assert(Math.abs(Number(currentRows[0].rate)-100/3)<1e-10);
+tree=nodes(render());const amountInput=tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван');assert(amountInput);assert.equal(amountInput.props.disabled,false);assert.equal(amountInput.props.step,'1');amountInput.props.onChange({target:{value:'99.6'}});assert.equal(currentRows[0].hours,'3');assert.equal(peopleAPI.personWorkAmount(currentRows[0]),100);assert(Math.abs(Number(currentRows[0].rate)-100/3)<1e-10);
 currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'0'}:row);tree=nodes(render());assert.equal(tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван').props.disabled,true);
 console.log('PASS: directory selection, manual total updates hourly rate with division precision and zero-hour protection');
 
