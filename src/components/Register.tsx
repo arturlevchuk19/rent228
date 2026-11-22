@@ -12,6 +12,7 @@ export function Register({ onSwitchToLogin }: RegisterProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -31,7 +32,7 @@ export function Register({ onSwitchToLogin }: RegisterProps) {
     setLoading(true);
 
     try {
-      await signUp(email, password, fullName);
+      await signUp(email, password, fullName, phone);
       setSuccess(true);
     } catch (err) {
       setError(translateError(getErrorMessage(err) || 'Failed to register'));
@@ -105,6 +106,20 @@ export function Register({ onSwitchToLogin }: RegisterProps) {
                 className="w-full min-h-11 px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
                 required
                 disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="registration-phone" className="block text-sm font-medium text-gray-300 mb-1">Номер телефона</label>
+              <input
+                id="registration-phone"
+                type="tel"
+                autoComplete="tel"
+                maxLength={40}
+                value={phone}
+                onChange={event => setPhone(event.target.value)}
+                disabled={loading}
+                className="w-full min-h-11 px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500"
               />
             </div>
 

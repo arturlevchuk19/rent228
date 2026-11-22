@@ -41,7 +41,7 @@ export function canViewField(user: AuthUser | null, field: string): boolean {
   return false;
 }
 
-export async function signUp(email: string, password: string, fullName: string) {
+export async function signUp(email: string, password: string, fullName: string, phone?: string) {
   const { data: existingUser } = await supabase
     .from('users')
     .select('id')
@@ -64,6 +64,7 @@ export async function signUp(email: string, password: string, fullName: string) 
     id: authData.user.id,
     email,
     full_name: fullName,
+    ...(phone?.trim() ? { phone: phone.trim() } : {}),
     role: 'staff',
     status: 'pending',
   });

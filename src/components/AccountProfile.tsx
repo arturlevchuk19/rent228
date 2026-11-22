@@ -10,6 +10,7 @@ import { PasswordField, accountInput, accountButton } from './PasswordField';
 export function AccountProfile() {
   const { user, refreshUser } = useAuth();
   const [name, setName] = useState(user?.full_name || '');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [email, setEmail] = useState(user?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -31,15 +32,16 @@ export function AccountProfile() {
       if (!name.trim()) { setError('Укажите имя.'); return; }
       begin();
       try {
-        const confirmation = await saveProfile(name, email, user.email);
+        const confirmation = await saveProfile(name, email, user.email, phone);
         await refreshUser();
-        setMessage(confirmation ? 'Имя сохранено. Подтвердите новый e-mail по ссылке из письма.' : 'Профиль сохранён.');
+        setMessage(confirmation ? 'Профиль сохранён. Подтвердите новый e-mail по ссылке из письма.' : 'Профиль сохранён.');
       } catch (caught) { setError(getErrorMessage(caught)); } finally { setBusy(false); }
     }}>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Логин</span><input readOnly value={user.email} className={`${accountInput} text-gray-400`} /></label>
         <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Имя</span><input value={name} onChange={event => setName(event.target.value)} maxLength={120} autoComplete="name" disabled={busy} required className={accountInput} /></label>
       </div>
+      <label className="block space-y-2 text-sm text-gray-300"><span>Номер телефона</span><input type="tel" autoComplete="tel" maxLength={40} value={phone} onChange={event => setPhone(event.target.value)} disabled={busy} className={accountInput} /></label>
       <label className="block space-y-2 text-sm text-gray-300"><span>E-mail</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" disabled={busy} required className={accountInput} /><span className="block text-xs text-gray-400">Используется для входа. Изменение адреса подтверждается по электронной почте.</span></label>
       <div className="flex justify-end"><button disabled={busy} className={accountButton}>{busy ? 'Сохранение...' : 'Сохранить профиль'}</button></div>
     </form>

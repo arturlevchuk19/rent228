@@ -19,6 +19,7 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
   const [personnelId, setPersonnelId] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('staff');
   const [passwordTarget, setPasswordTarget] = useState<string | null>(null);
@@ -69,11 +70,15 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
     {canAccess(user, 'users', 2) && <form className="grid min-w-0 items-end gap-3 rounded-xl bg-gray-800/30 p-4 sm:grid-cols-2 xl:grid-cols-6" onSubmit={event => {
       event.preventDefault();
       const invalid = passwordError(password); if (invalid) { setError(invalid); return; }
-      void perform(async () => { const created = await createAccountUser(email.trim(), password, name.trim(), selectedRole); const selectedPerson = personnelId; setPersonnelId(''); setEmail(''); setPassword(''); setName(''); if (selectedPerson) { try { await linkAccountPersonnel(created.id, selectedPerson); } catch (caught) { throw new Error(`Пользователь создан, но связь с сотрудником не сохранена: ${getErrorMessage(caught)}. Выберите сотрудника в карточке созданного пользователя.`); } } }, 'Пользователь создан.');
+      void perform(async () => { const created = await createAccountUser(email.trim(), password, name.trim(), selectedRole); const selectedPerson = personnelId; setPersonnelId(''); setEmail(''); setPassword(''); setName(''); setPhone(''); if (phone.trim() || selectedPerson) { try {
+        if (phone.trim()) await editAccountUserDetails(created.id, name, selectedRole, 'active', selectedPerson || null, phone);
+        else await linkAccountPersonnel(created.id, selectedPerson);
+      } catch (caught) { throw new Error(`Пользователь создан, но дополнительные данные не сохранены: ${getErrorMessage(caught)}. Заполните их в карточке пользователя.`); } } }, 'Пользователь создан.');
     }}>
       <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Логин (e-mail)</span><input type="email" value={email} onChange={event => setEmail(event.target.value)} disabled={busy} required className={accountInput} /></label>
       <PasswordField label="Пароль" value={password} onChange={setPassword} disabled={busy} />
       <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Имя</span><input value={name} onChange={event => setName(event.target.value)} maxLength={120} disabled={busy} required className={accountInput} /></label>
+      <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Номер телефона</span><input type="tel" autoComplete="tel" maxLength={40} value={phone} onChange={event => setPhone(event.target.value)} disabled={busy} className={accountInput} /></label>
       <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Роль</span><select value={selectedRole} onChange={event => setRole(event.target.value as UserRole)} disabled={busy} className={accountInput}>{assignable.map(key => <option key={key} value={key}>{roleName(key)}</option>)}</select></label>
       <label className="min-w-0 space-y-2 text-sm text-gray-300"><span>Сотрудник из персонала</span><select aria-label="Сотрудник для нового пользователя" value={personnelId} onChange={event => setPersonnelId(event.target.value)} disabled={busy} className={accountInput}><option value="">Без связи с персоналом</option>{personnelChoices.filter(person => !person.account_user_id).map(person => <option key={person.id} value={person.id}>{person.full_name} — {person.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</option>)}</select></label>
       <button disabled={busy || !assignable.length} className={accountButton}>{busy ? 'Подождите...' : 'Создать'}</button>
@@ -83,7 +88,7 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
       const statuses = { active: 'Активен', inactive: 'Отключён', pending: 'Ожидает активации' };
       return <div key={target.id} className="rounded-xl border-b border-gray-800 bg-gray-800/10 p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0 grow basis-64"><p className="break-words font-medium text-white">{target.full_name}{target.id === user.id && <span className="ml-2 text-xs text-accent-400">Вы</span>}</p><p className="mt-1 break-words text-sm text-gray-400">{target.email}</p><span className={`mt-2 inline-block rounded px-2 py-1 text-xs ${target.status === 'active' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-gray-800 text-gray-400'}`}>{statuses[target.status]}</span></div>
+          <div className="min-w-0 grow basis-64"><p className="break-words font-medium text-white">{target.full_name}{target.id === user.id && <span className="ml-2 text-xs text-accent-400">Вы</span>}</p><p className="mt-1 break-words text-sm text-gray-400">{target.email}</p>{target.phone && <p className="mt-1 break-words text-sm text-gray-400">{target.phone}</p>}<span className={`mt-2 inline-block rounded px-2 py-1 text-xs ${target.status === 'active' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-gray-800 text-gray-400'}`}>{statuses[target.status]}</span></div>
           <div className="flex w-full max-w-full flex-wrap items-center gap-2 sm:w-auto">
             <select aria-label={`Роль: ${target.full_name}`} value={target.role} disabled={!editable || busy} onChange={event => { void perform(() => updateAccountUser(target.id, event.target.value as UserRole, target.status), 'Роль изменена.'); }} className={`${accountInput} w-full sm:w-48`}>
               {!assignable.includes(target.role) && <option value={target.role}>{roleName(target.role)}</option>}{assignable.map(key => <option key={key} value={key}>{roleName(key)}</option>)}
@@ -123,7 +128,7 @@ export function AccountUsers({ roles }: { roles: RoleDefinition[] }) {
     {editTarget && <AccountUserEditDialog key={editTarget.id} target={editTarget} personnel={personnelChoices} roles={assignable} roleName={roleName} onClose={() => { if (!busy) setEditTarget(null); }} onSave={async values => {
       setBusy(true); setError(''); setMessage('');
       try {
-        await editAccountUserDetails(editTarget.id, values.fullName, values.role, values.status, values.personnelId);
+        await editAccountUserDetails(editTarget.id, values.fullName, values.role, values.status, values.personnelId, values.phone);
         setEditTarget(null); setMessage('Изменения пользователя сохранены.');
         await reload().catch(caught => setError(`Изменения сохранены, но список не обновился: ${getErrorMessage(caught)}`));
       } finally { setBusy(false); }

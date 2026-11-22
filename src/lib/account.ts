@@ -13,8 +13,8 @@ export async function saveRole(role: RoleDefinition): Promise<void> {
   });
   if (error) throw new Error(error.message);
 }
-export async function saveProfile(fullName: string, email: string, currentEmail: string): Promise<boolean> {
-  const { error } = await supabase.rpc('account_update_profile', { p_full_name: fullName.trim() });
+export async function saveProfile(fullName: string, email: string, currentEmail: string, phone?: string): Promise<boolean> {
+  const { error } = await supabase.rpc('account_update_profile', { p_full_name: fullName.trim(), ...(phone === undefined ? {} : { p_phone: phone.trim() }) });
   if (error) throw new Error(error.message.includes('account_update_profile') ? 'Выполните миграцию личного кабинета в Supabase.' : error.message);
   if (email.trim().toLowerCase() !== currentEmail.toLowerCase()) {
     const { error: emailError } = await supabase.auth.updateUser({ email: email.trim().toLowerCase() });
@@ -52,7 +52,11 @@ async function adminAction<T>(body: Record<string, unknown>): Promise<T> {
   }
   return data as T;
 }
-export const listAccountUsers = () => adminAction<User[]>({ action: 'list' });
+export async function listAccountUsers(): Promise<User[]> {
+  const { data, error } = await supabase.rpc('account_list_users');
+  if (error) throw error;
+  return data || [];
+}
 export const createAccountUser = (email: string, password: string, fullName: string, role: UserRole) => adminAction<User>({ action: 'create', email, password, full_name: fullName, role });
 export interface AccountPersonnelChoice { id: string; full_name: string; employment_type?: 'staff' | 'freelance'; account_user_id: string | null; show_in_budgets: boolean; }
 export async function listAccountPersonnel(): Promise<AccountPersonnelChoice[]> {
@@ -71,7 +75,7 @@ export async function deleteAccountUser(id: string): Promise<void> {
   if (error) throw new Error(error.code === '23503' ? 'У пользователя есть связанные документы. Отключите его вместо удаления.' : error.message);
 }
 
-export async function editAccountUserDetails(id: string, fullName: string, role: UserRole, status: UserStatus, personnelId: string | null): Promise<void> {
-  const { error } = await supabase.rpc('account_edit_user_details', { p_target: id, p_full_name: fullName.trim(), p_role: role, p_status: status, p_personnel: personnelId });
+export async function editAccountUserDetails(id: string, fullName: string, role: UserRole, status: UserStatus, personnelId: string | null, phone?: string): Promise<void> {
+  const { error } = await supabase.rpc('account_edit_user_details', { p_target: id, p_full_name: fullName.trim(), p_role: role, p_status: status, p_personnel: personnelId, ...(phone === undefined ? {} : { p_phone: phone.trim() }) });
   if (error) throw error;
 }
