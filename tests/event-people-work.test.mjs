@@ -1,5 +1,5 @@
 import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
-const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./personnel'?{isAssignablePersonnel:person=>person.show_in_budgets!==false}:name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):({dayNumber:()=>null}));return exports;};
+const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./personnel'?{isAssignablePersonnel:person=>person.show_in_budgets!==false}:name==='./employeeClaimMath'?load('src/lib/employeeClaimMath.ts'):name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):({dayNumber:()=>null}));return exports;};
 const peopleAPI=load('src/lib/eventPeople.ts');
 const {orderedPeopleWorks,peopleWorkRate,addWorkPeople}=peopleAPI;
 const works=[{id:'warehouse',name:'Работа на складе'},{id:'other',name:'Звукорежиссёр'},{id:'dem',name:'Демонтаж'},{id:'inst',name:'Монтаж'}];
@@ -45,7 +45,7 @@ states[0]=false;tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='
 assert.equal(addWorkPeople([], [{...staff,id:'office',show_in_budgets:false}], {id:'inst',name:'Монтаж'}, next).length,0,'Hidden employees cannot be added even from a stale selection');
 console.log('PASS: hidden office personnel excluded from picker and new assignments');
 
-// The assigned lead uses the same picker and can edit hours without seeing prices.
+// The assigned lead uses the same picker and can edit work periods without seeing prices.
 states=[];currentRows=[];
 tree=nodes(render(false));
 assert(!tree.some(node=>text(node).includes('BYN')));
@@ -61,8 +61,13 @@ tree.find(node=>node.type==='button'&&text(node).includes('Добавить вы
 tree=nodes(render(false));
 assert.equal(currentRows[0].name,'Иван');
 assert(!tree.some(node=>text(node).includes('BYN')));
-const hours=tree.find(node=>node.type==='label'&&text(node)==='Количество часов');
-assert.equal(hours.props.children[1].props.disabled,false);
+const startInput=tree.find(node=>node.props?.['aria-label']==='С — начало работы');
+assert.equal(startInput.props.disabled,false);
+startInput.props.onChange({target:{value:'2026-11-22T22:30'}});
+tree=nodes(render(false));
+tree.find(node=>node.props?.['aria-label']==='По — окончание работы').props.onChange({target:{value:'2026-11-23T01:15'}});
+assert.equal(peopleAPI.personWorkHours(currentRows[0]),2.75);
+assert.equal(peopleAPI.personWorkAmount(currentRows[0]),41.25);
 console.log('PASS: assigned lead can add personnel and edit hours without visible rates or totals');
 
 // A lead with read-only event access can still see work groups before anyone is assigned.

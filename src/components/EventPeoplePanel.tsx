@@ -5,10 +5,12 @@ import { Plus, Trash2, X, ArrowLeft, Copy, ChevronDown } from 'lucide-react';
 import { isAssignablePersonnel, type Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
 import { newProjectId, type ProjectPerson } from '../lib/eventProject';
-import { addWorkPeople, peopleWorkRate, personWorkAmount, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
+import { addWorkPeople, peopleWorkRate, personWorkAmount, personWorkHours, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
 import { ProjectSection } from './ProjectSection';
 
 const input = 'min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-accent-500';
+const insetInput = `${input} block min-h-14 pt-6 pb-1.5`;
+const insetLabel = 'pointer-events-none absolute inset-x-3 top-1.5 truncate text-xs text-gray-400';
 const money = (value: number) => value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
 export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true }: {
@@ -71,36 +73,48 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
         </button>
         {editable && <button type="button" aria-label={`Скопировать людей из работы ${group.name}`} title="Скопировать людей в другую работу" disabled={!group.rows.length || orderedGroups.length < 2} onClick={() => setCopySource(key)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg px-3 text-gray-300 hover:bg-gray-700/50 disabled:opacity-30"><Copy className="h-4 w-4" /></button>}
         </div>
-        {expanded.has(key) && <div className="space-y-3 p-3">{group.rows.map(person => <div key={person.id} className="grid gap-3 rounded-lg border border-gray-800 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_auto]">
-          {editable ? <label className="min-w-0 space-y-1 text-xs text-gray-400">ФИО<select disabled={!editable} value={person.personnel_id} onChange={event => {
-            const next = personnel.find(row => row.id === event.target.value);
-            if (!next) { patch(person.id, { personnel_id: '' }); return; }
-            patch(person.id, { personnel_id: next.id, name: next.full_name, group: next.employment_type === 'freelance' ? 'freelance' : 'team', rate: peopleWorkRate(next, person.work_name || '') });
-          }} className={input}><option value="">Указать вручную</option>{person.personnel_id && !personnel.some(row => row.id === person.personnel_id) && <option value={person.personnel_id}>{person.name}</option>}{personnel.filter(row => row.id === person.personnel_id || (isAssignablePersonnel(row) && !group.rows.some(existing => existing.personnel_id === row.id))).map(row => <option key={row.id} value={row.id}>{row.full_name} — {row.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</option>)}</select>{!person.personnel_id && <input aria-label="ФИО вручную" disabled={!editable} value={person.name} onChange={event => patch(person.id, { name: event.target.value })} className={input} />}</label> : <p className="text-sm text-gray-200">{person.name}</p>}
-          {showPrices && <label className="space-y-1 text-xs text-gray-400">Ставка, BYN/час<input type="number" inputMode="decimal" min="0" step="any" disabled={!editable} value={person.rate} onChange={event => patch(person.id, { rate: event.target.value })} className={input} /></label>}
-          <label className="space-y-1 text-xs text-gray-400">Количество часов<input type="number" inputMode="decimal" min="0" step="0.25" disabled={!editable} value={person.hours || ''} onChange={event => patch(person.id, { hours: event.target.value })} className={input} /></label>
-          {showPrices && <label className="space-y-1 text-xs text-gray-400">Сумма, BYN<input
-            aria-label={`Сумма: ${person.name || 'новый участник'}`}
-            type="number" inputMode="decimal" min="0" step="0.01"
-            disabled={!editable || !(Number(person.hours) > 0)}
-            value={amountDrafts[person.id] ?? String(personWorkAmount(person))}
-            onChange={event => {
-              const value = event.target.value;
-              setAmountDrafts(current => ({ ...current, [person.id]: value }));
-              const rate = value.trim() ? rateForWorkAmount(Number(value), person.hours) : null;
-              if (rate !== null) patch(person.id, { rate });
-            }}
-            onBlur={() => setAmountDrafts(current => { const next = { ...current }; delete next[person.id]; return next; })}
-            className={`${input} text-gray-100 tabular-nums disabled:opacity-50`}
-          />{editable && !(Number(person.hours) > 0) && <span className="block text-xs text-gray-500">Сначала укажите часы</span>}</label>}
-          {editable && <button type="button" aria-label={`Удалить ${person.name} из работы ${group.name}`} onClick={() => onChange(people.filter(row => row.id !== person.id))} className="inline-flex min-h-11 min-w-11 items-center justify-center self-end rounded-lg p-2 text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4" /></button>}
-        </div>)}{editable && <div className="flex flex-wrap gap-3"><button type="button" onClick={() => open({ id: key, name: group.name })} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-accent-400"><Plus className="h-4 w-4" />Добавить людей</button><button type="button" onClick={() => { onChange([...people, { id: newProjectId(), personnel_id: '', name: '', group: 'external', rate: '', hours: '', work_id: key, work_name: group.name }]); }} className="min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800">Добавить строку</button></div>}</div>}
+        {expanded.has(key) && <div className="space-y-3 p-3">{group.rows.map(person => {
+          const hours = personWorkHours(person);
+          return <div key={person.id} className="space-y-2 rounded-lg border border-gray-800 p-3">
+          <div className="flex items-start gap-2">
+          {editable ? <div className="min-w-0 flex-1 space-y-2"><label className="relative block">
+            <span className={insetLabel}>ФИО</span><select value={person.personnel_id} onChange={event => {
+              const next = personnel.find(row => row.id === event.target.value);
+              if (!next) { patch(person.id, { personnel_id: '' }); return; }
+              patch(person.id, { personnel_id: next.id, name: next.full_name, group: next.employment_type === 'freelance' ? 'freelance' : 'team', rate: peopleWorkRate(next, person.work_name || '') });
+            }} className={insetInput}><option value="">Указать вручную</option>{person.personnel_id && !personnel.some(row => row.id === person.personnel_id) && <option value={person.personnel_id}>{person.name}</option>}{personnel.filter(row => row.id === person.personnel_id || (isAssignablePersonnel(row) && !group.rows.some(existing => existing.personnel_id === row.id))).map(row => <option key={row.id} value={row.id}>{row.full_name} — {row.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</option>)}</select>
+          </label>{!person.personnel_id && <input aria-label="ФИО вручную" placeholder="ФИО вручную" value={person.name} onChange={event => patch(person.id, { name: event.target.value })} className={input} />}</div> : <p className="text-sm text-gray-200">{person.name}</p>}
+          {editable && <button type="button" aria-label={`Удалить ${person.name} из работы ${group.name}`} onClick={() => onChange(people.filter(row => row.id !== person.id))} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4" /></button>}
+          </div>
+          <div className="grid grid-cols-1 gap-2 min-[540px]:grid-cols-2">
+            <label className="relative block min-w-0"><span className={insetLabel}>С</span><input aria-label="С — начало работы" type="datetime-local" disabled={!editable} value={person.starts_at || ''} onChange={event => patch(person.id, { starts_at: event.target.value, hours: undefined })} className={`${insetInput} min-w-0 appearance-none`} /></label>
+            <label className="relative block min-w-0"><span className={insetLabel}>По</span><input aria-label="По — окончание работы" type="datetime-local" disabled={!editable} value={person.ends_at || ''} onChange={event => patch(person.id, { ends_at: event.target.value, hours: undefined })} className={`${insetInput} min-w-0 appearance-none`} /></label>
+          </div>
+          {hours > 0 && <p className="text-xs tabular-nums text-gray-400">{Math.floor(Math.round(hours * 60) / 60)} ч {Math.round(hours * 60) % 60} мин</p>}
+          {showPrices && <div className="grid grid-cols-2 gap-2">
+            <label className="relative block min-w-0"><span className={insetLabel}>Ставка, BYN/час</span><input type="number" inputMode="decimal" min="0" step="any" disabled={!editable} value={person.rate} onChange={event => patch(person.id, { rate: event.target.value })} className={insetInput} /></label>
+            <label className="relative block min-w-0"><span className={insetLabel}>Сумма, BYN</span><input
+              aria-label={`Сумма: ${person.name || 'новый участник'}`}
+              type="number" inputMode="decimal" min="0" step="0.01"
+              disabled={!editable || hours <= 0}
+              value={amountDrafts[person.id] ?? String(personWorkAmount(person))}
+              onChange={event => {
+                const value = event.target.value;
+                setAmountDrafts(current => ({ ...current, [person.id]: value }));
+                const rate = value.trim() ? rateForWorkAmount(Number(value), String(hours)) : null;
+                if (rate !== null) patch(person.id, { rate });
+              }}
+              onBlur={() => setAmountDrafts(current => { const next = { ...current }; delete next[person.id]; return next; })}
+              className={`${insetInput} text-gray-100 tabular-nums disabled:opacity-50`}
+            /></label>
+          </div>}
+        </div>})}{editable && <div className="flex flex-wrap gap-3"><button type="button" onClick={() => open({ id: key, name: group.name })} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-accent-400"><Plus className="h-4 w-4" />Добавить людей</button><button type="button" onClick={() => { onChange([...people, { id: newProjectId(), personnel_id: '', name: '', group: 'external', rate: '', hours: '', work_id: key, work_name: group.name }]); }} className="min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800">Добавить строку</button></div>}</div>}
       </div>;
     })}</div>
     {!orderedGroups.length && !automatic.length && !loadingWorks && <p className="text-sm text-gray-500">{editable ? 'В смете нет работ. Добавьте свою работу через кнопку «Добавить».' : 'Назначенных работ пока нет.'}</p>}
     {!!automatic.length && <div className="mt-4 space-y-2"><h4 className="text-xs text-gray-500">Назначения из сметы</h4>{automatic.map(person => <p key={person.id} className="text-sm text-gray-300">{person.full_name} <span className="text-xs text-gray-500">{person.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</span></p>)}</div>}
     {editable && copySource && groups.has(copySource) && <PeoplePicker title={`Копировать людей: ${groups.get(copySource)!.name}`} onClose={() => setCopySource(null)}>
-      <p className="mb-4 text-sm text-gray-400">Выберите работу, куда скопировать людей. {showPrices ? 'Ставки и часы копируются вместе с ФИО.' : 'Часы копируются вместе с ФИО.'} Уже добавленные участники не дублируются.</p>
+      <p className="mb-4 text-sm text-gray-400">Выберите работу, куда скопировать людей. {showPrices ? 'Ставки и время работы копируются вместе с ФИО.' : 'Время работы копируется вместе с ФИО.'} Уже добавленные участники не дублируются.</p>
       <div className="space-y-2">{orderedGroups.filter(([key]) => key !== copySource).map(([key, group]) => <button type="button" key={key} onClick={() => {
         onChange(copyPeopleToWork(people, groups.get(copySource)!.rows.filter(row => !row.personnel_id || personnel.find(person => person.id === row.personnel_id)?.show_in_budgets !== false), { id: key, name: group.name }, newProjectId));
         setExpanded(current => new Set(current).add(key)); setCopySource(null);

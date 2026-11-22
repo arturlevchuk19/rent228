@@ -4,6 +4,12 @@ const round=(value:number)=>Math.round((value+Number.EPSILON*Math.max(1,Math.abs
 export function minskToday(now=new Date()){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Minsk',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
 export function minskInput(value:string){if(!value)return '';const date=new Date(value);if(!Number.isFinite(+date))return '';return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Minsk',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date).replace(' ','T');}
 export function minskInstant(value:string){if(!value)throw Error('Укажите дату и время');const date=new Date(/(Z|[+-]\d{2}:\d{2})$/.test(value)?value:`${value}+03:00`);if(!Number.isFinite(+date))throw Error('Проверьте дату и время');return date.toISOString();}
+export function workDurationMinutes(start?: string, end?: string): number {
+ if (!start || !end) return 0;
+ try {
+  return Math.max(0, (Date.parse(minskInstant(end)) - Date.parse(minskInstant(start))) / 60000);
+ } catch { return 0; }
+}
 export function sumClaimAmounts(values:number[]){return values.reduce((cents,value)=>cents+Math.round(value*100),0)/100;}
 export function tripRate(rates:ClaimRates,ownCar=false,ownFuel=false){return round(number(rates.driver_rate)+(ownCar?number(rates.car_rate):0)+(ownFuel?number(rates.fuel_rate):0));}
 export function lineEstimate(line:ClaimLine,person:ClaimPerson|null,rates:ClaimRates,snapshot=false,fixedRates:Record<string,number>={}){

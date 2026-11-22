@@ -2,6 +2,7 @@ import { isAssignablePersonnel, type Personnel, type WorkItem } from './personne
 import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
 import { budgetLineAmount, roundBudgetPrice, ceilCurrencyUnit, calcCombinedTotal } from './budgetPricing';
+import { workDurationMinutes } from './employeeClaimMath';
 import type { ProjectPerson } from './eventProject';
 
 export type PeopleDirectoryEntry = Pick<Personnel, 'id' | 'full_name' | 'employment_type' | 'show_in_budgets' | 'warehouse_rate' | 'warehouse_work_rate' | 'installation_rate'>;
@@ -25,8 +26,14 @@ export function addWorkPeople(current: ProjectPerson[], selected: PeopleDirector
 
 export interface BudgetPeopleWork extends PeopleWork { budgetAmount: number; }
 export const moneyRound = roundBudgetPrice;
-export function personWorkAmount(person: Pick<ProjectPerson, 'rate' | 'hours'>): number {
-  const rate = Number((person.rate || '').replace(',', '.')), hours = Number((person.hours || '').replace(',', '.'));
+type WorkPeriod = Pick<ProjectPerson, 'hours' | 'starts_at' | 'ends_at'>;
+export function personWorkHours(person: WorkPeriod): number {
+  if (person.starts_at !== undefined || person.ends_at !== undefined) return workDurationMinutes(person.starts_at, person.ends_at) / 60;
+  const hours = Number((person.hours || '').replace(',', '.'));
+  return Number.isFinite(hours) && hours >= 0 ? hours : 0;
+}
+export function personWorkAmount(person: WorkPeriod & Pick<ProjectPerson, 'rate'>): number {
+  const rate = Number((person.rate || '').replace(',', '.')), hours = personWorkHours(person);
   return Number.isFinite(rate) && Number.isFinite(hours) && rate >= 0 && hours >= 0 ? moneyRound(rate * hours) : 0;
 }
 export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number) {

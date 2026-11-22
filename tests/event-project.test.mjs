@@ -3,7 +3,7 @@ import ts from 'typescript';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require=createRequire(import.meta.url);
-const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>name==='./calendar'?load('src/lib/calendar.ts'):require(name));return exports;};
+const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>name==='./employeeClaimMath'?load('src/lib/employeeClaimMath.ts'):name==='./calendar'?load('src/lib/calendar.ts'):require(name));return exports;};
 const api=load('src/lib/eventProject.ts');
 const initial=api.normalizeProjectDetails(null);
 assert.deepEqual(api.normalizeProjectDetails({schedule:'bad',people:[null],transport:undefined}),initial);
@@ -42,3 +42,8 @@ assert.deepEqual(lead.rpcCall,{
   args:{p_event:'event',p_previous:initial,p_people:project.people,p_works:project.people_works || []},
 });
 console.log('PASS: assigned lead saves only staffing through the scoped RPC');
+
+const periodProject={...project,people:[{...project.people[0],starts_at:'2026-10-27T22:00',ends_at:'2026-10-28T01:30'}]};
+assert.deepEqual(api.normalizeProjectDetails(JSON.parse(JSON.stringify(periodProject))),periodProject);
+assert.equal(api.validateProjectDetails(periodProject,'2026-10-26','2026-10-29'),null);
+assert.match(api.validateProjectDetails({...periodProject,people:[{...periodProject.people[0],ends_at:'2026-10-27T01:30'}]},'2026-10-26','2026-10-29'),/начало и окончание/);

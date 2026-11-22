@@ -5,8 +5,9 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { getErrorMessage } from '../lib/errors';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
-import { claimBootstrap,claimWorks,listClaims,saveClaim,reviewClaim,claimHistory,saveClaimRates,uploadClaimReceipt,openClaimReceipt,minskToday,minskInput,lineEstimate,claimLineError,sumClaimAmounts,CLAIM_STATES,type EmployeeClaim,type ClaimBootstrap,type ClaimLine,type ClaimKind,type ClaimRates } from '../lib/employeeClaims';
+import { claimBootstrap,claimWorks,listClaims,listAccountingAssignments,saveClaim,reviewClaim,claimHistory,saveClaimRates,uploadClaimReceipt,openClaimReceipt,minskToday,minskInput,lineEstimate,claimLineError,sumClaimAmounts,CLAIM_STATES,type EmployeeClaim,type ClaimBootstrap,type ClaimLine,type ClaimKind,type ClaimRates,type ClaimAssignment } from '../lib/employeeClaims';
 import Payments from './Payments';
+import { personWorkAmount, personWorkHours } from '../lib/eventPeople';
 import { dayNumber } from '../lib/calendar';
 import { searchInputProps } from '../lib/searchInput';
 const input='min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-accent-500';
@@ -21,12 +22,23 @@ export function Accounting(){const [tab,setTab]=useState<'claims'|'payments'>('c
 export function EmployeeClaims({review=false}:{review?:boolean}){
  const {user}=useAuth();const manager=review&&canAccess(user,'payments',2);
  const [boot,setBoot]=useState<ClaimBootstrap|null>(null),[rows,setRows]=useState<EmployeeClaim[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[filter,setFilter]=useState('all'),[search,setSearch]=useState('');
+ const [accountingAssignments, setAccountingAssignments] = useState<ClaimAssignment[]>([]);
+ const [assignmentError, setAssignmentError] = useState('');
  const [editor,setEditor]=useState<{claim:EmployeeClaim|null;kind?:ClaimKind}|null>(null),[ratesOpen,setRatesOpen]=useState(false);
  const load=useCallback(async()=>{setLoading(true);try{const [context,claims]=await Promise.all([claimBootstrap(),listClaims(review?undefined:user?.id)]);setBoot(context);setRows(claims);setError('');}catch(caught){setError(getErrorMessage(caught));}finally{setLoading(false);}},[review,user?.id]);
- useEffect(()=>{void load();},[load]); // Stable identity; auth focus refreshes must not erase drafts.
+ useEffect(()=>{void load();},[load]);
+ useEffect(() => {
+   if (!review || !user?.id) return;
+   let active = true;
+   void listAccountingAssignments().then(
+     assignments => { if (active) { setAccountingAssignments(assignments); setAssignmentError(''); } },
+     error => { if (active) setAssignmentError(getErrorMessage(error)); },
+   );
+   return () => { active = false; };
+ }, [review, user?.id]); // Stable identity; auth focus refreshes must not erase drafts.
  const visible=rows.filter(row=>(filter==='all'||row.state===filter)&&`${row.employee_name} ${row.event_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
- const assignments = (boot?.assignments || []).filter(row =>
-   `${row.venue || ''} ${row.event_name} ${row.work_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
+ const assignments = (review ? accountingAssignments : boot?.assignments || []).filter(row =>
+   `${row.employee_name || ''} ${row.venue || ''} ${row.event_name} ${row.work_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
  const buttons=<><button type="button" aria-label={review?'Добавить заявку':'Подать данные'} title={review?'Добавить заявку':'Подать данные'} disabled={!boot||(!manager&&!boot.personnel)} className={primary} onClick={()=>setEditor({claim:null})}><Plus className="mr-1 inline h-4 w-4"/><span className="hidden md:inline">{review?'Добавить заявку':'Подать данные'}</span></button><button type="button" aria-label="Расходы" title="Расходы" disabled={!boot||(!manager&&!boot.personnel)} className={secondary} onClick={()=>setEditor({claim:null,kind:'expense'})}><Receipt className="mr-1 inline h-4 w-4"/><span className="hidden md:inline">Расходы</span></button></>;
  return <div className="space-y-4">
   <MobileHeaderContent>{buttons}</MobileHeaderContent>
@@ -35,13 +47,24 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]"><input {...searchInputProps} aria-label="Поиск заявок" value={search} onChange={event=>setSearch(event.target.value)} placeholder={review?'Сотрудник или мероприятие…':'Поиск мероприятия…'} className={input}/><select aria-label="Статус заявки" value={filter} onChange={event=>setFilter(event.target.value)} className={input}><option value="all">Все статусы</option>{Object.entries(CLAIM_STATES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></div>
   {!loading&&<div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl bg-gray-900 p-4 text-sm tabular-nums text-gray-300"><span>Работы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.work_amount)))} BYN</strong></span><span>Расходы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.expense_amount)))} BYN</strong></span><span>Утверждено к выплате: <strong className="text-accent-300">{money(sumClaimAmounts(visible.filter(row=>row.state==='approved').map(row=>row.total)))} BYN</strong></span></div>}
-  {!review && !loading && assignments.length > 0 && <section aria-labelledby="claim-assigned-work" className="space-y-2 rounded-xl border border-gray-800 bg-gray-900 p-4">
-    <h2 id="claim-assigned-work" className="font-semibold text-gray-100">Назначенные работы</h2>
-    <ul className="divide-y divide-gray-800">{assignments.map((row, index) => <li key={`${row.event_id}:${row.id}:${index}`} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
-      <div><p className="text-gray-100">{row.work_name}</p><p className="text-xs text-gray-400">{eventLabel(row.venue, row.event_name, row.event_date)}</p></div>
-      {row.hours && <span className="text-gray-300">{row.hours} ч</span>}
-    </li>)}</ul>
+  {assignmentError && <p role="alert" className="text-sm text-red-300">Не удалось загрузить назначения из мероприятий. {assignmentError}</p>}
+  {assignments.length > 0 && <section aria-labelledby="claim-assigned-work" className="space-y-2 rounded-xl border border-gray-800 bg-gray-900 p-4">
+    <h2 id="claim-assigned-work" className="font-semibold text-gray-100">{review ? 'Назначения из мероприятий' : 'Назначенные работы'}</h2>
+    <ul className="divide-y divide-gray-800">{assignments.map((row, index) => {
+      const period = { starts_at: row.starts_at ?? undefined, ends_at: row.ends_at ?? undefined, hours: row.hours ?? undefined };
+      const minutes = Math.round(personWorkHours(period) * 60);
+      return <li key={`${row.event_id}:${row.id}:${index}`} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
+        <div><p className="text-gray-100">{review && row.employee_name ? `${row.employee_name} · ` : ''}{row.work_name}</p><p className="text-xs text-gray-400">{eventLabel(row.venue, row.event_name, row.event_date)}</p></div>
+        <div className="text-xs text-gray-300">
+          {row.starts_at && <p>С {row.starts_at.replace('T', ' ')}</p>}
+          {row.ends_at && <p>По {row.ends_at.replace('T', ' ')}</p>}
+          {minutes > 0 && <p>{Math.floor(minutes / 60)} ч {minutes % 60} мин</p>}
+          {row.rate && <p>{money(Number(row.rate.replace(',', '.')))} BYN/час · <strong>{money(personWorkAmount({ ...period, rate: row.rate }))} BYN</strong></p>}
+        </div>
+      </li>;
+    })}</ul>
   </section>}
+  {review && assignments.length > 0 && <h2 className="font-semibold text-gray-100">Заявки сотрудников</h2>}
   {loading?<p role="status" className="py-10 text-center text-gray-400">Загрузка заявок…</p>:<div className="space-y-2">{visible.map(row=><button type="button" key={row.id} onClick={()=>setEditor({claim:row})} className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4 text-left hover:border-accent-700"><span className="min-w-0"><span className="block break-words font-semibold text-gray-100">{row.event_name}</span>{review&&<span className="block text-sm text-gray-300">{row.employee_name}</span>}<span className="mt-1 block text-xs text-gray-400">{CLAIM_STATES[row.state]} · {date(row.updated_at)}</span></span><span className="text-right tabular-nums"><span className="block font-semibold text-gray-100">{money(row.total)} BYN</span><span className="block text-xs text-gray-400">Работы {money(row.work_amount)} · расходы {money(row.expense_amount)}</span></span></button>)}{!visible.length&&<p className="rounded-xl bg-gray-900 p-8 text-center text-sm text-gray-400">Заявок пока нет. Подайте время или добавьте расходы.</p>}</div>}
   {editor&&boot&&<ClaimEditor claim={editor.claim} initialKind={editor.kind} boot={boot} manager={manager} onClose={()=>setEditor(null)} onSaved={()=>{setEditor(null);void load();}}/>}
   {ratesOpen&&boot&&<RatesDialog rates={boot.settings} onClose={()=>setRatesOpen(false)} onSaved={()=>{setRatesOpen(false);void load();}}/>}
@@ -89,7 +112,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
    <div className="space-y-3">{lines.map((line,index)=>{const calc=estimate(line);return <fieldset key={index} disabled={!editable||busy} className="min-w-0 space-y-3 rounded-xl border border-gray-700 p-3">
     <div className="flex items-center justify-between"><h3 className="font-semibold">{index+1}. {lineNames[line.kind]}</h3>{editable&&<button type="button" aria-label={`Удалить позицию ${index+1}`} onClick={()=>{setLines(current=>current.filter((_,i)=>i!==index));setDirty(true);}} className="flex h-11 w-11 items-center justify-center rounded-lg text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4"/></button>}</div>
     {(line.kind==='time'||line.kind==='trip')&&<label className="block space-y-1 text-xs text-gray-400">Работа<select aria-label={`Работа позиции ${index+1}`} value={line.work_name||''} onChange={event=>patch(index,{work_name:event.target.value,kind:/доставк/i.test(event.target.value)?'trip':'time',rate:undefined,amount:undefined,calculation:undefined})} className={input}><option value="">Выберите работу</option>{line.work_name&&!works.includes(line.work_name)&&<option>{line.work_name}</option>}{works.map(name=><option key={name}>{name}</option>)}</select></label>}
-    {(line.kind==='time'||line.kind==='warehouse')&&<><div className="grid min-w-0 gap-3 sm:grid-cols-2"><label className="block min-w-0 space-y-1 text-xs text-gray-400">Начало<input aria-label={`Начало работы ${index+1}`} type="datetime-local" value={line.starts_at||''} onChange={event=>patch(index,{starts_at:event.target.value})} className={input}/></label><label className="block min-w-0 space-y-1 text-xs text-gray-400">Окончание<input aria-label={`Окончание работы ${index+1}`} type="datetime-local" value={line.ends_at||''} onChange={event=>patch(index,{ends_at:event.target.value})} className={input}/></label></div></>}
+    {(line.kind==='time'||line.kind==='warehouse')&&<><div className="grid min-w-0 gap-3 sm:grid-cols-2"><label className="block min-w-0 space-y-1 text-xs text-gray-400">С<input aria-label={`Начало работы ${index+1}`} type="datetime-local" value={line.starts_at||''} onChange={event=>patch(index,{starts_at:event.target.value})} className={input}/></label><label className="block min-w-0 space-y-1 text-xs text-gray-400">По<input aria-label={`Окончание работы ${index+1}`} type="datetime-local" value={line.ends_at||''} onChange={event=>patch(index,{ends_at:event.target.value})} className={input}/></label></div></>}
     {line.kind==='warehouse'&&<label className="block space-y-1 text-xs text-gray-400">Выполненная работа<textarea aria-label={`Выполненная работа на складе ${index+1}`} required maxLength={2000} value={line.description||''} onChange={event=>patch(index,{description:event.target.value})} className={input}/></label>}
     {line.kind==='trip'&&<><p className="text-xs text-gray-400">Километраж подаёт водитель. Для личной машины и своего топлива отметьте соответствующие пункты.</p><label className="block space-y-1 text-xs text-gray-400">Фактический километраж всей поездки, км<input aria-label={`Километраж позиции ${index+1}`} type="number" min="0" step="0.1" value={line.kilometers??''} onChange={event=>patch(index,{kilometers:event.target.value})} className={input}/></label><div className="flex flex-wrap gap-4"><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(line.own_car)} onChange={event=>patch(index,{own_car:event.target.checked,rate:undefined})} className="h-4 w-4 accent-accent-500"/>Своя машина</label><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(line.own_fuel)} onChange={event=>patch(index,{own_fuel:event.target.checked,rate:undefined})} className="h-4 w-4 accent-accent-500"/>Своё топливо</label></div></>}
     {(line.kind==='expense'||line.kind==='allowance')&&<><label className="block space-y-1 text-xs text-gray-400">Назначение<textarea aria-label={`Назначение расхода ${index+1}`} value={line.description||''} onChange={event=>patch(index,{description:event.target.value})} className={input}/></label><label className="block space-y-1 text-xs text-gray-400">Сумма, BYN<input aria-label={`Сумма расхода ${index+1}`} type="number" min="0" step="0.01" value={line.amount??''} onChange={event=>patch(index,{amount:event.target.value})} className={input}/></label><label className="block space-y-1 text-xs text-gray-400">Фото чека<input aria-label={`Фото чека позиции ${index+1}`} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif" onChange={event=>{const file=event.target.files?.[0];if(file)void receipt(index,file);event.target.value='';}} className={`${input} text-xs`}/></label></>}
