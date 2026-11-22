@@ -39,10 +39,14 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   const suggestedDate = dayNumber(eventDate) === null ? '' : `${eventDate}T00:00`;
   const dateField = (id: string, caption: string, accessibleLabel: string, value: string, onChange: (value: string) => void, required = false) => {
     const suggestion = activeDate === id && !value ? suggestedDate : '';
-    return <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-gray-700 bg-gray-950/50 px-2.5 focus-within:border-accent-500">
-      <span className="w-6 shrink-0 text-xs text-gray-400">{caption}</span>
+    const fieldValue = value || suggestion;
+    const [day, time] = fieldValue.split('T');
+    const dateText = time ? `${day.split('-').reverse().join('.')} · ${time.slice(0, 5)}` : 'Дата и время';
+    return <label className="relative flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-gray-700 bg-gray-950/50 px-2.5 focus-within:border-accent-500">
+      <span className="w-6 shrink-0 text-xs leading-5 text-gray-400">{caption}</span>
+      <span aria-hidden="true" className="pointer-events-none hidden min-w-0 flex-1 truncate text-sm leading-5 text-gray-200 supports-[-webkit-touch-callout:none]:block">{dateText}</span>
       <input aria-label={accessibleLabel} type="datetime-local" required={required} disabled={!editable}
-        value={value || suggestion}
+        value={fieldValue}
         onPointerDown={() => setActiveDate(id)}
         onFocus={() => setActiveDate(id)}
         onBlur={() => setActiveDate(current => current === id ? null : current)}
@@ -53,7 +57,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
             onChange(suggestion);
           }
         }}
-        className="block min-h-11 w-full min-w-0 flex-1 appearance-none bg-transparent py-1.5 text-sm text-gray-200 outline-none [color-scheme:dark] [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left" />
+        className="block min-h-11 w-full min-w-0 flex-1 appearance-none bg-transparent py-1.5 text-sm text-gray-200 outline-none [color-scheme:dark] [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left supports-[-webkit-touch-callout:none]:absolute supports-[-webkit-touch-callout:none]:inset-0 supports-[-webkit-touch-callout:none]:h-full supports-[-webkit-touch-callout:none]:opacity-0" />
     </label>;
   };
   const validPeriod = personWorkHours(period) > 0;
