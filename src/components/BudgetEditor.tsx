@@ -2052,10 +2052,8 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
         }
         @media (max-width: 767px) {
           .mobile-budget-page .budget-items-heading { display: none; }
-          .mobile-budget-page [data-budget-selected="true"] > .budget-category-header,
           .mobile-budget-page [data-budget-selected="true"] > .budget-location-header {
             outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: 12px;
-
           }
           .mobile-budget-page .budget-category-header {
             min-height: 56px; gap: 8px; padding: 6px 8px; margin: 8px 0;

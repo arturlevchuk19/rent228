@@ -278,7 +278,7 @@ export function CategoryBlock({
       <div
         style={headerStyle}
         className={`budget-category-header flex items-center gap-1 px-1.5 py-1 transition-colors cursor-pointer sticky top-0 z-10 ${
-          isSelected ? 'bg-accent-900/20' : 'bg-gray-900 hover:bg-gray-800'
+          isSelected ? 'rounded-lg bg-accent-900/20 ring-2 ring-inset ring-accent-300' : 'bg-gray-900 hover:bg-gray-800'
         } ${headerClassName || ''}`}
         onClick={onSelect}
       >
