@@ -112,6 +112,7 @@ export function CategoryBlock({
   const [openMarkerDropdownId, setOpenMarkerDropdownId] = useState<string | null>(null);
   const MARKER_COLORS = ['#fef08a', '#fdba74', '#ef4444', '#86efac', '#7dd3fc', '#c4b5fd'] as const;
   const showCoefficient = budgetDays > 1;
+  const tableRowClass = "grid grid-cols-[0.75rem_minmax(0,1fr)_4.25rem] items-center gap-1 px-1.5 py-0.5";
   const tableTemplateColumns = showCoefficient
     ? 'minmax(0,1fr) 60px 65px 58px 56px 90px'
     : 'minmax(0,1fr) 60px 65px 58px 90px';
@@ -436,20 +437,19 @@ export function CategoryBlock({
       {isExpanded && items.length > 0 && (
         <div>
           {/* Table header */}
-          <div className="budget-items-heading flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/50 text-xs text-gray-400 border-b border-gray-800">
-            <div className="w-3"></div>
+          <div className={`budget-items-heading ${tableRowClass} bg-gray-900/50 text-xs text-gray-400 border-b border-gray-800`}>
+            <div aria-hidden="true" />
             <div
-              className="flex-1 grid items-center gap-1"
+              className="grid items-center gap-1"
               style={{ gridTemplateColumns: tableTemplateColumns }}
             >
               <div className="text-left">Наименование</div>
               <div className="text-center">Ед. изм.</div>
               <div className="text-center">Кол-во</div>
-              <div className="text-right">Цена</div>
+              <div className="pr-0.5 text-right">Цена</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
               <div className="text-right pr-2">Сумма</div>
             </div>
-            <div className="w-12"></div>
           </div>
 
           {/* Items */}
@@ -474,7 +474,7 @@ export function CategoryBlock({
                   }}
                 >
                   <div
-                    className={`budget-item-row flex items-center gap-1 px-1.5 py-0.5 hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-accent-500/10 border-accent-500/50' : ''}`}
+                    className={`budget-item-row ${tableRowClass} hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-accent-500/10 border-accent-500/50' : ''}`}
                     style={item.marker_color ? { backgroundColor: `${item.marker_color}40` } : undefined}
                   >
                   <div
@@ -494,7 +494,7 @@ export function CategoryBlock({
                   </div>
 
                   <div
-                    className={`budget-item-fields flex-1 grid items-center gap-1 text-sm ${showCoefficient ? "budget-item-fields-with-coefficient" : ""}`}
+                    className={`budget-item-fields min-w-0 flex-1 grid items-center gap-1 text-sm ${showCoefficient ? "budget-item-fields-with-coefficient" : ""}`}
                     style={{ gridTemplateColumns: tableTemplateColumns }}
                   >
                     <div className="text-gray-300 whitespace-normal break-words pr-2">
