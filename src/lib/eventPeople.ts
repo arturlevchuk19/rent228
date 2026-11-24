@@ -3,8 +3,8 @@ import { isAssignablePersonnel, type Personnel, type WorkItem } from './personne
 import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
 import { roundBudgetPrice, ceilCurrencyUnit, calcCombinedUnitPrice, calcDay1UnitPrice } from './budgetPricing';
-import { workDurationMinutes } from './employeeClaimMath';
-import type { ProjectPerson } from './eventProject';
+import { lineEstimate, workDurationMinutes } from './employeeClaimMath';
+import type { ProjectPerson, ProjectTransport } from './eventProject';
 
 export type PeopleDirectoryEntry = Pick<Personnel, 'id' | 'full_name' | 'employment_type' | 'show_in_budgets' | 'warehouse_rate' | 'warehouse_work_rate' | 'installation_rate'>;
 
@@ -25,21 +25,39 @@ export function addWorkPeople(current: ProjectPerson[], selected: PeopleDirector
   }))];
 }
 
-export interface BudgetPeopleWork extends PeopleWork { budgetAmount: number; }
+export interface BudgetPeopleWork extends PeopleWork { budgetAmount: number; transportAmount?: number; }
 export const moneyRound = roundBudgetPrice;
+export function deliveryCategory(name: string): ProjectTransport['category'] {
+  if (/доставка\s+оборудования/i.test(name)) return 'cargo';
+  if (/доставка\s+(?:тех[.\s-]*|технического\s+)?персонала/i.test(name)) return 'passenger';
+}
+export function transportCost(row: ProjectTransport): number {
+  return moneyRound((row.trip_price ?? 0) * (row.employment_type === 'freelance' ? 1 : 0.6));
+}
+export function deliveryWorksAfterTransport(works: BudgetPeopleWork[], transport: ProjectTransport[]): BudgetPeopleWork[] {
+  const cargo = works.find(work => deliveryCategory(work.name) === 'cargo');
+  const passenger = works.find(work => deliveryCategory(work.name) === 'passenger');
+  const deductions = new Map<string, number>();
+  for (const row of transport) {
+    const target = row.category === 'passenger' ? passenger ?? cargo : row.category === 'cargo' ? cargo : undefined;
+    if (target) deductions.set(target.id, (deductions.get(target.id) ?? 0) + transportCost(row));
+  }
+  return works.map(work => deductions.has(work.id) ? { ...work, transportAmount: moneyRound(deductions.get(work.id)!) } : work);
+}
 type WorkPeriod = Pick<ProjectPerson, 'hours' | 'starts_at' | 'ends_at'>;
 export function personWorkHours(person: WorkPeriod): number {
   if (person.starts_at !== undefined || person.ends_at !== undefined) return workDurationMinutes(person.starts_at, person.ends_at) / 60;
   const hours = Number((person.hours || '').replace(',', '.'));
   return Number.isFinite(hours) && hours >= 0 ? hours : 0;
 }
-export function personWorkAmount(person: WorkPeriod & Pick<ProjectPerson, 'rate'>): number {
+export function personWorkAmount(person: WorkPeriod & Pick<ProjectPerson, 'rate' | 'trip'>): number {
+  if (person.trip) return lineEstimate({ kind: 'trip', kilometers: person.trip.kilometers, rate: person.rate }, null, { driver_rate: 0, car_rate: 0, fuel_rate: 0 }, true).amount;
   const rate = Number((person.rate || '').replace(',', '.')), hours = personWorkHours(person);
   return Number.isFinite(rate) && Number.isFinite(hours) && rate >= 0 && hours >= 0 ? moneyRound(rate * hours) : 0;
 }
-export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number) {
+export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number, transportAmount = 0) {
   const amount = moneyRound(people.reduce((sum, person) => sum + personWorkAmount(person), 0));
-  return { amount, budgetAmount, difference: moneyRound(budgetAmount - amount) };
+  return { amount, budgetAmount, difference: moneyRound(budgetAmount - transportAmount - amount) };
 }
 /** Value staffing against the estimate’s cash BYN price for the displayed period. */
 export function budgetWorkAmountBYN(item: BudgetItem, settings: Partial<Event>): number {

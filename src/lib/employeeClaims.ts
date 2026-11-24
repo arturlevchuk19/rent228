@@ -15,6 +15,11 @@ export interface ClaimAssignment { id: string; event_id: string; event_name: str
 export interface ClaimBootstrap {personnel:ClaimPerson|null;people:ClaimPerson[];events:ClaimEvent[];settings:ClaimRates;today:string;assignments?:ClaimAssignment[];}
 export const CLAIM_STATES:Record<ClaimState,string>={draft:'Черновик',submitted:'На проверке',approved:'Утверждено',paid:'Выплачено',rejected:'Отклонено'};
 export async function claimBootstrap():Promise<ClaimBootstrap>{const {data,error}=await supabase.rpc('employee_claim_bootstrap');if(error)throw error;return data;}
+export async function getClaimRates(): Promise<ClaimRates> {
+ const { data, error } = await supabase.from('employee_claim_settings').select('driver_rate, car_rate, fuel_rate').eq('id', true).single();
+ if (error) throw error;
+ return data;
+}
 export async function listAccountingAssignments(): Promise<ClaimAssignment[]> {
  const { data, error } = await supabase.rpc('event_work_assignments', { p_review: true });
  if (error) throw error;

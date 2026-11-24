@@ -40,6 +40,12 @@ export async function garagePhotoUrl(path: string): Promise<string> {
  const {data,error}=await supabase.storage.from(GARAGE_PHOTO_BUCKET).createSignedUrl(path,3600);
  if(error)throw error;return data.signedUrl;
 }
+export type EventGarageVehicle = Pick<GarageVehicle, 'id' | 'name' | 'plate_number' | 'category' | 'driver_name'> & { employment_type: GarageGroup };
+export async function getEventGarageVehicles(): Promise<EventGarageVehicle[]> {
+ const {data,error}=await supabase.rpc('event_garage_vehicles');
+ if(error)throw error;
+ return data || [];
+}
 export async function getGarageVehicles(): Promise<GarageVehicle[]> {
  const {data,error}=await supabase.from('garage_vehicles').select('*, editor:users!garage_vehicles_updated_by_fkey(full_name)').order('name');
  if(error)throw error;

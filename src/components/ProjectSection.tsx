@@ -1,11 +1,13 @@
 import { useId, useState, type ReactNode } from 'react';
 import { ChevronDown, Pencil, Check } from 'lucide-react';
 
-export function ProjectSection({ title, subtitle, count, children, editor, editable, defaultOpen = false, actions, titleActions }: {
+export function ProjectSection({ title, subtitle, count, children, editor, editable, defaultOpen = false, actions, titleActions, openSignal }: {
   title: string; subtitle?: string; count?: number; children: ReactNode; editor?: ReactNode;
-  editable?: boolean; defaultOpen?: boolean; actions?: ReactNode; titleActions?: ReactNode;
+  editable?: boolean; defaultOpen?: boolean; actions?: ReactNode; titleActions?: ReactNode; openSignal?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [previousSignal, setPreviousSignal] = useState(openSignal);
+  if (previousSignal !== openSignal) { setPreviousSignal(openSignal); setOpen(true); }
   const [editing, setEditing] = useState(false);
   const contentId = useId();
   return <section className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">

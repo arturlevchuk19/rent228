@@ -47,3 +47,39 @@ const periodProject={...project,people:[{...project.people[0],starts_at:'2026-10
 assert.deepEqual(api.normalizeProjectDetails(JSON.parse(JSON.stringify(periodProject))),periodProject);
 assert.equal(api.validateProjectDetails(periodProject,'2026-10-26','2026-10-29'),null);
 assert.match(api.validateProjectDetails({...periodProject,people:[{...periodProject.people[0],ends_at:'2026-10-27T01:30'}]},'2026-10-26','2026-10-29'),/начало и окончание/);
+
+const resolvePeopleDependency = (name) => {
+  if (name === './employeeClaimMath' || name === './budgetPricing') return load(`src/lib/${name.slice(2)}.ts`);
+  if (name === './personnel' || name === './budgetCoefficientGroups') return {};
+  return require(name);
+};
+const peopleMath = {};
+new Function('exports', 'require', ts.transpile(fs.readFileSync('src/lib/eventPeople.ts', 'utf8'), {
+  target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,
+}))(peopleMath, resolvePeopleDependency);
+
+const transport = [
+  { id: 'truck', vehicle: 'Грузовой', driver: '', notes: '', vehicle_id: '1', category: 'cargo', employment_type: 'staff', trip_price: 100 },
+  { id: 'car', vehicle: 'Легковой', driver: '', notes: '', vehicle_id: '2', category: 'passenger', employment_type: 'freelance', trip_price: 80 },
+];
+const works = [
+  { id: 'cargo', name: 'Доставка оборудования', budgetAmount: 100 },
+  { id: 'passenger', name: 'Доставка тех. персонала', budgetAmount: 80 },
+];
+const driver = {
+  id: 'driver', personnel_id: '', name: 'Водитель', group: 'external', rate: '0.25',
+  work_id: 'cargo', work_name: works[0].name, trip: { kilometers: '50', own_car: false, own_fuel: false },
+};
+const deliveryProject = { ...initial, transport, people: [driver] };
+assert.deepEqual(api.normalizeProjectDetails(JSON.parse(JSON.stringify(deliveryProject))), deliveryProject);
+assert.equal(api.validateProjectDetails(deliveryProject, '', ''), null);
+assert.equal(peopleMath.personWorkAmount(driver), 12.5);
+const [cargo, passenger] = peopleMath.deliveryWorksAfterTransport(works, transport);
+assert.equal(cargo.transportAmount, 60);
+assert.equal(passenger.transportAmount, 80);
+assert.equal(peopleMath.peopleWorkBalance([driver], cargo.budgetAmount, cargo.transportAmount).difference, 27.5);
+const [fallback] = peopleMath.deliveryWorksAfterTransport([works[0]], transport);
+assert.equal(fallback.transportAmount, 140);
+assert.equal(peopleMath.deliveryWorksAfterTransport([works[0]], [])[0].transportAmount, undefined);
+assert.deepEqual(peopleMath.deliveryWorksAfterTransport([], transport), []);
+console.log('PASS: vehicle cost percentages, delivery fallback, driver mileage and project data round trip');

@@ -1,9 +1,10 @@
 import { getEventBudgets, type EventBudget } from '../lib/eventBudgets';
 import { getBudgetItems, type BudgetItem } from '../lib/events';
-import { documentPeopleWorks, type BudgetPeopleWork, type PeopleDirectoryEntry, type PeopleWork } from '../lib/eventPeople';
+import { deliveryCategory, deliveryWorksAfterTransport, documentPeopleWorks, type BudgetPeopleWork, type PeopleDirectoryEntry, type PeopleWork } from '../lib/eventPeople';
+import { EventTransportPanel } from './EventTransportPanel';
 import { EventPeoplePanel } from './EventPeoplePanel';
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Truck } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { getPersonnel, getWorkItems, type Personnel } from '../lib/personnel';
 import { useAuth } from '../contexts/authContext';
 import { supabase } from '../lib/supabase';
@@ -72,14 +73,14 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
   useEffect(() => {
     let active = true;
     setPeopleBudgets([]); setPeopleBudgetItems([]); setBudgetWorksError('');
-    if (!eventId || !showPeople || leadOnly) return;
+    if (!eventId || (!showPeople && !editable) || leadOnly) return;
     setLoadingBudgetWorks(true);
     Promise.all([getEventBudgets(eventId), getBudgetItems(eventId)]).then(([documents, items]) => {
       if (active) { setPeopleBudgets(documents); setPeopleBudgetItems(items); }
     }).catch(() => { if (active) setBudgetWorksError('Не удалось загрузить работы и суммы из сметы.'); })
       .finally(() => { if (active) setLoadingBudgetWorks(false); });
     return () => { active = false; };
-  }, [eventId, refreshSignal, showPeople, leadOnly]);
+  }, [eventId, refreshSignal, showPeople, editable, leadOnly]);
   const peopleBudget = peopleBudgets.find(budget => budget.id === value.people_budget_id) || peopleBudgets.find(budget => budget.is_primary) || peopleBudgets[0];
   const works = leadOnly ? leadWorks : peopleBudget ? documentPeopleWorks(peopleBudgetItems, peopleBudget) : [];
   const update = <K extends keyof EventProjectDetails>(key: K, data: EventProjectDetails[K]) => onChange({ ...value, [key]: data });
@@ -93,10 +94,12 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
       })}</div>}
     </ProjectSection>
     <ProjectSection title="Описание" defaultOpen editable={editable} editor={textEditor('description')}><ProjectText text={value.description} empty="Описание мероприятия пока не добавлено." /></ProjectSection>
-    {showPeople && <EventPeoplePanel eventDate={eventDate} showPrices={showPrices} people={value.people} personnel={personnel} assigned={assigned} works={works} catalogWorks={catalogWorks} editable={editPeople} error={peopleError || directoryError || budgetWorksError} onChange={people => update('people', people)} budgets={peopleBudgets} selectedBudgetId={peopleBudget?.id || ''} onBudgetChange={id => update('people_budget_id', id)} customWorks={value.people_works || []} onCustomWorksChange={rows => update('people_works', rows)} loadingWorks={loadingBudgetWorks} />}
-    <ProjectSection title="Транспорт" count={value.transport.length} editable={editable} editor={<div className="space-y-3">{value.transport.map((row, index) => <div key={row.id} className="min-w-0 space-y-2 rounded-xl border border-gray-800 p-3"><div className="flex gap-2"><input aria-label={`Транспорт ${index + 1}`} value={row.vehicle} placeholder="Автомобиль, номер" onChange={event => update('transport', value.transport.map(item => item.id === row.id ? { ...item, vehicle: event.target.value } : item))} className={input} /><button type="button" aria-label={`Удалить транспорт ${index + 1}`} onClick={() => update('transport', value.transport.filter(item => item.id !== row.id))} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4" /></button></div><input aria-label={`Водитель ${index + 1}`} value={row.driver} placeholder="Водитель" onChange={event => update('transport', value.transport.map(item => item.id === row.id ? { ...item, driver: event.target.value } : item))} className={input} /><textarea aria-label={`Примечания к транспорту ${index + 1}`} value={row.notes} placeholder="Маршрут, время подачи, примечания" onChange={event => update('transport', value.transport.map(item => item.id === row.id ? { ...item, notes: event.target.value } : item))} className={input} /></div>)}<button type="button" onClick={() => update('transport', [...value.transport, { id: newProjectId(), vehicle: '', driver: '', notes: '' }])} className={addClass}><Plus className="h-4 w-4" />Добавить транспорт</button></div>}>
-      {!value.transport.length ? <p className="text-sm text-gray-500">Транспорт пока не указан.</p> : <div className="space-y-3">{value.transport.map(row => <div key={row.id} className="flex gap-3 text-sm"><Truck className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" /><div className="min-w-0"><p className="break-words text-gray-200">{row.vehicle}</p>{row.driver && <p className="text-xs text-gray-400">{row.driver}</p>}{row.notes && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-gray-500">{row.notes}</p>}</div></div>)}</div>}
-    </ProjectSection>
+    {showPeople && <EventPeoplePanel eventDate={eventDate} showPrices={showPrices} people={value.people} personnel={personnel} assigned={assigned} works={deliveryWorksAfterTransport(works, value.transport)} catalogWorks={catalogWorks} editable={editPeople} error={peopleError || directoryError || budgetWorksError} onChange={people => update('people', people)} budgets={peopleBudgets} selectedBudgetId={peopleBudget?.id || ''} onBudgetChange={id => update('people_budget_id', id)} customWorks={value.people_works || []} onCustomWorksChange={rows => update('people_works', rows)} loadingWorks={loadingBudgetWorks} />}
+    <EventTransportPanel rows={value.transport} editable={editable} showPrices={showPrices || editable}
+      prices={{
+        cargo: works.find(work => deliveryCategory(work.name) === 'cargo')?.budgetAmount,
+        passenger: works.find(work => deliveryCategory(work.name) === 'passenger')?.budgetAmount,
+      }} loadingPrices={loadingBudgetWorks} onChange={rows => update('transport', rows)} />
     {([['sound', 'Звук', 'Райдеры / сцены'], ['light', 'Свет', 'Отрисовки / планы / адреса'], ['media', 'Медиа', 'Контент / патч'], ['io', 'Input / Output', 'Входы и выходы']] as const).map(([key, title, subtitle]) => <ProjectSection key={key} title={title} subtitle={subtitle} editable={editable} editor={textEditor(key)}><ProjectText text={value[key]} /></ProjectSection>)}
   </div>;
 }

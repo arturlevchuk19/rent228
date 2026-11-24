@@ -1,9 +1,11 @@
 import { workDurationMinutes } from './employeeClaimMath';
+import type { GarageGroup, GarageVehicleFields } from './garage';
 import { dayNumber } from './calendar';
 
 export interface ScheduleEntry { id: string; date: string; title: string; start: string; end: string; }
-export interface ProjectPerson { id: string; personnel_id: string; name: string; group: 'team' | 'freelance' | 'external'; rate: string; work_id?: string; work_name?: string; hours?: string; starts_at?: string; ends_at?: string; }
-export interface ProjectTransport { id: string; vehicle: string; driver: string; notes: string; }
+export interface ProjectTrip { kilometers: string; own_car: boolean; own_fuel: boolean; }
+export interface ProjectPerson { id: string; personnel_id: string; name: string; group: 'team' | 'freelance' | 'external'; rate: string; work_id?: string; work_name?: string; hours?: string; starts_at?: string; ends_at?: string; trip?: ProjectTrip; }
+export interface ProjectTransport { id: string; vehicle: string; driver: string; notes: string; vehicle_id?: string; category?: GarageVehicleFields['category']; employment_type?: GarageGroup; trip_price?: number; }
 export interface EventProjectDetails {
   description: string; schedule: ScheduleEntry[]; people: ProjectPerson[]; transport: ProjectTransport[];
   people_budget_id?: string; people_works?: { id: string; name: string }[];
@@ -12,6 +14,11 @@ export interface EventProjectDetails {
 export const newProjectId = () => crypto.randomUUID();
 const text = (value: unknown) => typeof value === 'string' ? value : '';
 const records = (value: unknown): Record<string, unknown>[] => Array.isArray(value) ? value.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object' && !Array.isArray(row)) : [];
+function normalizeTrip(value: unknown): ProjectTrip | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const row = value as Record<string, unknown>;
+  return { kilometers: text(row.kilometers), own_car: row.own_car === true, own_fuel: row.own_fuel === true };
+}
 export function normalizeProjectDetails(value: unknown): EventProjectDetails {
   const data = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   return {
@@ -19,8 +26,13 @@ export function normalizeProjectDetails(value: unknown): EventProjectDetails {
     ...(Array.isArray(data.people_works) ? { people_works: records(data.people_works).map(row => ({ id: text(row.id), name: text(row.name) })).filter(row => row.id && row.name.trim()) } : {}),
     description: text(data.description), sound: text(data.sound), light: text(data.light), media: text(data.media), io: text(data.io),
     schedule: records(data.schedule).map((row, index) => ({ id: text(row.id) || `schedule-${index}`, date: text(row.date), title: text(row.title), start: text(row.start), end: text(row.end) })),
-    people: records(data.people).map((row, index) => ({ id: text(row.id) || `person-${index}`, personnel_id: text(row.personnel_id), name: text(row.name), group: row.group === 'freelance' || row.group === 'external' ? row.group : 'team', rate: text(row.rate), ...(typeof row.work_id === 'string' ? { work_id: row.work_id } : {}), ...(typeof row.work_name === 'string' ? { work_name: row.work_name } : {}), ...(typeof row.hours === 'string' ? { hours: row.hours } : {}), ...(typeof row.starts_at === 'string' ? { starts_at: row.starts_at } : {}), ...(typeof row.ends_at === 'string' ? { ends_at: row.ends_at } : {}) })),
-    transport: records(data.transport).map((row, index) => ({ id: text(row.id) || `transport-${index}`, vehicle: text(row.vehicle), driver: text(row.driver), notes: text(row.notes) })),
+    people: records(data.people).map((row, index) => ({ id: text(row.id) || `person-${index}`, personnel_id: text(row.personnel_id), name: text(row.name), group: row.group === 'freelance' || row.group === 'external' ? row.group : 'team', rate: text(row.rate), ...(typeof row.work_id === 'string' ? { work_id: row.work_id } : {}), ...(typeof row.work_name === 'string' ? { work_name: row.work_name } : {}), ...(typeof row.hours === 'string' ? { hours: row.hours } : {}), ...(typeof row.starts_at === 'string' ? { starts_at: row.starts_at } : {}), ...(row.trip ? { trip: normalizeTrip(row.trip) } : {}), ...(typeof row.ends_at === 'string' ? { ends_at: row.ends_at } : {}) })),
+    transport: records(data.transport).map((row, index) => ({ id: text(row.id) || `transport-${index}`, vehicle: text(row.vehicle), driver: text(row.driver), notes: text(row.notes),
+      ...(typeof row.vehicle_id === 'string' ? { vehicle_id: row.vehicle_id } : {}),
+      ...(row.category === 'cargo' || row.category === 'passenger' ? { category: row.category } : {}),
+      ...(row.employment_type === 'staff' || row.employment_type === 'freelance' ? { employment_type: row.employment_type } : {}),
+      ...(typeof row.trip_price === 'number' && Number.isFinite(row.trip_price) && row.trip_price >= 0 ? { trip_price: row.trip_price } : {}),
+    })),
   };
 }
 export function validateProjectDetails(value: EventProjectDetails, startDate: string, endDate: string): string | null {
@@ -37,6 +49,7 @@ export function validateProjectDetails(value: EventProjectDetails, startDate: st
     return 'Укажите начало и окончание работы. Для ночной смены укажите следующую дату окончания.';
   }
   if (value.people.some(person => person.hours && (!Number.isFinite(Number(person.hours)) || Number(person.hours) < 0))) return 'Количество часов должно быть неотрицательным числом.';
+  if (value.people.some(({ trip }) => trip && (!Number.isFinite(Number(trip.kilometers)) || Number(trip.kilometers) <= 0))) return 'Укажите фактический километраж поездки.';
   if (value.transport.some(row => !row.vehicle.trim())) return 'Укажите транспорт или удалите незаполненную строку.';
   return null;
 }
