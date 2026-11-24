@@ -10,7 +10,7 @@ import {
   createEquipmentItem,
   updateEquipmentItem,
   EquipmentItem,
-  EQUIPMENT_UNITS
+  getEquipmentUnits
 } from '../lib/equipment';
 import { AddEquipmentDirectoryItemDialog } from './dialogs/AddEquipmentDirectoryItemDialog';
 import { getErrorMessage } from '../lib/errors';
@@ -98,6 +98,32 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
   const [showSubtypeDialog, setShowSubtypeDialog] = useState(false);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [error, setError] = useState('');
+  const [units, setUnits] = useState<string[]>([]);
+  const [unitsError, setUnitsError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let request = 0;
+    const loadUnits = async () => {
+      const currentRequest = ++request;
+      try {
+        const values = await getEquipmentUnits();
+        if (active && currentRequest === request) {
+          setUnits(values);
+          setUnitsError(false);
+        }
+      } catch {
+        if (active && currentRequest === request) setUnitsError(true);
+      }
+    };
+
+    void loadUnits();
+    window.addEventListener('focus', loadUnits);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', loadUnits);
+    };
+  }, []);
   // Локальные копии справочников: позволяют обновлять выпадающие списки
   // при добавлении нового значения без перезагрузки данных всей страницы
   // (иначе форма перерисовывалась и введённые данные терялись).
@@ -395,20 +421,27 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="equipment-unit" className="block text-sm font-medium text-gray-300 mb-1">
                   Ед. изм.
                 </label>
                 <select
+                  id="equipment-unit"
                   name="unit"
                   value={formData.unit}
                   onChange={handleChange}
                   className="w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                   required
                 >
-                  {EQUIPMENT_UNITS.map((unit) => (
+                  {!units.includes(formData.unit) && (
+                    <option value={formData.unit}>{`1 ${formData.unit}`}</option>
+                  )}
+                  {units.map((unit) => (
                     <option key={unit} value={unit}>{`1 ${unit}`}</option>
                   ))}
                 </select>
+                {unitsError && (
+                  <p role="status" className="mt-1 text-xs text-red-400">Не удалось загрузить список единиц измерения.</p>
+                )}
               </div>
 
               <div>

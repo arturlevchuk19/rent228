@@ -5,9 +5,11 @@ import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useState, useEffect } from 'react';
 import { Users, Building2, Plus, Pencil, Trash2, Search, Briefcase, Calendar } from 'lucide-react';
 import { getClients, getVenues, getEvents, getEventTypes, createEventType, updateEventType, deleteEventType, deleteClient, deleteVenue, Client, Venue, Event, EventTypeItem } from '../lib/events';
+import { addEquipmentUnit, getEquipmentUnits } from '../lib/equipment';
+import { getErrorMessage } from '../lib/errors';
 import { getWorkItems, createWorkItem, updateWorkItem, deleteWorkItem, WorkItem } from '../lib/personnel';
 
-type Tab = 'clients' | 'venues' | 'works' | 'events';
+type Tab = 'clients' | 'venues' | 'works' | 'events' | 'units';
 
 interface ContactsProps {
   onClientFormOpen?: (client?: Client) => void;
@@ -33,6 +35,39 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
   const [workName, setWorkName] = useState('');
   const [workUnit, setWorkUnit] = useState('шт');
   const [eventTypeName, setEventTypeName] = useState('');
+  const [units, setUnits] = useState<string[] | null>(null);
+  const [unitName, setUnitName] = useState('');
+  const [unitsLoadError, setUnitsLoadError] = useState(false);
+  const [unitSaveError, setUnitSaveError] = useState('');
+  const [savingUnit, setSavingUnit] = useState(false);
+  const [unitsRefresh, setUnitsRefresh] = useState(0);
+
+  useEffect(() => {
+    if (activeTab !== 'units') return;
+    let active = true;
+    setUnitsLoadError(false);
+    getEquipmentUnits()
+      .then((values) => { if (active) setUnits(values); })
+      .catch(() => { if (active) setUnitsLoadError(true); });
+    return () => { active = false; };
+  }, [activeTab, unitsRefresh]);
+
+  const handleAddUnit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!unitName.trim() || savingUnit || !canAccess(user, 'contacts', 2)) return;
+    setSavingUnit(true);
+    setUnitSaveError('');
+    try {
+      await addEquipmentUnit(unitName);
+      setUnitsRefresh((value) => value + 1);
+      setUnitName('');
+    } catch (error) {
+      setUnitSaveError(getErrorMessage(error));
+    } finally {
+      setSavingUnit(false);
+    }
+  };
+
 
   useEffect(() => {
     loadData();
@@ -104,6 +139,8 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
     w.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     w.unit.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const filteredUnits = units?.filter((unit) => unit.toLowerCase().includes(searchTerm.trim().toLowerCase()));
 
   const filteredEventTypes = eventTypes.filter((type) => type.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -203,6 +240,18 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
               <Calendar className="hidden sm:block w-4 h-4 shrink-0" />
               События ({eventTypes.length})
             </button>
+            <button
+              type="button"
+              aria-pressed={activeTab === 'units'}
+              onClick={() => { setActiveTab('units'); setSearchTerm(''); }}
+              className={`flex min-w-0 items-center justify-center min-h-11 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'units'
+                  ? 'border-accent-500 text-accent-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              Единицы измерения
+            </button>
           </nav>
         </div>
 
@@ -218,7 +267,7 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
                 className="min-h-11 w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500"
               />
             </div>
-            <MobileHeaderContent><button disabled={!canAccess(user, 'contacts', 2)}
+            {activeTab !== 'units' && <MobileHeaderContent><button disabled={!canAccess(user, 'contacts', 2)}
               onClick={() => {
                 if (activeTab === 'clients') onClientFormOpen?.();
                 if (activeTab === 'venues') onVenueFormOpen?.();
@@ -231,8 +280,51 @@ export function Contacts({ onClientFormOpen, onVenueFormOpen, refreshSignal }: C
             >
               <Plus className="w-4 h-4" />
               Добавить
-            </button></MobileHeaderContent>
+            </button></MobileHeaderContent>}
           </div>
+
+          {activeTab === 'units' && (
+            <div className="space-y-3">
+              {canAccess(user, 'contacts', 2) && (
+                <form onSubmit={handleAddUnit} className="max-w-md space-y-1">
+                  <label htmlFor="new-equipment-unit" className="block text-sm text-gray-300">Новая единица оборудования</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="new-equipment-unit"
+                      value={unitName}
+                      onChange={(event) => { setUnitName(event.target.value); setUnitSaveError(''); }}
+                      disabled={savingUnit}
+                      required
+                      className="min-w-0 flex-1 min-h-11 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500"
+                    />
+                    <button type="submit" disabled={savingUnit || !unitName.trim()} className="min-h-11 px-3 py-2 bg-accent-500 hover:bg-accent-400 disabled:opacity-50 rounded-lg text-sm font-semibold text-gray-950">
+                      {savingUnit ? 'Сохранение…' : 'Добавить'}
+                    </button>
+                  </div>
+                  {unitSaveError && <p role="alert" className="text-sm text-red-400">{unitSaveError}</p>}
+                </form>
+              )}
+              {unitsLoadError && (
+                <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-red-400">
+                  Не удалось загрузить единицы измерения.
+                  <button type="button" onClick={() => setUnitsRefresh((value) => value + 1)} className="min-h-11 text-accent-400 hover:text-accent-300">
+                    Повторить
+                  </button>
+                </div>
+              )}
+              {filteredUnits === undefined ? (
+                !unitsLoadError && <p role="status" className="text-sm text-gray-400">Загрузка…</p>
+              ) : filteredUnits.length === 0 ? (
+                <p className="px-3 py-4 text-sm text-gray-400">Единицы измерения не найдены.</p>
+              ) : (
+                <ul className="divide-y divide-gray-800">
+                  {filteredUnits.map((unit) => (
+                    <li key={unit} className="px-3 py-2 text-sm text-white break-words">{unit}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {activeTab === 'clients' && (
             <>

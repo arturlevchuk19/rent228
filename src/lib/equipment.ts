@@ -4,7 +4,20 @@ import { parseConsumption, validateConsumptionInput } from './budgetConsumption'
 import { supabase } from './supabase';
 
 export const EQUIPMENT_UNITS = ['шт.', 'м.', 'комп.', 'ед.', 'чел.', 'л.', 'кг', 'услуга', 'час', 'смена'] as const;
-export type EquipmentUnit = typeof EQUIPMENT_UNITS[number];
+export async function getEquipmentUnits(): Promise<string[]> {
+  const { data, error } = await supabase.from('equipment_units').select('name').order('name');
+  if (error) throw error;
+  return (data ?? []).map(({ name }) => name);
+}
+
+export async function addEquipmentUnit(name: string): Promise<void> {
+  const unit = name.trim();
+  if (!unit) throw new Error('Введите единицу измерения.');
+
+  const { error } = await supabase.from('equipment_units').insert({ name: unit });
+  if (error?.code === '23505') throw new Error('Такая единица измерения уже есть.');
+  if (error) throw error;
+}
 
 export interface EquipmentItem {
   id: string;
@@ -15,7 +28,7 @@ export interface EquipmentItem {
   note: string;
   attribute: string;
   sku: string;
-  unit: EquipmentUnit;
+  unit: string;
   quantity: number;
   rental_price: number;
   purchase_price?: number | null;
