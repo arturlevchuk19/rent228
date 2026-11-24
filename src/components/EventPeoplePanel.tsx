@@ -1,13 +1,13 @@
 import { searchInputProps } from '../lib/searchInput';
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Plus, Trash2, X, ArrowLeft, Copy, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Trash2, ArrowLeft, Copy, ChevronDown } from 'lucide-react';
 import { isAssignablePersonnel, type Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
 import { newProjectId, type ProjectPerson } from '../lib/eventProject';
 import { addWorkPeople, peopleWorkRate, personWorkAmount, personWorkHours, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
 import { dayNumber } from '../lib/calendar';
 import { ProjectSection } from './ProjectSection';
+import { PeoplePicker } from './PeoplePicker';
 
 const input = 'min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-accent-500';
 const emptyPeriod = { starts_at: '', ends_at: '' };
@@ -172,9 +172,4 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
       </div>}
     </PeoplePicker>}
   </ProjectSection>;
-}
-function PeoplePicker({ children, title, onClose }: { children: React.ReactNode; title: string; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => { const element = dialog.current; const previous = document.activeElement as HTMLElement | null; element?.showModal(); return () => { element?.close(); previous?.focus(); }; }, []);
-  return createPortal(<dialog ref={dialog} aria-label={title} onCancel={event => { event.preventDefault(); onClose(); }} className="m-auto max-h-[90dvh] w-[calc(100%_-_1rem)] max-w-lg overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 p-4 text-gray-200 backdrop:bg-black/70"><header className="mb-4 flex items-center justify-between gap-2"><h3 className="text-lg font-semibold">{title}</h3><button type="button" onClick={onClose} aria-label="Закрыть выбор людей" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 text-gray-400 hover:bg-gray-800"><X className="h-5 w-5" /></button></header>{children}</dialog>, document.body);
 }

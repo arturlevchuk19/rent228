@@ -8,6 +8,7 @@ import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { claimBootstrap,claimWorks,listClaims,listAccountingAssignments,saveClaim,reviewClaim,claimHistory,saveClaimRates,uploadClaimReceipt,openClaimReceipt,minskToday,minskInput,lineEstimate,claimLineError,sumClaimAmounts,CLAIM_STATES,type EmployeeClaim,type ClaimBootstrap,type ClaimLine,type ClaimKind,type ClaimRates,type ClaimAssignment } from '../lib/employeeClaims';
 import Payments from './Payments';
 import { Calendar } from './Calendar';
+import { ClaimPersonPicker } from '../components/ClaimPersonPicker';
 import { personWorkAmount, personWorkHours } from '../lib/eventPeople';
 import { dayNumber } from '../lib/calendar';
 import { searchInputProps } from '../lib/searchInput';
@@ -116,11 +117,30 @@ function AccountingEventWork({ assignments, loading, failed }: {
             <time dateTime={event.event_date} className="shrink-0 text-xs tabular-nums text-gray-300">{event.event_date.split('-').reverse().join('.')}</time>
           </summary>
           <div className="border-t border-gray-800 px-3">
-            <AssignmentRows assignments={works} showEmployee />
+            <GroupedAssignmentRows assignments={works} />
           </div>
         </details>)}
       </div> : !failed && <p className="py-4 text-sm text-gray-400">За выбранный месяц работ нет.</p>}
   </section>;
+}
+
+function GroupedAssignmentRows({ assignments }: { assignments: ClaimAssignment[] }) {
+  const works = new Map<string, ClaimAssignment[]>();
+  for (const row of assignments) {
+    const key = row.work_name.trim().toLocaleLowerCase('ru-RU');
+    const group = works.get(key);
+    if (group) group.push(row);
+    else works.set(key, [row]);
+  }
+  return <div className="divide-y divide-gray-800">
+    {[...works].map(([key, rows]) => <details key={key} className="group/work">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold text-gray-100 hover:bg-gray-800/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 [&::-webkit-details-marker]:hidden">
+        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 -rotate-90 text-gray-400 group-open/work:rotate-0" />
+        <span className="min-w-0 break-words">{rows[0].work_name.trim()}</span>
+      </summary>
+      <div className="px-2 pl-8"><AssignmentRows assignments={rows} showEmployee /></div>
+    </details>)}
+  </div>;
 }
 
 function AssignmentRows({ assignments, showEmployee = false }: {
@@ -132,7 +152,7 @@ function AssignmentRows({ assignments, showEmployee = false }: {
     const minutes = Math.round(personWorkHours(period) * 60);
     return <li key={`${row.event_id}:${row.id}:${index}`} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
       <div className="min-w-0 break-words">
-        <p className="text-gray-100">{showEmployee && row.employee_name ? `${row.employee_name} · ` : ''}{row.work_name}</p>
+        <p className="text-gray-100">{showEmployee ? row.employee_name || 'Сотрудник не указан' : row.work_name}</p>
         {!showEmployee && <p className="text-xs text-gray-400">{eventLabel(row.venue, row.event_name, row.event_date)}</p>}
       </div>
       <div className="text-xs text-gray-300">
@@ -150,6 +170,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const [eventId,setEventId]=useState(claim?.event_id||''),[personId,setPersonId]=useState(claim?.personnel_id || (manager && initialKind ? '' : boot.personnel?.id) || ''),[works,setWorks]=useState<string[]>([]),[fixedRates,setFixedRates]=useState<Record<string,number>>({}),[loadingWorks,setLoadingWorks]=useState(false);
  const [lines,setLines]=useState<ClaimLine[]>(()=>claim?claim.lines.map(line=>({...line,starts_at:line.starts_at?minskInput(line.starts_at):undefined,ends_at:line.ends_at?minskInput(line.ends_at):undefined})):initialKind?[{kind:initialKind,work_name:initialKind==='warehouse'?'Работа на складе':undefined,description:'',amount:'',receipt_path:''}]:[]);
  const [note,setNote]=useState(claim?.review_note||''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false),[history,setHistory]=useState<Awaited<ReturnType<typeof claimHistory>>|null>(null),[receiptPreview,setReceiptPreview]=useState('');
+ const [personPickerOpen, setPersonPickerOpen] = useState(false);
  const person=boot.people.find(row=>row.id===personId)||(boot.personnel?.id===personId?boot.personnel:null)||(manager&&claim?{id:claim.personnel_id,full_name:claim.employee_name,installation_rate:0,warehouse_rate:0}:null);
  const people = boot.personnel && !boot.people.some(row => row.id === boot.personnel?.id)
    ? [...boot.people, boot.personnel] : boot.people;
@@ -189,14 +210,15 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
   <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
    {error&&<p role="alert" className="rounded-lg border border-red-900 p-3 text-sm text-red-300">{error}</p>}
    <fieldset disabled={busy||Boolean(claim&&!editable)} className="space-y-4">
-    {manager && <label className="block space-y-1 text-sm text-gray-300">
-      Сотрудник
-      <select disabled={Boolean(claim)} value={personId} onChange={event => changePerson(event.target.value)} className={input}>
-        <option value="">Выберите сотрудника</option>
-        {claim && !people.some(row => row.id === claim.personnel_id) && <option value={claim.personnel_id}>{claim.employee_name}</option>}
-        {people.map(row => <option key={row.id} value={row.id}>{row.full_name}</option>)}
-      </select>
-    </label>}
+    {manager && <div className="space-y-1 text-sm text-gray-300">
+      <span className="block">Сотрудник</span>
+      {claim ? <p className="min-h-11 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2">{person?.full_name}</p>
+        : <button type="button" aria-label={person ? `Сменить сотрудника: ${person.full_name}` : 'Выберите сотрудника'}
+          aria-haspopup="dialog" onClick={() => setPersonPickerOpen(true)} className={`${input} flex items-center justify-between gap-2 text-left`}>
+          <span className="min-w-0 break-words">{person?.full_name || 'Выберите сотрудника'}</span>
+          <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400" />
+        </button>}
+    </div>}
     <label className="block space-y-1 text-sm text-gray-300">Мероприятие<select aria-label="Мероприятие" disabled={Boolean(claim)||lines.some(line=>line.kind==='warehouse')} value={eventId} onChange={event=>{if(lines.some(line=>line.kind==='time'||line.kind==='trip')&&!window.confirm('При смене мероприятия строки работ будут удалены. Продолжить?'))return;setEventId(event.target.value);setLines(current=>current.filter(line=>line.kind==='expense'||line.kind==='allowance'));setDirty(true);}} className={input}><option value="">Без мероприятия — склад и расходы</option>{claim?.event_id && !selectedEvent && <option value={claim.event_id}>{claim.event_name}</option>}{eventOptions.map(row => <option key={row.id} value={row.id}>{eventLabel(row.venue, row.name, row.event_date)}</option>)}</select></label>
    </fieldset>
    {lines.some(line=>line.kind==='warehouse')&&<p className="text-xs text-gray-400">Работа на складе подаётся отдельно от мероприятий. Укажите время и выполненную работу; сумма рассчитывается по ставке сотрудника за работу на складе.</p>}
@@ -225,6 +247,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
    {!manager&&ownClaim&&claim&&['submitted','rejected'].includes(claim.state)&&!expired&&<button type="button" className={secondary} disabled={busy} onClick={()=>void perform(()=>reviewClaim(claim,'withdraw'))}>Вернуть в черновик</button>}
    {manager&&claim&&<>{claim.state==='submitted'&&<button type="button" disabled={busy||dirty} className={primary} onClick={()=>void perform(()=>reviewClaim(claim,'approve',note))}>Утвердить</button>}{['submitted','approved'].includes(claim.state)&&<><button type="button" disabled={busy||dirty} className={secondary} onClick={()=>void perform(()=>reviewClaim(claim,'return',note))}>На исправление</button><button type="button" disabled={busy||dirty} className={secondary} onClick={()=>void perform(()=>reviewClaim(claim,'reject',note))}>Отклонить</button></>}{claim.state==='approved'&&<button type="button" disabled={busy||dirty} className={primary} onClick={()=>void perform(()=>reviewClaim(claim,'pay',note))}>Отметить выплату</button>}</>}
   </div></footer>
+  {personPickerOpen && <ClaimPersonPicker people={people} currentId={personId} onSelect={changePerson} onClose={() => setPersonPickerOpen(false)} />}
   {receiptPreview&&<div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-gray-950/95 p-4"><button type="button" autoFocus className={secondary} onClick={()=>setReceiptPreview('')}>Закрыть фото чека</button><img src={receiptPreview} alt="Фото чека" className="max-h-[75dvh] max-w-full object-contain"/></div>}
  </div></dialog>,document.body);
 }
