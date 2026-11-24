@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { PeoplePicker } from './PeoplePicker';
-import { getClaimPersonnelTypes, type ClaimPerson } from '../lib/employeeClaims';
-import { getErrorMessage } from '../lib/errors';
+import type { ClaimPerson } from '../lib/employeeClaims';
 import { searchInputProps } from '../lib/searchInput';
 
 export function ClaimPersonPicker({ people, currentIds, onSelect, onClose }: {
@@ -10,31 +9,14 @@ export function ClaimPersonPicker({ people, currentIds, onSelect, onClose }: {
   onSelect: (ids: string[]) => void;
   onClose: () => void;
 }) {
-  const [types, setTypes] = useState<Map<string, 'staff' | 'freelance'> | null>(null);
-  const [error, setError] = useState('');
-  const [attempt, setAttempt] = useState(0);
-  const [group, setGroup] = useState<'staff' | 'freelance'>('staff');
+  const [group, setGroup] = useState<'staff' | 'freelance'>(() =>
+    people.find(person => person.id === currentIds[0])?.employment_type ??
+    (people.some(person => person.employment_type !== 'freelance') ? 'staff' : 'freelance'));
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(() => new Set(currentIds));
 
-  useEffect(() => {
-    if (!people.length) { setTypes(new Map()); return; }
-    const request = new AbortController();
-    setError('');
-    setTypes(null);
-    void getClaimPersonnelTypes(people.map(person => person.id), request.signal).then(
-      result => {
-        if (request.signal.aborted) return;
-        setTypes(result);
-        setGroup(result.get(currentIds[0]) ?? (people.some(person => result.get(person.id) === 'staff') ? 'staff' : 'freelance'));
-      },
-      caught => { if (!request.signal.aborted) setError(getErrorMessage(caught)); },
-    );
-    return () => request.abort();
-  }, [attempt, people, currentIds]);
-
   const query = search.trim().toLocaleLowerCase('ru-RU');
-  const visible = people.filter(person => types?.get(person.id) === group &&
+  const visible = people.filter(person => (person.employment_type || 'staff') === group &&
     person.full_name.toLocaleLowerCase('ru-RU').includes(query));
 
   return <PeoplePicker title="Выберите сотрудников" onClose={onClose}>
@@ -48,10 +30,7 @@ export function ClaimPersonPicker({ people, currentIds, onSelect, onClose }: {
       onChange={event => setSearch(event.target.value)}
       className="mb-3 min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-accent-500" />
     <div className="max-h-[40dvh] overflow-y-auto">
-      {error ? <p role="alert" className="py-4 text-sm text-red-300">{error}{' '}
-        <button type="button" onClick={() => setAttempt(value => value + 1)} className="underline">Повторить</button>
-      </p> : !types ? <p role="status" className="py-6 text-sm text-gray-400">Загрузка сотрудников…</p>
-        : visible.length ? visible.map(person => <label key={person.id} className="flex min-h-12 cursor-pointer items-center gap-3 border-b border-gray-800 py-3 text-sm text-gray-200">
+      {visible.length ? visible.map(person => <label key={person.id} className="flex min-h-12 cursor-pointer items-center gap-3 border-b border-gray-800 py-3 text-sm text-gray-200">
           <input type="checkbox" checked={selected.has(person.id)} onChange={event => {
             const checked = event.target.checked;
             setSelected(current => {
@@ -65,7 +44,7 @@ export function ClaimPersonPicker({ people, currentIds, onSelect, onClose }: {
           <span className="min-w-0 break-words">{person.full_name}</span>
         </label>) : <p className="py-6 text-center text-sm text-gray-400">Сотрудники не найдены</p>}
     </div>
-    <button type="button" disabled={!types || !selected.size} onClick={() => { onSelect([...selected]); onClose(); }}
+    <button type="button" disabled={!selected.size} onClick={() => { onSelect([...selected]); onClose(); }}
       className="mt-4 min-h-11 w-full rounded-lg bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40">
       Выбрать ({selected.size})
     </button>

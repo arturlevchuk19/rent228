@@ -7,20 +7,14 @@ export interface ClaimLine {
  break_minutes?:number|string; kilometers?:number|string; own_car?:boolean; own_fuel?:boolean;
  description?:string; receipt_path?:string; amount?:number|string; rate?:number|string; minutes?:number; calculation?:'fixed'|'hourly'; budget_id?:string;
 }
-export interface ClaimPerson {id:string;full_name:string;account_user_id?:string;installation_rate:number;warehouse_rate:number;warehouse_work_rate?:number;}
+export interface ClaimPerson {id:string;full_name:string;account_user_id?:string|null;employment_type?:'staff'|'freelance'|null;installation_rate:number;warehouse_rate:number;warehouse_work_rate?:number;}
 export interface ClaimEvent {id:string;name:string;event_date:string;venue?:string|null;event_end_date?:string;deadline:string|null;status?:string;}
 export interface ClaimRates {driver_rate:number;car_rate:number;fuel_rate:number;}
-export interface EmployeeClaim {id:string;user_id:string;personnel_id:string;employee_name:string;event_id:string|null;event_name:string;state:ClaimState;lines:ClaimLine[];work_amount:number;expense_amount:number;total:number;revision:number;review_note:string;created_at:string;updated_at:string;}
+export interface EmployeeClaim {id:string;user_id:string|null;personnel_id:string;employee_name:string;event_id:string|null;event_name:string;state:ClaimState;lines:ClaimLine[];work_amount:number;expense_amount:number;total:number;revision:number;review_note:string;created_at:string;updated_at:string;}
 export interface ClaimAssignment { id: string; event_id: string; event_name: string; event_date: string; venue: string | null; work_name: string; hours: string | null; starts_at?: string | null; ends_at?: string | null; rate?: string | null; employee_name?: string | null; }
 export interface ClaimBootstrap {personnel:ClaimPerson|null;people:ClaimPerson[];events:ClaimEvent[];settings:ClaimRates;today:string;assignments?:ClaimAssignment[];}
 export const CLAIM_STATES:Record<ClaimState,string>={draft:'Черновик',submitted:'На проверке',approved:'Утверждено',paid:'Выплачено',rejected:'Отклонено'};
 export async function claimBootstrap():Promise<ClaimBootstrap>{const {data,error}=await supabase.rpc('employee_claim_bootstrap');if(error)throw error;return data;}
-export async function getClaimPersonnelTypes(ids: string[], signal: AbortSignal): Promise<Map<string, 'staff' | 'freelance'>> {
- const { data, error } = await supabase.from('personnel')
-   .select('id,employment_type').in('id', ids).abortSignal(signal);
- if (error) throw error;
- return new Map((data || []).map(person => [person.id, person.employment_type === 'freelance' ? 'freelance' : 'staff']));
-}
 export async function listAccountingAssignments(): Promise<ClaimAssignment[]> {
  const { data, error } = await supabase.rpc('event_work_assignments', { p_review: true });
  if (error) throw error;
@@ -41,7 +35,7 @@ export async function saveClaim(claim:EmployeeClaim|null,eventId:string,lines:Cl
 export async function reviewClaim(claim:EmployeeClaim,action:'approve'|'pay'|'reject'|'return'|'withdraw',note=''){const {data,error}=await supabase.rpc('employee_claim_review',{p_id:claim.id,p_action:action,p_revision:claim.revision,p_note:note});if(error)throw error;return data as EmployeeClaim;}
 export async function claimHistory(id:string){const {data,error}=await supabase.from('employee_claim_history').select('id,action,actor_id,created_at,before_value,after_value').eq('claim_id',id).order('created_at',{ascending:false});if(error)throw error;return data||[];}
 export async function saveClaimRates(rates:ClaimRates){const {error}=await supabase.rpc('employee_claim_set_rates',{p_driver:rates.driver_rate,p_car:rates.car_rate,p_fuel:rates.fuel_rate});if(error)throw error;}
-export async function uploadClaimReceipt(file:File,userId:string){const photo=await prepareGaragePhoto(file);const path=`${userId}/${crypto.randomUUID()}.jpg`;const {error}=await supabase.storage.from('claim-receipts').upload(path,photo,{contentType:'image/jpeg',upsert:false});if(error)throw error;return path;}
+export async function uploadClaimReceipt(file:File,folder:string){const photo=await prepareGaragePhoto(file);const path=`${folder}/${crypto.randomUUID()}.jpg`;const {error}=await supabase.storage.from('claim-receipts').upload(path,photo,{contentType:'image/jpeg',upsert:false});if(error)throw error;return path;}
 export async function openClaimReceipt(path:string){const {data,error}=await supabase.storage.from('claim-receipts').createSignedUrl(path,120);if(error)throw error;return data.signedUrl;}
 export { minskToday, minskInput, minskInstant, tripRate, lineEstimate, claimLineError, sumClaimAmounts } from './employeeClaimMath';
 import { minskInstant } from './employeeClaimMath';

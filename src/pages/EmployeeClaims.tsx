@@ -80,7 +80,7 @@ export function EmployeeClaims({review=false, onOpenEvent, refreshSignal}:{revie
     {manager&&<button type="button" className={secondary} onClick={()=>setRatesOpen(true)}><Settings className="mr-1 inline h-4 w-4"/>Тарифы поездок</button>}
   </div>
   {review && <div className="flex flex-wrap gap-2">{buttons}</div>}
-  {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки свяжите хотя бы одного сотрудника с учётной записью.</p>}
+  {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки добавьте сотрудника в разделе «Персонал».</p>}
   {!loading&&!manager&&!boot?.personnel&&<p role="alert" className="rounded-xl border border-accent-700 p-4 text-sm text-accent-200">Учётная запись пока не связана с персоналом. Администратор может выбрать сотрудника при редактировании пользователя.</p>}
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]"><input {...searchInputProps} aria-label="Поиск заявок" value={search} onChange={event=>setSearch(event.target.value)} placeholder={review?'Сотрудник или мероприятие…':'Поиск мероприятия…'} className={input}/><select aria-label="Статус заявки" value={filter} onChange={event=>setFilter(event.target.value)} className={input}><option value="all">Все статусы</option>{Object.entries(CLAIM_STATES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></div>
@@ -241,7 +241,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const perform=async(action:()=>Promise<unknown>)=>{if(busy)return;setBusy(true);setError('');try{await action();onSaved();}catch(caught){setError(getErrorMessage(caught));}finally{setBusy(false);}};
  const save = (submit: boolean) => void perform(async () => {
    if (batchSubmit.current !== null && batchSubmit.current !== submit) throw Error('Завершите сохранение оставшихся заявок в том же режиме.');
-   if (!person || !recipients.length) throw Error('Выберите сотрудника, связанного с учётной записью');
+   if (!person || !recipients.length) throw Error('Выберите сотрудника');
    if (!lines.length) throw Error('Добавьте работу, поездку или расход');
    const payloads = recipients.flatMap(employee => {
      const id = employee?.id ?? '';
@@ -280,7 +280,9 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
    if (busy) return;
    setBusy(true); setError('');
    try {
-     const owner = claim?.user_id || employee?.account_user_id || (!manager ? user?.id : undefined);
+     const owner = claim ? claim.user_id ?? `personnel/${claim.personnel_id}`
+       : employee ? employee.account_user_id ?? `personnel/${employee.id}`
+       : user?.id;
      if (!owner) throw Error('Не выбран сотрудник');
      const path = await uploadClaimReceipt(file, owner);
      if (manager && !claim && employee) {
