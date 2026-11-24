@@ -67,12 +67,12 @@ for (const extra of [false, true]) {
 for (const budgetDays of [1, 3]) for (const extra of [false, true]) {
  await generateBudgetPDF({...data,budgetDays,budgetTotalsMode:'combined_only',paymentMode:'usd',budgetItems:[
   {category_id:'c',equipment:{name:'Dynamic'},quantity:2,price:100,multi_day_rate_override:0.8,dynamic_coefficient:1.25,is_extra:extra},
-  {category_id:'c',equipment:{name:'Ungrouped'},quantity:2,price:100,multi_day_rate_override:0.8,dynamic_coefficient:0,is_extra:extra},
+  {category_id:'c',equipment:{name:'Ungrouped'},quantity:2,price:100,multi_day_rate_override:0.8,dynamic_coefficient:1,is_extra:extra},
  ]});
  const table=html.match(/<table[^>]*>([\s\S]*?)<\/table>/)[1];
  const entries=[...table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map(match=>values(match[1]));
  const lineAmounts=entries.filter(row=>row.length===4 && /Dynamic|Ungrouped/.test(row[0])).map(row=>parseFloat(row[3].replace(/\s/g,'')));
- assert.deepEqual(lineAmounts,[250,0]);
+ assert.deepEqual(lineAmounts,[250,200]);
 }
 globalThis.setTimeout=nativeTimeout;
 console.log('PASS: actual PDF HTML main/extra rows in USD/BYN cash/noncash; zero coefficient equals first day; displayed unit × quantity equals amount; floating point boundary and nonzero coefficient');

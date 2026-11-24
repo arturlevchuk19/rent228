@@ -1,5 +1,6 @@
+import { BudgetGroupCheckbox, type BudgetGroupSelection } from './BudgetGroupCheckbox';
 import { BudgetCoefficientGroups } from './BudgetCoefficientGroups';
-import { getEffectiveBudgetItems, indexBudgetCoefficientGroups, isBudgetCoefficientGroupList, type BudgetCoefficientGroup } from '../lib/budgetCoefficientGroups';
+import { DEFAULT_DYNAMIC_COEFFICIENT, getEffectiveBudgetItems, indexBudgetCoefficientGroups, isBudgetCoefficientGroupList, type BudgetCoefficientGroup } from '../lib/budgetCoefficientGroups';
 import { searchInputProps } from '../lib/searchInput';
 import { BudgetConsumption } from './BudgetConsumption';
 import { retryBudgetUpdate, isBudgetNetworkError } from '../lib/retryBudgetUpdate';
@@ -103,6 +104,17 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   const [dynamicCoefficients, setDynamicCoefficients] = useState(false);
   const [coefficientGroups, setCoefficientGroups] = useState<BudgetCoefficientGroup[]>([]);
   const [groupsOpen, setGroupsOpen] = useState(false);
+  const [groupSelection, setGroupSelection] = useState<{ id: string; itemIds: string[] } | null>(null);
+  const groupSelectionAnchor = useRef<string | null>(null);
+  const budgetItemIds = useMemo(() => new Set(budgetItems.map(item => item.id)), [budgetItems]);
+  function changeGroupSelection(selection: typeof groupSelection) {
+    groupSelectionAnchor.current = null;
+    setGroupSelection(selection);
+  }
+  function closeGroups() {
+    changeGroupSelection(null);
+    setGroupsOpen(false);
+  }
   const groupsByItem = useMemo(() => indexBudgetCoefficientGroups(coefficientGroups), [coefficientGroups]);
   const pricedItems = useMemo(() => getEffectiveBudgetItems(budgetItems, {
     budget_dynamic_coefficients: dynamicCoefficients,
@@ -113,8 +125,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   function saveCoefficientGroup(group: BudgetCoefficientGroup) {
     setCoefficientGroups(current => {
       const owners = indexBudgetCoefficientGroups(current);
-      const ids = new Set(budgetItems.map(item => item.id));
-      const saved = { ...group, itemIds: group.itemIds.filter(id => ids.has(id) && (owners.get(id)?.id ?? group.id) === group.id) };
+      const saved = { ...group, itemIds: group.itemIds.filter(id => budgetItemIds.has(id) && (owners.get(id)?.id ?? group.id) === group.id) };
       return current.some(existing => existing.id === saved.id)
         ? current.map(existing => existing.id === saved.id ? saved : existing)
         : [...current, saved];
@@ -125,7 +136,8 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   const catalogSearchRef = useRef<HTMLInputElement>(null);
   const changeMobileTab = (tab: MobileBudgetTab) => {
     setMobileTab(tab);
-    setGroupsOpen(tab === 'groups');
+    if (tab === 'equipment' || tab === 'personnel') closeGroups();
+    else setGroupsOpen(tab === 'groups' || Boolean(groupSelection));
     setQuantityTarget(null);
     setMobileCatalogExpanded(true);
     if (tab === 'equipment' || tab === 'personnel') setSelectedItemType(tab === 'equipment' ? 'Оборудование' : 'Работа');
@@ -1475,6 +1487,51 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     return [...orderedItems, ...sortBudgetGroupItems(missingItems)];
   };
 
+  const selectedGroupIds = new Set(groupSelection?.itemIds);
+  const eligibleGroupItemIds = (ids: readonly string[], groupId: string) =>
+    ids.filter(id => budgetItemIds.has(id) && (groupsByItem.get(id)?.id ?? groupId) === groupId);
+  function updateGroupSelection(ids: readonly string[], selectRange = false) {
+    setGroupSelection(current => {
+      if (!current) return current;
+      const eligible = eligibleGroupItemIds(ids, current.id);
+      if (!eligible.length) return current;
+      const next = new Set(current.itemIds);
+      const add = selectRange || !eligible.every(id => next.has(id));
+      for (const id of eligible) {
+        if (add) next.add(id);
+        else next.delete(id);
+      }
+      return { ...current, itemIds: [...next] };
+    });
+  }
+  const estimateGroupSelection: BudgetGroupSelection | undefined = groupSelection && dynamicCoefficients ? {
+    state(ids) {
+      const eligible = eligibleGroupItemIds(ids, groupSelection.id);
+      const selected = eligible.filter(id => selectedGroupIds.has(id)).length;
+      return { checked: eligible.length > 0 && selected === eligible.length,
+        mixed: selected > 0 && selected < eligible.length, disabled: eligible.length === 0 };
+    },
+    toggle(ids) {
+      groupSelectionAnchor.current = null;
+      updateGroupSelection(ids);
+    },
+    selectItem(id, range) {
+      if (!eligibleGroupItemIds([id], groupSelection.id).length) return;
+      const anchor = groupSelectionAnchor.current;
+      if (range && anchor && anchor !== id) {
+        const orderedIds = getBudgetItemsInDisplayOrder().map(item => item.id);
+        const from = orderedIds.indexOf(anchor);
+        const to = orderedIds.indexOf(id);
+        if (from >= 0 && to >= 0) {
+          updateGroupSelection(orderedIds.slice(Math.min(from, to), Math.max(from, to) + 1), true);
+          return;
+        }
+      }
+      groupSelectionAnchor.current = id;
+      updateGroupSelection([id]);
+    },
+  } : undefined;
+
   // Discount/total math must operate on NON-extra items only. Extra services are
   // added back separately via getTotalWithExtraForPaymentMode and are never discounted.
   const mainBudgetItems = pricedItems.filter((item) => !isExtraServiceCategory(item.category_id));
@@ -1985,7 +2042,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
               return <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 px-1 py-3 text-sm"
                 style={{ boxShadow: group?.color ? `inset 0 0 0 1px ${group.color}` : undefined }}>
                 <span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span>
-                {dynamicCoefficients && <span className="shrink-0 text-gray-400" title={group?.name ?? 'Без группы'}>Коэф. {item.dynamic_coefficient ?? 0}</span>}
+                {dynamicCoefficients && <span className="shrink-0 text-gray-400" title={group?.name ?? 'Без группы'}>Коэф. {item.dynamic_coefficient ?? DEFAULT_DYNAMIC_COEFFICIENT}</span>}
                 <span className="shrink-0 text-gray-100 tabular-nums">{item.quantity} × {dynamicCoefficients ? roundBudgetPrice(unitPrice) : unitPrice}</span>
               </div>;
             })}
@@ -2217,6 +2274,10 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
               </div>
             </div>
 
+            {estimateGroupSelection && <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-800 bg-accent-500/10 px-3 py-2 text-xs text-gray-200">
+              <span>Отмечено {selectedGroupIds.size}. Shift + щелчок по первой и последней позиции выделяет диапазон. Позиции из других групп пропускаются.</span>
+              <button type="button" onClick={() => changeMobileTab('groups')} className="min-h-11 shrink-0 rounded-lg bg-gray-800 px-3 text-sm md:hidden">К группе</button>
+            </div>}
             {/* Budget list */}
             <div
               ref={budgetListRef}
@@ -2231,6 +2292,10 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                 <>
                   {locations.map((location) => {
                     const locationGroupId = `location:${location.id}`;
+                    const locationItemIds = estimateGroupSelection
+                      ? budgetItems.filter(item => item.location_id === location.id).map(item => item.id)
+                      : [];
+                    const locationSelectionState = estimateGroupSelection?.state(locationItemIds);
 
                     return (
                       <div
@@ -2258,12 +2323,18 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                             onClick={() => setExpandedCategories(prev => ({ ...prev, [locationGroupId]: !(prev[locationGroupId] ?? true) }))}>
                             {(expandedCategories[locationGroupId] ?? true) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                           </button>
+                          {estimateGroupSelection && <BudgetGroupCheckbox selection={estimateGroupSelection}
+                            ids={locationItemIds} label={`Выбрать локацию ${location.name}`} />}
                           <button
                             type="button"
                             className="flex-1 flex items-center gap-2 text-left"
-                            aria-pressed={selectedCategoryId === locationGroupId}
-                            title="Выбрать локацию для новых категорий"
-                            onClick={() => setSelectedCategoryId(current => current === locationGroupId ? null : locationGroupId)}
+                            disabled={locationSelectionState?.disabled}
+                            aria-pressed={locationSelectionState ? locationSelectionState.mixed ? 'mixed' : locationSelectionState.checked : selectedCategoryId === locationGroupId}
+                            title={estimateGroupSelection ? 'Отметить позиции локации' : 'Выбрать локацию для новых категорий'}
+                            onClick={() => {
+                              if (estimateGroupSelection) estimateGroupSelection.toggle(locationItemIds);
+                              else setSelectedCategoryId(current => current === locationGroupId ? null : locationGroupId);
+                            }}
                           >
                             <div
                               draggable
@@ -2336,6 +2407,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                                     exchangeRate={exchangeRate}
                                     budgetDays={budgetDays}
                                     coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
+                                    groupSelection={estimateGroupSelection}
                                     budgetTotalsMode={budgetTotalsMode}
                                     onDragStart={handleDragStart}
                                     onDragOver={handleDragOver}
@@ -2368,6 +2440,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                                 exchangeRate={exchangeRate}
                                 budgetDays={budgetDays}
                                 coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
+                                groupSelection={estimateGroupSelection}
                                 budgetTotalsMode={budgetTotalsMode}
                                 onDragStart={handleDragStart}
                                 onDragOver={handleDragOver}
@@ -2425,6 +2498,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                           exchangeRate={exchangeRate}
                           budgetDays={budgetDays}
                           coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
+                          groupSelection={estimateGroupSelection}
                           budgetTotalsMode={budgetTotalsMode}
                           onDragStart={handleDragStart}
                           onDragOver={handleDragOver}
@@ -2460,6 +2534,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                         exchangeRate={exchangeRate}
                         budgetDays={budgetDays}
                         coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
+                        groupSelection={estimateGroupSelection}
                         budgetTotalsMode={budgetTotalsMode}
                         onDragStart={handleDragStart}
                         onDragOver={(e) => handleDragOver(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
@@ -2493,14 +2568,14 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
               <div className="hidden bg-gray-800 p-0.5 rounded-lg md:flex">
                 <button
                   aria-pressed={!showGroups && selectedItemType === 'Оборудование'}
-                  onClick={() => { setGroupsOpen(false); setSelectedItemType('Оборудование'); }}
+                  onClick={() => { closeGroups(); setSelectedItemType('Оборудование'); }}
                   className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${!showGroups && selectedItemType === 'Оборудование' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   Оборудование
                 </button>
                 <button
                   aria-pressed={!showGroups && selectedItemType === 'Работа'}
-                  onClick={() => { setGroupsOpen(false); setSelectedItemType('Работа'); }}
+                  onClick={() => { closeGroups(); setSelectedItemType('Работа'); }}
                   className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${!showGroups && selectedItemType === 'Работа' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   Работа / Персонал
@@ -2522,10 +2597,9 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-3 pb-3 md:px-0 md:pb-0">
-              {showGroups ? <BudgetCoefficientGroups items={getBudgetItemsInDisplayOrder()} groups={coefficientGroups}
-                categoryNames={new Map(categories.map(category => [category.id, category.name]))}
-                locationNames={new Map(locations.map(location => [location.id, location.name]))}
-                groupsByItem={groupsByItem} onSave={saveCoefficientGroup}
+              {showGroups ? <BudgetCoefficientGroups itemIds={budgetItemIds} groups={coefficientGroups}
+                selection={groupSelection} onSelectionChange={changeGroupSelection}
+                onShowEstimate={() => setMobileTab('estimate')} onSave={saveCoefficientGroup}
                 onDelete={id => setCoefficientGroups(current => current.filter(group => group.id !== id))} /> : <>
               <button type="button" aria-expanded={mobileCatalogExpanded} onClick={() => setMobileCatalogExpanded(!mobileCatalogExpanded)} className="mb-3 flex min-h-12 w-full items-center gap-2 rounded-xl border border-accent-500/30 bg-accent-400/10 px-3 text-left text-sm font-bold uppercase text-gray-200 md:hidden">
                 <ChevronDown className={`h-4 w-4 text-accent-300 transition-transform ${mobileCatalogExpanded ? '' : '-rotate-90'}`} />
@@ -2879,13 +2953,13 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           <input type="checkbox" checked={dynamicCoefficients} onChange={event => {
             setDynamicCoefficients(event.target.checked);
             if (!event.target.checked) {
-              setGroupsOpen(false);
-              if (mobileTab === 'groups') changeMobileTab('estimate');
+              closeGroups();
+              if (mobileTab === 'groups') setMobileTab('estimate');
             }
           }} className="mt-0.5 h-5 w-5 shrink-0 accent-accent-500" />
           <span>
             <span className="block text-sm font-semibold text-gray-100">Динамические коэффициенты</span>
-            <span className="mt-1 block text-xs leading-relaxed text-gray-400">Коэффициент задаётся группой. У позиций без группы — 0. Базовая цена умножается на коэффициент группы за весь период.</span>
+            <span className="mt-1 block text-xs leading-relaxed text-gray-400">Коэффициент задаётся группой. У позиций без группы — 1. Базовая цена умножается на коэффициент группы за весь период.</span>
           </span>
         </label>
         <fieldset className="rounded-xl border border-gray-800 px-3 pb-1">
