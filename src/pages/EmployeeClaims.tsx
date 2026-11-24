@@ -21,7 +21,7 @@ const eventLabel = (venue: string | null | undefined, name: string, eventDate: s
   [venue?.trim() || name, dayNumber(eventDate) === null ? '' : eventDate.split('-').reverse().join('/')].filter(Boolean).join(' ');
 const lineNames:Record<ClaimKind,string>={warehouse:'Работа на складе',time:'Рабочее время',trip:'Поездка (водитель)',expense:'Хозрасход с чеком',allowance:'Питание / другая выплата'};
 type ClaimDraftLine = ClaimLine & { employeeReceipts?: Record<string, string> };
-type AccountingWork = ClaimAssignment & { warehouse?: boolean };
+type AccountingWork = ClaimAssignment & { warehouse?: boolean; note?: string };
 
 export function Accounting({ onOpenEvent, refreshSignal }: { onOpenEvent?: (id: string) => void; refreshSignal?: number }){const [tab,setTab]=useState<'claims'|'payments'>('claims');return <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" aria-pressed={tab==='claims'} className={tab==='claims'?primary:secondary} onClick={()=>setTab('claims')}>Заявки сотрудников</button><button type="button" aria-pressed={tab==='payments'} className={tab==='payments'?primary:secondary} onClick={()=>setTab('payments')}>Ранее созданные выплаты</button></div>{tab==='claims'?<EmployeeClaims review onOpenEvent={onOpenEvent} refreshSignal={refreshSignal} />:<Payments/>}</div>;}
 export function EmployeeClaims({review=false, onOpenEvent, refreshSignal}:{review?:boolean; onOpenEvent?: (id: string) => void; refreshSignal?: number}){
@@ -55,7 +55,7 @@ export function EmployeeClaims({review=false, onOpenEvent, refreshSignal}:{revie
      const workDate = start.slice(0, 10);
      if (!workDate || !`${claim.employee_name} Склад ${line.description || ''}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU'))) return [];
      return [{ id: `${claim.id}:${index}`, event_id: `warehouse:${workDate}`, event_name: 'Склад',
-       event_date: workDate, venue: null, work_name: line.description?.trim() || 'Работа на складе',
+       event_date: workDate, venue: null, work_name: 'Работа на складе', note: line.description?.trim(),
        hours: null, starts_at: start, ends_at: end, rate: line.rate == null ? null : String(line.rate),
        employee_name: claim.employee_name, warehouse: true }];
    }) : []) : [];
@@ -134,7 +134,7 @@ function AccountingEventWork({ assignments, loading, failed, onOpenEvent }: {
               <time dateTime={event.event_date} className="shrink-0 text-xs tabular-nums text-gray-300">{event.event_date.split('-').reverse().join('.')}</time>
             </summary>
             <div className="border-t border-gray-800 px-3">
-              <GroupedAssignmentRows assignments={works} />
+              {event.warehouse ? <AssignmentRows assignments={works} showEmployee /> : <GroupedAssignmentRows assignments={works} />}
             </div>
           </details>
           {onOpenEvent && !event.warehouse && <a
@@ -173,7 +173,7 @@ function GroupedAssignmentRows({ assignments }: { assignments: ClaimAssignment[]
 }
 
 function AssignmentRows({ assignments, showEmployee = false }: {
-  assignments: ClaimAssignment[];
+  assignments: AccountingWork[];
   showEmployee?: boolean;
 }) {
   return <ul className="divide-y divide-gray-800">{assignments.map((row, index) => {
@@ -182,6 +182,7 @@ function AssignmentRows({ assignments, showEmployee = false }: {
     return <li key={`${row.event_id}:${row.id}:${index}`} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
       <div className="min-w-0 break-words">
         <p className="text-gray-100">{showEmployee ? row.employee_name || 'Сотрудник не указан' : row.work_name}</p>
+        {row.note && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-gray-400">{row.note}</p>}
         {!showEmployee && <p className="text-xs text-gray-400">{eventLabel(row.venue, row.event_name, row.event_date)}</p>}
       </div>
       <div className="text-xs text-gray-300">
