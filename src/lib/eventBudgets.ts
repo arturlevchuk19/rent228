@@ -15,6 +15,39 @@ export async function getEventBudgets(eventId: string): Promise<EventBudget[]> {
   const { data, error } = await supabase.from('event_budgets').select('*').eq('event_id', eventId).order('is_primary', { ascending: false }).order('sort_order').order('created_at').order('id');
   check(error); return data || [];
 }
+interface BudgetCopySource extends Pick<Event, 'id' | 'name' | 'event_type' | 'event_date'> {
+  clients: Pick<NonNullable<Event['clients']>, 'organization'> | null;
+  venues: Pick<NonNullable<Event['venues']>, 'name'> | null;
+  sourceBudgets: Pick<EventBudget, 'id' | 'name'>[];
+}
+
+export async function getBudgetCopySources(): Promise<BudgetCopySource[]> {
+  const pageSize = 200;
+  const fetchPage = (offset: number) => supabase
+    .from('events')
+    .select(`
+      id, name, event_type, event_date,
+      clients(organization), venues(name),
+      sourceBudgets:event_budgets!inner(id, name)
+    `)
+    .order('event_date', { ascending: false })
+    .order('id')
+    .order('is_primary', { referencedTable: 'sourceBudgets', ascending: false })
+    .order('created_at', { referencedTable: 'sourceBudgets' })
+    .order('id', { referencedTable: 'sourceBudgets' })
+    .range(offset, offset + pageSize - 1)
+    .overrideTypes<BudgetCopySource[], { merge: false }>();
+
+  const firstPage = await fetchPage(0);
+  check(firstPage.error);
+  const sources = firstPage.data ?? [];
+  for (let offset = pageSize; sources.length === offset; offset += pageSize) {
+    const { data, error } = await fetchPage(offset);
+    check(error);
+    sources.push(...(data ?? []));
+  }
+  return sources;
+}
 export async function createEventBudget(eventId: string, name: string, primary = false): Promise<EventBudget> {
   const event = await getEvent(eventId);
   const settings = Object.fromEntries(settingsKeys.map(key => [key, event[key as keyof Event]]));

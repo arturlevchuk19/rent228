@@ -1,8 +1,8 @@
 import { searchInputProps } from '../../lib/searchInput';
-import { getEventBudgets, copyEventBudget, type EventBudget } from '../../lib/eventBudgets';
+import { getBudgetCopySources, copyEventBudget } from '../../lib/eventBudgets';
 import { useState, useEffect, useMemo } from 'react';
 import { X, Search, Calendar, Copy, Loader2, User, MapPin } from 'lucide-react';
-import { Event, getEvents, getEvent, updateEvent } from '../../lib/events';
+import { Event, getEvent, updateEvent } from '../../lib/events';
 
 interface CopyBudgetDialogProps {
   currentEventId: string;
@@ -11,7 +11,7 @@ interface CopyBudgetDialogProps {
 }
 
 export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBudgetDialogProps) {
-  const [events, setEvents] = useState<(Event & { sourceBudgets: EventBudget[] })[]>([]);
+  const [events, setEvents] = useState<Awaited<ReturnType<typeof getBudgetCopySources>>>([]);
   const [selectedBudgets, setSelectedBudgets] = useState<Record<string, string>>({});
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -21,22 +21,20 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
   const [copyEventData, setCopyEventData] = useState(false);
 
   useEffect(() => {
-    loadEvents();
+    let active = true;
+    getBudgetCopySources()
+      .then(sources => {
+        if (active) setEvents(sources);
+      })
+      .catch(error => {
+        console.error('Error loading budget copy sources:', error);
+        if (active) setLoadError('Не удалось загрузить список смет. Закройте окно и повторите попытку.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
-
-  const loadEvents = async () => {
-    try {
-      setLoading(true);
-      const data = await getEvents();
-      const sources = await Promise.all(data.map(async event => ({ ...event, sourceBudgets: await getEventBudgets(event.id) })));
-      setEvents(sources.filter(event => event.sourceBudgets.length > 0));
-    } catch (error) {
-      console.error('Error loading events:', error);
-      setLoadError('Не удалось загрузить список смет. Закройте окно и повторите попытку.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
@@ -104,7 +102,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             <Copy className="w-5 h-5 text-accent-400" />
-            Скопировать в новую смету
+            Выберите смету для копирования
           </h2>
           <button
             onClick={onClose}
@@ -120,7 +118,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="text"
-                placeholder="Поиск по названию, заказчику, площадке..."
+                placeholder="Поиск по смете, мероприятию, заказчику, площадке"
                 {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 min-h-11"
@@ -165,7 +163,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
             </div>
           ) : filteredEvents.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              Мероприятия не найдены
+              Мероприятия со сметами не найдены
             </div>
           ) : (
             <div className="space-y-1">
@@ -221,7 +219,7 @@ export function CopyBudgetDialog({ currentEventId, onClose, onSuccess }: CopyBud
                     ) : (
                       <Copy className="w-3.5 h-3.5" />
                     )}
-                    Копировать
+                    Копировать из этой сметы
                   </button>
                 </div>
               ))}
