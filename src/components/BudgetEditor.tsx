@@ -1,3 +1,5 @@
+import { BudgetCoefficientGroups } from './BudgetCoefficientGroups';
+import { getEffectiveBudgetItems, indexBudgetCoefficientGroups, isBudgetCoefficientGroupList, type BudgetCoefficientGroup } from '../lib/budgetCoefficientGroups';
 import { searchInputProps } from '../lib/searchInput';
 import { BudgetConsumption } from './BudgetConsumption';
 import { retryBudgetUpdate, isBudgetNetworkError } from '../lib/retryBudgetUpdate';
@@ -11,7 +13,7 @@ import { getBudgetEvent, updateBudgetEvent } from '../lib/eventBudgets';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { InlineQuantityAdd } from './InlineQuantityAdd';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Plus, Package, Download, Settings, StickyNote, ChevronDown, ChevronRight, MapPin, Pencil, Trash2, GripVertical } from 'lucide-react';
 import { getErrorMessage } from '../lib/errors';
 import { type Event, type BudgetItem, type Client, getBudgetItems, createBudgetItem, updateBudgetItem, deleteBudgetItem, getClients } from '../lib/events';
@@ -24,7 +26,7 @@ import { WorkPersonnelManager } from './WorkPersonnelManager';
 import { TemplatesInBudget } from './TemplatesInBudget';
 import { generateBudgetPDF } from '../lib/pdfGenerator';
 import { generateContractDocx } from '../lib/contractGenerator';
-import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
+import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, calcDay1UnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
 import {
   UShapeUnifiedDialog,
   LedSizeDialog,
@@ -42,7 +44,7 @@ interface BudgetEditorProps {
   onClose: () => void;
 }
 
-type BudgetAutoSettings = Required<Pick<Event, 'discount_enabled' | 'discount_percent' | 'discount2_enabled' | 'discount2_percent' | 'budget_days' | 'budget_totals_mode' | 'budget_note' | 'budget_version' | 'budget_payment_mode' | 'budget_exchange_rate' | 'sticky_notes' | 'show_nominal_consumption' | 'show_max_consumption'>>;
+type BudgetAutoSettings = Required<Pick<Event, 'discount_enabled' | 'discount_percent' | 'discount2_enabled' | 'discount2_percent' | 'budget_days' | 'budget_totals_mode' | 'budget_note' | 'budget_version' | 'budget_payment_mode' | 'budget_exchange_rate' | 'sticky_notes' | 'show_nominal_consumption' | 'show_max_consumption' | 'budget_dynamic_coefficients' | 'budget_coefficient_groups'>>;
 
 interface GroupedItemsByLocation {
   [locationCategoryKey: string]: BudgetItem[];
@@ -98,10 +100,32 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   const [showNominalConsumption, setShowNominalConsumption] = useState(false);
   const [showMaxConsumption, setShowMaxConsumption] = useState(false);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
+  const [dynamicCoefficients, setDynamicCoefficients] = useState(false);
+  const [coefficientGroups, setCoefficientGroups] = useState<BudgetCoefficientGroup[]>([]);
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const groupsByItem = useMemo(() => indexBudgetCoefficientGroups(coefficientGroups), [coefficientGroups]);
+  const pricedItems = useMemo(() => getEffectiveBudgetItems(budgetItems, {
+    budget_dynamic_coefficients: dynamicCoefficients,
+    budget_coefficient_groups: coefficientGroups,
+  }), [budgetItems, dynamicCoefficients, coefficientGroups]);
+  const showGroups = dynamicCoefficients && groupsOpen;
+
+  function saveCoefficientGroup(group: BudgetCoefficientGroup) {
+    setCoefficientGroups(current => {
+      const owners = indexBudgetCoefficientGroups(current);
+      const ids = new Set(budgetItems.map(item => item.id));
+      const saved = { ...group, itemIds: group.itemIds.filter(id => ids.has(id) && (owners.get(id)?.id ?? group.id) === group.id) };
+      return current.some(existing => existing.id === saved.id)
+        ? current.map(existing => existing.id === saved.id ? saved : existing)
+        : [...current, saved];
+    });
+  }
+
   const [mobileCatalogExpanded, setMobileCatalogExpanded] = useState(true);
   const catalogSearchRef = useRef<HTMLInputElement>(null);
   const changeMobileTab = (tab: MobileBudgetTab) => {
     setMobileTab(tab);
+    setGroupsOpen(tab === 'groups');
     setQuantityTarget(null);
     setMobileCatalogExpanded(true);
     if (tab === 'equipment' || tab === 'personnel') setSelectedItemType(tab === 'equipment' ? 'Оборудование' : 'Работа');
@@ -186,6 +210,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     budget_version: budgetVersion, budget_payment_mode: paymentMode, budget_exchange_rate: exchangeRate,
     sticky_notes: JSON.stringify(stickyNotes),
     show_nominal_consumption: showNominalConsumption, show_max_consumption: showMaxConsumption,
+    budget_dynamic_coefficients: dynamicCoefficients, budget_coefficient_groups: coefficientGroups,
   };
   const autosave = useBudgetAutosave(`budget_autosave_${budgetId}`, settingsSnapshot, initialSettings,
     !loading && canAccess(user, 'budgets', 2), async patch => {
@@ -287,6 +312,8 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           sticky_notes: JSON.stringify(loadedNotes),
           show_nominal_consumption: eventData.show_nominal_consumption ?? false,
           show_max_consumption: eventData.show_max_consumption ?? false,
+          budget_dynamic_coefficients: eventData.budget_dynamic_coefficients === true,
+          budget_coefficient_groups: isBudgetCoefficientGroupList(eventData.budget_coefficient_groups) ? eventData.budget_coefficient_groups : [],
         };
         let restored = loaded;
         if (canAccess(user, 'budgets', 2)) {
@@ -296,6 +323,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                 key in loaded && typeof value === typeof loaded[key as keyof BudgetAutoSettings])) {
               const recovered = { ...loaded, ...pending };
               if (recovered.budget_days >= 1 && recovered.budget_exchange_rate > 0 &&
+                  isBudgetCoefficientGroupList(recovered.budget_coefficient_groups) &&
                   ['usd', 'byn_cash', 'byn_noncash'].includes(recovered.budget_payment_mode) &&
                   ['combined_only', 'day1_plus_combined'].includes(recovered.budget_totals_mode)) restored = recovered;
             }
@@ -308,6 +336,8 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
         setBudgetDays(restored.budget_days); setBudgetTotalsMode(restored.budget_totals_mode);
         setShowNominalConsumption(restored.show_nominal_consumption);
         setShowMaxConsumption(restored.show_max_consumption);
+        setDynamicCoefficients(restored.budget_dynamic_coefficients);
+        setCoefficientGroups(restored.budget_coefficient_groups);
         setBudgetNote(restored.budget_note); setBudgetVersion(restored.budget_version);
         setPaymentMode(restored.budget_payment_mode); setExchangeRate(restored.budget_exchange_rate);
         setExchangeRateInput(String(restored.budget_exchange_rate));
@@ -1049,7 +1079,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
         venueName: event.venues?.name,
         clientName: clientsList.find((client) => client.id === contractOrganizationId)?.organization || event.clients?.organization,
         version: budgetVersion,
-        budgetItems,
+        budgetItems: pricedItems,
         categories: categories,
         locations,
         exchangeRate: exchangeRate,
@@ -1408,7 +1438,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     item.unit.toLowerCase().includes(normalizedSearchTerm)
   );
 
-  const groupedItems: GroupedItemsByLocation = budgetItems.reduce((acc, item) => {
+  const groupedItems: GroupedItemsByLocation = pricedItems.reduce((acc, item) => {
     const groupId = item.category_id
       ? buildCategoryGroupId(item.category_id, item.location_id)
       : item.location_id
@@ -1440,14 +1470,14 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     addGroupItems(NO_LOCATION_GROUP_ID);
 
     const orderedIds = new Set(orderedItems.map((item) => item.id));
-    const missingItems = budgetItems.filter((item) => !orderedIds.has(item.id));
+    const missingItems = pricedItems.filter((item) => !orderedIds.has(item.id));
 
     return [...orderedItems, ...sortBudgetGroupItems(missingItems)];
   };
 
   // Discount/total math must operate on NON-extra items only. Extra services are
   // added back separately via getTotalWithExtraForPaymentMode and are never discounted.
-  const mainBudgetItems = budgetItems.filter((item) => !isExtraServiceCategory(item.category_id));
+  const mainBudgetItems = pricedItems.filter((item) => !isExtraServiceCategory(item.category_id));
   const nonWorkItems = mainBudgetItems.filter(item => item.item_type !== 'work');
   const workItems2 = mainBudgetItems.filter(item => item.item_type === 'work');
   const isConsumablesEquipmentItem = (item: BudgetItem) =>
@@ -1457,31 +1487,31 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   const nonWorkTotalsUSD = calcGrandTotals(nonWorkItems, budgetDays, budgetTotalsMode);
   const workTotalsUSD = calcGrandTotals(workItems2, budgetDays, budgetTotalsMode);
 
-  const totalDay1BYNCash = mainBudgetItems.reduce((sum, item) => sum + budgetLineAmount(calculateBYNCash(item.price), item.quantity), 0);
+  const totalDay1BYNCash = mainBudgetItems.reduce((sum, item) => sum + budgetLineAmount(calculateBYNCash(calcDay1UnitPrice(item, budgetDays)), item.quantity), 0);
   const totalCombinedBYNCash = mainBudgetItems.reduce((sum, item) => {
     const priceNDays = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
     return sum + budgetLineAmount(calculateBYNCash(priceNDays), item.quantity);
   }, 0);
-  const totalDay1BYNNonCash = mainBudgetItems.reduce((sum, item) => sum + budgetLineAmount(calculateBYNNonCash(item.price, item), item.quantity), 0);
+  const totalDay1BYNNonCash = mainBudgetItems.reduce((sum, item) => sum + budgetLineAmount(calculateBYNNonCash(calcDay1UnitPrice(item, budgetDays), item), item.quantity), 0);
   const totalCombinedBYNNonCash = mainBudgetItems.reduce((sum, item) => {
     const priceNDays = calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays);
     return sum + budgetLineAmount(calculateBYNNonCash(priceNDays, item), item.quantity);
   }, 0);
 
   const nonWorkTotalBYNCashForMode = nonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : calcDay1UnitPrice(item, budgetDays);
     return sum + budgetLineAmount(calculateBYNCash(usdUnitPrice), item.quantity);
   }, 0);
   const nonWorkTotalBYNNonCashForMode = nonWorkItems.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : calcDay1UnitPrice(item, budgetDays);
     return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
   const workTotalBYNCashForMode = workItems2.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : calcDay1UnitPrice(item, budgetDays);
     return sum + budgetLineAmount(calculateBYNCash(usdUnitPrice), item.quantity);
   }, 0);
   const workTotalBYNNonCashForMode = workItems2.reduce((sum, item) => {
-    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : item.price;
+    const usdUnitPrice = budgetTotalsMode === 'combined_only' ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays) : calcDay1UnitPrice(item, budgetDays);
     return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
   const nonWorkTotalBYNCashCombined = nonWorkItems.reduce((sum, item) => {
@@ -1511,9 +1541,9 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     return sum + budgetLineAmount(calculateBYNNonCash(usdUnitPrice, item), item.quantity);
   }, 0);
   const discountEligibleTotalBYNCashDay1 = discountEligibleNonWorkItems.reduce(
-    (sum, item) => sum + budgetLineAmount(calculateBYNCash(item.price), item.quantity), 0);
+    (sum, item) => sum + budgetLineAmount(calculateBYNCash(calcDay1UnitPrice(item, budgetDays)), item.quantity), 0);
   const discountEligibleTotalBYNNonCashDay1 = discountEligibleNonWorkItems.reduce(
-    (sum, item) => sum + budgetLineAmount(calculateBYNNonCash(item.price, item), item.quantity), 0);
+    (sum, item) => sum + budgetLineAmount(calculateBYNNonCash(calcDay1UnitPrice(item, budgetDays), item), item.quantity), 0);
 
   // Суммы по текущему режиму итогов (combined_only / day1_plus_combined).
   // ВАЖНО: в режиме «Итого за 1дн и Nдн» при нескольких днях базой скидки является
@@ -1663,7 +1693,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
       return;
     }
     setDiscountedTotalInput(String(discountedTotal));
-  }, [discountEnabled, discountPercent, discount2Enabled, discount2Percent, paymentMode, budgetTotalsMode, budgetDays, budgetItems, exchangeRate]);
+  }, [discountEnabled, discountPercent, discount2Enabled, discount2Percent, paymentMode, budgetTotalsMode, budgetDays, pricedItems, exchangeRate]);
 
   const applyDiscountedTotalInput = () => {
     const parsedValue = parseFloat(discountedTotalInput.replace(',', '.'));
@@ -1721,26 +1751,26 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
         return items.reduce((sum, item) => {
           const unitPriceUSD = mode === 'combined'
             ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays)
-            : item.price;
+            : calcDay1UnitPrice(item, budgetDays);
           return sum + budgetLineAmount(calculateBYNCash(unitPriceUSD), item.quantity);
         }, 0);
       case 'byn_noncash':
         return items.reduce((sum, item) => {
           const unitPriceUSD = mode === 'combined'
             ? calcCombinedUnitPrice({ ...item, quantity: 1 }, budgetDays)
-            : item.price;
+            : calcDay1UnitPrice(item, budgetDays);
           return sum + budgetLineAmount(calculateBYNNonCash(unitPriceUSD, item), item.quantity);
         }, 0);
       default:
         return items.reduce(
-          (sum, item) => sum + (mode === 'combined' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item)),
+          (sum, item) => sum + (mode === 'combined' ? calcCombinedTotal(item, budgetDays) : calcDay1Total(item, budgetDays)),
           0
         );
     }
   };
 
   const getCategoriesSumForPaymentMode = (mode: 'day1' | 'combined') => {
-    const mainBudgetItemsOnly = budgetItems.filter((item) => !isExtraServiceCategory(item.category_id));
+    const mainBudgetItemsOnly = pricedItems.filter((item) => !isExtraServiceCategory(item.category_id));
 
     const groupedMainItems = mainBudgetItemsOnly.reduce((acc, item) => {
       const groupId = item.category_id
@@ -1793,7 +1823,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   };
 
   const getExtraServiceItems = () => {
-    return budgetItems.filter((item) => isExtraServiceCategory(item.category_id));
+    return pricedItems.filter((item) => isExtraServiceCategory(item.category_id));
   };
 
   const getTotalWithExtraForPaymentMode = () => {
@@ -1944,7 +1974,24 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-950 md:bg-black/70 md:p-3">
       <section className="flex h-[100dvh] w-full flex-col overflow-hidden bg-gray-900 md:h-auto md:max-h-[90dvh] md:max-w-4xl md:rounded-xl md:border md:border-gray-700">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-800 p-4"><h2 className="font-semibold text-white">Смета: {budgetName}</h2><button type="button" onClick={onClose} aria-label="Закрыть" className="rounded p-2 text-gray-300"><X className="h-5 w-5" /></button></header>
-        <div className="min-h-0 overflow-y-auto p-4">{canAccess(user, 'budgets') ? <><p className="mb-3 text-xs text-gray-400">Режим просмотра</p>{budgetItems.map(item => <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 py-3 text-sm"><span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span><span className="shrink-0 text-gray-100 tabular-nums">{item.quantity} × {item.price}</span></div>)}<p className="mt-4 font-semibold text-white">Итого: {getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p></> : <p className="text-gray-400">Нет доступа к сметам.</p>}</div>
+        <div className="min-h-0 overflow-y-auto p-4">
+          {canAccess(user, 'budgets') ? <>
+            <p className="mb-3 text-xs text-gray-400">Режим просмотра</p>
+            {pricedItems.map(item => {
+              const unitPrice = !dynamicCoefficients ? item.price : budgetTotalsMode === 'combined_only'
+                ? calcCombinedUnitPrice(item, budgetDays)
+                : calcDay1UnitPrice(item, budgetDays);
+              const group = dynamicCoefficients ? groupsByItem.get(item.id) : undefined;
+              return <div key={item.id} className="flex justify-between gap-3 border-b border-gray-800 px-1 py-3 text-sm"
+                style={{ boxShadow: group?.color ? `inset 0 0 0 1px ${group.color}` : undefined }}>
+                <span className="text-gray-200">{item.equipment?.name || item.work_item?.name || item.name || 'Позиция'}</span>
+                {dynamicCoefficients && <span className="shrink-0 text-gray-400" title={group?.name ?? 'Без группы'}>Коэф. {item.dynamic_coefficient ?? 0}</span>}
+                <span className="shrink-0 text-gray-100 tabular-nums">{item.quantity} × {dynamicCoefficients ? roundBudgetPrice(unitPrice) : unitPrice}</span>
+              </div>;
+            })}
+            <p className="mt-4 font-semibold text-white">Итого: {getPrimaryTotalForMode().toLocaleString()} {getCurrencyLabel()}</p>
+          </> : <p className="text-gray-400">Нет доступа к сметам.</p>}
+        </div>
       </section>
     </div>;
   }
@@ -1959,61 +2006,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     );
   }
 
-  const currencySettings = (
-    <div className="space-y-3">
-      <div>
-        <label className="text-xs font-bold text-gray-500  block mb-1.5">Курс валюты</label>
-        <input
-          type="text"
-          inputMode="decimal"
-          aria-label="Курс валюты"
-          value={exchangeRateInput}
-          onChange={(e) => {
-            const value = e.target.value;
-            if (!/^\d*([.,]\d*)?$/.test(value)) return;
-            setExchangeRateInput(value);
-            const rate = Math.round(Number(value.replace(',', '.')) * 100) / 100;
-            if (Number.isFinite(rate) && rate > 0) setExchangeRate(rate);
-          }}
-          onBlur={() => setExchangeRateInput(String(exchangeRate))}
-          className="min-h-11 w-full px-2.5 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-base md:min-h-0 md:text-xs focus:ring-2 focus:ring-accent-500 outline-none"
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-bold text-gray-500  block">Система расчёта</label>
-        <button
-          onClick={() => setPaymentMode('usd')}
-          className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
-            paymentMode === 'usd'
-              ? 'bg-accent-600 text-gray-950'
-              : 'text-gray-300 hover:bg-gray-700'
-          }`}
-        >
-          USD
-        </button>
-        <button
-          onClick={() => setPaymentMode('byn_noncash')}
-          className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
-            paymentMode === 'byn_noncash'
-              ? 'bg-accent-600 text-gray-950'
-              : 'text-gray-300 hover:bg-gray-700'
-          }`}
-        >
-          BYN (безналичный)
-        </button>
-        <button
-          onClick={() => setPaymentMode('byn_cash')}
-          className={`min-h-11 w-full text-left px-2.5 py-1.5 rounded-lg text-sm transition-colors md:min-h-0 md:text-xs ${
-            paymentMode === 'byn_cash'
-              ? 'bg-accent-600 text-gray-950'
-              : 'text-gray-300 hover:bg-gray-700'
-          }`}
-        >
-          BYN (наличный)
-        </button>
-      </div>
-    </div>
-  );
+  const settingsFieldClass = 'mt-1.5 block min-h-11 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 text-base text-gray-100 focus:border-accent-500 focus:outline-none';
   const categoryMenu = showCategoryDropdown && (
     <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 min-w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar p-0.5">
       {globalCategories.map(category => (
@@ -2163,7 +2156,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
 
         <div className="budget-mobile-navigation shrink-0">
         <MobileBudgetNavigation
-          name={budgetName} tab={mobileTab} onTabChange={changeMobileTab} count={budgetItems.length}
+          name={budgetName} tab={mobileTab} onTabChange={changeMobileTab} count={budgetItems.length} showGroupsTab={dynamicCoefficients}
           onBack={handleClose} onSettings={() => setShowMobileSettings(true)}
           onCategory={() => setShowCategoryDropdown(!showCategoryDropdown)}
           onLocation={() => setShowLocationDialog(true)} onService={handleCreateExtraServiceCategory}
@@ -2342,6 +2335,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                                     paymentMode={paymentMode}
                                     exchangeRate={exchangeRate}
                                     budgetDays={budgetDays}
+                                    coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
                                     budgetTotalsMode={budgetTotalsMode}
                                     onDragStart={handleDragStart}
                                     onDragOver={handleDragOver}
@@ -2373,6 +2367,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                                 paymentMode={paymentMode}
                                 exchangeRate={exchangeRate}
                                 budgetDays={budgetDays}
+                                coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
                                 budgetTotalsMode={budgetTotalsMode}
                                 onDragStart={handleDragStart}
                                 onDragOver={handleDragOver}
@@ -2429,6 +2424,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                           paymentMode={paymentMode}
                           exchangeRate={exchangeRate}
                           budgetDays={budgetDays}
+                          coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
                           budgetTotalsMode={budgetTotalsMode}
                           onDragStart={handleDragStart}
                           onDragOver={handleDragOver}
@@ -2463,6 +2459,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                         paymentMode={paymentMode}
                         exchangeRate={exchangeRate}
                         budgetDays={budgetDays}
+                        coefficientGroupsByItem={dynamicCoefficients ? groupsByItem : undefined}
                         budgetTotalsMode={budgetTotalsMode}
                         onDragStart={handleDragStart}
                         onDragOver={(e) => handleDragOver(e, { type: 'uncategorized', id: NO_LOCATION_GROUP_ID, locationId: null })}
@@ -2482,9 +2479,9 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           </div>
 
           {/* Right column */}
-          <div className={`${mobileTab === 'equipment' || mobileTab === 'personnel' ? 'flex' : 'hidden'} w-full min-w-0 flex-col md:flex md:w-2/5 md:bg-gray-900/30`}>
+          <div className={`${mobileTab === 'equipment' || mobileTab === 'personnel' || mobileTab === 'groups' ? 'flex' : 'hidden'} w-full min-w-0 flex-col md:flex md:w-2/5 md:bg-gray-900/30`}>
             <div className="p-3 border-b border-gray-800 space-y-2 flex-shrink-0">
-              <input
+              {!showGroups && <input
                 type="text"
                 {...searchInputProps} value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -2492,22 +2489,28 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                 aria-label="Поиск позиций для добавления в смету"
                 placeholder="Поиск по названию или категории..."
                 className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs text-white focus:ring-2 focus:ring-accent-500 outline-none transition-colors"
-              />
+              />}
               <div className="hidden bg-gray-800 p-0.5 rounded-lg md:flex">
                 <button
-                  onClick={() => setSelectedItemType('Оборудование')}
-                  className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${selectedItemType === 'Оборудование' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                  aria-pressed={!showGroups && selectedItemType === 'Оборудование'}
+                  onClick={() => { setGroupsOpen(false); setSelectedItemType('Оборудование'); }}
+                  className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${!showGroups && selectedItemType === 'Оборудование' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   Оборудование
                 </button>
                 <button
-                  onClick={() => setSelectedItemType('Работа')}
-                  className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${selectedItemType === 'Работа' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                  aria-pressed={!showGroups && selectedItemType === 'Работа'}
+                  onClick={() => { setGroupsOpen(false); setSelectedItemType('Работа'); }}
+                  className={`flex-1 py-1.5 text-xs font-bold  rounded-md transition-colors ${!showGroups && selectedItemType === 'Работа' ? 'bg-gray-700 text-accent-400 shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                   Работа / Персонал
                 </button>
+                {dynamicCoefficients && <button type="button" aria-pressed={showGroups} onClick={() => setGroupsOpen(true)}
+                  className="flex-1 rounded-md py-1.5 text-xs font-bold text-gray-300 hover:text-white aria-pressed:bg-gray-700 aria-pressed:text-accent-400">
+                  Группы
+                </button>}
               </div>
-              {selectedItemType === 'Оборудование' && (
+              {!showGroups && selectedItemType === 'Оборудование' && (
                 <select
                   value={selectedEquipmentCategory}
                   onChange={(e) => setSelectedEquipmentCategory(e.target.value)}
@@ -2519,6 +2522,11 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-3 pb-3 md:px-0 md:pb-0">
+              {showGroups ? <BudgetCoefficientGroups items={getBudgetItemsInDisplayOrder()} groups={coefficientGroups}
+                categoryNames={new Map(categories.map(category => [category.id, category.name]))}
+                locationNames={new Map(locations.map(location => [location.id, location.name]))}
+                groupsByItem={groupsByItem} onSave={saveCoefficientGroup}
+                onDelete={id => setCoefficientGroups(current => current.filter(group => group.id !== id))} /> : <>
               <button type="button" aria-expanded={mobileCatalogExpanded} onClick={() => setMobileCatalogExpanded(!mobileCatalogExpanded)} className="mb-3 flex min-h-12 w-full items-center gap-2 rounded-xl border border-accent-500/30 bg-accent-400/10 px-3 text-left text-sm font-bold uppercase text-gray-200 md:hidden">
                 <ChevronDown className={`h-4 w-4 text-accent-300 transition-transform ${mobileCatalogExpanded ? '' : '-rotate-90'}`} />
                 {selectedItemType === 'Оборудование' ? 'Склад' : 'Персонал и доставка'}
@@ -2578,6 +2586,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                 </div>
               )}
               </div>
+              </>}
             </div>
           </div>
         </div>
@@ -2845,12 +2854,42 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
 
       {/* Modals */}
       {showMobileSettings && <MobileBudgetSettings onClose={() => setShowMobileSettings(false)}>
-        <label className="block text-sm font-medium text-gray-300">Версия сметы
-          <input type="text" value={budgetVersion} onChange={event => setBudgetVersion(event.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-gray-700 bg-gray-800 px-3 text-base text-white" />
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+          <label className="text-sm font-medium text-gray-300">Версия сметы
+            <input type="text" value={budgetVersion} onChange={event => setBudgetVersion(event.target.value)} className={settingsFieldClass} />
+          </label>
+          <label className="text-sm font-medium text-gray-300">Курс валюты
+            <input type="text" inputMode="decimal" value={exchangeRateInput} onChange={event => {
+              const value = event.target.value;
+              if (!/^\d*([.,]\d*)?$/.test(value)) return;
+              setExchangeRateInput(value);
+              const rate = Math.round(Number(value.replace(',', '.')) * 100) / 100;
+              if (Number.isFinite(rate) && rate > 0) setExchangeRate(rate);
+            }} onBlur={() => setExchangeRateInput(String(exchangeRate))} className={settingsFieldClass} />
+          </label>
+          <label className="col-span-2 text-sm font-medium text-gray-300">Система расчёта
+            <select value={paymentMode} onChange={event => setPaymentMode(event.target.value as typeof paymentMode)} className={settingsFieldClass}>
+              <option value="usd">USD</option>
+              <option value="byn_noncash">BYN (безналичный)</option>
+              <option value="byn_cash">BYN (наличный)</option>
+            </select>
+          </label>
+        </div>
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-700 bg-gray-950 p-3">
+          <input type="checkbox" checked={dynamicCoefficients} onChange={event => {
+            setDynamicCoefficients(event.target.checked);
+            if (!event.target.checked) {
+              setGroupsOpen(false);
+              if (mobileTab === 'groups') changeMobileTab('estimate');
+            }
+          }} className="mt-0.5 h-5 w-5 shrink-0 accent-accent-500" />
+          <span>
+            <span className="block text-sm font-semibold text-gray-100">Динамические коэффициенты</span>
+            <span className="mt-1 block text-xs leading-relaxed text-gray-400">Коэффициент задаётся группой. У позиций без группы — 0. Базовая цена умножается на коэффициент группы за весь период.</span>
+          </span>
         </label>
-        {currencySettings}
-        <fieldset className="space-y-3 border-t border-gray-800 pt-4">
-          <legend className="text-sm font-medium text-gray-300">Потребление в категориях и итогах</legend>
+        <fieldset className="rounded-xl border border-gray-800 px-3 pb-1">
+          <legend className="px-1 text-sm font-medium text-gray-300">Потребление в категориях и итогах</legend>
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showNominalConsumption} onChange={event => setShowNominalConsumption(event.target.checked)} className="h-4 w-4 accent-accent-500" />Ном. потребление</label>
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showMaxConsumption} onChange={event => setShowMaxConsumption(event.target.checked)} className="h-4 w-4 accent-accent-500" />Макс. потребление</label>
         </fieldset>

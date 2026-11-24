@@ -1,13 +1,13 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { ArrowLeft, Calculator, Package, Plus, Receipt, Settings, Users, X } from 'lucide-react';
+import { ArrowLeft, Calculator, Layers, Package, Plus, Receipt, Settings, Users, X } from 'lucide-react';
 
-export type MobileBudgetTab = 'equipment' | 'personnel' | 'estimate' | 'total';
+export type MobileBudgetTab = 'equipment' | 'personnel' | 'estimate' | 'total' | 'groups';
 
-export function MobileBudgetNavigation({ name, tab, onTabChange, count, onBack, onSettings, onCategory, onLocation, onService, onTemplate, categoryMenu }: {
+export function MobileBudgetNavigation({ name, tab, onTabChange, count, onBack, onSettings, onCategory, onLocation, onService, onTemplate, categoryMenu, showGroupsTab }: {
   name: string; tab: MobileBudgetTab; onTabChange: (tab: MobileBudgetTab) => void;
   count: number; onBack: () => void; onSettings: () => void;
   onCategory: () => void; onLocation: () => void; onService: () => void; onTemplate: () => void;
-  categoryMenu: ReactNode;
+  categoryMenu: ReactNode; showGroupsTab?: boolean;
 }) {
   return <div className="shrink-0 bg-gray-950 md:hidden">
     <header className="flex items-center gap-2 border-b border-gray-800 px-3 py-3">
@@ -21,7 +21,8 @@ export function MobileBudgetNavigation({ name, tab, onTabChange, count, onBack, 
         { id: 'personnel', label: 'Персонал и доставка', icon: Users },
         { id: 'estimate', label: 'Смета', icon: Receipt },
         { id: 'total', label: 'Итого', icon: Calculator },
-      ] as const).map(({ id, label, icon: Icon }) => <button
+        { id: 'groups', label: 'Группы', icon: Layers },
+      ] as const).filter(({ id }) => id !== 'groups' || showGroupsTab).map(({ id, label, icon: Icon }) => <button
         key={id} type="button" aria-current={tab === id ? 'page' : undefined} onClick={() => onTabChange(id)}
         className={`relative flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-xs font-semibold transition-colors ${tab === id ? 'bg-accent-400/10 text-accent-300 ring-1 ring-inset ring-accent-600/50' : 'bg-gray-950/70 text-gray-300'}`}
       >
@@ -53,11 +54,11 @@ export function MobileBudgetSettings({ onClose, children }: { onClose: () => voi
   }, []);
   return <dialog ref={ref} aria-labelledby="mobile-budget-settings-title" onCancel={event => { event.preventDefault(); onClose(); }}
     onClick={event => { if (event.target === event.currentTarget) onClose(); }}
-    className="m-auto max-h-[85dvh] w-[calc(100%_-_2rem)] max-w-sm overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 p-0 text-gray-200 shadow-2xl backdrop:bg-black/70">
-    <div className="p-4" onClick={event => event.stopPropagation()}>
-      <header className="mb-4 flex items-center justify-between gap-3"><h2 id="mobile-budget-settings-title" className="font-semibold text-white">Настройки сметы</h2><button type="button" aria-label="Закрыть настройки" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-gray-800"><X className="h-5 w-5" /></button></header>
-      <div className="space-y-5">{children}</div>
-      <button type="button" onClick={onClose} className="mt-5 min-h-11 w-full rounded-xl bg-accent-600 font-semibold text-gray-950">Готово</button>
+    className="m-auto max-h-[85dvh] w-[calc(100%_-_2rem)] max-w-md overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 p-0 text-gray-200 shadow-2xl backdrop:bg-black/70">
+    <div onClick={event => event.stopPropagation()}>
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-gray-800 bg-gray-900 px-5 py-2"><h2 id="mobile-budget-settings-title" className="font-semibold text-white">Настройки сметы</h2><button type="button" aria-label="Закрыть настройки" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-gray-800"><X className="h-5 w-5" /></button></header>
+      <div className="space-y-4 px-5 py-4">{children}</div>
+      <footer className="sticky bottom-0 flex justify-end border-t border-gray-800 bg-gray-900 px-5 py-2"><button type="button" onClick={onClose} className="min-h-11 rounded-lg bg-accent-600 px-5 text-sm font-semibold text-gray-950">Готово</button></footer>
     </div>
   </dialog>;
 }

@@ -1,3 +1,4 @@
+import { BUDGET_MARKER_COLORS, type BudgetCoefficientGroup } from '../lib/budgetCoefficientGroups';
 import { BudgetNoteDialog } from './BudgetNoteDialog';
 import { budgetEquipmentDisplayName } from '../lib/budgetDisplayName';
 import { BudgetConsumption } from './BudgetConsumption';
@@ -5,7 +6,9 @@ import { useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Pencil, Check, X, GripVertical, Users, Trash2, Copy, MessageSquarePlus, Highlighter } from 'lucide-react';
 import { BudgetItem } from '../lib/events';
 import { EQUIPMENT_UNITS } from '../lib/equipment';
-import { roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
+import { roundBudgetPrice, budgetLineAmount, calcBudgetCoefficient, calcCombinedUnitPrice, calcDay1UnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total, calcDisplayedGrandTotals as calcGrandTotals } from '../lib/budgetPricing';
+
+const coefficientFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 6 });
 
 export interface BudgetDragTarget {
   type: 'category' | 'location' | 'uncategorized';
@@ -35,6 +38,7 @@ interface CategoryBlockProps {
   paymentMode: 'usd' | 'byn_cash' | 'byn_noncash';
   exchangeRate: number;
   budgetDays: number;
+  coefficientGroupsByItem?: Map<string, BudgetCoefficientGroup>;
   budgetTotalsMode: 'combined_only' | 'day1_plus_combined';
   onDragStart?: (e: React.DragEvent, type: 'category' | 'item', id: string) => void;
   onDragOver?: (e: React.DragEvent, target: BudgetDragTarget) => void;
@@ -69,6 +73,7 @@ export function CategoryBlock({
   paymentMode,
   exchangeRate,
   budgetDays,
+  coefficientGroupsByItem,
   budgetTotalsMode,
   onDragStart,
   onDragOver,
@@ -110,8 +115,7 @@ export function CategoryBlock({
   const [noteEditorsOpen, setNoteEditorsOpen] = useState<Record<string, boolean>>({});
   const [openUnitDropdownId, setOpenUnitDropdownId] = useState<string | null>(null);
   const [openMarkerDropdownId, setOpenMarkerDropdownId] = useState<string | null>(null);
-  const MARKER_COLORS = ['#fef08a', '#fdba74', '#ef4444', '#86efac', '#7dd3fc', '#c4b5fd'] as const;
-  const showCoefficient = budgetDays > 1;
+  const showCoefficient = Boolean(coefficientGroupsByItem) || budgetDays > 1;
   const tableRowClass = "grid grid-cols-[0.75rem_minmax(0,1fr)_4.25rem] items-center gap-1 px-1.5 py-0.5";
   const tableTemplateColumns = showCoefficient
     ? 'minmax(0,1fr) 60px 65px 58px 56px 90px'
@@ -183,7 +187,7 @@ export function CategoryBlock({
     if (paymentMode === 'usd') {
       const usdAmount = budgetTotalsMode === 'combined_only'
         ? calcCombinedTotal(item, budgetDays)
-        : calcDay1Total(item);
+        : calcDay1Total(item, budgetDays);
       return usdAmount;
     }
 
@@ -191,19 +195,12 @@ export function CategoryBlock({
     return budgetLineAmount(displayedPrice, item.quantity);
   };
 
-  const getDisplayedPriceUSD = (item: BudgetItem) => {
-    if (budgetTotalsMode === 'combined_only') {
-      const normalizedDays = Math.max(1, budgetDays);
-      const extraDays = Math.max(0, normalizedDays - 1);
-      const appliedRate = item.multi_day_rate_override ?? 0;
-      return item.price + item.price * appliedRate * extraDays;
-    }
+  const getDisplayedPriceUSD = (item: BudgetItem) => budgetTotalsMode === 'combined_only'
+    ? calcCombinedUnitPrice(item, budgetDays)
+    : calcDay1UnitPrice(item, budgetDays);
 
-    return item.price;
-  };
-
-  const getDisplayedPrice = (item: BudgetItem) => {
-    const usdPrice = getDisplayedPriceUSD(item);
+  const getDisplayedPrice = (item: BudgetItem, basePrice = false) => {
+    const usdPrice = basePrice ? item.price : getDisplayedPriceUSD(item);
 
     switch (paymentMode) {
       case 'byn_cash':
@@ -235,7 +232,7 @@ export function CategoryBlock({
     }
 
     return items.reduce((sum, item) => {
-      const unitPriceUSD = item.price;
+      const unitPriceUSD = calcDay1UnitPrice(item, budgetDays);
       const unitPriceBYN = paymentMode === 'byn_cash'
         ? convertUSDtoBYNCashPrice(unitPriceUSD)
         : convertUSDtoBYNNonCashPrice(unitPriceUSD, item);
@@ -446,7 +443,7 @@ export function CategoryBlock({
               <div className="text-left">Наименование</div>
               <div className="text-center">Ед. изм.</div>
               <div className="text-center">Кол-во</div>
-              <div className="pr-0.5 text-right">Цена</div>
+              <div className="pr-0.5 text-right" title={coefficientGroupsByItem ? 'Цена за день до применения коэффициента' : undefined}>{coefficientGroupsByItem ? 'Цена/день' : 'Цена'}</div>
               {showCoefficient && <div className="text-center">Коэф.</div>}
               <div className="text-right pr-2">Сумма</div>
             </div>
@@ -456,7 +453,8 @@ export function CategoryBlock({
           <div>
             {items.map((item) => {
               const isNoteEditorOpen = noteEditorsOpen[item.id] ?? Boolean(item.notes);
-              const editablePrice = getDisplayedPrice(item);
+              const editablePrice = getDisplayedPrice(item, Boolean(coefficientGroupsByItem));
+              const coefficientGroup = coefficientGroupsByItem?.get(item.id);
               return (
                 <div
                   key={item.id}
@@ -475,7 +473,10 @@ export function CategoryBlock({
                 >
                   <div
                     className={`budget-item-row ${tableRowClass} hover:bg-gray-800 transition-colors border-b border-gray-800/50 last:border-b-0 ${dragOverItemId === item.id ? 'bg-accent-500/10 border-accent-500/50' : ''}`}
-                    style={item.marker_color ? { backgroundColor: `${item.marker_color}40` } : undefined}
+                    style={{
+                       backgroundColor: item.marker_color ? `${item.marker_color}40` : undefined,
+                       boxShadow: coefficientGroup?.color ? `inset 0 0 0 1px ${coefficientGroup.color}` : undefined,
+                     }}
                   >
                   <div
                     draggable
@@ -573,7 +574,7 @@ export function CategoryBlock({
                       <input
                         type="text"
                         inputMode="decimal"
-                        aria-label={`Цена: ${budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || 'Позиция'}`}
+                        aria-label={`${coefficientGroupsByItem ? 'Цена за день' : 'Цена'}: ${budgetEquipmentDisplayName(item.equipment?.name) || item.work_item?.name || 'Позиция'}`}
                         value={draftValues[item.id + '_price'] ?? String(editablePrice)}
                         onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_price']: e.target.value }))}
                         onBlur={(e) => {
@@ -610,28 +611,35 @@ export function CategoryBlock({
                     </div>
 
                     {showCoefficient && (
-                      <div data-mobile-label="Коэф." className="flex justify-center">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={draftValues[item.id + '_multi_day_rate_override'] ?? String(item.multi_day_rate_override ?? 0)}
-                          onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_multi_day_rate_override']: e.target.value }))}
-                          onBlur={(e) => {
-                            const inputValue = e.target.value.trim();
-                            const parsedValue = inputValue === '' ? 0 : parseFloat(inputValue);
-                            if (!isNaN(parsedValue)) {
-                              const clampedValue = Math.min(1, Math.max(0, parsedValue));
-                              onUpdateItem(item.id, { multi_day_rate_override: clampedValue });
-                            }
-                            setDraftValues(prev => {
-                              const copy = { ...prev };
-                              delete copy[item.id + '_multi_day_rate_override'];
-                              return copy;
-                            });
-                          }}
-                          className="w-full max-w-[72px] px-1 py-0.5 bg-transparent text-center text-gray-300 text-sm tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 focus:bg-gray-800 rounded"
-                          onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                        />
+                      <div data-mobile-label="Коэф." className="flex items-center justify-center">
+                        {coefficientGroupsByItem ? <span className="tabular-nums text-gray-300"
+                          title={coefficientGroup?.name ?? 'Без группы'}>{item.dynamic_coefficient ?? 0}</span> : <div className="flex w-full max-w-[72px] flex-col items-center">
+                          <span title="Коэффициент за весь период" className="text-xs tabular-nums text-gray-300">
+                            ×{coefficientFormat.format(calcBudgetCoefficient(item, budgetDays))}
+                          </span>
+                          <input
+                            aria-label="Коэффициент дополнительного дня"
+                            type="text"
+                            inputMode="decimal"
+                            value={draftValues[item.id + '_multi_day_rate_override'] ?? String(item.multi_day_rate_override ?? 0)}
+                            onChange={(e) => setDraftValues(prev => ({ ...prev, [item.id + '_multi_day_rate_override']: e.target.value }))}
+                            onBlur={(e) => {
+                              const inputValue = e.target.value.trim().replace(',', '.');
+                              const parsedValue = inputValue === '' ? 0 : parseFloat(inputValue);
+                              if (!isNaN(parsedValue)) {
+                                const clampedValue = Math.min(1, Math.max(0, parsedValue));
+                                onUpdateItem(item.id, { multi_day_rate_override: clampedValue });
+                              }
+                              setDraftValues(prev => {
+                                const copy = { ...prev };
+                                delete copy[item.id + '_multi_day_rate_override'];
+                                return copy;
+                              });
+                            }}
+                            className="w-full max-w-[72px] px-1 py-0.5 bg-transparent text-center text-gray-300 text-sm tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 focus:bg-gray-800 rounded"
+                            onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                          />
+                        </div>}
                       </div>
                     )}
 
@@ -676,7 +684,7 @@ export function CategoryBlock({
                           >
                             Нет
                           </button>
-                            {MARKER_COLORS.map((markerColor) => (
+                            {BUDGET_MARKER_COLORS.map((markerColor) => (
                               <button
                                 key={markerColor}
                                 onClick={() => {
