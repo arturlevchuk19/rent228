@@ -69,7 +69,7 @@ function AppContent() {
       case 'equipment': return <Equipment />;
       case 'events': return <EventsWorkspace key={user.id} refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
-      case 'payments': return <Accounting key={user.id} />;
+      case 'payments': return <Accounting key={user.id} onOpenEvent={canAccess(user, 'events') ? eventPage.openEvent : undefined} refreshSignal={refreshKey} />;
       case 'my-claims': return <EmployeeClaims key={user.id} />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
       case 'staff': return <Personnel />;

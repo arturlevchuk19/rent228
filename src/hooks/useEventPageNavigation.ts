@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEvent, type Event } from '../lib/events';
 
 export function useEventPageNavigation(enabled: boolean) {
@@ -10,22 +10,33 @@ export function useEventPageNavigation(enabled: boolean) {
   const request = useRef(0);
   const currentUrl = useRef(window.location.href);
   const discard = () => !dirty.current || window.confirm('Есть несохранённые изменения. Уйти со страницы?');
+  const loadEvent = useCallback(async (id: string | null) => {
+    const sequence = ++request.current;
+    dirty.current = false;
+    setError('');
+    setEvent(undefined);
+    setOpen(Boolean(id));
+    if (!id || id === 'new') { setLoading(false); return; }
+    if (!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id)) {
+      setLoading(false);
+      setError('Некорректная ссылка на мероприятие.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await getEvent(id);
+      if (sequence === request.current) setEvent(data);
+    } catch {
+      if (sequence === request.current) setError('Не удалось загрузить мероприятие. Проверьте доступ и обновите страницу.');
+    } finally {
+      if (sequence === request.current) setLoading(false);
+    }
+  }, []);
   useEffect(() => {
     if (!enabled) { setOpen(false); return; }
-    let active = true;
-    const sync = async () => {
-      const sequence = ++request.current;
-      const id = new URL(window.location.href).searchParams.get('event');
+    const sync = () => {
       currentUrl.current = window.location.href;
-      dirty.current = false; setError('');
-      if (!id) { setOpen(false); setEvent(undefined); setLoading(false); return; }
-      setOpen(true); setEvent(undefined);
-      if (id === 'new') { setLoading(false); return; }
-      if (!/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id)) { setLoading(false); setError('Некорректная ссылка на мероприятие.'); return; }
-      setLoading(true);
-      try { const data = await getEvent(id); if (active && sequence === request.current) setEvent(data); }
-      catch { if (active && sequence === request.current) setError('Не удалось загрузить мероприятие. Проверьте доступ и обновите страницу.'); }
-      finally { if (active && sequence === request.current) setLoading(false); }
+      void loadEvent(new URL(currentUrl.current).searchParams.get('event'));
     };
     const pop = () => {
       // Opening or closing a specification over the same event keeps its editor mounted.
@@ -41,13 +52,17 @@ export function useEventPageNavigation(enabled: boolean) {
     void sync();
     window.addEventListener('popstate', pop);
     window.addEventListener('beforeunload', beforeUnload);
-    return () => { active = false; window.removeEventListener('popstate', pop); window.removeEventListener('beforeunload', beforeUnload); };
-  }, [enabled]);
-  const openEvent = (selected?: Event) => {
+    return () => { request.current++; window.removeEventListener('popstate', pop); window.removeEventListener('beforeunload', beforeUnload); };
+  }, [enabled, loadEvent]);
+  const openEvent = (selected?: Event | string) => {
     if (!enabled || !discard()) return;
+    const id = typeof selected === 'string' ? selected : selected?.id || 'new';
+    const url = new URL(window.location.href);
+    url.searchParams.set('event', id);
+    window.history.pushState({ ...window.history.state, eventPage: true }, '', url);
+    currentUrl.current = url.href;
+    if (typeof selected === 'string') { void loadEvent(id); return; }
     request.current++; dirty.current = false; setError(''); setLoading(false); setEvent(selected); setOpen(true);
-    const url = new URL(window.location.href); url.searchParams.set('event', selected?.id || 'new');
-    window.history.pushState({ ...window.history.state, eventPage: true }, '', url); currentUrl.current = url.href;
   };
   const clear = () => {
     request.current++; dirty.current = false; setOpen(false); setEvent(undefined); setError(''); setLoading(false);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Receipt, X, Trash2, History, Settings, ChevronDown, Warehouse } from 'lucide-react';
+import { Plus, Receipt, X, Trash2, History, Settings, ChevronDown, Warehouse, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { getErrorMessage } from '../lib/errors';
@@ -20,8 +20,8 @@ const date=(value:string)=>new Date(value).toLocaleString('ru-RU',{timeZone:'Eur
 const eventLabel = (venue: string | null | undefined, name: string, eventDate: string) =>
   [venue?.trim() || name, dayNumber(eventDate) === null ? '' : eventDate.split('-').reverse().join('/')].filter(Boolean).join(' ');
 const lineNames:Record<ClaimKind,string>={warehouse:'Работа на складе',time:'Рабочее время',trip:'Поездка (водитель)',expense:'Хозрасход с чеком',allowance:'Питание / другая выплата'};
-export function Accounting(){const [tab,setTab]=useState<'claims'|'payments'>('claims');return <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" aria-pressed={tab==='claims'} className={tab==='claims'?primary:secondary} onClick={()=>setTab('claims')}>Заявки сотрудников</button><button type="button" aria-pressed={tab==='payments'} className={tab==='payments'?primary:secondary} onClick={()=>setTab('payments')}>Ранее созданные выплаты</button></div>{tab==='claims'?<EmployeeClaims review/>:<Payments/>}</div>;}
-export function EmployeeClaims({review=false}:{review?:boolean}){
+export function Accounting({ onOpenEvent, refreshSignal }: { onOpenEvent?: (id: string) => void; refreshSignal?: number }){const [tab,setTab]=useState<'claims'|'payments'>('claims');return <div className="space-y-4"><div className="flex flex-wrap gap-2"><button type="button" aria-pressed={tab==='claims'} className={tab==='claims'?primary:secondary} onClick={()=>setTab('claims')}>Заявки сотрудников</button><button type="button" aria-pressed={tab==='payments'} className={tab==='payments'?primary:secondary} onClick={()=>setTab('payments')}>Ранее созданные выплаты</button></div>{tab==='claims'?<EmployeeClaims review onOpenEvent={onOpenEvent} refreshSignal={refreshSignal} />:<Payments/>}</div>;}
+export function EmployeeClaims({review=false, onOpenEvent, refreshSignal}:{review?:boolean; onOpenEvent?: (id: string) => void; refreshSignal?: number}){
  const {user}=useAuth();const manager=review&&canAccess(user,'payments',2);
  const [boot,setBoot]=useState<ClaimBootstrap|null>(null),[rows,setRows]=useState<EmployeeClaim[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[filter,setFilter]=useState('all'),[search,setSearch]=useState('');
  const [accountingAssignments, setAccountingAssignments] = useState<ClaimAssignment[]>([]);
@@ -38,7 +38,7 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
      error => { if (active) { setAssignmentError(getErrorMessage(error)); setAssignmentsLoading(false); } },
    );
    return () => { active = false; };
- }, [review, user?.id]); // Stable identity; auth focus refreshes must not erase drafts.
+ }, [review, user?.id, refreshSignal]); // Stable identity; auth focus refreshes must not erase drafts.
  const visible=rows.filter(row=>(filter==='all'||row.state===filter)&&`${row.employee_name} ${row.event_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
  const assignments = (review ? accountingAssignments : boot?.assignments || []).filter(row =>
    `${row.employee_name || ''} ${row.venue || ''} ${row.event_name} ${row.work_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
@@ -71,7 +71,7 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]"><input {...searchInputProps} aria-label="Поиск заявок" value={search} onChange={event=>setSearch(event.target.value)} placeholder={review?'Сотрудник или мероприятие…':'Поиск мероприятия…'} className={input}/><select aria-label="Статус заявки" value={filter} onChange={event=>setFilter(event.target.value)} className={input}><option value="all">Все статусы</option>{Object.entries(CLAIM_STATES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></div>
   {!loading&&<div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl bg-gray-900 p-4 text-sm tabular-nums text-gray-300"><span>Работы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.work_amount)))} BYN</strong></span><span>Расходы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.expense_amount)))} BYN</strong></span><span>Утверждено к выплате: <strong className="text-accent-300">{money(sumClaimAmounts(visible.filter(row=>row.state==='approved').map(row=>row.total)))} BYN</strong></span></div>}
   {assignmentError && <p role="alert" className="text-sm text-red-300">Не удалось загрузить назначения из мероприятий. {assignmentError}</p>}
-  {review ? <AccountingEventWork assignments={assignments} loading={assignmentsLoading} failed={Boolean(assignmentError)} />
+  {review ? <AccountingEventWork assignments={assignments} loading={assignmentsLoading} failed={Boolean(assignmentError)} onOpenEvent={onOpenEvent} />
     : assignments.length > 0 && <section aria-labelledby="claim-assigned-work" className="space-y-2 rounded-xl border border-gray-800 bg-gray-900 p-4">
       <h2 id="claim-assigned-work" className="font-semibold text-gray-100">Назначенные работы</h2>
       <AssignmentRows assignments={assignments} />
@@ -82,10 +82,11 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
   {ratesOpen&&boot&&<RatesDialog rates={boot.settings} onClose={()=>setRatesOpen(false)} onSaved={()=>{setRatesOpen(false);void load();}}/>}
  </div>;
 }
-function AccountingEventWork({ assignments, loading, failed }: {
+function AccountingEventWork({ assignments, loading, failed, onOpenEvent }: {
   assignments: ClaimAssignment[];
   loading: boolean;
   failed: boolean;
+  onOpenEvent?: (id: string) => void;
 }) {
   const [period, setPeriod] = useState(() => {
     const [year, month] = minskToday().split('-').map(Number);
@@ -107,19 +108,32 @@ function AccountingEventWork({ assignments, loading, failed }: {
     <Calendar monthFilter selectedPeriod={period} onPeriodChange={setPeriod} />
     {loading ? <p role="status" className="py-4 text-sm text-gray-400">Загрузка работ…</p>
       : events.length ? <div className="space-y-2">
-        {events.map(({ event, works }) => <details key={event.event_id} className="group rounded-lg border border-gray-800 bg-gray-950/60">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-800/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 [&::-webkit-details-marker]:hidden">
-            <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 -rotate-90 text-gray-400 group-open:rotate-0" />
-            <span className="min-w-0 flex-1">
-              <span className="block break-words font-medium text-gray-100">{event.event_name}</span>
-              {event.venue && event.venue !== event.event_name && <span className="block break-words text-xs text-gray-400">{event.venue}</span>}
-            </span>
-            <time dateTime={event.event_date} className="shrink-0 text-xs tabular-nums text-gray-300">{event.event_date.split('-').reverse().join('.')}</time>
-          </summary>
-          <div className="border-t border-gray-800 px-3">
-            <GroupedAssignmentRows assignments={works} />
-          </div>
-        </details>)}
+        {events.map(({ event, works }) => <div key={event.event_id} className="relative rounded-lg border border-gray-800 bg-gray-950/60">
+          <details className="group">
+            <summary className={`flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-800/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 [&::-webkit-details-marker]:hidden ${onOpenEvent ? 'pr-14' : ''}`}>
+              <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 -rotate-90 text-gray-400 group-open:rotate-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block break-words font-medium text-gray-100">{event.event_name}</span>
+                {event.venue && event.venue !== event.event_name && <span className="block break-words text-xs text-gray-400">{event.venue}</span>}
+              </span>
+              <time dateTime={event.event_date} className="shrink-0 text-xs tabular-nums text-gray-300">{event.event_date.split('-').reverse().join('.')}</time>
+            </summary>
+            <div className="border-t border-gray-800 px-3">
+              <GroupedAssignmentRows assignments={works} />
+            </div>
+          </details>
+          {onOpenEvent && <a
+            href={`?page=payments&event=${encodeURIComponent(event.event_id)}`}
+            aria-label={`Открыть мероприятие «${event.event_name}»`}
+            title="Открыть мероприятие"
+            onClick={click => {
+              if (click.button !== 0 || click.ctrlKey || click.metaKey || click.shiftKey || click.altKey) return;
+              click.preventDefault();
+              onOpenEvent(event.event_id);
+            }}
+            className="absolute right-0.5 top-0.5 grid h-11 w-11 place-items-center rounded-lg text-accent-400 hover:bg-gray-800 hover:text-accent-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
+          ><ExternalLink aria-hidden="true" className="h-4 w-4" /></a>}
+        </div>)}
       </div> : !failed && <p className="py-4 text-sm text-gray-400">За выбранный месяц работ нет.</p>}
   </section>;
 }
