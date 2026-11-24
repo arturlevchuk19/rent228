@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Receipt, X, Trash2, History, Settings } from 'lucide-react';
+import { Plus, Receipt, X, Trash2, History, Settings, ChevronDown, Warehouse } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { getErrorMessage } from '../lib/errors';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { claimBootstrap,claimWorks,listClaims,listAccountingAssignments,saveClaim,reviewClaim,claimHistory,saveClaimRates,uploadClaimReceipt,openClaimReceipt,minskToday,minskInput,lineEstimate,claimLineError,sumClaimAmounts,CLAIM_STATES,type EmployeeClaim,type ClaimBootstrap,type ClaimLine,type ClaimKind,type ClaimRates,type ClaimAssignment } from '../lib/employeeClaims';
 import Payments from './Payments';
+import { Calendar } from './Calendar';
 import { personWorkAmount, personWorkHours } from '../lib/eventPeople';
 import { dayNumber } from '../lib/calendar';
 import { searchInputProps } from '../lib/searchInput';
@@ -24,6 +25,7 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
  const [boot,setBoot]=useState<ClaimBootstrap|null>(null),[rows,setRows]=useState<EmployeeClaim[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[filter,setFilter]=useState('all'),[search,setSearch]=useState('');
  const [accountingAssignments, setAccountingAssignments] = useState<ClaimAssignment[]>([]);
  const [assignmentError, setAssignmentError] = useState('');
+ const [assignmentsLoading, setAssignmentsLoading] = useState(review);
  const [editor,setEditor]=useState<{claim:EmployeeClaim|null;kind?:ClaimKind}|null>(null),[ratesOpen,setRatesOpen]=useState(false);
  const load=useCallback(async()=>{setLoading(true);try{const [context,claims]=await Promise.all([claimBootstrap(),listClaims(review?undefined:user?.id)]);setBoot(context);setRows(claims);setError('');}catch(caught){setError(getErrorMessage(caught));}finally{setLoading(false);}},[review,user?.id]);
  useEffect(()=>{void load();},[load]);
@@ -31,51 +33,135 @@ export function EmployeeClaims({review=false}:{review?:boolean}){
    if (!review || !user?.id) return;
    let active = true;
    void listAccountingAssignments().then(
-     assignments => { if (active) { setAccountingAssignments(assignments); setAssignmentError(''); } },
-     error => { if (active) setAssignmentError(getErrorMessage(error)); },
+     assignments => { if (active) { setAccountingAssignments(assignments); setAssignmentError(''); setAssignmentsLoading(false); } },
+     error => { if (active) { setAssignmentError(getErrorMessage(error)); setAssignmentsLoading(false); } },
    );
    return () => { active = false; };
  }, [review, user?.id]); // Stable identity; auth focus refreshes must not erase drafts.
  const visible=rows.filter(row=>(filter==='all'||row.state===filter)&&`${row.employee_name} ${row.event_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
  const assignments = (review ? accountingAssignments : boot?.assignments || []).filter(row =>
    `${row.employee_name || ''} ${row.venue || ''} ${row.event_name} ${row.work_name}`.toLocaleLowerCase('ru-RU').includes(search.toLocaleLowerCase('ru-RU')));
- const buttons=<><button type="button" aria-label={review?'Добавить заявку':'Подать данные'} title={review?'Добавить заявку':'Подать данные'} disabled={!boot||(!manager&&!boot.personnel)} className={primary} onClick={()=>setEditor({claim:null})}><Plus className="mr-1 inline h-4 w-4"/><span className="hidden md:inline">{review?'Добавить заявку':'Подать данные'}</span></button><button type="button" aria-label="Расходы" title="Расходы" disabled={!boot||(!manager&&!boot.personnel)} className={secondary} onClick={()=>setEditor({claim:null,kind:'expense'})}><Receipt className="mr-1 inline h-4 w-4"/><span className="hidden md:inline">Расходы</span></button></>;
+ const canCreate = Boolean(boot && (manager ? boot.people.length || boot.personnel : boot.personnel));
+ const addClaimLabel = review ? 'Добавить заявку' : 'Подать данные';
+ const buttons = <>
+   <button type="button" aria-label={addClaimLabel} title={addClaimLabel} disabled={!canCreate}
+     className={primary} onClick={() => setEditor({ claim: null })}>
+     <Plus className="mr-1 inline h-4 w-4" /><span className={review ? '' : 'hidden md:inline'}>{addClaimLabel}</span>
+   </button>
+   {manager && <button type="button" disabled={!canCreate} className={secondary}
+     onClick={() => setEditor({ claim: null, kind: 'warehouse' })}>
+     <Warehouse className="mr-1 inline h-4 w-4" />Работа на складе
+   </button>}
+   <button type="button" aria-label="Расходы" title="Расходы" disabled={!canCreate}
+     className={secondary} onClick={() => setEditor({ claim: null, kind: 'expense' })}>
+     <Receipt className="mr-1 inline h-4 w-4" /><span className={review ? '' : 'hidden md:inline'}>Расходы</span>
+   </button>
+ </>;
  return <div className="space-y-4">
-  <MobileHeaderContent>{buttons}</MobileHeaderContent>
-  <div className="flex flex-wrap items-center justify-between gap-3"><p className="max-w-2xl text-sm text-gray-400">{review?'Проверка времени, поездок и расходов. Утверждение и отметка выплаты — отдельные действия.':'Подайте работу на складе без мероприятия или выберите мероприятие и укажите время до конца третьего дня после его окончания.'}</p>{manager&&<button type="button" className={secondary} onClick={()=>setRatesOpen(true)}><Settings className="mr-1 inline h-4 w-4"/>Тарифы поездок</button>}</div>
+  {!review && <MobileHeaderContent>{buttons}</MobileHeaderContent>}
+  <div className="flex flex-wrap items-center justify-between gap-3">
+    <p className="max-w-2xl text-sm text-gray-400">{review?'Проверка времени, поездок и расходов. Утверждение и отметка выплаты — отдельные действия.':'Подайте работу на складе без мероприятия или выберите мероприятие и укажите время до конца третьего дня после его окончания.'}</p>
+    {manager&&<button type="button" className={secondary} onClick={()=>setRatesOpen(true)}><Settings className="mr-1 inline h-4 w-4"/>Тарифы поездок</button>}
+  </div>
+  {review && <div className="flex flex-wrap gap-2">{buttons}</div>}
+  {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки свяжите хотя бы одного сотрудника с учётной записью.</p>}
   {!loading&&!manager&&!boot?.personnel&&<p role="alert" className="rounded-xl border border-accent-700 p-4 text-sm text-accent-200">Учётная запись пока не связана с персоналом. Администратор может выбрать сотрудника при редактировании пользователя.</p>}
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px]"><input {...searchInputProps} aria-label="Поиск заявок" value={search} onChange={event=>setSearch(event.target.value)} placeholder={review?'Сотрудник или мероприятие…':'Поиск мероприятия…'} className={input}/><select aria-label="Статус заявки" value={filter} onChange={event=>setFilter(event.target.value)} className={input}><option value="all">Все статусы</option>{Object.entries(CLAIM_STATES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></div>
   {!loading&&<div className="flex flex-wrap gap-x-6 gap-y-2 rounded-xl bg-gray-900 p-4 text-sm tabular-nums text-gray-300"><span>Работы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.work_amount)))} BYN</strong></span><span>Расходы: <strong className="text-gray-100">{money(sumClaimAmounts(visible.map(row=>row.expense_amount)))} BYN</strong></span><span>Утверждено к выплате: <strong className="text-accent-300">{money(sumClaimAmounts(visible.filter(row=>row.state==='approved').map(row=>row.total)))} BYN</strong></span></div>}
   {assignmentError && <p role="alert" className="text-sm text-red-300">Не удалось загрузить назначения из мероприятий. {assignmentError}</p>}
-  {assignments.length > 0 && <section aria-labelledby="claim-assigned-work" className="space-y-2 rounded-xl border border-gray-800 bg-gray-900 p-4">
-    <h2 id="claim-assigned-work" className="font-semibold text-gray-100">{review ? 'Назначения из мероприятий' : 'Назначенные работы'}</h2>
-    <ul className="divide-y divide-gray-800">{assignments.map((row, index) => {
-      const period = { starts_at: row.starts_at ?? undefined, ends_at: row.ends_at ?? undefined, hours: row.hours ?? undefined };
-      const minutes = Math.round(personWorkHours(period) * 60);
-      return <li key={`${row.event_id}:${row.id}:${index}`} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
-        <div><p className="text-gray-100">{review && row.employee_name ? `${row.employee_name} · ` : ''}{row.work_name}</p><p className="text-xs text-gray-400">{eventLabel(row.venue, row.event_name, row.event_date)}</p></div>
-        <div className="text-xs text-gray-300">
-          {row.starts_at && <p>С {row.starts_at.replace('T', ' ')}</p>}
-          {row.ends_at && <p>По {row.ends_at.replace('T', ' ')}</p>}
-          {minutes > 0 && <p>{Math.floor(minutes / 60)} ч {minutes % 60} мин</p>}
-          {row.rate && <p>{money(Number(row.rate.replace(',', '.')))} BYN/час · <strong>{money(personWorkAmount({ ...period, rate: row.rate }))} BYN</strong></p>}
-        </div>
-      </li>;
-    })}</ul>
-  </section>}
-  {review && assignments.length > 0 && <h2 className="font-semibold text-gray-100">Заявки сотрудников</h2>}
+  {review ? <AccountingEventWork assignments={assignments} loading={assignmentsLoading} failed={Boolean(assignmentError)} />
+    : assignments.length > 0 && <section aria-labelledby="claim-assigned-work" className="space-y-2 rounded-xl border border-gray-800 bg-gray-900 p-4">
+      <h2 id="claim-assigned-work" className="font-semibold text-gray-100">Назначенные работы</h2>
+      <AssignmentRows assignments={assignments} />
+    </section>}
+  {review && <h2 className="font-semibold text-gray-100">Заявки сотрудников</h2>}
   {loading?<p role="status" className="py-10 text-center text-gray-400">Загрузка заявок…</p>:<div className="space-y-2">{visible.map(row=><button type="button" key={row.id} onClick={()=>setEditor({claim:row})} className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 bg-gray-900 p-4 text-left hover:border-accent-700"><span className="min-w-0"><span className="block break-words font-semibold text-gray-100">{row.event_name}</span>{review&&<span className="block text-sm text-gray-300">{row.employee_name}</span>}<span className="mt-1 block text-xs text-gray-400">{CLAIM_STATES[row.state]} · {date(row.updated_at)}</span></span><span className="text-right tabular-nums"><span className="block font-semibold text-gray-100">{money(row.total)} BYN</span><span className="block text-xs text-gray-400">Работы {money(row.work_amount)} · расходы {money(row.expense_amount)}</span></span></button>)}{!visible.length&&<p className="rounded-xl bg-gray-900 p-8 text-center text-sm text-gray-400">Заявок пока нет. Подайте время или добавьте расходы.</p>}</div>}
   {editor&&boot&&<ClaimEditor claim={editor.claim} initialKind={editor.kind} boot={boot} manager={manager} onClose={()=>setEditor(null)} onSaved={()=>{setEditor(null);void load();}}/>}
   {ratesOpen&&boot&&<RatesDialog rates={boot.settings} onClose={()=>setRatesOpen(false)} onSaved={()=>{setRatesOpen(false);void load();}}/>}
  </div>;
 }
+function AccountingEventWork({ assignments, loading, failed }: {
+  assignments: ClaimAssignment[];
+  loading: boolean;
+  failed: boolean;
+}) {
+  const [period, setPeriod] = useState(() => {
+    const [year, month] = minskToday().split('-').map(Number);
+    return { year, month: month - 1 };
+  });
+  const month = `${period.year}-${String(period.month + 1).padStart(2, '0')}`;
+  const groups = new Map<string, { event: ClaimAssignment; works: ClaimAssignment[] }>();
+  for (const row of assignments) {
+    if (!row.event_date?.startsWith(`${month}-`)) continue;
+    const previous = groups.get(row.event_id);
+    if (previous) previous.works.push(row);
+    else groups.set(row.event_id, { event: row, works: [row] });
+  }
+  const events = [...groups.values()].sort((a, b) =>
+    b.event.event_date.localeCompare(a.event.event_date) || a.event.event_name.localeCompare(b.event.event_name, 'ru'));
+
+  return <section aria-labelledby="claim-assigned-work" className="space-y-3 rounded-xl border border-gray-800 bg-gray-900 p-3 sm:p-4">
+    <h2 id="claim-assigned-work" className="font-semibold text-gray-100">Работы из мероприятий</h2>
+    <Calendar monthFilter selectedPeriod={period} onPeriodChange={setPeriod} />
+    {loading ? <p role="status" className="py-4 text-sm text-gray-400">Загрузка работ…</p>
+      : events.length ? <div className="space-y-2">
+        {events.map(({ event, works }) => <details key={event.event_id} className="group rounded-lg border border-gray-800 bg-gray-950/60">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-800/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 [&::-webkit-details-marker]:hidden">
+            <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 -rotate-90 text-gray-400 group-open:rotate-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block break-words font-medium text-gray-100">{event.event_name}</span>
+              {event.venue && event.venue !== event.event_name && <span className="block break-words text-xs text-gray-400">{event.venue}</span>}
+            </span>
+            <time dateTime={event.event_date} className="shrink-0 text-xs tabular-nums text-gray-300">{event.event_date.split('-').reverse().join('.')}</time>
+          </summary>
+          <div className="border-t border-gray-800 px-3">
+            <AssignmentRows assignments={works} showEmployee />
+          </div>
+        </details>)}
+      </div> : !failed && <p className="py-4 text-sm text-gray-400">За выбранный месяц работ нет.</p>}
+  </section>;
+}
+
+function AssignmentRows({ assignments, showEmployee = false }: {
+  assignments: ClaimAssignment[];
+  showEmployee?: boolean;
+}) {
+  return <ul className="divide-y divide-gray-800">{assignments.map((row, index) => {
+    const period = { starts_at: row.starts_at ?? undefined, ends_at: row.ends_at ?? undefined, hours: row.hours ?? undefined };
+    const minutes = Math.round(personWorkHours(period) * 60);
+    return <li key={`${row.event_id}:${row.id}:${index}`} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
+      <div className="min-w-0 break-words">
+        <p className="text-gray-100">{showEmployee && row.employee_name ? `${row.employee_name} · ` : ''}{row.work_name}</p>
+        {!showEmployee && <p className="text-xs text-gray-400">{eventLabel(row.venue, row.event_name, row.event_date)}</p>}
+      </div>
+      <div className="text-xs text-gray-300">
+        {row.starts_at && <p>С {row.starts_at.replace('T', ' ')}</p>}
+        {row.ends_at && <p>По {row.ends_at.replace('T', ' ')}</p>}
+        {minutes > 0 && <p>{Math.floor(minutes / 60)} ч {minutes % 60} мин</p>}
+        {row.rate && <p>{money(Number(row.rate.replace(',', '.')))} BYN/час · <strong>{money(personWorkAmount({ ...period, rate: row.rate }))} BYN</strong></p>}
+      </div>
+    </li>;
+  })}</ul>;
+}
+
 function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:EmployeeClaim|null;initialKind?:ClaimKind;boot:ClaimBootstrap;manager:boolean;onClose:()=>void;onSaved:()=>void;}){
  const {user}=useAuth();const dialog=useRef<HTMLDialogElement>(null);const requestId=useRef(crypto.randomUUID());
- const [eventId,setEventId]=useState(claim?.event_id||''),[personId,setPersonId]=useState(claim?.personnel_id||boot.personnel?.id||''),[works,setWorks]=useState<string[]>([]),[fixedRates,setFixedRates]=useState<Record<string,number>>({}),[loadingWorks,setLoadingWorks]=useState(false);
- const [lines,setLines]=useState<ClaimLine[]>(()=>claim?claim.lines.map(line=>({...line,starts_at:line.starts_at?minskInput(line.starts_at):undefined,ends_at:line.ends_at?minskInput(line.ends_at):undefined})):initialKind?[{kind:initialKind,description:'',amount:'',receipt_path:''}]:[]);
+ const [eventId,setEventId]=useState(claim?.event_id||''),[personId,setPersonId]=useState(claim?.personnel_id || (manager && initialKind ? '' : boot.personnel?.id) || ''),[works,setWorks]=useState<string[]>([]),[fixedRates,setFixedRates]=useState<Record<string,number>>({}),[loadingWorks,setLoadingWorks]=useState(false);
+ const [lines,setLines]=useState<ClaimLine[]>(()=>claim?claim.lines.map(line=>({...line,starts_at:line.starts_at?minskInput(line.starts_at):undefined,ends_at:line.ends_at?minskInput(line.ends_at):undefined})):initialKind?[{kind:initialKind,work_name:initialKind==='warehouse'?'Работа на складе':undefined,description:'',amount:'',receipt_path:''}]:[]);
  const [note,setNote]=useState(claim?.review_note||''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false),[history,setHistory]=useState<Awaited<ReturnType<typeof claimHistory>>|null>(null),[receiptPreview,setReceiptPreview]=useState('');
  const person=boot.people.find(row=>row.id===personId)||(boot.personnel?.id===personId?boot.personnel:null)||(manager&&claim?{id:claim.personnel_id,full_name:claim.employee_name,installation_rate:0,warehouse_rate:0}:null);
+ const people = boot.personnel && !boot.people.some(row => row.id === boot.personnel?.id)
+   ? [...boot.people, boot.personnel] : boot.people;
+ const changePerson = (nextPersonId: string) => {
+   if (nextPersonId === personId) return;
+   if (lines.some(line => line.receipt_path) && !window.confirm('При смене сотрудника прикреплённые чеки нужно будет загрузить заново. Продолжить?')) return;
+   setPersonId(nextPersonId);
+   setDirty(true);
+   setLines(current => current.map(line => ({
+     ...line, receipt_path: undefined, rate: line.kind === 'warehouse' ? undefined : line.rate,
+   })));
+ };
  const selectedEvent=boot.events.find(row=>row.id===eventId);
  const today = minskToday();
  const currentDay = dayNumber(today);
@@ -97,16 +183,23 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const workTotal=sumClaimAmounts(lines.filter(line=>line.kind==='time'||line.kind==='trip'||line.kind==='warehouse').map(line=>estimate(line).amount)),expenseTotal=sumClaimAmounts(lines.filter(line=>line.kind==='expense'||line.kind==='allowance').map(line=>estimate(line).amount));
  const perform=async(action:()=>Promise<unknown>)=>{if(busy)return;setBusy(true);setError('');try{await action();onSaved();}catch(caught){setError(getErrorMessage(caught));}finally{setBusy(false);}};
  const save=(submit:boolean)=>void perform(async()=>{if(!person)throw Error('Выберите сотрудника, связанного с учётной записью');if(!lines.length)throw Error('Добавьте работу, поездку или расход');for(const line of lines){const invalid=claimLineError(line);if(invalid)throw Error(invalid);if(isFixed(line)&&fixedRates[line.work_name||'']===undefined&&!(manager&&line.calculation==='fixed'))throw Error('В основной смете нет однозначной цены для работы «'+line.work_name+'». Обратитесь к администратору.');}await saveClaim(claim,eventId,lines,submit,manager?personId:undefined,note,requestId.current);});
- const receipt=async(index:number,file:File)=>{if(busy)return;setBusy(true);setError('');try{const owner=claim?.user_id||person?.account_user_id||user?.id;if(!owner)throw Error('Не выбран сотрудник');const path=await uploadClaimReceipt(file,owner);patch(index,{receipt_path:path});}catch(caught){setError(getErrorMessage(caught));}finally{setBusy(false);}};
+ const receipt=async(index:number,file:File)=>{if(busy)return;setBusy(true);setError('');try{const owner=claim?.user_id||person?.account_user_id||(!manager?user?.id:undefined);if(!owner)throw Error('Не выбран сотрудник');const path=await uploadClaimReceipt(file,owner);patch(index,{receipt_path:path});}catch(caught){setError(getErrorMessage(caught));}finally{setBusy(false);}};
  return createPortal(<dialog ref={dialog} aria-labelledby="claim-title" onCancel={event=>{event.preventDefault();if(receiptPreview)setReceiptPreview('');else close();}} className="m-auto max-h-[94dvh] w-[calc(100%_-_1rem)] max-w-4xl overflow-hidden rounded-2xl border border-gray-700 bg-gray-900 p-0 text-gray-100 backdrop:bg-black/70"><div className="flex max-h-[94dvh] flex-col">
-  <header className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-800 p-4"><div><h2 id="claim-title" className="text-lg font-semibold">{claim?`Заявка · ${CLAIM_STATES[claim.state]}`:'Подать данные'}</h2><p className="text-xs text-gray-400">Расчёт в BYN. Время — по Минску.</p></div><button type="button" disabled={busy} aria-label="Закрыть заявку" onClick={close} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-800"><X className="h-5 w-5"/></button></header>
+  <header className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-800 p-4"><div><h2 id="claim-title" className="text-lg font-semibold">{claim?`Заявка · ${CLAIM_STATES[claim.state]}`:manager&&initialKind==='warehouse'?'Внести работу на складе':manager&&initialKind==='expense'?'Внести расходы':'Подать данные'}</h2><p className="text-xs text-gray-400">Расчёт в BYN. Время — по Минску.</p></div><button type="button" disabled={busy} aria-label="Закрыть заявку" onClick={close} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-800"><X className="h-5 w-5"/></button></header>
   <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
    {error&&<p role="alert" className="rounded-lg border border-red-900 p-3 text-sm text-red-300">{error}</p>}
    <fieldset disabled={busy||Boolean(claim&&!editable)} className="space-y-4">
-    {manager&&<label className="block space-y-1 text-sm text-gray-300">Сотрудник<select aria-label="Сотрудник" disabled={Boolean(claim)} value={personId} onChange={event=>{setPersonId(event.target.value);setDirty(true);}} className={input}><option value="">Выберите сотрудника</option>{claim&&!boot.people.some(row=>row.id===claim.personnel_id)&&<option value={claim.personnel_id}>{claim.employee_name}</option>}{boot.people.map(row=><option key={row.id} value={row.id}>{row.full_name}</option>)}</select></label>}
+    {manager && <label className="block space-y-1 text-sm text-gray-300">
+      Сотрудник
+      <select disabled={Boolean(claim)} value={personId} onChange={event => changePerson(event.target.value)} className={input}>
+        <option value="">Выберите сотрудника</option>
+        {claim && !people.some(row => row.id === claim.personnel_id) && <option value={claim.personnel_id}>{claim.employee_name}</option>}
+        {people.map(row => <option key={row.id} value={row.id}>{row.full_name}</option>)}
+      </select>
+    </label>}
     <label className="block space-y-1 text-sm text-gray-300">Мероприятие<select aria-label="Мероприятие" disabled={Boolean(claim)||lines.some(line=>line.kind==='warehouse')} value={eventId} onChange={event=>{if(lines.some(line=>line.kind==='time'||line.kind==='trip')&&!window.confirm('При смене мероприятия строки работ будут удалены. Продолжить?'))return;setEventId(event.target.value);setLines(current=>current.filter(line=>line.kind==='expense'||line.kind==='allowance'));setDirty(true);}} className={input}><option value="">Без мероприятия — склад и расходы</option>{claim?.event_id && !selectedEvent && <option value={claim.event_id}>{claim.event_name}</option>}{eventOptions.map(row => <option key={row.id} value={row.id}>{eventLabel(row.venue, row.name, row.event_date)}</option>)}</select></label>
    </fieldset>
-   {lines.some(line=>line.kind==='warehouse')&&<p className="text-xs text-gray-400">Работа на складе подаётся отдельно от мероприятий. Укажите время и выполненную работу; сумма рассчитывается по вашей ставке работы на складе.</p>}
+   {lines.some(line=>line.kind==='warehouse')&&<p className="text-xs text-gray-400">Работа на складе подаётся отдельно от мероприятий. Укажите время и выполненную работу; сумма рассчитывается по ставке сотрудника за работу на складе.</p>}
    {eventId&&<p className={`text-sm ${expired?'text-accent-300':'text-gray-400'}`}>{selectedEvent?.deadline?`Подать до ${selectedEvent.deadline.split('-').reverse().join('.')} включительно, до 23:59 по Минску.`:'У мероприятия не указана корректная дата окончания.'}{expired&&!manager&&' Срок истёк. Исправления может внести бухгалтер.'}</p>}
    {loadingWorks&&<p role="status" className="text-xs text-gray-400">Загрузка работ мероприятия…</p>}
    <div className="space-y-3">{lines.map((line,index)=>{const calc=estimate(line);return <fieldset key={index} disabled={!editable||busy} className="min-w-0 space-y-3 rounded-xl border border-gray-700 p-3">
@@ -115,7 +208,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
     {(line.kind==='time'||line.kind==='warehouse')&&<><div className="grid min-w-0 gap-3 sm:grid-cols-2"><label className="block min-w-0 space-y-1 text-xs text-gray-400">С<input aria-label={`Начало работы ${index+1}`} type="datetime-local" value={line.starts_at||''} onChange={event=>patch(index,{starts_at:event.target.value})} className={input}/></label><label className="block min-w-0 space-y-1 text-xs text-gray-400">По<input aria-label={`Окончание работы ${index+1}`} type="datetime-local" value={line.ends_at||''} onChange={event=>patch(index,{ends_at:event.target.value})} className={input}/></label></div></>}
     {line.kind==='warehouse'&&<label className="block space-y-1 text-xs text-gray-400">Выполненная работа<textarea aria-label={`Выполненная работа на складе ${index+1}`} required maxLength={2000} value={line.description||''} onChange={event=>patch(index,{description:event.target.value})} className={input}/></label>}
     {line.kind==='trip'&&<><p className="text-xs text-gray-400">Километраж подаёт водитель. Для личной машины и своего топлива отметьте соответствующие пункты.</p><label className="block space-y-1 text-xs text-gray-400">Фактический километраж всей поездки, км<input aria-label={`Километраж позиции ${index+1}`} type="number" min="0" step="0.1" value={line.kilometers??''} onChange={event=>patch(index,{kilometers:event.target.value})} className={input}/></label><div className="flex flex-wrap gap-4"><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(line.own_car)} onChange={event=>patch(index,{own_car:event.target.checked,rate:undefined})} className="h-4 w-4 accent-accent-500"/>Своя машина</label><label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(line.own_fuel)} onChange={event=>patch(index,{own_fuel:event.target.checked,rate:undefined})} className="h-4 w-4 accent-accent-500"/>Своё топливо</label></div></>}
-    {(line.kind==='expense'||line.kind==='allowance')&&<><label className="block space-y-1 text-xs text-gray-400">Назначение<textarea aria-label={`Назначение расхода ${index+1}`} value={line.description||''} onChange={event=>patch(index,{description:event.target.value})} className={input}/></label><label className="block space-y-1 text-xs text-gray-400">Сумма, BYN<input aria-label={`Сумма расхода ${index+1}`} type="number" min="0" step="0.01" value={line.amount??''} onChange={event=>patch(index,{amount:event.target.value})} className={input}/></label><label className="block space-y-1 text-xs text-gray-400">Фото чека<input aria-label={`Фото чека позиции ${index+1}`} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif" onChange={event=>{const file=event.target.files?.[0];if(file)void receipt(index,file);event.target.value='';}} className={`${input} text-xs`}/></label></>}
+    {(line.kind==='expense'||line.kind==='allowance')&&<><label className="block space-y-1 text-xs text-gray-400">Назначение<textarea aria-label={`Назначение расхода ${index+1}`} value={line.description||''} onChange={event=>patch(index,{description:event.target.value})} className={input}/></label><label className="block space-y-1 text-xs text-gray-400">Сумма, BYN<input aria-label={`Сумма расхода ${index+1}`} type="number" min="0" step="0.01" value={line.amount??''} onChange={event=>patch(index,{amount:event.target.value})} className={input}/></label><label className="block space-y-1 text-xs text-gray-400">Фото чека<input aria-label={`Фото чека позиции ${index+1}`} disabled={manager && !person} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif" onChange={event=>{const file=event.target.files?.[0];if(file)void receipt(index,file);event.target.value='';}} className={`${input} text-xs`}/></label></>}
     {manager&&isFixed(line)&&<label className="block space-y-1 text-xs text-gray-400">Сумма за работу, BYN<input type="number" min="0" step="0.01" value={line.calculation==='fixed'?line.amount??'':calc.amount} onChange={event=>patch(index,{amount:event.target.value,calculation:'fixed'})} className={input}/></label>}
     {editable&&isFixed(line)&&fixedRates[line.work_name||'']===undefined&&!(manager&&line.calculation==='fixed')&&<p role="alert" className="text-xs text-accent-300">В основной смете нет однозначной цены за эту работу. Администратор должен указать её в смете или бухгалтерии.</p>}
     {manager&&!isFixed(line)&&(line.kind==='time'||line.kind==='trip'||line.kind==='warehouse')&&<label className="block space-y-1 text-xs text-gray-400">Ставка {line.kind==='trip'?'BYN/км':'BYN/час'}<input type="number" min="0" step="0.01" value={line.rate??calc.rate} onChange={event=>patch(index,{rate:event.target.value})} className={input}/></label>}
@@ -128,7 +221,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
   </div>
   <footer className="shrink-0 space-y-3 border-t border-gray-800 bg-gray-900 p-4"><div className="flex flex-wrap justify-between gap-2 text-sm tabular-nums"><span>Работы {money(workTotal)} · расходы {money(expenseTotal)}</span><strong>{editable?'Предварительно':'Итого'}: {money(sumClaimAmounts([workTotal,expenseTotal]))} BYN</strong></div><div className="flex flex-wrap justify-end gap-2">
    <button type="button" disabled={busy} className={secondary} onClick={close}>Закрыть</button>
-   {editable&&<><button type="button" disabled={busy} className={secondary} onClick={()=>save(false)}>Сохранить черновик</button><button type="button" disabled={busy} className={primary} onClick={()=>save(true)}>{manager&&claim?'Сохранить исправления':'Отправить на проверку'}</button></>}
+   {editable&&<><button type="button" disabled={busy || (manager && !person)} className={secondary} onClick={()=>save(false)}>Сохранить черновик</button><button type="button" disabled={busy || (manager && !person)} className={primary} onClick={()=>save(true)}>{manager&&claim?'Сохранить исправления':'Отправить на проверку'}</button></>}
    {!manager&&ownClaim&&claim&&['submitted','rejected'].includes(claim.state)&&!expired&&<button type="button" className={secondary} disabled={busy} onClick={()=>void perform(()=>reviewClaim(claim,'withdraw'))}>Вернуть в черновик</button>}
    {manager&&claim&&<>{claim.state==='submitted'&&<button type="button" disabled={busy||dirty} className={primary} onClick={()=>void perform(()=>reviewClaim(claim,'approve',note))}>Утвердить</button>}{['submitted','approved'].includes(claim.state)&&<><button type="button" disabled={busy||dirty} className={secondary} onClick={()=>void perform(()=>reviewClaim(claim,'return',note))}>На исправление</button><button type="button" disabled={busy||dirty} className={secondary} onClick={()=>void perform(()=>reviewClaim(claim,'reject',note))}>Отклонить</button></>}{claim.state==='approved'&&<button type="button" disabled={busy||dirty} className={primary} onClick={()=>void perform(()=>reviewClaim(claim,'pay',note))}>Отметить выплату</button>}</>}
   </div></footer>
