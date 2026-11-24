@@ -8,6 +8,27 @@ const client={async rpc(name,args){rpcCalls.push([name,args]);return {error:null
 const load=path=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,()=>({supabase:client}));return exports;};
 const events=load('src/lib/events.ts'),spec=load('src/lib/warehouseSpecification.ts'),cats=load('src/lib/categories.ts'),locs=load('src/lib/locations.ts');
 const eventId='11111111-1111-4111-8111-111111111111',budgetId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const { getBudgetCopySources, copyEventBudget } = load('src/lib/eventBudgets.ts');
+const firstPage = Array.from({ length: 200 }, (_, index) => ({
+  id: String(index),
+  sourceBudgets: [{ id: `budget-${index}`, name: 'Смета' }],
+}));
+const lastSource = { id: eventId, sourceBudgets: [{ id: budgetId, name: 'Исходная смета' }] };
+results.push({ data: firstPage, error: null }, { data: [lastSource], error: null });
+const sources = await getBudgetCopySources();
+assert.equal(sources.length, 201);
+assert.deepEqual(sources.at(-1), lastSource);
+assert.deepEqual(queries.slice(-2).map(calls => calls.find(([method]) => method === 'range')), [
+  ['range', 0, 199], ['range', 200, 399],
+]);
+assert.ok(queries.slice(-2).every(calls => calls.some(([method, fields]) =>
+  method === 'select' && fields.includes('sourceBudgets:event_budgets!inner')
+)));
+const targetEventId = '22222222-2222-4222-8222-222222222222';
+await copyEventBudget(budgetId, targetEventId);
+assert.deepEqual(rpcCalls.pop(), ['copy_event_budget', {
+  p_source_budget_id: budgetId, p_target_event_id: targetEventId, p_name: null,
+}]);
 await events.getBudgetItems(eventId,budgetId);assert.ok(queries.at(-1).some(([method,arg])=>method==='or'&&arg.includes(budgetId)));
 for(const name of ['getCables','getConnectors','getOtherItems','getSpecificationBudgetItems']){await spec[name](eventId,budgetId);assert.ok(queries.at(-1).some(([method,key,value])=>method==='eq'&&key==='budget_id'&&value===budgetId),name);}
 await cats.getCategoriesForEvent(eventId,budgetId);assert.ok(queries.at(-1).some(([method,arg])=>method==='or'&&arg.includes(budgetId)));
