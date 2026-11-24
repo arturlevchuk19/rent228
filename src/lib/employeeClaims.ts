@@ -28,6 +28,11 @@ export async function listAccountingAssignments(): Promise<ClaimAssignment[]> {
 }
 export async function claimWorks(eventId:string):Promise<{works:string[];fixed_rates:Record<string,number>;budget_name?:string}>{const {data,error}=await supabase.rpc('employee_claim_context',{p_event:eventId});if(error)throw error;return {...data,fixed_rates:data.fixed_rates||{}};}
 export async function listClaims(userId?:string):Promise<EmployeeClaim[]>{let query=supabase.from('employee_claims').select('*').order('updated_at',{ascending:false});if(userId)query=query.eq('user_id',userId);const {data,error}=await query;if(error)throw error;return data||[];}
+export async function findClaimById(id: string): Promise<EmployeeClaim | null> {
+ const { data, error } = await supabase.from('employee_claims').select('*').eq('id', id).maybeSingle();
+ if (error) throw error;
+ return data;
+}
 export async function saveClaim(claim:EmployeeClaim|null,eventId:string,lines:ClaimLine[],submit:boolean,personnelId?:string,note='',requestId?:string):Promise<EmployeeClaim>{
  const numeric=(value:unknown)=>{const parsed=Number(String(value??0).replace(',','.'));if(!Number.isFinite(parsed))throw Error('Проверьте числовые поля заявки');return parsed;};
  const payload=lines.map(line=>({...line,break_minutes:0,kilometers:line.kind==='trip'?numeric(line.kilometers):undefined,amount:['expense','allowance'].includes(line.kind)||line.calculation==='fixed'?numeric(line.amount):undefined,rate:line.rate===undefined?undefined:numeric(line.rate),starts_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.starts_at||''):undefined,ends_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.ends_at||''):undefined}));
