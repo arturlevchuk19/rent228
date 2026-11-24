@@ -2,7 +2,7 @@ import { getEffectiveBudgetItems } from './budgetCoefficientGroups';
 import { isAssignablePersonnel, type Personnel, type WorkItem } from './personnel';
 import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
-import { budgetLineAmount, roundBudgetPrice, ceilCurrencyUnit, calcCombinedUnitPrice, calcDay1UnitPrice } from './budgetPricing';
+import { roundBudgetPrice, ceilCurrencyUnit, calcCombinedUnitPrice, calcDay1UnitPrice } from './budgetPricing';
 import { workDurationMinutes } from './employeeClaimMath';
 import type { ProjectPerson } from './eventProject';
 
@@ -41,18 +41,13 @@ export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number)
   const amount = moneyRound(people.reduce((sum, person) => sum + personWorkAmount(person), 0));
   return { amount, budgetAmount, difference: moneyRound(budgetAmount - amount) };
 }
-/** Use the same per-unit rounding and displayed period as the estimate editor. */
+/** Value staffing against the estimate’s cash BYN price for the displayed period. */
 export function budgetWorkAmountBYN(item: BudgetItem, settings: Partial<Event>): number {
   const rate = settings.budget_exchange_rate || item.exchange_rate || 3;
   const days = settings.budget_days || 1;
   const mode = settings.budget_totals_mode ?? (settings.budget_dynamic_coefficients ? 'combined_only' : 'day1_plus_combined');
   const unitUSD = mode === 'combined_only' ? calcCombinedUnitPrice(item, days) : calcDay1UnitPrice(item, days);
-  if (settings.budget_payment_mode === 'byn_cash') return moneyRound(ceilCurrencyUnit(unitUSD * rate) * item.quantity);
-  if (settings.budget_payment_mode === 'byn_noncash') {
-    const delivery = /доставка оборудования|доставка персонала/i.test(item.work_item?.name || item.name || '');
-    return moneyRound(ceilCurrencyUnit(delivery ? unitUSD * rate / 0.8 : unitUSD * rate * 1.67) * item.quantity);
-  }
-  return moneyRound(budgetLineAmount(unitUSD, item.quantity) * rate);
+  return moneyRound(ceilCurrencyUnit(unitUSD * rate) * item.quantity);
 }
 export function budgetPeopleWorks(items: BudgetItem[], settings: Partial<Event>): BudgetPeopleWork[] {
   const totals = new Map<string, BudgetPeopleWork>();

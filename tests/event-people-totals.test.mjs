@@ -5,19 +5,24 @@ const item=(id,name,price,rest={})=>({id,budget_id:'a',item_type:'work',work_ite
 let works=budgetPeopleWorks([item('combined','Монтаж/демонтаж',100),item('light','Светорежиссёр',50),{...item('equipment','Колонка',200),item_type:'equipment'}],{});
 assert.deepEqual(works.map(row=>[row.name,row.budgetAmount]),[['Монтаж',180],['Демонтаж',120],['Светорежиссёр',150]]);assert(!works.some(row=>row.name==='Колонка'));
 assert.deepEqual(budgetPeopleWorks([],{}),[],'No artificial jobs when absent from the estimate');
-works=budgetPeopleWorks([item('one','Монтаж / демонтаж',0.01,{exchange_rate:1})],{});assert.equal(works.reduce((sum,row)=>sum+row.budgetAmount,0),0.01,'60/40 split preserves exact cents');
+works=budgetPeopleWorks([item('one','Монтаж / демонтаж',1,{exchange_rate:1})],{});assert.equal(works.reduce((sum,row)=>sum+row.budgetAmount,0),1,'60/40 split preserves exact cents');
 works=budgetPeopleWorks([item('combined','Монтаж/демонтаж',100),item('inst','Монтаж',20)],{});assert.equal(works.find(row=>row.name==='Монтаж').budgetAmount,240,'Combine separately quoted installation and split allocation');
 works=budgetPeopleWorks([item('one','Работа',10,{quantity:2}),item('two','Работа',5)],{});assert.equal(works.length,1);assert.equal(works[0].budgetAmount,75,'Sum duplicate work lines across categories');
 assert.equal(budgetWorkAmountBYN(item('x','Работа',10,{quantity:2,multi_day_rate_override:0.5}),{budget_days:3,budget_totals_mode:'combined_only'}),120);
 assert.equal(budgetWorkAmountBYN(item('x','Работа',10,{quantity:2,multi_day_rate_override:0.5}),{budget_days:3,budget_totals_mode:'day1_plus_combined'}),60);
-assert.equal(budgetWorkAmountBYN(item('x','Работа',1.1,{quantity:2}),{budget_payment_mode:'byn_cash'}),8);
-assert.equal(budgetWorkAmountBYN(item('x','Работа',10),{budget_payment_mode:'byn_noncash'}),51);
-assert.equal(budgetWorkAmountBYN(item('x','Доставка оборудования',10),{budget_payment_mode:'byn_noncash'}),38);
+for (const budget_payment_mode of ['usd', 'byn_noncash', 'byn_cash']) {
+  const settings = { budget_payment_mode, budget_exchange_rate: 3 };
+  assert.equal(budgetWorkAmountBYN(item('x','Работа',1.1,{quantity:2}),settings),8);
+  assert.equal(budgetWorkAmountBYN(item('x','Доставка оборудования',10),settings),30);
+  assert.deepEqual(documentPeopleWorks([item('x','Работа',1.1,{quantity:2})],{
+    id:'a',is_primary:true,settings,
+  }).map(row=>row.budgetAmount),[8]);
+}
 assert.equal(personWorkAmount({rate:'15',hours:'3.5'}),52.5);assert.equal(personWorkAmount({rate:'12,5',hours:'2'}),25);assert.equal(personWorkAmount({rate:'bad',hours:'2'}),0);
 assert.deepEqual(peopleWorkBalance([{rate:'10',hours:'3'}],50),{amount:30,budgetAmount:50,difference:20});assert.equal(peopleWorkBalance([{rate:'10',hours:'6'}],50).difference,-10);
 const all=[item('x','Работа A',10),item('y','Работа B',100,{budget_id:'b'}),item('legacy','Работа legacy',2,{budget_id:null})];assert.deepEqual(documentPeopleWorks(all,{id:'a',is_primary:true,settings:{}}).map(x=>x.name),['Работа A','Работа legacy']);assert.deepEqual(documentPeopleWorks(all,{id:'b',is_primary:false,settings:{}}).map(x=>x.name),['Работа B']);
 const {normalizeProjectDetails}=load('src/lib/eventProject.ts');const details={people_budget_id:'b',people_works:[{id:'custom',name:'Особая работа'}]};const normalized=normalizeProjectDetails(details);assert.equal(normalized.people_budget_id,'b');assert.deepEqual(normalized.people_works,details.people_works);
-console.log('PASS: estimate-only work list, 60/40 split and cent preservation, duplicate rows, periods, USD/BYN cash/noncash conversion, hourly totals, signed balance, separate estimate variants and custom-work persistence');
+console.log('PASS: estimate-only work list, 60/40 split and cent preservation, duplicate rows, periods, cash BYN conversion across payment modes, hourly totals, signed balance, separate estimate variants and custom-work persistence');
 
 assert.equal(rateForWorkAmount(100,'3'),String(100/3));assert.equal(personWorkAmount({rate:rateForWorkAmount(100,'3'),hours:'3'}),100);assert.equal(rateForWorkAmount(100,'0'),null);assert.equal(rateForWorkAmount(100,''),null);assert.equal(rateForWorkAmount(-10,'2'),null);assert.equal(rateForWorkAmount(0,'2'),'0');assert.equal(rateForWorkAmount(25,'2,5'),'10');
 console.log('PASS: manual total conversion, non-divisible amounts, zero/empty hours, negative totals and decimal hours');
@@ -46,7 +51,7 @@ assert.deepEqual(raw.map(row=>row.multi_day_rate_override),[0.5,0.8]);
 assert.strictEqual(getEffectiveBudgetItems(raw,{...settings,budget_dynamic_coefficients:false}),raw);
 assert.deepEqual(effective.map(row=>calcCombinedTotal(row,1)),[25,10]);
 assert.deepEqual(effective.map(row=>calcCombinedTotal(row,3)),[25,10]);
-assert.deepEqual(budgetPeopleWorks(raw,settings).map(row=>row.budgetAmount),[75,30]);
+assert.deepEqual(budgetPeopleWorks(raw,settings).map(row=>row.budgetAmount),[76,30]);
 console.log('PASS: dynamic rates override saved multiday rates, apply once to the entire estimate period and update work allowances');
 assert.deepEqual(effective.map(row=>calcDay1Total(row,3)),[20,10]);
 assert.deepEqual(effective.map(row=>calcDay1Total(row,1)),[25,10]);
