@@ -1,10 +1,11 @@
 import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
 let html='';
+let contentBottom=980;
 const pageLabels=[];
 globalThis.window={scrollX:0,scrollY:0,innerHeight:900};
 const nativeTimeout=globalThis.setTimeout;globalThis.setTimeout=(fn,ms)=>ms===0?nativeTimeout(fn,ms):nativeTimeout(fn,ms).unref();
 globalThis.Image=class { width=10;height=10;set src(value){queueMicrotask(()=>this.onload());} };
-globalThis.document={documentElement:{clientWidth:1200},fonts:{ready:Promise.resolve()},createElement:tag=>tag==='canvas'?{getContext:()=>({drawImage:()=>{}}),toDataURL:()=> 'data:image/png;base64,AA'}:{style:{},innerHTML:'',scrollHeight:1000,getBoundingClientRect:()=>({width:800,top:0,left:0}),remove:()=>{}},body:{appendChild:element=>{html=element.innerHTML;}}};
+globalThis.document={documentElement:{clientWidth:1200},fonts:{ready:Promise.resolve()},createElement:tag=>tag==='canvas'?{getContext:()=>({drawImage:()=>{}}),toDataURL:()=> 'data:image/png;base64,AA'}:{style:{},innerHTML:'',get scrollHeight(){return contentBottom+20;},lastElementChild:{getBoundingClientRect:()=>({bottom:contentBottom})},getBoundingClientRect:()=>({width:800,top:0,left:0}),remove:()=>{}},body:{appendChild:element=>{html=element.innerHTML;}}};
 globalThis.requestAnimationFrame=callback=>{callback();return 1;};
 const cache=new Map();
 function load(file){if(cache.has(file))return cache.get(file);const exports={};cache.set(file,exports);new Function('exports','require',ts.transpile(fs.readFileSync(file,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,esModuleInterop:true}))(exports,name=>name==='jspdf'?class{addImage(){}addPage(){}addFileToVFS(){}addFont(){}setFont(){}setFontSize(){}setTextColor(){}text(label){pageLabels.push(label);}save(){}}:name==='html2canvas'?async()=>({width:1000,height:1000,toDataURL:()=> 'data:image/png;base64,AA'}):name==='./budgetDisplayName'?load('src/lib/budgetDisplayName.ts'):name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):name==='./specificationPdfFonts'?{regularFont:''}:name==='./pdfPagination'?{...load('src/lib/pdfPagination.ts'),measurePdfBlocks:()=>[]}:{});return exports;}
@@ -64,5 +65,10 @@ for (const extra of [false, true]) {
  assert.ok(!html.includes(liftingName));
  assert.ok(!html.includes('верхняя ферма'));
 }
+// The final totals fit on A4, but the export container's padding does not.
+contentBottom=1035;
+pageLabels.length=0;
+await generateBudgetPDF({...data,budgetItems:rows()});
+assert.deepEqual(pageLabels,['Страница 1'],'Trailing padding must not emit a numbered blank page');
 globalThis.setTimeout=nativeTimeout;
 console.log('PASS: actual PDF HTML main/extra rows in USD/BYN cash/noncash; zero coefficient equals first day; displayed unit × quantity equals amount; floating point boundary and nonzero coefficient');

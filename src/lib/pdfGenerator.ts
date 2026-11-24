@@ -1,7 +1,7 @@
 import { budgetEquipmentDisplayName, budgetDisplayNotes } from './budgetDisplayName';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { measurePdfBlocks, paginatePdf } from './pdfPagination';
+import { measurePdfBlocks, measurePdfContentHeight, paginatePdf } from './pdfPagination';
 import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
@@ -935,7 +935,6 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     </footer>
     ${extraServicesHtml}
     ${budgetNoteHtml}
-    <div style="height: 80px; background: #ffffff;"></div>
   `;
 
   const pageWidth = 210;
@@ -953,10 +952,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     const pixelsPerMm = container.getBoundingClientRect().width / pageWidth;
     // Reserve a separate footer inside common printer margins.
     const contentHeight = Math.floor((pageHeight - marginY * 2 - 6) * pixelsPerMm);
-    // The final spacer is decorative and must not create an empty last page.
-    const spacer = container.lastElementChild;
-    spacer?.remove();
-    const pages = paginatePdf(container.scrollHeight, contentHeight, measurePdfBlocks(container, contentHeight));
+    const pages = paginatePdf(measurePdfContentHeight(container), contentHeight, measurePdfBlocks(container, contentHeight));
     const { regularFont } = await import('./specificationPdfFonts');
     pdf.addFileToVFS('EstimateSans.ttf', regularFont);
     pdf.addFont('EstimateSans.ttf', 'EstimateSans', 'normal');

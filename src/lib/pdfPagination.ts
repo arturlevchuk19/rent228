@@ -1,5 +1,13 @@
 export interface PdfBlock { top: number; bottom: number; keepWithNext?: boolean; }
 
+/** The PDF already has a bottom margin. Exclude the container's trailing
+ * padding so it cannot occupy a page on its own. */
+export function measurePdfContentHeight(container: HTMLElement): number {
+  const lastBlock = container.lastElementChild;
+  if (!lastBlock) return 0;
+  return Math.ceil(lastBlock.getBoundingClientRect().bottom - container.getBoundingClientRect().top);
+}
+
 /** Page cuts stay outside protected rows and text lines. Oversize rows may
  * continue on another page, but individual text lines are still protected. */
 export function paginatePdf(height: number, pageHeight: number, blocks: PdfBlock[]): PdfBlock[] {
