@@ -2,10 +2,10 @@ import { budgetEquipmentDisplayName, budgetDisplayNotes } from './budgetDisplayN
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { measurePdfBlocks, measurePdfContentHeight, paginatePdf } from './pdfPagination';
-import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total } from './budgetPricing';
+import { roundBudgetTotalDown, roundBudgetPrice, budgetLineAmount, calcCombinedUnitPrice, calcDay1UnitPrice, type BudgetPricingItem, ceilCurrencyUnit, calcDisplayedCombinedTotal as calcCombinedTotal, calcDisplayedDay1Total as calcDay1Total } from './budgetPricing';
 
 // Интерфейсы данных [cite: 53]
-interface BudgetItem {
+interface BudgetItem extends BudgetPricingItem {
   category_id?: string | null;
   location_id?: string | null;
   location?: {
@@ -15,10 +15,7 @@ interface BudgetItem {
   } | null;
   equipment?: { name: string; unit?: string; category?: string };
   work_item?: { name: string; unit?: string };
-  quantity: number;
-  price: number;
   total: number;
-  multi_day_rate_override?: number | null;
   notes?: string;
   is_extra?: boolean;
   unit?: string | null;
@@ -361,18 +358,14 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
         const displayName = notes ? `${name} ${notes}` : name;
         const qty = item.quantity || 0;
         const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
-        const usdPriceDay1 = item.price || 0;
-        const usdTotalDay1 = calcDay1Total(item);
+        const usdPriceDay1 = calcDay1UnitPrice(item, budgetDays);
+        const usdTotalDay1 = calcDay1Total(item, budgetDays);
 
         // Use rounded values for display
         const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
         const displayTotalDay1BYN = budgetLineAmount(displayUnitPriceBYNDay1, qty);
 
-        const usdUnitPriceCombined = calcCombinedUnitPrice(
-          { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-          budgetDays,
-          item.multi_day_rate_override
-        );
+        const usdUnitPriceCombined = calcCombinedUnitPrice(item, budgetDays);
         const displayUnitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
         const displayTotalCombinedBYN = budgetLineAmount(displayUnitPriceBYNCombined, qty);
 
@@ -501,12 +494,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           const unit = item.unit || item.work_item?.unit || item.equipment?.unit || 'шт.';
           
           // Calculate price with multi-day coefficient for extra services
-          const usdPriceDay1 = item.price || 0;
-          const usdPriceCombined = calcCombinedUnitPrice(
-            { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-            budgetDays,
-            item.multi_day_rate_override
-          );
+          const usdPriceDay1 = calcDay1UnitPrice(item, budgetDays);
+          const usdPriceCombined = calcCombinedUnitPrice(item, budgetDays);
           
           const displayUnitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
           const displayUnitPriceBYNCombined = calculatePrice(usdPriceCombined, item, true);
@@ -519,7 +508,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
           const displayTotalDay1BYN = budgetLineAmount(displayUnitPriceBYNDay1, qty);
           const displayTotalCombinedBYN = budgetLineAmount(displayUnitPriceBYNCombined, qty);
           
-          categoryTotalDay1 += paymentMode === 'usd' ? calcDay1Total(item) : displayTotalDay1BYN;
+          categoryTotalDay1 += paymentMode === 'usd' ? calcDay1Total(item, budgetDays) : displayTotalDay1BYN;
           categoryTotalCombined += paymentMode === 'usd' ? calcCombinedTotal(item, budgetDays) : displayTotalCombinedBYN;
           
           return `
@@ -593,11 +582,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
 
   const grandTotalCombined = mainBudgetItems.reduce((sum, item) => {
     const qty = item.quantity || 0;
-    const usdUnitPriceCombined = calcCombinedUnitPrice(
-      { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-      budgetDays,
-      item.multi_day_rate_override
-    );
+    const usdUnitPriceCombined = calcCombinedUnitPrice(item, budgetDays);
     const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
     return sum + budgetLineAmount(unitPriceBYNCombined, qty);
   }, 0);
@@ -623,25 +608,21 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     .filter((item) => !item.work_item && !isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const unitPriceBYN = calculatePrice(item.price || 0, item, true);
+      const unitPriceBYN = calculatePrice(calcDay1UnitPrice(item, budgetDays), item, true);
       return sum + budgetLineAmount(unitPriceBYN, qty);
     }, 0);
   const grandTotalConsumablesDay1 = mainBudgetItems
     .filter((item) => isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const unitPriceBYN = calculatePrice(item.price || 0, item, true);
+      const unitPriceBYN = calculatePrice(calcDay1UnitPrice(item, budgetDays), item, true);
       return sum + budgetLineAmount(unitPriceBYN, qty);
     }, 0);
   const grandTotalWorkCombined = mainBudgetItems
     .filter((item) => !!item.work_item)
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedUnitPrice(
-        { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-        budgetDays,
-        item.multi_day_rate_override
-      );
+      const usdUnitPriceCombined = calcCombinedUnitPrice(item, budgetDays);
       const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
       return sum + budgetLineAmount(unitPriceBYNCombined, qty);
     }, 0);
@@ -649,11 +630,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     .filter((item) => !item.work_item && !isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedUnitPrice(
-        { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-        budgetDays,
-        item.multi_day_rate_override
-      );
+      const usdUnitPriceCombined = calcCombinedUnitPrice(item, budgetDays);
       const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
       return sum + budgetLineAmount(unitPriceBYNCombined, qty);
     }, 0);
@@ -661,11 +638,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     .filter((item) => isConsumablesEquipmentItem(item))
     .reduce((sum, item) => {
       const qty = item.quantity || 0;
-      const usdUnitPriceCombined = calcCombinedUnitPrice(
-        { price: item.price || 0, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-        budgetDays,
-        item.multi_day_rate_override
-      );
+      const usdUnitPriceCombined = calcCombinedUnitPrice(item, budgetDays);
       const unitPriceBYNCombined = calculatePrice(usdUnitPriceCombined, item, true);
       return sum + budgetLineAmount(unitPriceBYNCombined, qty);
     }, 0);
@@ -764,7 +737,7 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
   const extraTotalDay1 = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
         const qty = item.quantity || 0;
-        const usdPriceDay1 = item.price || 0;
+        const usdPriceDay1 = calcDay1UnitPrice(item, budgetDays);
         const unitPriceBYNDay1 = calculatePrice(usdPriceDay1, item, true);
         return sum + budgetLineAmount(unitPriceBYNDay1, qty);
       }, 0)
@@ -772,12 +745,8 @@ export async function generateBudgetPDF(data: PDFData): Promise<void> {
     
   const extraTotalCombined = extraBudgetItems.length > 0
     ? extraBudgetItems.reduce((sum, item) => {
-        const qty = item.quantity || 0;        const usdPriceDay1 = item.price || 0;
-        const usdPriceCombined = calcCombinedUnitPrice(
-          { price: usdPriceDay1, quantity: 1, multi_day_rate_override: item.multi_day_rate_override },
-          budgetDays,
-          item.multi_day_rate_override
-        );
+        const qty = item.quantity || 0;
+        const usdPriceCombined = calcCombinedUnitPrice(item, budgetDays);
         const unitPriceBYNCombined = calculatePrice(usdPriceCombined, item, true);
         return sum + budgetLineAmount(unitPriceBYNCombined, qty);
       }, 0)

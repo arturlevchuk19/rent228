@@ -1,7 +1,8 @@
+import { getEffectiveBudgetItems } from './budgetCoefficientGroups';
 import { isAssignablePersonnel, type Personnel, type WorkItem } from './personnel';
 import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
-import { budgetLineAmount, roundBudgetPrice, ceilCurrencyUnit, calcCombinedTotal } from './budgetPricing';
+import { budgetLineAmount, roundBudgetPrice, ceilCurrencyUnit, calcCombinedUnitPrice, calcDay1UnitPrice } from './budgetPricing';
 import { workDurationMinutes } from './employeeClaimMath';
 import type { ProjectPerson } from './eventProject';
 
@@ -43,7 +44,9 @@ export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number)
 /** Use the same per-unit rounding and displayed period as the estimate editor. */
 export function budgetWorkAmountBYN(item: BudgetItem, settings: Partial<Event>): number {
   const rate = settings.budget_exchange_rate || item.exchange_rate || 3;
-  const unitUSD = settings.budget_totals_mode === 'combined_only' ? calcCombinedTotal({ ...item, quantity: 1 }, settings.budget_days || 1) : item.price;
+  const days = settings.budget_days || 1;
+  const mode = settings.budget_totals_mode ?? (settings.budget_dynamic_coefficients ? 'combined_only' : 'day1_plus_combined');
+  const unitUSD = mode === 'combined_only' ? calcCombinedUnitPrice(item, days) : calcDay1UnitPrice(item, days);
   if (settings.budget_payment_mode === 'byn_cash') return moneyRound(ceilCurrencyUnit(unitUSD * rate) * item.quantity);
   if (settings.budget_payment_mode === 'byn_noncash') {
     const delivery = /доставка оборудования|доставка персонала/i.test(item.work_item?.name || item.name || '');
@@ -59,7 +62,7 @@ export function budgetPeopleWorks(items: BudgetItem[], settings: Partial<Event>)
     totals.set(key, { id: previous?.id || id, name: previous?.name || name, budgetAmount: moneyRound((previous?.budgetAmount || 0) + amount) });
   };
   let combined = 0;
-  for (const item of items) {
+  for (const item of getEffectiveBudgetItems(items, settings)) {
     if (item.item_type !== 'work') continue;
     const name = (item.work_item?.name || item.name || 'Работа').trim();
     const amount = budgetWorkAmountBYN(item, settings);

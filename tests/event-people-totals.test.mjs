@@ -1,5 +1,5 @@
 import fs from 'node:fs';import ts from 'typescript';import assert from 'node:assert/strict';
-const modules=new Map();function load(path){if(modules.has(path))return modules.get(path);const exports={};modules.set(path,exports);new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./personnel'?{isAssignablePersonnel:person=>person.show_in_budgets!==false}:name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):name==='./employeeClaimMath'?load('src/lib/employeeClaimMath.ts'):name==='./calendar'?load('src/lib/calendar.ts'):{});return exports;}
+const modules=new Map();function load(path){if(modules.has(path))return modules.get(path);const exports={};modules.set(path,exports);new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}))(exports,name=>name==='./personnel'?{isAssignablePersonnel:person=>person.show_in_budgets!==false}:name==='./budgetCoefficientGroups'?load('src/lib/budgetCoefficientGroups.ts'):name==='./budgetPricing'?load('src/lib/budgetPricing.ts'):name==='./employeeClaimMath'?load('src/lib/employeeClaimMath.ts'):name==='./calendar'?load('src/lib/calendar.ts'):{});return exports;}
 const {budgetPeopleWorks,documentPeopleWorks,personWorkAmount,peopleWorkBalance,budgetWorkAmountBYN,rateForWorkAmount}=load('src/lib/eventPeople.ts');
 const item=(id,name,price,rest={})=>({id,budget_id:'a',item_type:'work',work_item_id:id,work_item:{name},price,quantity:1,exchange_rate:3,...rest});
 let works=budgetPeopleWorks([item('combined','Монтаж/демонтаж',100),item('light','Светорежиссёр',50),{...item('equipment','Колонка',200),item_type:'equipment'}],{});
@@ -29,3 +29,24 @@ const original={id:'source-person',personnel_id:'p',name:'Иван',group:'team'
 let copied=copyPeopleToWork([original],[original],{id:'dem',name:'Демонтаж'},()=>String(++serial));assert.equal(copied.length,2);assert.deepEqual([copied[1].rate,copied[1].hours],['12','5']);assert.notEqual(copied[1].id,original.id);assert.equal(original.work_id,'inst');assert.equal(copyPeopleToWork([original,already],[original],{id:'dem',name:'Демонтаж'},()=>String(++serial)).length,2);assert.equal(already.rate,'99');
 const manual={...original,id:'manual',personnel_id:'',name:'Пётр'};copied=copyPeopleToWork([manual],[manual],{id:'dem',name:'Демонтаж'},()=>String(++serial));assert.equal(copyPeopleToWork(copied,[manual],{id:'dem',name:'Демонтаж'},()=>String(++serial)).length,2,'Deduplicate manually entered people by name');
 console.log('PASS: loading/unloading order and zero budget allowances; copying preserves source/rates/hours with new IDs and prevents directory/manual duplicates');
+
+const {getEffectiveBudgetItems}=load('src/lib/budgetCoefficientGroups.ts');
+const {calcBudgetCoefficient,calcCombinedTotal,calcDay1Total}=load('src/lib/budgetPricing.ts');
+const standard={price:100,quantity:1,multi_day_rate_override:0.5};
+assert.equal(calcBudgetCoefficient(standard,3),2);
+assert.equal(calcCombinedTotal(standard,1),100);
+assert.equal(calcCombinedTotal(standard,3),200);
+assert.equal(calcCombinedTotal({...standard,dynamic_coefficient:1.25},3),125);
+const raw=[item('x','Работа A',10,{quantity:2,multi_day_rate_override:0.5}),item('y','Работа B',10,{multi_day_rate_override:0.8})];
+const settings={budget_dynamic_coefficients:true,budget_days:3,budget_totals_mode:'combined_only',
+  budget_coefficient_groups:[{id:'group',name:'Группа 1',coefficient:1.25,color:null,itemIds:['x']}]};
+const effective=getEffectiveBudgetItems(raw,settings);
+assert.deepEqual(effective.map(row=>row.dynamic_coefficient),[1.25,1]);
+assert.deepEqual(raw.map(row=>row.multi_day_rate_override),[0.5,0.8]);
+assert.strictEqual(getEffectiveBudgetItems(raw,{...settings,budget_dynamic_coefficients:false}),raw);
+assert.deepEqual(effective.map(row=>calcCombinedTotal(row,1)),[25,10]);
+assert.deepEqual(effective.map(row=>calcCombinedTotal(row,3)),[25,10]);
+assert.deepEqual(budgetPeopleWorks(raw,settings).map(row=>row.budgetAmount),[75,30]);
+console.log('PASS: dynamic rates override saved multiday rates, apply once to the entire estimate period and update work allowances');
+assert.deepEqual(effective.map(row=>calcDay1Total(row,3)),[20,10]);
+assert.deepEqual(effective.map(row=>calcDay1Total(row,1)),[25,10]);

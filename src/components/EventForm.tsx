@@ -1,3 +1,4 @@
+import { getEffectiveBudgetItems } from '../lib/budgetCoefficientGroups';
 import { canEditMainSpecification } from '../lib/specificationPermissions';
 import { BudgetDocumentDialog } from './BudgetDocumentDialog';
 import { EventPdfMenu } from './EventPdfMenu';
@@ -360,9 +361,10 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
       }
 
       const budgetItems = await getBudgetItems(effectiveEventId, selectedBudgetId);
-      const totals = calcGrandTotals(budgetItems, fullEvent.budget_days || 1, fullEvent.budget_totals_mode || 'combined_only');
-      
-      let amount = fullEvent.budget_totals_mode === 'combined_only' ? totals.combinedTotal : totals.day1Total;
+      const totalsMode = fullEvent.budget_totals_mode ?? (fullEvent.budget_dynamic_coefficients ? 'combined_only' : 'day1_plus_combined');
+      const totals = calcGrandTotals(getEffectiveBudgetItems(budgetItems, fullEvent), fullEvent.budget_days || 1, totalsMode);
+
+      let amount = totals.totalForMode;
       if (fullEvent.discount_enabled && fullEvent.discount_percent) {
         // Simplified discount calculation for contract from EventForm
         // In BudgetEditor it's more complex because of different payment modes

@@ -1,3 +1,5 @@
+import type { BudgetPricingItem } from './budgetPricing';
+import type { BudgetCoefficientGroup } from './budgetCoefficientGroups';
 import type { EventProjectDetails } from './eventProject';
 import { supabase } from './supabase';
 
@@ -67,6 +69,8 @@ export interface Event {
   // и от скидки клиента (последовательно), если скидка клиенту активна.
   // Колонка в БД остаётся нетронутой.
   budget_days?: number;
+  budget_dynamic_coefficients?: boolean;
+  budget_coefficient_groups?: BudgetCoefficientGroup[];
   budget_totals_mode?: 'combined_only' | 'day1_plus_combined';
   budget_note?: string;
   show_nominal_consumption?: boolean;
@@ -117,7 +121,7 @@ export interface WorkItem {
   created_at: string;
 }
 
-export interface BudgetItem {
+export interface BudgetItem extends BudgetPricingItem {
   source_budget_item_id?: string | null;
   budget_id?: string;
   /** Generated child rows excluded only from this specification. */
@@ -131,12 +135,9 @@ export interface BudgetItem {
   modification_id?: string | null;
   parent_budget_item_id?: string | null;
   item_type: 'equipment' | 'work';
-  quantity: number;
-  price: number;
   total: number;
   notes: string;
   exchange_rate: number;
-  multi_day_rate_override?: number | null;
   category_id?: string | null;
   location_id?: string | null;
   sort_order: number;
