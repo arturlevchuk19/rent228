@@ -49,6 +49,7 @@ assert.equal(api.validateProjectDetails(periodProject,'2026-10-26','2026-10-29')
 assert.match(api.validateProjectDetails({...periodProject,people:[{...periodProject.people[0],ends_at:'2026-10-27T01:30'}]},'2026-10-26','2026-10-29'),/начало и окончание/);
 
 const resolvePeopleDependency = (name) => {
+  if (name === './eventProject') return api;
   if (name === './employeeClaimMath' || name === './budgetPricing') return load(`src/lib/${name.slice(2)}.ts`);
   if (name === './personnel' || name === './budgetCoefficientGroups') return {};
   return require(name);
@@ -101,3 +102,18 @@ assert.deepEqual(api.normalizeProjectDetails(updatedDelivery), updatedDelivery);
 assert.equal(api.validateProjectDetails(updatedDelivery, '', ''), null);
 assert.match(api.validateProjectDetails({ ...initial, transport: [{ ...passengerTrip, journey: { ...journey, kilometers: 0 } }] }, '', ''), /километраж/i);
 console.log('PASS: passenger mileage and fuel, separate driver mileage, staff and freelance truck payouts, journey persistence');
+
+const unassignedTrip = {
+  ...cargoTrip,
+  journey: { work_name: works[0].name, drivers: [
+    { id: 'driver-a', name: 'Водитель 1', kilometers: 40 },
+    { id: 'driver-b', name: 'Водитель 2', kilometers: 80 },
+  ] },
+};
+const multiDriverProject = { ...initial, transport: [unassignedTrip] };
+assert.deepEqual(api.normalizeProjectDetails(JSON.parse(JSON.stringify(multiDriverProject))), multiDriverProject);
+assert.equal(api.validateProjectDetails(multiDriverProject, '', ''), null);
+assert.equal(peopleMath.driverPayout(unassignedTrip), 30);
+assert.equal(peopleMath.transportCost(unassignedTrip), 90);
+assert.equal(api.journeyDrivers(cargoTrip.journey)[0].kilometers, 40);
+console.log('PASS: trips without an owner, multiple driver payouts, and legacy driver compatibility');

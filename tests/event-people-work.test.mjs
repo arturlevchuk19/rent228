@@ -39,28 +39,28 @@ const confirmPeriod = (showPrices = true) => {
  assert.equal(stage.find(n=>n.props?.type==='submit').props.disabled,false);
  stage.find(n=>n.type==='form').props.onSubmit({preventDefault(){},stopPropagation(){}});
 };
-let tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить')).props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.props?.role==='tab'&&text(n)==='Фриланс').props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());confirmPeriod();assert.equal(currentRows.length,2);assert(currentRows.every(row=>row.starts_at===commonStart&&row.ends_at===commonEnd));assert.deepEqual(currentRows.map(x=>x.work_name),['Монтаж','Монтаж']);assert(currentRows.some(x=>x.group==='freelance'));assert.equal(states[0],false);
+let tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).includes('Добавить')).props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());tree.find(n=>n.props?.role==='tab'&&text(n)==='Фриланс').props.onClick();tree=nodes(render());tree.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange({target:{checked:true}});tree=nodes(render());confirmPeriod();assert.equal(currentRows.length,2);assert(currentRows.every(row=>row.starts_at===commonStart&&row.ends_at===commonEnd));assert.deepEqual(currentRows.map(x=>x.work_name),['Монтаж','Монтаж']);assert(currentRows.some(x=>x.group==='freelance'));assert(!nodes(render()).some(node=>node.props?.title==='Время работы'));
 console.log('PASS: job ordering, staff/freelance defaults, warehouse/install rates, deduplication, separate jobs, hours persistence/validation and two-step multi-tab checkbox picker');
 
 // New work creation is part of the event, not an unrelated catalogue entry.
-tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить').props.onClick();tree=nodes(render());tree.find(n=>n.props?.['aria-label']==='Работа из справочника').props.onChange({target:{value:'catalog-new'}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить работу').props.onClick();assert.equal(customWorks[0].name,'Новая работа');assert.equal(states[1].name,'Новая работа');
+tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить').props.onClick();tree=nodes(render());tree.find(n=>n.props?.['aria-label']==='Работа из справочника').props.onChange({target:{value:'catalog-new'}});tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить работу').props.onClick();assert.equal(customWorks[0].name,'Новая работа');nodes(render()).find(node=>node.props?.title==='Новая работа').props.onClose();
 console.log('PASS: custom work is saved to event and opens employee selection');
 
 assert.equal(customWorks[0].id,'catalog-new','Added work must keep the directory ID');
 // Editing a total adjusts the hourly rate rather than changing the hours.
-states[0]=false;
+
 currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',starts_at:undefined,ends_at:undefined,rate:'10'}:row);
 tree=nodes(render());const amountInput=tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван');assert(amountInput);assert.equal(amountInput.props.disabled,false);assert.equal(amountInput.props.step,'1');amountInput.props.onChange({target:{value:'99.6'}});assert.equal(currentRows[0].hours,'3');assert.equal(peopleAPI.personWorkAmount(currentRows[0]),100);assert(Math.abs(Number(currentRows[0].rate)-100/3)<1e-10);
 currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'0'}:row);tree=nodes(render());assert.equal(tree.find(n=>n.type==='input'&&n.props['aria-label']==='Сумма: Иван').props.disabled,true);
 console.log('PASS: directory selection, manual total updates hourly rate with division precision and zero-hour protection');
 
 // Copy employees through the actual per-work button and target dialog.
-currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',starts_at:undefined,ends_at:undefined,rate:'10'}:row);states[0]=false;
+currentRows=currentRows.map((row,index)=>index===0?{...row,hours:'3',starts_at:undefined,ends_at:undefined,rate:'10'}:row);
 tree=nodes(render());tree.find(n=>n.type==='button'&&n.props['aria-label']==='Скопировать людей из работы Монтаж').props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Демонтаж'&&n.props['aria-expanded']===undefined).props.onClick();assert.equal(currentRows.filter(row=>row.work_name==='Демонтаж').length,2);assert(currentRows.find(row=>row.work_name==='Демонтаж'&&row.name==='Иван').hours==='3');
 console.log('PASS: per-work copy button opens target selection and copies employees');
 
 // Hidden office personnel do not appear in new event assignments.
-states[0]=false;tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить').props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());assert(!tree.some(n=>n.type==='label'&&text(n).includes('Бухгалтер')));
+tree=nodes(render());tree.find(n=>n.type==='button'&&text(n)==='Добавить').props.onClick();tree=nodes(render());tree.find(n=>n.type==='button'&&text(n).startsWith('Монтаж')&&n.props['aria-expanded']===undefined).props.onClick();tree=nodes(render());assert(!tree.some(n=>n.type==='label'&&text(n).includes('Бухгалтер')));
 assert.equal(addWorkPeople([], [{...staff,id:'office',show_in_budgets:false}], {id:'inst',name:'Монтаж'}, next).length,0,'Hidden employees cannot be added even from a stale selection');
 console.log('PASS: hidden office personnel excluded from picker and new assignments');
 

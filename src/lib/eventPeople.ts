@@ -4,7 +4,7 @@ import type { EventBudget } from './eventBudgets';
 import type { BudgetItem, Event } from './events';
 import { roundBudgetPrice, ceilCurrencyUnit, calcCombinedUnitPrice, calcDay1UnitPrice } from './budgetPricing';
 import { lineEstimate, workDurationMinutes } from './employeeClaimMath';
-import type { ProjectPerson, ProjectTransport } from './eventProject';
+import { journeyDrivers, type ProjectPerson, type ProjectTransport } from './eventProject';
 
 export type PeopleDirectoryEntry = Pick<Personnel, 'id' | 'full_name' | 'employment_type' | 'show_in_budgets' | 'warehouse_rate' | 'warehouse_work_rate' | 'installation_rate'>;
 
@@ -39,8 +39,9 @@ export function vehiclePayout(row: ProjectTransport): number {
   }
   return moneyRound((row.trip_price ?? 0) * (row.employment_type === 'freelance' ? 1 : 0.6));
 }
+export const driverMileagePayout = (kilometers: number) => moneyRound(kilometers * driverMileageRate);
 export function driverPayout(row: ProjectTransport): number {
-  return moneyRound((row.journey?.driver?.kilometers ?? 0) * driverMileageRate);
+  return moneyRound(journeyDrivers(row.journey).reduce((total, driver) => total + driverMileagePayout(driver.kilometers), 0));
 }
 export function transportCost(row: ProjectTransport): number {
   return moneyRound(vehiclePayout(row) + driverPayout(row));

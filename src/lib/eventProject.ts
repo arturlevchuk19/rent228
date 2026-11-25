@@ -6,12 +6,14 @@ export interface ScheduleEntry { id: string; date: string; title: string; start:
 export interface ProjectTrip { kilometers: string; own_car: boolean; own_fuel: boolean; }
 export interface ProjectPerson { id: string; personnel_id: string; name: string; group: 'team' | 'freelance' | 'external'; rate: string; work_id?: string; work_name?: string; hours?: string; starts_at?: string; ends_at?: string; trip?: ProjectTrip; }
 export interface TransportPayee { id: string; name: string; }
+export type TransportDriver = TransportPayee & { kilometers: number };
 export interface TransportJourney {
   work_name: string;
-  owner: TransportPayee;
+  owner?: TransportPayee;
   kilometers?: number;
   own_fuel?: boolean;
-  driver?: TransportPayee & { kilometers: number };
+  driver?: TransportDriver;
+  drivers?: TransportDriver[];
 }
 export interface ProjectTransport { id: string; vehicle: string; driver: string; notes: string; vehicle_id?: string; category?: GarageVehicleFields['category']; employment_type?: GarageGroup; trip_price?: number; journey?: TransportJourney; }
 export interface EventProjectDetails {
@@ -37,13 +39,23 @@ function normalizeJourney(value: unknown): TransportJourney | undefined {
   };
   const owner = payee(row.owner);
   const work_name = text(row.work_name);
-  if (!owner || !work_name) return undefined;
-  const driver = payee(row.driver);
-  const driverKm = (row.driver as Partial<{ kilometers: number }> | undefined)?.kilometers;
-  return { owner, work_name,
-    ...(typeof row.kilometers === 'number' ? { kilometers: row.kilometers, own_fuel: row.own_fuel === true } : {}),
-    ...(driver && typeof driverKm === 'number' ? { driver: { ...driver, kilometers: driverKm } } : {}),
+  if (!work_name) return undefined;
+  const readDriver = (value: unknown): TransportDriver | undefined => {
+    const person = payee(value);
+    const kilometers = (value as { kilometers?: unknown } | undefined)?.kilometers;
+    return person && typeof kilometers === 'number' ? { ...person, kilometers } : undefined;
   };
+  const driver = readDriver(row.driver);
+  return { work_name,
+    ...(owner ? { owner } : {}),
+    ...(typeof row.kilometers === 'number' ? { kilometers: row.kilometers, own_fuel: row.own_fuel === true } : {}),
+    ...(Array.isArray(row.drivers)
+      ? { drivers: row.drivers.flatMap(value => { const entry = readDriver(value); return entry ? [entry] : []; }) }
+      : driver ? { driver } : {}),
+  };
+}
+export function journeyDrivers(journey?: TransportJourney): TransportDriver[] {
+  return journey?.drivers ?? (journey?.driver ? [journey.driver] : []);
 }
 export const isPositiveMileage = (value: number) => Number.isFinite(value) && value > 0;
 export function normalizeProjectDetails(value: unknown): EventProjectDetails {
@@ -81,7 +93,7 @@ export function validateProjectDetails(value: EventProjectDetails, startDate: st
   if (value.transport.some(({ category, journey, trip_price }) => journey && (
     (category === 'passenger' && !isPositiveMileage(journey.kilometers ?? 0)) ||
     (category === 'cargo' && (!Number.isFinite(trip_price) || (trip_price ?? -1) < 0)) ||
-    (journey.driver && !isPositiveMileage(journey.driver.kilometers))
+    journeyDrivers(journey).some(driver => !isPositiveMileage(driver.kilometers))
   ))) return 'Проверьте стоимость и километраж поездки в доставке.';
   if (value.transport.some(row => !row.vehicle.trim())) return 'Укажите транспорт или удалите незаполненную строку.';
   return null;

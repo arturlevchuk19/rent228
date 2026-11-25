@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { Plus, Trash2, ArrowLeft, Copy, ChevronDown, Truck } from 'lucide-react';
 import { isAssignablePersonnel, type Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
-import { newProjectId, type ProjectPerson, type ProjectTransport, type ProjectTrip } from '../lib/eventProject';
-import { addWorkPeople, deliveryCategory, deliveryWorksAfterTransport, driverPayout, transportCost, vehiclePayout, peopleWorkRate, personWorkAmount, personWorkHours, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
+import { journeyDrivers, newProjectId, type ProjectPerson, type ProjectTransport, type ProjectTrip } from '../lib/eventProject';
+import { addWorkPeople, deliveryCategory, deliveryWorksAfterTransport, driverMileagePayout, transportCost, vehiclePayout, peopleWorkRate, personWorkAmount, personWorkHours, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
 import { dayNumber } from '../lib/calendar';
 import { EventDeliveryVehicleForm } from './EventDeliveryVehicleForm';
 import { EventDriverTrip } from './EventDriverTrip';
@@ -149,8 +149,8 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
         const journey = row.journey;
         if (!journey) return [];
         return [
-          ...(key === equipment?.id ? [{ id: `${row.id}:owner`, person: journey.owner, label: 'Автомобиль', amount: vehiclePayout(row), vehicle: row.vehicle }] : []),
-          ...(key === transportGroup(row) && journey.driver ? [{ id: `${row.id}:driver`, person: journey.driver, label: `Водитель · ${journey.driver.kilometers} км`, amount: driverPayout(row), vehicle: row.vehicle }] : []),
+          ...(key === equipment?.id && journey.owner ? [{ id: `${row.id}:owner`, person: journey.owner, label: 'Автомобиль', amount: vehiclePayout(row), vehicle: row.vehicle }] : []),
+          ...(key === transportGroup(row) ? journeyDrivers(journey).map((driver, index) => ({ id: `${row.id}:driver:${index}`, person: driver, label: `Водитель · ${driver.kilometers} км`, amount: driverMileagePayout(driver.kilometers), vehicle: row.vehicle })) : []),
         ];
       });
       const payees = [...new Map(payouts.map(row => [row.person.id, row.person])).values()];
@@ -167,7 +167,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
           {showPrices && !!group.transportAmount && <p className="text-sm text-gray-300">Затраты на автомобили: {money(group.transportAmount)} BYN</p>}
           {vehicles.map(row => <div key={row.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-800 px-3 py-2 text-sm">
             <Truck aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1 break-words">{row.vehicle}{row.journey?.kilometers ? ` · ${row.journey.kilometers} км` : ''}</span>
+            <span className="min-w-0 flex-1 break-words">{row.vehicle}{row.journey?.kilometers ? ` · ${row.journey.kilometers} км` : ''}{row.journey && !row.journey.owner && <span className="block text-xs text-gray-400">Владелец не указан</span>}</span>
             {showPrices && (row.journey || row.trip_price !== undefined) && <span className="tabular-nums">{money(transportCost(row))} BYN</span>}
             {onTransportChange && row.vehicle_id && <button type="button" className="min-h-11 px-2 text-accent-400" onClick={() => setVehicleForm({ work: { id: key, name: group.name }, previous: row })}>Изменить поездку</button>}
             {onTransportChange && <button type="button" aria-label={`Удалить автомобиль ${row.vehicle}`} className="flex h-11 w-11 items-center justify-center rounded-lg text-red-400 hover:bg-red-900/20" onClick={() => onTransportChange(transport.filter(item => item.id !== row.id))}><Trash2 className="h-4 w-4" /></button>}
