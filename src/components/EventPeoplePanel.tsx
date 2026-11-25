@@ -141,7 +141,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     {budgets.length > 1 && <label className="mb-4 block space-y-1 text-xs text-gray-400">{showPrices ? 'Смета для сравнения' : 'Смета для списка работ'}<select aria-label="Смета для сравнения работ" disabled={!editable || loadingWorks} value={selectedBudgetId} onChange={event => onBudgetChange?.(event.target.value)} className={input}>{budgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}</select></label>}
     {error && <p role="alert" className="mb-3 text-xs text-amber-400">{error}</p>}
     {loadingWorks && <p role="status" className="mb-3 text-xs text-gray-500">Загрузка работ из сметы…</p>}
-    {showPrices && <p className="mb-3 text-xs text-gray-500">Сумма по людям / сумма в смете (остаток после затрат на людей и транспорт). Все суммы в BYN.</p>}
+    {showPrices && <p className="mb-3 text-xs text-gray-500">Затраты на людей и транспорт / сумма в смете (остаток). Все суммы в BYN.</p>}
     <div className="space-y-3">{orderedGroups.map(([key, group]) => {
       const category = deliveryCategory(group.name);
       const vehicles = transport.filter(row => transportGroup(row) === key);
@@ -167,7 +167,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
         {editable && <button type="button" aria-label={`Скопировать людей из работы ${group.name}`} title="Скопировать людей в другую работу" disabled={!group.rows.length || orderedGroups.length < 2} onClick={() => setCopySource(key)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg px-3 text-gray-300 hover:bg-gray-700/50 disabled:opacity-30"><Copy className="h-4 w-4" /></button>}
         </div>
         {expanded.has(key) && <div className="space-y-3 p-3">
-          {showPrices && !!group.transportAmount && <p className="text-sm text-gray-300">Затраты на автомобили: {money(group.transportAmount)} BYN</p>}
+          {showPrices && !!group.transportAmount && <p className="text-sm text-gray-300">Затраты на транспорт: {money(group.transportAmount)} BYN</p>}
           {vehicles.map(row => <div key={row.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gray-800 px-3 py-2 text-sm">
             <div className="flex min-w-0 basis-full items-start gap-2 sm:grow sm:basis-48">
               <Truck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />

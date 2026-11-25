@@ -78,7 +78,10 @@ assert.equal(peopleMath.personWorkAmount(driver), 12.5);
 const [cargo, passenger] = peopleMath.deliveryWorksAfterTransport(works, transport);
 assert.equal(cargo.transportAmount, 60);
 assert.equal(passenger.transportAmount, 80);
-assert.equal(peopleMath.peopleWorkBalance([driver], cargo.budgetAmount, cargo.transportAmount).difference, 27.5);
+assert.deepEqual(peopleMath.peopleWorkBalance([driver], cargo.budgetAmount, cargo.transportAmount),
+  { amount: 72.5, budgetAmount: 100, difference: 27.5 });
+assert.deepEqual(peopleMath.peopleWorkBalance([], passenger.budgetAmount, passenger.transportAmount),
+  { amount: 80, budgetAmount: 80, difference: 0 });
 const [fallback] = peopleMath.deliveryWorksAfterTransport([works[0]], transport);
 assert.equal(fallback.transportAmount, 140);
 assert.equal(peopleMath.deliveryWorksAfterTransport([works[0]], [])[0].transportAmount, undefined);

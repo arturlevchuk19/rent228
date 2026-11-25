@@ -70,8 +70,8 @@ export function personWorkAmount(person: WorkPeriod & Pick<ProjectPerson, 'rate'
   return Number.isFinite(rate) && Number.isFinite(hours) && rate >= 0 && hours >= 0 ? moneyRound(rate * hours) : 0;
 }
 export function peopleWorkBalance(people: ProjectPerson[], budgetAmount: number, transportAmount = 0) {
-  const amount = moneyRound(people.reduce((sum, person) => sum + personWorkAmount(person), 0));
-  return { amount, budgetAmount, difference: moneyRound(budgetAmount - transportAmount - amount) };
+  const amount = moneyRound(people.reduce((sum, person) => sum + personWorkAmount(person), transportAmount));
+  return { amount, budgetAmount, difference: moneyRound(budgetAmount - amount) };
 }
 /** Value staffing against the estimate’s cash BYN price for the displayed period. */
 export function budgetWorkAmountBYN(item: BudgetItem, settings: Partial<Event>): number {
