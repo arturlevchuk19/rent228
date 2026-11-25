@@ -148,9 +148,12 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
       const payouts = transport.flatMap(row => {
         const journey = row.journey;
         if (!journey) return [];
+        const vehicleGroup = transportGroup(row);
+        const drivers = journeyDrivers(journey);
+        const ownerGroup = drivers.some(driver => driver.id === journey.owner?.id) ? vehicleGroup : equipment?.id;
         return [
-          ...(key === equipment?.id && journey.owner ? [{ id: `${row.id}:owner`, person: journey.owner, label: 'Автомобиль', amount: vehiclePayout(row), vehicle: row.vehicle }] : []),
-          ...(key === transportGroup(row) ? journeyDrivers(journey).map((driver, index) => ({ id: `${row.id}:driver:${index}`, person: driver, label: `Водитель · ${driver.kilometers} км`, amount: driverMileagePayout(driver.kilometers), vehicle: row.vehicle })) : []),
+          ...(key === ownerGroup && journey.owner ? [{ id: `${row.id}:owner`, person: journey.owner, label: 'Автомобиль', amount: vehiclePayout(row), vehicle: row.vehicle }] : []),
+          ...(key === vehicleGroup ? drivers.map((driver, index) => ({ id: `${row.id}:driver:${index}`, person: driver, label: `Водитель · ${driver.kilometers} км`, amount: driverMileagePayout(driver.kilometers), vehicle: row.vehicle })) : []),
         ];
       });
       const payees = [...new Map(payouts.map(row => [row.person.id, row.person])).values()];
