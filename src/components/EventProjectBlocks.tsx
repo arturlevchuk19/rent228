@@ -1,7 +1,6 @@
 import { getEventBudgets, type EventBudget } from '../lib/eventBudgets';
 import { getBudgetItems, type BudgetItem } from '../lib/events';
-import { deliveryCategory, deliveryWorksAfterTransport, documentPeopleWorks, type BudgetPeopleWork, type PeopleDirectoryEntry, type PeopleWork } from '../lib/eventPeople';
-import { EventTransportPanel } from './EventTransportPanel';
+import { documentPeopleWorks, type BudgetPeopleWork, type PeopleDirectoryEntry, type PeopleWork } from '../lib/eventPeople';
 import { EventPeoplePanel } from './EventPeoplePanel';
 import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
@@ -94,12 +93,7 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
       })}</div>}
     </ProjectSection>
     <ProjectSection title="Описание" defaultOpen editable={editable} editor={textEditor('description')}><ProjectText text={value.description} empty="Описание мероприятия пока не добавлено." /></ProjectSection>
-    {showPeople && <EventPeoplePanel eventDate={eventDate} showPrices={showPrices} people={value.people} personnel={personnel} assigned={assigned} works={deliveryWorksAfterTransport(works, value.transport)} catalogWorks={catalogWorks} editable={editPeople} error={peopleError || directoryError || budgetWorksError} onChange={people => update('people', people)} budgets={peopleBudgets} selectedBudgetId={peopleBudget?.id || ''} onBudgetChange={id => update('people_budget_id', id)} customWorks={value.people_works || []} onCustomWorksChange={rows => update('people_works', rows)} loadingWorks={loadingBudgetWorks} />}
-    <EventTransportPanel rows={value.transport} editable={editable} showPrices={showPrices || editable}
-      prices={{
-        cargo: works.find(work => deliveryCategory(work.name) === 'cargo')?.budgetAmount,
-        passenger: works.find(work => deliveryCategory(work.name) === 'passenger')?.budgetAmount,
-      }} loadingPrices={loadingBudgetWorks} onChange={rows => update('transport', rows)} />
+    {showPeople && <EventPeoplePanel eventDate={eventDate} showPrices={showPrices} people={value.people} personnel={personnel} assigned={assigned} works={works} transport={value.transport} onTransportChange={editable ? rows => update('transport', rows) : undefined} catalogWorks={catalogWorks} editable={editPeople} error={peopleError || directoryError || budgetWorksError} onChange={people => update('people', people)} budgets={peopleBudgets} selectedBudgetId={peopleBudget?.id || ''} onBudgetChange={id => update('people_budget_id', id)} customWorks={value.people_works || []} onCustomWorksChange={rows => update('people_works', rows)} loadingWorks={loadingBudgetWorks} />}
     {([['sound', 'Звук', 'Райдеры / сцены'], ['light', 'Свет', 'Отрисовки / планы / адреса'], ['media', 'Медиа', 'Контент / патч'], ['io', 'Input / Output', 'Входы и выходы']] as const).map(([key, title, subtitle]) => <ProjectSection key={key} title={title} subtitle={subtitle} editable={editable} editor={textEditor(key)}><ProjectText text={value[key]} /></ProjectSection>)}
   </div>;
 }

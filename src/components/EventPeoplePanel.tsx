@@ -1,11 +1,12 @@
 import { searchInputProps } from '../lib/searchInput';
 import { useState } from 'react';
-import { Plus, Trash2, ArrowLeft, Copy, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Copy, ChevronDown, Truck } from 'lucide-react';
 import { isAssignablePersonnel, type Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
-import { newProjectId, type ProjectPerson, type ProjectTrip } from '../lib/eventProject';
-import { addWorkPeople, deliveryCategory, peopleWorkRate, personWorkAmount, personWorkHours, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
+import { newProjectId, type ProjectPerson, type ProjectTransport, type ProjectTrip } from '../lib/eventProject';
+import { addWorkPeople, deliveryCategory, deliveryWorksAfterTransport, driverPayout, transportCost, vehiclePayout, peopleWorkRate, personWorkAmount, personWorkHours, peopleWorkBalance, rateForWorkAmount, copyPeopleToWork, withLoadingWorks, peopleWorkPriority, type BudgetPeopleWork, type PeopleWork, type PeopleDirectoryEntry } from '../lib/eventPeople';
 import { dayNumber } from '../lib/calendar';
+import { EventDeliveryVehicleForm } from './EventDeliveryVehicleForm';
 import { EventDriverTrip } from './EventDriverTrip';
 import { ProjectSection } from './ProjectSection';
 import { PeoplePicker } from './PeoplePicker';
@@ -16,15 +17,17 @@ const insetInput = `${input} block min-h-14 pt-6 pb-1.5`;
 const insetLabel = 'pointer-events-none absolute inset-x-3 top-1.5 truncate text-xs text-gray-400';
 const money = (value: number) => value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
-export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true, eventDate = '' }: {
+export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true, eventDate = '', transport = [], onTransportChange }: {
   people: ProjectPerson[]; personnel: PeopleDirectoryEntry[]; assigned: Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]; works: BudgetPeopleWork[];
   catalogWorks?: PeopleWork[];
+  transport?: ProjectTransport[]; onTransportChange?: (rows: ProjectTransport[]) => void;
   showPrices?: boolean;
   eventDate?: string;
   editable: boolean; error: string; onChange: (people: ProjectPerson[]) => void;
   budgets?: EventBudget[]; selectedBudgetId?: string; onBudgetChange?: (id: string) => void;
   customWorks?: PeopleWork[]; onCustomWorksChange?: (works: PeopleWork[]) => void; loadingWorks?: boolean;
 }) {
+  const [vehicleForm, setVehicleForm] = useState<{ work: PeopleWork; previous?: ProjectTransport } | null>(null);
   const [adding, setAdding] = useState(false);
   const [work, setWork] = useState<PeopleWork | null>(null);
   const [tab, setTab] = useState<'staff' | 'freelance'>('staff');
@@ -65,9 +68,18 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     </label>;
   };
   const validPeriod = personWorkHours(period) > 0;
-  const workOptions = withLoadingWorks([...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: 0 }))]);
+  const availableWorks = [...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: 0 }))];
+  if ((onTransportChange || transport.length > 0) && !availableWorks.some(row => deliveryCategory(row.name) === 'cargo')) {
+    availableWorks.push({ id: 'delivery-equipment', name: 'Доставка оборудования', budgetAmount: 0 });
+  }
+  const equipment = availableWorks.find(row => deliveryCategory(row.name) === 'cargo');
+  const passenger = availableWorks.find(row => deliveryCategory(row.name) === 'passenger');
+  const workOptions = withLoadingWorks(deliveryWorksAfterTransport(availableWorks, transport));
   const groups = new Map<string, { name: string; rows: ProjectPerson[]; budgetAmount: number; transportAmount?: number; inBudget: boolean }>();
   for (const option of workOptions) groups.set(option.id, { name: option.name, rows: [], budgetAmount: option.budgetAmount || 0, transportAmount: option.transportAmount, inBudget: works.some(row => row.id === option.id) });
+  const transportGroup = (row: ProjectTransport) =>
+    (row.journey && availableWorks.find(work => sameName(work.name, row.journey?.work_name ?? '')))?.id ||
+    (row.category === 'passenger' ? passenger?.id ?? equipment?.id : equipment?.id);
   for (const person of people) {
     const option = workOptions.find(row => row.id === person.work_id || sameName(row.name, person.work_name || ''));
     const key = option?.id || person.work_id || person.work_name || 'legacy';
@@ -131,6 +143,17 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     {loadingWorks && <p role="status" className="mb-3 text-xs text-gray-500">Загрузка работ из сметы…</p>}
     {showPrices && <p className="mb-3 text-xs text-gray-500">Сумма по людям / сумма в смете (остаток после затрат на людей и транспорт). Все суммы в BYN.</p>}
     <div className="space-y-3">{orderedGroups.map(([key, group]) => {
+      const category = deliveryCategory(group.name);
+      const vehicles = transport.filter(row => transportGroup(row) === key);
+      const payouts = transport.flatMap(row => {
+        const journey = row.journey;
+        if (!journey) return [];
+        return [
+          ...(key === equipment?.id ? [{ id: `${row.id}:owner`, person: journey.owner, label: 'Автомобиль', amount: vehiclePayout(row), vehicle: row.vehicle }] : []),
+          ...(key === transportGroup(row) && journey.driver ? [{ id: `${row.id}:driver`, person: journey.driver, label: `Водитель · ${journey.driver.kilometers} км`, amount: driverPayout(row), vehicle: row.vehicle }] : []),
+        ];
+      });
+      const payees = [...new Map(payouts.map(row => [row.person.id, row.person])).values()];
       const totals = showPrices ? peopleWorkBalance(group.rows, group.budgetAmount, group.transportAmount) : null;
       return <div key={key} className="overflow-hidden rounded-xl border border-gray-800">
         <div className="flex items-stretch bg-gray-800/60">
@@ -142,6 +165,20 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
         </div>
         {expanded.has(key) && <div className="space-y-3 p-3">
           {showPrices && !!group.transportAmount && <p className="text-sm text-gray-300">Затраты на автомобили: {money(group.transportAmount)} BYN</p>}
+          {vehicles.map(row => <div key={row.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-800 px-3 py-2 text-sm">
+            <Truck aria-hidden="true" className="h-4 w-4 shrink-0 text-gray-400" />
+            <span className="min-w-0 flex-1 break-words">{row.vehicle}{row.journey?.kilometers ? ` · ${row.journey.kilometers} км` : ''}</span>
+            {showPrices && (row.journey || row.trip_price !== undefined) && <span className="tabular-nums">{money(transportCost(row))} BYN</span>}
+            {onTransportChange && row.vehicle_id && <button type="button" className="min-h-11 px-2 text-accent-400" onClick={() => setVehicleForm({ work: { id: key, name: group.name }, previous: row })}>Изменить поездку</button>}
+            {onTransportChange && <button type="button" aria-label={`Удалить автомобиль ${row.vehicle}`} className="flex h-11 w-11 items-center justify-center rounded-lg text-red-400 hover:bg-red-900/20" onClick={() => onTransportChange(transport.filter(item => item.id !== row.id))}><Trash2 className="h-4 w-4" /></button>}
+          </div>)}
+          {payees.map(payee => <div key={payee.id} className="space-y-1 rounded-lg border border-gray-800 p-3 text-sm">
+            <p className="font-medium text-gray-200">{payee.name}</p>
+            {payouts.filter(row => row.person.id === payee.id).map(row => <div key={row.id} className="flex flex-wrap justify-between gap-x-3 text-xs text-gray-400">
+              <span>{row.label} · {row.vehicle}</span>
+              {showPrices && <span className="tabular-nums text-gray-200">{money(row.amount)} BYN</span>}
+            </div>)}
+          </div>)}
           {group.rows.map(person => {
           const hours = personWorkHours(person);
           return <div key={person.id} className="space-y-2 rounded-lg border border-gray-800 p-3">
@@ -182,11 +219,20 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
             /></label>
           </div>}
           </>}
-        </div>})}{editable && <div className="flex flex-wrap gap-3"><button type="button" onClick={() => open({ id: key, name: group.name })} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-accent-400"><Plus className="h-4 w-4" />Добавить людей</button><button type="button" onClick={() => { if (deliveryCategory(group.name)) { open({ id: key, name: group.name }); setManualDriver(true); return; } onChange([...people, { id: newProjectId(), personnel_id: '', name: '', group: 'external', rate: '', hours: '', work_id: key, work_name: group.name }]); }} className="min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800">{deliveryCategory(group.name) ? 'Добавить водителя вручную' : 'Добавить строку'}</button></div>}</div>}
+        </div>})}{editable && <div className="flex flex-wrap gap-3">{category && onTransportChange && <button type="button" onClick={() => setVehicleForm({ work: { id: key, name: group.name } })} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-accent-400"><Truck className="h-4 w-4" />Добавить автомобиль</button>}<button type="button" onClick={() => open({ id: key, name: group.name })} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-accent-400"><Plus className="h-4 w-4" />Добавить людей</button><button type="button" onClick={() => { if (deliveryCategory(group.name)) { open({ id: key, name: group.name }); setManualDriver(true); return; } onChange([...people, { id: newProjectId(), personnel_id: '', name: '', group: 'external', rate: '', hours: '', work_id: key, work_name: group.name }]); }} className="min-h-11 rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:bg-gray-800">{deliveryCategory(group.name) ? 'Добавить водителя вручную' : 'Добавить строку'}</button></div>}</div>}
       </div>;
     })}</div>
     {!orderedGroups.length && !automatic.length && !loadingWorks && <p className="text-sm text-gray-500">{editable ? 'В смете нет работ. Добавьте свою работу через кнопку «Добавить».' : 'Назначенных работ пока нет.'}</p>}
     {!!automatic.length && <div className="mt-4 space-y-2"><h4 className="text-xs text-gray-500">Назначения из сметы</h4>{automatic.map(person => <p key={person.id} className="text-sm text-gray-300">{person.full_name} <span className="text-xs text-gray-500">{person.employment_type === 'freelance' ? 'Фриланс' : 'Штат'}</span></p>)}</div>}
+    {onTransportChange && vehicleForm && <EventDeliveryVehicleForm
+      workName={vehicleForm.work.name} defaultCategory={deliveryCategory(vehicleForm.work.name) ?? 'cargo'}
+      allowPassenger={!passenger && deliveryCategory(vehicleForm.work.name) === 'cargo'}
+      previous={vehicleForm.previous} people={personnel} onClose={() => setVehicleForm(null)}
+      onSave={row => {
+        onTransportChange(vehicleForm.previous ? transport.map(item => item.id === row.id ? row : item) : [...transport, row]);
+        setExpanded(current => new Set(current).add(vehicleForm.work.id).add(equipment?.id ?? vehicleForm.work.id));
+        setVehicleForm(null);
+      }} />}
     {editable && copySource && groups.has(copySource) && <PeoplePicker
       title={copyTarget ? 'Расчёт поездки' : `Копировать людей: ${groups.get(copySource)!.name}`}
       onClose={() => { setCopySource(null); setCopyTarget(null); }}>

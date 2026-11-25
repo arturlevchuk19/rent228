@@ -31,15 +31,28 @@ export function deliveryCategory(name: string): ProjectTransport['category'] {
   if (/доставка\s+оборудования/i.test(name)) return 'cargo';
   if (/доставка\s+(?:тех[.\s-]*|технического\s+)?персонала/i.test(name)) return 'passenger';
 }
-export function transportCost(row: ProjectTransport): number {
+export const driverMileageRate = 0.25;
+export const passengerMileageRate = (ownFuel: boolean) => ownFuel ? 0.40 : 0.25;
+export function vehiclePayout(row: ProjectTransport): number {
+  if (row.category === 'passenger' && row.journey) {
+    return moneyRound((row.journey.kilometers ?? 0) * passengerMileageRate(Boolean(row.journey.own_fuel)));
+  }
   return moneyRound((row.trip_price ?? 0) * (row.employment_type === 'freelance' ? 1 : 0.6));
+}
+export function driverPayout(row: ProjectTransport): number {
+  return moneyRound((row.journey?.driver?.kilometers ?? 0) * driverMileageRate);
+}
+export function transportCost(row: ProjectTransport): number {
+  return moneyRound(vehiclePayout(row) + driverPayout(row));
 }
 export function deliveryWorksAfterTransport(works: BudgetPeopleWork[], transport: ProjectTransport[]): BudgetPeopleWork[] {
   const cargo = works.find(work => deliveryCategory(work.name) === 'cargo');
   const passenger = works.find(work => deliveryCategory(work.name) === 'passenger');
   const deductions = new Map<string, number>();
   for (const row of transport) {
-    const target = row.category === 'passenger' ? passenger ?? cargo : row.category === 'cargo' ? cargo : undefined;
+    const source = row.journey?.work_name;
+    const target = (source && works.find(work => normalized(work.name) === normalized(source))) ||
+      (row.category === 'passenger' ? passenger ?? cargo : row.category === 'cargo' ? cargo : undefined);
     if (target) deductions.set(target.id, (deductions.get(target.id) ?? 0) + transportCost(row));
   }
   return works.map(work => deductions.has(work.id) ? { ...work, transportAmount: moneyRound(deductions.get(work.id)!) } : work);

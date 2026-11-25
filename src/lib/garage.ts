@@ -40,9 +40,9 @@ export async function garagePhotoUrl(path: string): Promise<string> {
  const {data,error}=await supabase.storage.from(GARAGE_PHOTO_BUCKET).createSignedUrl(path,3600);
  if(error)throw error;return data.signedUrl;
 }
-export type EventGarageVehicle = Pick<GarageVehicle, 'id' | 'name' | 'plate_number' | 'category' | 'driver_name'> & { employment_type: GarageGroup };
+export type EventGarageVehicle = Pick<GarageVehicle, 'id' | 'name' | 'plate_number' | 'category' | 'driver_name'> & { employment_type: GarageGroup; owner_id: string | null; owner_name: string | null };
 export async function getEventGarageVehicles(): Promise<EventGarageVehicle[]> {
- const {data,error}=await supabase.rpc('event_garage_vehicles');
+ const {data,error}=await supabase.rpc('event_garage_vehicles_with_owners');
  if(error)throw error;
  return data || [];
 }

@@ -83,3 +83,21 @@ assert.equal(fallback.transportAmount, 140);
 assert.equal(peopleMath.deliveryWorksAfterTransport([works[0]], [])[0].transportAmount, undefined);
 assert.deepEqual(peopleMath.deliveryWorksAfterTransport([], transport), []);
 console.log('PASS: vehicle cost percentages, delivery fallback, driver mileage and project data round trip');
+
+const owner = { id: 'owner', name: 'Владелец машины' };
+const journey = { work_name: works[1].name, owner, kilometers: 50, own_fuel: false,
+  driver: { id: 'driver', name: 'Водитель', kilometers: 40 } };
+const passengerTrip = { ...transport[1], trip_price: undefined, journey };
+assert.equal(peopleMath.vehiclePayout(passengerTrip), 12.5);
+assert.equal(peopleMath.vehiclePayout({ ...passengerTrip, journey: { ...journey, own_fuel: true } }), 20);
+assert.equal(peopleMath.driverPayout(passengerTrip), 10);
+assert.equal(peopleMath.transportCost(passengerTrip), 22.5);
+const cargoTrip = { ...transport[0], journey: { work_name: works[0].name, owner, driver: journey.driver } };
+assert.equal(peopleMath.vehiclePayout(cargoTrip), 60);
+assert.equal(peopleMath.vehiclePayout({ ...cargoTrip, employment_type: 'freelance' }), 100);
+assert.equal(peopleMath.transportCost(cargoTrip), 70);
+const updatedDelivery = JSON.parse(JSON.stringify({ ...initial, transport: [passengerTrip, cargoTrip] }));
+assert.deepEqual(api.normalizeProjectDetails(updatedDelivery), updatedDelivery);
+assert.equal(api.validateProjectDetails(updatedDelivery, '', ''), null);
+assert.match(api.validateProjectDetails({ ...initial, transport: [{ ...passengerTrip, journey: { ...journey, kilometers: 0 } }] }, '', ''), /километраж/i);
+console.log('PASS: passenger mileage and fuel, separate driver mileage, staff and freelance truck payouts, journey persistence');
