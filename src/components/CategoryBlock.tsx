@@ -20,6 +20,9 @@ export interface BudgetDragTarget {
 interface CategoryBlockProps {
   showNominalConsumption?: boolean;
   showMaxConsumption?: boolean;
+  showNetWeight?: boolean;
+  showGrossWeight?: boolean;
+  showVolume?: boolean;
   categoryId: string;
   categoryName: string;
   locationId?: string | null;
@@ -56,6 +59,9 @@ interface CategoryBlockProps {
 export function CategoryBlock({
   showNominalConsumption = true,
   showMaxConsumption = true,
+  showNetWeight = false,
+  showGrossWeight = false,
+  showVolume = false,
   categoryId,
   categoryName,
   locationId = null,
@@ -440,8 +446,8 @@ export function CategoryBlock({
         </div>
       </div>
 
-      {(showNominalConsumption || showMaxConsumption) && <div className="border-b border-gray-800 px-3 py-2">
-        <BudgetConsumption items={items} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} />
+      {(showNominalConsumption || showMaxConsumption || showNetWeight || showGrossWeight || showVolume) && <div className="border-b border-gray-800 px-3 py-2">
+        <BudgetConsumption items={items} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} showNetWeight={showNetWeight} showGrossWeight={showGrossWeight} showVolume={showVolume} />
       </div>}
 
       {/* Items table - flat, compact */}

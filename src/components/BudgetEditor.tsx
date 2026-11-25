@@ -45,7 +45,7 @@ interface BudgetEditorProps {
   onClose: () => void;
 }
 
-type BudgetAutoSettings = Required<Pick<Event, 'discount_enabled' | 'discount_percent' | 'discount2_enabled' | 'discount2_percent' | 'budget_days' | 'budget_totals_mode' | 'budget_note' | 'budget_version' | 'budget_payment_mode' | 'budget_exchange_rate' | 'sticky_notes' | 'show_nominal_consumption' | 'show_max_consumption' | 'budget_dynamic_coefficients' | 'budget_coefficient_groups'>>;
+type BudgetAutoSettings = Required<Pick<Event, 'discount_enabled' | 'discount_percent' | 'discount2_enabled' | 'discount2_percent' | 'budget_days' | 'budget_totals_mode' | 'budget_note' | 'budget_version' | 'budget_payment_mode' | 'budget_exchange_rate' | 'sticky_notes' | 'show_nominal_consumption' | 'show_max_consumption' | 'show_net_weight' | 'show_gross_weight' | 'show_volume' | 'budget_dynamic_coefficients' | 'budget_coefficient_groups'>>;
 
 interface GroupedItemsByLocation {
   [locationCategoryKey: string]: BudgetItem[];
@@ -100,6 +100,10 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   const [mobileTab, setMobileTab] = useState<MobileBudgetTab>('estimate');
   const [showNominalConsumption, setShowNominalConsumption] = useState(false);
   const [showMaxConsumption, setShowMaxConsumption] = useState(false);
+  const [showNetWeight, setShowNetWeight] = useState(false);
+  const [showGrossWeight, setShowGrossWeight] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);
+  const logisticsVisibility = { showNetWeight, showGrossWeight, showVolume };
   const [showMobileSettings, setShowMobileSettings] = useState(false);
   const [dynamicCoefficients, setDynamicCoefficients] = useState(false);
   const [coefficientGroups, setCoefficientGroups] = useState<BudgetCoefficientGroup[]>([]);
@@ -222,6 +226,9 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
     budget_version: budgetVersion, budget_payment_mode: paymentMode, budget_exchange_rate: exchangeRate,
     sticky_notes: JSON.stringify(stickyNotes),
     show_nominal_consumption: showNominalConsumption, show_max_consumption: showMaxConsumption,
+    show_net_weight: showNetWeight,
+    show_gross_weight: showGrossWeight,
+    show_volume: showVolume,
     budget_dynamic_coefficients: dynamicCoefficients, budget_coefficient_groups: coefficientGroups,
   };
   const autosave = useBudgetAutosave(`budget_autosave_${budgetId}`, settingsSnapshot, initialSettings,
@@ -324,6 +331,9 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           sticky_notes: JSON.stringify(loadedNotes),
           show_nominal_consumption: eventData.show_nominal_consumption ?? false,
           show_max_consumption: eventData.show_max_consumption ?? false,
+          show_net_weight: eventData.show_net_weight ?? false,
+          show_gross_weight: eventData.show_gross_weight ?? false,
+          show_volume: eventData.show_volume ?? false,
           budget_dynamic_coefficients: eventData.budget_dynamic_coefficients === true,
           budget_coefficient_groups: isBudgetCoefficientGroupList(eventData.budget_coefficient_groups) ? eventData.budget_coefficient_groups : [],
         };
@@ -348,6 +358,9 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
         setBudgetDays(restored.budget_days); setBudgetTotalsMode(restored.budget_totals_mode);
         setShowNominalConsumption(restored.show_nominal_consumption);
         setShowMaxConsumption(restored.show_max_consumption);
+        setShowNetWeight(restored.show_net_weight);
+        setShowGrossWeight(restored.show_gross_weight);
+        setShowVolume(restored.show_volume);
         setDynamicCoefficients(restored.budget_dynamic_coefficients);
         setCoefficientGroups(restored.budget_coefficient_groups);
         setBudgetNote(restored.budget_note); setBudgetVersion(restored.budget_version);
@@ -2370,8 +2383,8 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                           </div>
                         </div>
 
-                        {(showNominalConsumption || showMaxConsumption) && <div className="border-b border-gray-800 px-3 py-2">
-                          <BudgetConsumption items={budgetItems.filter(item => item.location_id === location.id)} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} />
+                        {(showNominalConsumption || showMaxConsumption || showNetWeight || showGrossWeight || showVolume) && <div className="border-b border-gray-800 px-3 py-2">
+                          <BudgetConsumption items={budgetItems.filter(item => item.location_id === location.id)} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} {...logisticsVisibility} />
                         </div>}
 
                         {(expandedCategories[locationGroupId] ?? true) && (
@@ -2389,6 +2402,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                                   <CategoryBlock
                                     showNominalConsumption={showNominalConsumption}
                                     showMaxConsumption={showMaxConsumption}
+                                    {...logisticsVisibility}
                                     categoryId={categoryGroupId}
                                     categoryName={category.name}
                                     locationId={location.id}
@@ -2424,6 +2438,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                               <CategoryBlock
                                 showNominalConsumption={showNominalConsumption}
                                 showMaxConsumption={showMaxConsumption}
+                                {...logisticsVisibility}
                                 categoryId={buildLocationUncategorizedGroupId(location.id)}
                                 categoryName="Без категории"
                                 locationId={location.id}
@@ -2481,6 +2496,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                         <CategoryBlock
                           showNominalConsumption={showNominalConsumption}
                           showMaxConsumption={showMaxConsumption}
+                          {...logisticsVisibility}
                           categoryId={categoryGroupId}
                           categoryName={category.name}
                           items={categoryItems}
@@ -2518,6 +2534,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
                       <CategoryBlock
                         showNominalConsumption={showNominalConsumption}
                         showMaxConsumption={showMaxConsumption}
+                        {...logisticsVisibility}
                         categoryId={NO_LOCATION_GROUP_ID}
                         categoryName="Без локации / категории"
                         items={groupedItems[NO_LOCATION_GROUP_ID]}
@@ -2674,7 +2691,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
         <div className={`${mobileTab === 'total' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col gap-3 overflow-y-auto border-t border-gray-800 bg-gray-900 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:flex md:flex-none md:shrink-0 md:max-h-none md:pb-3 lg:flex-row lg:items-center lg:justify-between`}>
           <div className="flex min-w-0 flex-col items-start gap-4 md:flex-row md:items-center md:gap-6">
             <div className="flex flex-col">
-              <BudgetConsumption items={budgetItems} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} />
+              <BudgetConsumption items={budgetItems} showNominal={showNominalConsumption} showMaximum={showMaxConsumption} {...logisticsVisibility} />
               <span className="text-xs font-medium text-gray-400 ">Итоговая сумма</span>
               <span className="text-2xl font-semibold text-white tabular-nums">
                 <span className="text-gray-100 tabular-nums">{getPrimaryTotalForMode().toLocaleString()}</span>
@@ -2966,6 +2983,12 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           <legend className="px-1 text-sm font-medium text-gray-300">Потребление в категориях и итогах</legend>
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showNominalConsumption} onChange={event => setShowNominalConsumption(event.target.checked)} className="h-4 w-4 accent-accent-500" />Ном. потребление</label>
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showMaxConsumption} onChange={event => setShowMaxConsumption(event.target.checked)} className="h-4 w-4 accent-accent-500" />Макс. потребление</label>
+        </fieldset>
+        <fieldset className="rounded-xl border border-gray-800 px-3 pb-1">
+          <legend className="px-1 text-sm font-medium text-gray-300">Вес и объём в категориях и итогах</legend>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showNetWeight} onChange={event => setShowNetWeight(event.target.checked)} className="h-4 w-4 accent-accent-500" />Вес (Нетто)</label>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showGrossWeight} onChange={event => setShowGrossWeight(event.target.checked)} className="h-4 w-4 accent-accent-500" />Вес (Брутто)</label>
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={showVolume} onChange={event => setShowVolume(event.target.checked)} className="h-4 w-4 accent-accent-500" />Объём</label>
         </fieldset>
         <div className="flex flex-wrap gap-3 border-t border-gray-800 pt-4 md:hidden">
           <button type="button" onClick={() => { setShowMobileSettings(false); setShowBudgetNoteDialog(true); }} className="min-h-11 rounded-lg bg-gray-800 px-3 text-sm">Примечание</button>

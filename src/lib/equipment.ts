@@ -33,6 +33,7 @@ export interface EquipmentItem {
   rental_price: number;
   purchase_price?: number | null;
   weight_kg?: number | null;
+  gross_weight_kg?: number | null;
   width_cm?: number | null;
   height_cm?: number | null;
   length_cm?: number | null;

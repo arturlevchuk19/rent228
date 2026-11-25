@@ -143,6 +143,7 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     rental_price: String(item?.rental_price ?? 0),
     purchase_price: item?.purchase_price == null ? '' : String(item.purchase_price),
     weight_kg: item?.weight_kg == null ? '' : String(item.weight_kg),
+    gross_weight_kg: item?.gross_weight_kg == null ? '' : String(item.gross_weight_kg),
     width_cm: item?.width_cm == null ? '' : String(item.width_cm),
     height_cm: item?.height_cm == null ? '' : String(item.height_cm),
     length_cm: item?.length_cm == null ? '' : String(item.length_cm),
@@ -208,7 +209,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
         rental_price: parseFloat(formData.rental_price) || 0,
         multi_day_rate: parseFloat(formData.multi_day_rate) || 0,
         purchase_price: optionalEquipmentNumber(formData.purchase_price, 'Цена покупки'),
-        weight_kg: optionalEquipmentNumber(formData.weight_kg, 'Вес'),
+        weight_kg: optionalEquipmentNumber(formData.weight_kg, 'Вес (Нетто)'),
+        gross_weight_kg: optionalEquipmentNumber(formData.gross_weight_kg, 'Вес (Брутто)'),
         width_cm: optionalEquipmentNumber(formData.width_cm, 'Ширина'),
         height_cm: optionalEquipmentNumber(formData.height_cm, 'Высота'),
         length_cm: optionalEquipmentNumber(formData.length_cm, 'Длина'),
@@ -534,8 +536,12 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                 />
               </div>
               <div>
-                <label htmlFor="equipment-weight" className="block text-sm font-medium text-gray-300 mb-1">Вес, кг</label>
+                <label htmlFor="equipment-weight" className="block text-sm font-medium text-gray-300 mb-1">Вес (Нетто), кг</label>
                 <input id="equipment-weight" type="number" inputMode="decimal" name="weight_kg" value={formData.weight_kg} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20" />
+              </div>
+              <div>
+                <label htmlFor="equipment-gross-weight" className="block text-sm font-medium text-gray-300 mb-1">Вес (Брутто), кг</label>
+                <input id="equipment-gross-weight" type="number" inputMode="decimal" name="gross_weight_kg" value={formData.gross_weight_kg} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20" />
               </div>
               <fieldset>
                 <legend className="block text-sm font-medium text-gray-300 mb-1">Габариты (Ш×В×Д), см</legend>

@@ -1,3 +1,4 @@
+import type { EquipmentItem } from './equipment';
 import type { BudgetPricingItem } from './budgetPricing';
 import type { BudgetCoefficientGroup } from './budgetCoefficientGroups';
 import type { EventProjectDetails } from './eventProject';
@@ -75,6 +76,9 @@ export interface Event {
   budget_note?: string;
   show_nominal_consumption?: boolean;
   show_max_consumption?: boolean;
+  show_volume?: boolean;
+  show_gross_weight?: boolean;
+  show_net_weight?: boolean;
   budget_version?: string;
   budget_payment_mode?: 'usd' | 'byn_cash' | 'byn_noncash';
   budget_exchange_rate?: number;
@@ -92,7 +96,7 @@ export interface EventTypeItem {
   updated_at: string;
 }
 
-export interface Equipment {
+export interface Equipment extends Pick<EquipmentItem, 'weight_kg' | 'gross_weight_kg' | 'volume_m3'> {
   id: string;
   name: string;
   category: string;

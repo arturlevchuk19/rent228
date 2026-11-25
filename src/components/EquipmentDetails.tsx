@@ -315,6 +315,14 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                   <div className="text-white">{parseConsumption(item.peak_power ?? item.power)}</div>
                 </div>
                 <div>
+                  <div className="mb-1 text-sm font-medium text-gray-400">Вес (Нетто), кг</div>
+                  <div className="text-white">{item.weight_kg ?? '—'}</div>
+                </div>
+                <div>
+                  <div className="mb-1 text-sm font-medium text-gray-400">Вес (Брутто), кг</div>
+                  <div className="text-white">{item.gross_weight_kg ?? '—'}</div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Тип объекта
                   </label>
