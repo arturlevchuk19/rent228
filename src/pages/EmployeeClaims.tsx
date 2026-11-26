@@ -98,11 +98,13 @@ export function EmployeeClaims({review=false, refreshSignal, onPendingChange}:{r
       <Plus aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Добавить заявку</span>
     </button>
   </MobileHeaderContent>}
-  {manager && <div className="flex justify-end">
-    <button type="button" className={secondary} onClick={() => setRatesOpen(true)}>
-      <Settings aria-hidden="true" className="mr-1 inline h-4 w-4" />Тарифы поездок
+  {manager && <MobileHeaderContent>
+    <button type="button" aria-label="Тарифы поездок" title="Тарифы поездок" disabled={!boot}
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-40 sm:w-auto sm:px-3"
+      onClick={() => setRatesOpen(true)}>
+      <Settings aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Тарифы поездок</span>
     </button>
-  </div>}
+  </MobileHeaderContent>}
   {!review && <p className="max-w-2xl text-sm text-gray-400">Подайте работу на складе без мероприятия или выберите мероприятие в периоде от 30 дней назад до 7 дней вперёд.</p>}
   {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки добавьте сотрудника в разделе «Персонал».</p>}
   {!loading&&!manager&&!boot?.personnel&&<p role="alert" className="rounded-xl border border-accent-700 p-4 text-sm text-accent-200">Учётная запись пока не связана с персоналом. Администратор может выбрать сотрудника при редактировании пользователя.</p>}
