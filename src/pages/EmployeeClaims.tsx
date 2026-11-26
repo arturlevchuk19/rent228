@@ -41,6 +41,15 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
  const [tab, setTab] = useState<'events' | 'requests' | 'moderation' | 'archive'>('events');
  const [refresh, setRefresh] = useState(0);
  const [eventSearch, setEventSearch] = useState('');
+ const [eventSearchOpen, setEventSearchOpen] = useState(false);
+ const eventSearchButton = useRef<HTMLButtonElement>(null);
+ const eventSearchInput = useRef<HTMLInputElement>(null);
+ useEffect(() => { if (eventSearchOpen) eventSearchInput.current?.focus(); }, [eventSearchOpen]);
+ const closeEventSearch = () => {
+   setEventSearch('');
+   setEventSearchOpen(false);
+   requestAnimationFrame(() => eventSearchButton.current?.focus());
+ };
  const [chooseClaimKind, setChooseClaimKind] = useState(false);
  const [period, setPeriod] = useState(() => {
    const [year, month] = minskToday().split('-').map(Number);
@@ -82,23 +91,34 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
  </>;
  return <div className="space-y-4">
   {!review && <MobileHeaderContent>{buttons}</MobileHeaderContent>}
-  {review ? <div className="flex flex-wrap items-center justify-between gap-2">
-    <button type="button" className={primary} disabled={!canCreate} onClick={() => setChooseClaimKind(true)}>
-      <Plus aria-hidden="true" className="mr-1 inline h-4 w-4" />Добавить заявку
+  {review && <MobileHeaderContent slot="afterTitle">
+    <button type="button" aria-label="Добавить заявку" title="Добавить заявку" disabled={!canCreate}
+      className="inline-flex h-11 w-11 items-center justify-center gap-2 rounded-lg bg-accent-500 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40 sm:w-auto sm:px-4"
+      onClick={() => setChooseClaimKind(true)}>
+      <Plus aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Добавить заявку</span>
     </button>
-    {manager && <button type="button" className={secondary} onClick={() => setRatesOpen(true)}>
+  </MobileHeaderContent>}
+  {manager && <div className="flex justify-end">
+    <button type="button" className={secondary} onClick={() => setRatesOpen(true)}>
       <Settings aria-hidden="true" className="mr-1 inline h-4 w-4" />Тарифы поездок
-    </button>}
-  </div> : <p className="max-w-2xl text-sm text-gray-400">Подайте работу на складе без мероприятия или выберите мероприятие и укажите время до конца третьего дня после его окончания.</p>}
+    </button>
+  </div>}
+  {!review && <p className="max-w-2xl text-sm text-gray-400">Подайте работу на складе без мероприятия или выберите мероприятие и укажите время до конца третьего дня после его окончания.</p>}
   {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки добавьте сотрудника в разделе «Персонал».</p>}
   {!loading&&!manager&&!boot?.personnel&&<p role="alert" className="rounded-xl border border-accent-700 p-4 text-sm text-accent-200">Учётная запись пока не связана с персоналом. Администратор может выбрать сотрудника при редактировании пользователя.</p>}
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
   {review && <Calendar monthFilter selectedPeriod={period} onPeriodChange={setPeriod}
-    toolbarActions={tab === 'events' && <label className="relative ml-1 min-w-0 flex-1 sm:max-w-xs">
-      <span className="sr-only">Поиск мероприятий</span><Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-3.5 h-4 w-4 text-gray-400" />
-      <input {...searchInputProps} value={eventSearch} onChange={event => setEventSearch(event.target.value)}
-        placeholder="Поиск мероприятий…" className={`${input} w-full pl-8`} />
-    </label>} />}
+    toolbarActions={tab === 'events' && (eventSearchOpen ? <div className="relative ml-1 min-w-0 flex-1 sm:max-w-xs">
+      <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-3.5 h-4 w-4 text-gray-400" />
+      <input ref={eventSearchInput} {...searchInputProps} aria-label="Поиск мероприятий" value={eventSearch}
+        onChange={event => setEventSearch(event.target.value)} onKeyDown={event => {
+          if (event.key === 'Escape') { event.preventDefault(); closeEventSearch(); }
+        }} placeholder="Поиск мероприятий…" className={`${input} w-full pl-8 pr-10`} />
+      <button type="button" aria-label="Закрыть поиск" onClick={closeEventSearch}
+        className="absolute right-0 top-0 flex h-11 w-10 items-center justify-center rounded-lg text-gray-400 hover:text-white"><X aria-hidden="true" className="h-4 w-4" /></button>
+    </div> : <button ref={eventSearchButton} type="button" aria-label="Поиск мероприятий" title="Поиск мероприятий" aria-expanded={false}
+      onClick={() => setEventSearchOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800"><Search aria-hidden="true" className="h-5 w-5" /></button>)} />}
+
   <nav aria-label="Разделы расчётов" className="flex flex-wrap gap-2">
     {([['events', review ? 'Мероприятия' : 'Мои начисления'], ['requests', review ? 'Заявки сотрудников' : 'Мои заявки'],
       ['moderation', 'Модерация'], ['archive', 'Архив']] as const).map(([key, label]) =>
@@ -137,7 +157,7 @@ function AccountingEventWork({ events, claims, warehouse, month, search, loading
   month: string; search: string; loading: boolean; editable: boolean; refreshSignal: number; onOpenClaim: (claim: EmployeeClaim) => void;
 }) {
   const [categoryRequest, setCategoryRequest] = useState<{ eventId: string; sequence: number }>();
-  const [opened, setOpened] = useState<Set<string>>(new Set());
+  const [opened, setOpened] = useState<Map<string, boolean>>(new Map());
   const visible = new Set(events.filter(row => row.status !== 'Отменено' && (row.event_date <= `${month}-31` && (row.event_end_date || row.event_date) >= `${month}-01`) &&
     `${row.name} ${row.venue ?? ''}`.toLocaleLowerCase('ru-RU').includes(search.trim().toLocaleLowerCase('ru-RU'))).map(row => row.id));
   const standaloneClaims = claims.filter(row => !row.event_id && ['approved', 'paid'].includes(row.state) &&
@@ -145,33 +165,38 @@ function AccountingEventWork({ events, claims, warehouse, month, search, loading
   const monthlyWarehouse = warehouse.filter(row => row.event_date.startsWith(month));
   if (loading && !events.length) return <p role="status" className="text-sm text-gray-400">Загрузка мероприятий…</p>;
   return <section className="space-y-3">
-    {events.filter(event => event.status !== 'Отменено' && (visible.has(event.id) || opened.has(event.id))).map(event => <div key={event.id} hidden={!visible.has(event.id)} className="relative rounded-xl border border-gray-800 bg-gray-900">
-      <details className="group"
-      onToggle={toggle => { if (toggle.currentTarget.open) setOpened(current => current.has(event.id) ? current : new Set(current).add(event.id)); }}>
-      <summary className={`flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-2 px-3 py-2 text-sm [&::-webkit-details-marker]:hidden ${editable ? 'pr-14 sm:pr-44' : ''}`}>
-        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 -rotate-90 text-gray-400 group-open:rotate-0" />
-        <span className="min-w-0 flex-1 break-words font-semibold">{event.venue?.trim() || event.name}
-          {event.venue?.trim() && event.venue.trim() !== event.name && <span className="block text-xs font-normal text-gray-400">{event.name}</span>}
-        </span>
-        <time className="text-xs text-gray-300" dateTime={event.event_date}>{event.event_date?.split('-').reverse().join('.')}</time>
-      </summary>
-      {opened.has(event.id) && <div className="space-y-3 border-t border-gray-800 p-3">
-        <AccountingEventEditor key={event.id} event={event} editable={editable} refreshSignal={refreshSignal}
-          addCategoryRequest={categoryRequest?.eventId === event.id ? categoryRequest.sequence : undefined} />
-        <AccountingExpenseGroups claims={claims.filter(row => row.event_id === event.id)} onOpen={onOpenClaim} />
-      </div>}
-    </details>
-        {editable && <button type="button" aria-label="Добавить категорию" title="Добавить категорию"
-          className="absolute right-1 top-0.5 inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-sm text-accent-400 hover:bg-gray-800"
-          onClick={click => {
-            const details = click.currentTarget.parentElement?.querySelector('details');
-            if (details) details.open = true;
-            setOpened(current => current.has(event.id) ? current : new Set(current).add(event.id));
-            setCategoryRequest(current => ({ eventId: event.id, sequence: (current?.sequence ?? 0) + 1 }));
-          }}>
-          <Plus aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Добавить категорию</span>
-        </button>}
-    </div>)}
+    {events.filter(event => event.status !== 'Отменено' && (visible.has(event.id) || opened.has(event.id))).map(event => {
+      const expanded = opened.get(event.id) === true;
+      const panelId = `accounting-event-${event.id}`;
+      const venue = event.venue?.trim();
+      const showVenue = venue && venue !== event.name;
+      return <section key={event.id} hidden={!visible.has(event.id)} className="rounded-xl border border-gray-800 bg-gray-900">
+        <header className="relative isolate flex min-h-12 items-center gap-2 px-3 py-1 text-sm">
+          <button type="button" aria-expanded={expanded} aria-controls={panelId}
+            aria-label={showVenue ? `${venue} · ${event.name}` : event.name}
+            className="absolute inset-0 rounded-xl hover:bg-gray-800/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
+            onClick={() => setOpened(current => new Map(current).set(event.id, !current.get(event.id)))} />
+          <ChevronDown aria-hidden="true" className={`pointer-events-none relative h-4 w-4 shrink-0 text-gray-400 ${expanded ? '' : '-rotate-90'}`} />
+          <div className="pointer-events-none relative min-w-0 flex-1">
+            {showVenue && <p className="break-words font-semibold">{venue}</p>}
+            <div className="flex min-w-0 items-center gap-1">
+              <span className={`min-w-0 break-words ${showVenue ? 'text-xs text-gray-400' : 'font-semibold'}`}>{event.name}</span>
+              {expanded && editable && <button type="button" aria-label="Добавить категорию" title="Добавить категорию"
+                className="pointer-events-auto relative z-10 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-sm text-accent-400 hover:bg-gray-800"
+                onClick={() => setCategoryRequest(current => ({ eventId: event.id, sequence: (current?.sequence ?? 0) + 1 }))}>
+                <Plus aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Добавить категорию</span>
+              </button>}
+            </div>
+          </div>
+          <time className="pointer-events-none relative shrink-0 text-xs text-gray-300" dateTime={event.event_date}>{event.event_date?.split('-').reverse().join('.')}</time>
+        </header>
+        <div id={panelId} hidden={!expanded} className="space-y-3 border-t border-gray-800 p-3">
+          {opened.has(event.id) && <><AccountingEventEditor event={event} editable={editable} refreshSignal={refreshSignal}
+            addCategoryRequest={categoryRequest?.eventId === event.id ? categoryRequest.sequence : undefined} />
+          <AccountingExpenseGroups claims={claims.filter(row => row.event_id === event.id)} onOpen={onOpenClaim} /></>}
+        </div>
+      </section>;
+    })}
     {!visible.size && <p className="text-sm text-gray-400">Мероприятий по этому запросу нет.</p>}
     {(standaloneClaims.length > 0 || monthlyWarehouse.length > 0) && <section className="space-y-2 rounded-xl border border-gray-800 p-3">
       <h2 className="font-semibold">Без мероприятия</h2>

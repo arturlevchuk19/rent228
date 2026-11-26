@@ -104,7 +104,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading, onPageB
               </button>
             )}
             <div ref={setMobileTitle} className="flex min-w-0 flex-1 items-center gap-2 sm:hidden">
-              <h1 className={`min-w-0 truncate text-base font-semibold text-white ${onPageBack ? '' : 'flex-1'}`}>{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
+              <h1 className={`min-w-0 truncate text-base font-semibold text-white ${onPageBack || (!pageOpen && currentPage === 'payments') ? '' : 'flex-1'}`}>{pageHeading || menuItems.find(item => item.id === currentPage)?.label || 'Главная'}</h1>
               <div ref={setMobileAfterTitle} className="flex shrink-0 items-center" />
             </div>
             <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
