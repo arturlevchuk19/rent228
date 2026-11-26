@@ -4,7 +4,7 @@ import { AccountingWorkCorrections, PersonalAccountingWork } from '../components
 import { TripFields } from '../components/TripFields';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Receipt, X, Trash2, History, Settings, ChevronDown } from 'lucide-react';
+import { Plus, Receipt, X, Trash2, History, Settings, ChevronDown, Search } from 'lucide-react';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { getErrorMessage } from '../lib/errors';
@@ -40,6 +40,7 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
  const [boot,setBoot]=useState<ClaimBootstrap|null>(null),[rows,setRows]=useState<EmployeeClaim[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[filter,setFilter]=useState('all'),[search,setSearch]=useState('');
  const [tab, setTab] = useState<'events' | 'requests' | 'moderation' | 'archive'>('events');
  const [refresh, setRefresh] = useState(0);
+ const [eventSearch, setEventSearch] = useState('');
  const [chooseClaimKind, setChooseClaimKind] = useState(false);
  const [period, setPeriod] = useState(() => {
    const [year, month] = minskToday().split('-').map(Number);
@@ -92,7 +93,12 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
   {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки добавьте сотрудника в разделе «Персонал».</p>}
   {!loading&&!manager&&!boot?.personnel&&<p role="alert" className="rounded-xl border border-accent-700 p-4 text-sm text-accent-200">Учётная запись пока не связана с персоналом. Администратор может выбрать сотрудника при редактировании пользователя.</p>}
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
-  {review && <Calendar monthFilter selectedPeriod={period} onPeriodChange={setPeriod} />}
+  {review && <Calendar monthFilter selectedPeriod={period} onPeriodChange={setPeriod}
+    toolbarActions={tab === 'events' && <label className="relative ml-1 min-w-0 flex-1 sm:max-w-xs">
+      <span className="sr-only">Поиск мероприятий</span><Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-3.5 h-4 w-4 text-gray-400" />
+      <input {...searchInputProps} value={eventSearch} onChange={event => setEventSearch(event.target.value)}
+        placeholder="Поиск мероприятий…" className={`${input} w-full pl-8`} />
+    </label>} />}
   <nav aria-label="Разделы расчётов" className="flex flex-wrap gap-2">
     {([['events', review ? 'Мероприятия' : 'Мои начисления'], ['requests', review ? 'Заявки сотрудников' : 'Мои заявки'],
       ['moderation', 'Модерация'], ['archive', 'Архив']] as const).map(([key, label]) =>
@@ -101,7 +107,7 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
   </nav>
   <div hidden={tab !== 'events'}>{review
     ? <AccountingEventWork events={boot?.events ?? []} claims={rows} warehouse={warehouseWork}
-      month={month} loading={loading} editable={manager} refreshSignal={refresh + (refreshSignal ?? 0)} onOpenClaim={claim => setEditor({claim})} />
+      month={month} search={eventSearch} loading={loading} editable={manager} refreshSignal={refresh + (refreshSignal ?? 0)} onOpenClaim={claim => setEditor({claim})} />
     : <><PersonalAccountingWork refresh={refresh} claims={rows} events={boot?.events ?? []} onOpenClaim={claim => setEditor({claim})} />
       <AccountingExpenseGroups claims={rows.filter(row => !row.event_id)} onOpen={claim => setEditor({claim})} /></>}</div>
   {(tab === 'moderation' || tab === 'archive') && <AccountingWorkCorrections review={review} canReview={manager}
@@ -126,35 +132,46 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
   {ratesOpen&&boot&&<RatesDialog rates={boot.settings} onClose={()=>setRatesOpen(false)} onSaved={()=>{setRatesOpen(false);void load();}}/>}
  </div>;
 }
-function AccountingEventWork({ events, claims, warehouse, month, loading, editable, refreshSignal, onOpenClaim }: {
+function AccountingEventWork({ events, claims, warehouse, month, search, loading, editable, refreshSignal, onOpenClaim }: {
   events: ClaimBootstrap['events']; claims: EmployeeClaim[]; warehouse: AccountingWork[];
-  month: string; loading: boolean; editable: boolean; refreshSignal: number; onOpenClaim: (claim: EmployeeClaim) => void;
+  month: string; search: string; loading: boolean; editable: boolean; refreshSignal: number; onOpenClaim: (claim: EmployeeClaim) => void;
 }) {
-  const [search, setSearch] = useState('');
+  const [categoryRequest, setCategoryRequest] = useState<{ eventId: string; sequence: number }>();
   const [opened, setOpened] = useState<Set<string>>(new Set());
-  const visible = new Set(events.filter(row => (row.event_date <= `${month}-31` && (row.event_end_date || row.event_date) >= `${month}-01`) &&
+  const visible = new Set(events.filter(row => row.status !== 'Отменено' && (row.event_date <= `${month}-31` && (row.event_end_date || row.event_date) >= `${month}-01`) &&
     `${row.name} ${row.venue ?? ''}`.toLocaleLowerCase('ru-RU').includes(search.trim().toLocaleLowerCase('ru-RU'))).map(row => row.id));
   const standaloneClaims = claims.filter(row => !row.event_id && ['approved', 'paid'].includes(row.state) &&
     accountingMonth(row.approved_at ?? row.submitted_at ?? row.created_at) === month);
   const monthlyWarehouse = warehouse.filter(row => row.event_date.startsWith(month));
   if (loading && !events.length) return <p role="status" className="text-sm text-gray-400">Загрузка мероприятий…</p>;
   return <section className="space-y-3">
-    <div className="flex flex-wrap items-end gap-3">
-      <label className="min-w-0 flex-1 basis-40 text-sm">Поиск мероприятия
-        <input {...searchInputProps} className={input} value={search} onChange={event => setSearch(event.target.value)} /></label>
-    </div>
-    {events.filter(event => visible.has(event.id) || opened.has(event.id)).map(event => <details key={event.id} hidden={!visible.has(event.id)} className="group rounded-xl border border-gray-800 bg-gray-900"
+    {events.filter(event => event.status !== 'Отменено' && (visible.has(event.id) || opened.has(event.id))).map(event => <div key={event.id} hidden={!visible.has(event.id)} className="relative rounded-xl border border-gray-800 bg-gray-900">
+      <details className="group"
       onToggle={toggle => { if (toggle.currentTarget.open) setOpened(current => current.has(event.id) ? current : new Set(current).add(event.id)); }}>
-      <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-2 px-3 py-2 text-sm [&::-webkit-details-marker]:hidden">
+      <summary className={`flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-2 px-3 py-2 text-sm [&::-webkit-details-marker]:hidden ${editable ? 'pr-14 sm:pr-44' : ''}`}>
         <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 -rotate-90 text-gray-400 group-open:rotate-0" />
-        <span className="min-w-0 flex-1 break-words font-semibold">{event.name}{event.venue && event.venue !== event.name && <span className="block text-xs font-normal text-gray-400">{event.venue}</span>}</span>
+        <span className="min-w-0 flex-1 break-words font-semibold">{event.venue?.trim() || event.name}
+          {event.venue?.trim() && event.venue.trim() !== event.name && <span className="block text-xs font-normal text-gray-400">{event.name}</span>}
+        </span>
         <time className="text-xs text-gray-300" dateTime={event.event_date}>{event.event_date?.split('-').reverse().join('.')}</time>
       </summary>
       {opened.has(event.id) && <div className="space-y-3 border-t border-gray-800 p-3">
-        <AccountingEventEditor key={event.id} event={event} editable={editable} refreshSignal={refreshSignal} />
+        <AccountingEventEditor key={event.id} event={event} editable={editable} refreshSignal={refreshSignal}
+          addCategoryRequest={categoryRequest?.eventId === event.id ? categoryRequest.sequence : undefined} />
         <AccountingExpenseGroups claims={claims.filter(row => row.event_id === event.id)} onOpen={onOpenClaim} />
       </div>}
-    </details>)}
+    </details>
+        {editable && <button type="button" aria-label="Добавить категорию" title="Добавить категорию"
+          className="absolute right-1 top-0.5 inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-sm text-accent-400 hover:bg-gray-800"
+          onClick={click => {
+            const details = click.currentTarget.parentElement?.querySelector('details');
+            if (details) details.open = true;
+            setOpened(current => current.has(event.id) ? current : new Set(current).add(event.id));
+            setCategoryRequest(current => ({ eventId: event.id, sequence: (current?.sequence ?? 0) + 1 }));
+          }}>
+          <Plus aria-hidden="true" className="h-4 w-4" /><span className="hidden sm:inline">Добавить категорию</span>
+        </button>}
+    </div>)}
     {!visible.size && <p className="text-sm text-gray-400">Мероприятий по этому запросу нет.</p>}
     {(standaloneClaims.length > 0 || monthlyWarehouse.length > 0) && <section className="space-y-2 rounded-xl border border-gray-800 p-3">
       <h2 className="font-semibold">Без мероприятия</h2>
@@ -217,6 +234,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const today = minskToday();
  const currentDay = dayNumber(today);
  const eventOptions = claim ? (selectedEvent ? [selectedEvent] : []) : boot.events.filter(row => {
+   if (row.status === 'Отменено') return false;
    if (manager || row.id === eventId) return true;
    const eventDay = dayNumber(row.event_date);
    return currentDay !== null && eventDay !== null && Math.abs(eventDay - currentDay) <= 5;

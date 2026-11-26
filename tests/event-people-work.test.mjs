@@ -12,7 +12,7 @@ const {normalizeProjectDetails,validateProjectDetails}=load('src/lib/eventProjec
 // Exercise the actual two-stage picker with React state and JSX rendered as plain records.
 let states=[],index=0,currentRows=[],customWorks=[];const exports={};const jsx=(type,props)=>({type,props});
 new Function('exports','require',ts.transpile(fs.readFileSync('src/components/EventPeoplePanel.tsx','utf8'),{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>{
- if(name==='react')return {useState:value=>{const i=index++;if(!(i in states))states[i]=value;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];},useEffect:()=>{},useRef:value=>({current:value})};
+ if(name==='react')return {useCallback:callback=>callback,useState:value=>{const i=index++;if(!(i in states))states[i]=value;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];},useEffect:()=>{},useRef:value=>({current:value})};
  if(name.endsWith('/personnel'))return {isAssignablePersonnel:person=>person.show_in_budgets!==false};
  if(name.endsWith('/calendar'))return {dayNumber:value=>value==='2026-11-22'?1:null};
  if(name==='react/jsx-runtime')return {jsx,jsxs:jsx};if(name==='react-dom')return {createPortal:x=>x};

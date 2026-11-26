@@ -10,7 +10,7 @@ import { EventPeoplePanel, type StaffTemplate } from './EventPeoplePanel';
 
 interface EventAccountingData { details: unknown; personnel: PeopleDirectoryEntry[]; catalog: PeopleWork[] }
 
-export function AccountingEventEditor({ event, editable, refreshSignal }: { event: ClaimEvent; editable: boolean; refreshSignal?: number }) {
+export function AccountingEventEditor({ event, editable, refreshSignal, addCategoryRequest }: { event: ClaimEvent; editable: boolean; refreshSignal?: number; addCategoryRequest?: number }) {
   const changed = useRef(0);
   const [context, setContext] = useState<EventAccountingData>();
   const [project, setProject] = useState<EventProjectDetails>();
@@ -109,7 +109,7 @@ export function AccountingEventEditor({ event, editable, refreshSignal }: { even
       editable={editable && !saving} error={budgetError} onChange={rows => update('people', rows)} budgets={budgets}
       selectedBudgetId={budget?.id ?? ''} onBudgetChange={id => update('people_budget_id', id)}
       customWorks={project.people_works} onCustomWorksChange={rows => update('people_works', rows)}
-      loadingWorks={budgetLoading} transport={project.transport} manualCategoryPrices
+      loadingWorks={budgetLoading} transport={project.transport} manualCategoryPrices addCategoryRequest={addCategoryRequest}
       onTransportChange={editable && !saving ? rows => update('transport', rows) : undefined} />
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     {editable && <div className="flex flex-wrap items-center gap-3">

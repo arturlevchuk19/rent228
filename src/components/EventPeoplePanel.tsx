@@ -1,5 +1,5 @@
 import { searchInputProps } from '../lib/searchInput';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, ArrowLeft, Copy, ChevronDown, Truck } from 'lucide-react';
 import { isAssignablePersonnel, type Personnel } from '../lib/personnel';
 import type { EventBudget } from '../lib/eventBudgets';
@@ -18,11 +18,11 @@ const insetLabel = 'pointer-events-none absolute inset-x-3 top-1.5 truncate text
 const money = (value: number) => value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
 export interface StaffTemplate { id: string; name: string; personnel_ids: string[] }
-export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true, eventDate = '', transport = [], onTransportChange, manualCategoryPrices = false, templates = [], onSaveTemplate }: {
+export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true, eventDate = '', transport = [], onTransportChange, manualCategoryPrices = false, addCategoryRequest, templates = [], onSaveTemplate }: {
   people: ProjectPerson[]; personnel: PeopleDirectoryEntry[]; assigned: Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]; works: BudgetPeopleWork[];
   catalogWorks?: PeopleWork[];
   templates?: StaffTemplate[]; onSaveTemplate?: (name: string, ids: string[]) => Promise<void>;
-  manualCategoryPrices?: boolean;
+  manualCategoryPrices?: boolean; addCategoryRequest?: number;
   transport?: ProjectTransport[]; onTransportChange?: (rows: ProjectTransport[]) => void;
   showPrices?: boolean;
   eventDate?: string;
@@ -98,7 +98,13 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   });
   const automatic = assigned.filter(person => !people.some(row => row.personnel_id === person.id));
   const patch = (id: string, updates: Partial<ProjectPerson>) => onChange(people.map(person => person.id === id ? { ...person, ...updates } : person));
-  const open = (selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setPeriod(emptyPeriod); setActiveDate(null); setEditingPeriod(false); setManualDriver(false); setTemplateName(''); setTemplateError(''); setAdding(true); };
+  const open = useCallback((selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setPeriod(emptyPeriod); setActiveDate(null); setEditingPeriod(false); setManualDriver(false); setTemplateName(''); setTemplateError(''); setAdding(true); }, []);
+  const handledCategoryRequest = useRef<number>();
+  useEffect(() => {
+    if (!editable || addCategoryRequest === undefined || handledCategoryRequest.current === addCategoryRequest) return;
+    handledCategoryRequest.current = addCategoryRequest;
+    open();
+  }, [addCategoryRequest, editable, open]);
   const addSelected = () => {
     if (!work || !selected.size || !editable || !validPeriod) return;
     onChange(addWorkPeople(people, personnel.filter(person => selected.has(person.id)), work, newProjectId, period));
@@ -144,7 +150,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     if (!existing) onCustomWorksChange([...customWorks, next]);
     setWork(next); setSelected(new Set()); setNewWorkId(''); setNewWorkAmount('');
   };
-  return <ProjectSection title={manualCategoryPrices ? 'Категории расчёта' : 'Люди'} count={people.length + automatic.length} defaultOpen titleActions={editable && <button type="button" onClick={() => open()} className="inline-flex min-h-11 items-center gap-1 rounded-lg p-2 text-sm text-accent-400 hover:bg-gray-800"><Plus className="h-4 w-4" />{manualCategoryPrices ? 'Добавить категорию' : 'Добавить'}</button>}>
+  const content = <>
     {budgets.length > 1 && <label className="mb-4 block space-y-1 text-xs text-gray-400">{showPrices ? 'Смета для сравнения' : 'Смета для списка работ'}<select aria-label="Смета для сравнения работ" disabled={!editable || loadingWorks} value={selectedBudgetId} onChange={event => onBudgetChange?.(event.target.value)} className={input}>{budgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}</select></label>}
     {error && <p role="alert" className="mb-3 text-xs text-amber-400">{error}</p>}
     {loadingWorks && <p role="status" className="mb-3 text-xs text-gray-500">Загрузка работ из сметы…</p>}
@@ -316,5 +322,8 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
         </label>}<button type="button" disabled={!newWorkId || (manualCategoryPrices && (!Number.isFinite(Number(newWorkAmount)) || Number(newWorkAmount) < 0))} onClick={createCustomWork} className="min-h-11 rounded-lg bg-gray-800 px-3 py-2 text-sm text-accent-400 disabled:opacity-40">Добавить работу</button></div>}
       </div>}
     </PeoplePicker>}
-  </ProjectSection>;
+  </>;
+  return manualCategoryPrices ? <div className="space-y-3">{content}</div> : <ProjectSection title="Люди"
+    count={people.length + automatic.length} defaultOpen
+    titleActions={editable && <button type="button" onClick={() => open()} className="inline-flex min-h-11 items-center gap-1 rounded-lg p-2 text-sm text-accent-400 hover:bg-gray-800"><Plus className="h-4 w-4" />Добавить</button>}>{content}</ProjectSection>;
 }
