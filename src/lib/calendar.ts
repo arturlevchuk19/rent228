@@ -6,6 +6,11 @@ export const dayNumber = (value: string): number | null => {
   const timestamp = Date.parse(`${value}T00:00:00Z`);
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value ? timestamp / DAY : null;
 };
+export function eventOverlapsMonth(start: string, end: string | null | undefined, month: string): boolean {
+  if (dayNumber(start) === null) return false;
+  const last = end && dayNumber(end) !== null && end >= start ? end : start;
+  return start.slice(0, 7) <= month && last.slice(0, 7) >= month;
+}
 export const dateFromDay = (day: number) => new Date(day * DAY);
 export function monthWeeks(year: number, month: number) {
   const first = Date.UTC(year, month, 1) / DAY;

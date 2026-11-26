@@ -8,10 +8,10 @@ export function accountingMonth(value: string) {
   return Number.isFinite(+date) ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Minsk', year: 'numeric', month: '2-digit' }).format(date) : '';
 }
 
-export function AccountingExpenseGroups({ claims, onOpen }: { claims: EmployeeClaim[]; onOpen: (claim: EmployeeClaim) => void }) {
+export function AccountingExpenseGroups({ claims, onOpen, includeWork = true }: { claims: EmployeeClaim[]; includeWork?: boolean; onOpen: (claim: EmployeeClaim) => void }) {
   const approved = claims.filter(claim => claim.state === 'approved' || claim.state === 'paid');
   const groups: { label: string; matches: (line: ClaimLine) => boolean }[] = [
-    { label: 'Подтверждённые работы по заявкам', matches: line => ['time', 'trip', 'warehouse'].includes(line.kind) },
+    { label: 'Подтверждённые работы по заявкам', matches: line => includeWork && ['time', 'trip', 'warehouse'].includes(line.kind) },
     { label: 'Расходы', matches: line => line.kind === 'allowance' },
     { label: 'Хозрасходы', matches: line => line.kind === 'expense' },
   ];

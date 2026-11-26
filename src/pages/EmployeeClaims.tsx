@@ -14,7 +14,7 @@ import { Calendar } from './Calendar';
 import { PeoplePicker } from '../components/PeoplePicker';
 import { ClaimPersonPicker } from '../components/ClaimPersonPicker';
 import { personWorkAmount, personWorkHours } from '../lib/eventPeople';
-import { dayNumber } from '../lib/calendar';
+import { dayNumber, eventOverlapsMonth } from '../lib/calendar';
 import { searchInputProps } from '../lib/searchInput';
 const input='min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-accent-500';
 const primary='min-h-11 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40';
@@ -107,7 +107,7 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
   {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки добавьте сотрудника в разделе «Персонал».</p>}
   {!loading&&!manager&&!boot?.personnel&&<p role="alert" className="rounded-xl border border-accent-700 p-4 text-sm text-accent-200">Учётная запись пока не связана с персоналом. Администратор может выбрать сотрудника при редактировании пользователя.</p>}
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
-  {review && <Calendar monthFilter selectedPeriod={period} onPeriodChange={setPeriod}
+  {(review || tab === 'events') && <Calendar monthFilter selectedPeriod={period} onPeriodChange={setPeriod}
     toolbarActions={tab === 'events' && (eventSearchOpen ? <div className="relative ml-1 min-w-0 flex-1 sm:max-w-xs">
       <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-3.5 h-4 w-4 text-gray-400" />
       <input ref={eventSearchInput} {...searchInputProps} aria-label="Поиск мероприятий" value={eventSearch}
@@ -128,8 +128,9 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
   <div hidden={tab !== 'events'}>{review
     ? <AccountingEventWork events={boot?.events ?? []} claims={rows} warehouse={warehouseWork}
       month={month} search={eventSearch} loading={loading} editable={manager} refreshSignal={refresh + (refreshSignal ?? 0)} onOpenClaim={claim => setEditor({claim})} />
-    : <><PersonalAccountingWork refresh={refresh} claims={rows} events={boot?.events ?? []} onOpenClaim={claim => setEditor({claim})} />
-      <AccountingExpenseGroups claims={rows.filter(row => !row.event_id)} onOpen={claim => setEditor({claim})} /></>}</div>
+    : <><PersonalAccountingWork refresh={refresh} month={month} search={eventSearch} claims={rows} events={boot?.events ?? []} onOpenClaim={claim => setEditor({claim})} />
+      <AccountingExpenseGroups claims={rows.filter(row => !row.event_id &&
+        accountingMonth(row.approved_at ?? row.submitted_at ?? row.created_at) === month)} onOpen={claim => setEditor({claim})} /></>}</div>
   {(tab === 'moderation' || tab === 'archive') && <AccountingWorkCorrections review={review} canReview={manager}
     archived={tab === 'archive'} month={review ? month : undefined} onChanged={() => { setRefresh(value => value + 1); void load(); }} />}
   {(tab === 'requests' || tab === 'archive') && <>
@@ -158,7 +159,7 @@ function AccountingEventWork({ events, claims, warehouse, month, search, loading
 }) {
   const [categoryRequest, setCategoryRequest] = useState<{ eventId: string; sequence: number }>();
   const [opened, setOpened] = useState<Map<string, boolean>>(new Map());
-  const visible = new Set(events.filter(row => row.status !== 'Отменено' && (row.event_date <= `${month}-31` && (row.event_end_date || row.event_date) >= `${month}-01`) &&
+  const visible = new Set(events.filter(row => row.status !== 'Отменено' && eventOverlapsMonth(row.event_date, row.event_end_date, month) &&
     `${row.name} ${row.venue ?? ''}`.toLocaleLowerCase('ru-RU').includes(search.trim().toLocaleLowerCase('ru-RU'))).map(row => row.id));
   const standaloneClaims = claims.filter(row => !row.event_id && ['approved', 'paid'].includes(row.state) &&
     accountingMonth(row.approved_at ?? row.submitted_at ?? row.created_at) === month);
@@ -258,13 +259,19 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const selectedEvent=boot.events.find(row=>row.id===eventId);
  const today = minskToday();
  const currentDay = dayNumber(today);
+ const expenseClaim = lines.length > 0 && lines.every(line => line.kind === 'expense' || line.kind === 'allowance');
+ const withinExpenseWindow = (event: ClaimBootstrap['events'][number] | undefined) => {
+   const day = dayNumber(event?.event_date ?? '');
+   return currentDay !== null && day !== null && day >= currentDay - 30 && day <= currentDay + 7;
+ };
  const eventOptions = claim ? (selectedEvent ? [selectedEvent] : []) : boot.events.filter(row => {
    if (row.status === 'Отменено') return false;
    if (manager || row.id === eventId) return true;
+   if (expenseClaim) return withinExpenseWindow(row);
    const eventDay = dayNumber(row.event_date);
    return currentDay !== null && eventDay !== null && Math.abs(eventDay - currentDay) <= 5;
  });
- const expired=Boolean(eventId&&(!selectedEvent?.deadline||today>selectedEvent.deadline));
+ const expired=Boolean(eventId && (expenseClaim ? !withinExpenseWindow(selectedEvent) : !selectedEvent?.deadline || today > selectedEvent.deadline));
  const ownClaim=!claim||claim.user_id===user?.id;
  const [proposing, setProposing] = useState(false);
  const mayPropose = !manager && ownClaim && claim?.state === 'approved';
@@ -376,7 +383,8 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
    </fieldset>
    {isBatch && <p className="text-xs text-gray-400">Для каждого выбранного сотрудника будет создана отдельная заявка с указанными данными.</p>}
    {lines.some(line=>line.kind==='warehouse')&&<p className="text-xs text-gray-400">Работа на складе подаётся отдельно от мероприятий. Укажите время и выполненную работу; сумма рассчитывается по ставке сотрудника за работу на складе.</p>}
-   {eventId&&<p className={`text-sm ${expired?'text-accent-300':'text-gray-400'}`}>{selectedEvent?.deadline?`Подать до ${selectedEvent.deadline.split('-').reverse().join('.')} включительно, до 23:59 по Минску.`:'У мероприятия не указана корректная дата окончания.'}{expired&&!manager&&' Срок истёк. Исправления может внести бухгалтер.'}</p>}
+   {eventId && expenseClaim && expired && !manager && <p className="text-sm text-accent-300">Мероприятие вне периода подачи расходов. Обратитесь в бухгалтерию.</p>}
+   {eventId && !expenseClaim && <p className={`text-sm ${expired?'text-accent-300':'text-gray-400'}`}>{selectedEvent?.deadline?`Подать до ${selectedEvent.deadline.split('-').reverse().join('.')} включительно, до 23:59 по Минску.`:'У мероприятия не указана корректная дата окончания.'}{expired&&!manager&&' Срок истёк. Исправления может внести бухгалтер.'}</p>}
    {loadingWorks&&<p role="status" className="text-xs text-gray-400">Загрузка работ мероприятия…</p>}
    <div className="space-y-3">{lines.map((line,index)=>{const calc=estimate(line);return <fieldset key={index} disabled={!editable||busy} className="min-w-0 space-y-3 rounded-xl border border-gray-700 p-3">
     <div className="flex items-center justify-between"><h3 className="font-semibold">{index+1}. {lineNames[line.kind]}</h3>{editable&&!proposing&&((initialKind!=='expense'&&initialKind!=='allowance')||lines.length>1)&&<button type="button" aria-label={`Удалить позицию ${index+1}`} onClick={()=>{setLines(current=>current.filter((_,i)=>i!==index));setDirty(true);}} className="flex h-11 w-11 items-center justify-center rounded-lg text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4"/></button>}</div>

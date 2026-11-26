@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { driverMileagePayout, personWorkAmount, vehiclePayout } from '../lib/eventPeople';
+import { ChevronDown } from 'lucide-react';
+import { driverMileagePayout, driverMileageRate, passengerMileageRate, personWorkAmount, personWorkHours, vehiclePayout } from '../lib/eventPeople';
 import type { ProjectPerson, ProjectTransport, TransportDriver } from '../lib/eventProject';
 import { getErrorMessage } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/authContext';
 import { accountingMonth, AccountingExpenseGroups } from './AccountingExpenseGroups';
-import type { ClaimEvent, ClaimLine, EmployeeClaim } from '../lib/employeeClaims';
+import { sumClaimAmounts, type ClaimEvent, type ClaimLine, type EmployeeClaim } from '../lib/employeeClaims';
+import { dayNumber, eventOverlapsMonth } from '../lib/calendar';
 import { PeoplePicker } from './PeoplePicker';
 
 const input = 'block min-h-11 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-base text-gray-100';
@@ -24,8 +26,49 @@ type Correction = {
 const amountFor = (row: Assignment) => row.kind === 'person' ? personWorkAmount(row.item)
   : row.kind === 'driver' ? driverMileagePayout(row.part.kilometers) : vehiclePayout(row.item);
 
-export function PersonalAccountingWork({ refresh, claims, events, onOpenClaim }: { refresh: number; claims: EmployeeClaim[]; events: ClaimEvent[]; onOpenClaim: (claim: EmployeeClaim) => void }) {
+function workHoursLabel(hours: number) {
+  const minutes = Math.round(hours * 60);
+  const wholeHours = Math.floor(minutes / 60);
+  return [wholeHours ? `${wholeHours} ч` : '', minutes % 60 ? `${minutes % 60} мин` : ''].filter(Boolean).join(' ') || '0 ч';
+}
+
+function unitCalculation(quantity: string, rate: number, unit: 'ч' | 'км', amount: number) {
+  return `${quantity} × ${money(rate)} BYN/${unit} = ${money(amount)} BYN`;
+}
+
+function mileageCalculation(kilometers: number, rate: number, amount: number) {
+  return unitCalculation(`${kilometers.toLocaleString('ru-RU', { maximumFractionDigits: 4 })} км`, rate, 'км', amount);
+}
+
+function assignmentCalculation(row: Assignment) {
+  const amount = amountFor(row);
+  if (row.kind === 'driver') return mileageCalculation(row.part.kilometers, driverMileageRate, amount);
+  if (row.kind === 'owner') {
+    if (row.item.category === 'passenger' && row.item.journey) {
+      return mileageCalculation(row.item.journey.kilometers ?? 0, passengerMileageRate(Boolean(row.item.journey.own_fuel)), amount);
+    }
+    return `${money(row.item.trip_price ?? 0)} BYN × ${row.item.employment_type === 'freelance' ? '100%' : '60%'} = ${money(amount)} BYN`;
+  }
+  const rate = Number(row.item.rate.replace(',', '.'));
+  return row.item.trip
+    ? mileageCalculation(Number(row.item.trip.kilometers), rate, amount)
+    : unitCalculation(workHoursLabel(personWorkHours(row.item)), rate, 'ч', amount);
+}
+
+function claimCalculation(line: ClaimLine) {
+  const amount = Number(line.amount ?? 0);
+  if (line.kind === 'trip') return mileageCalculation(Number(line.kilometers ?? 0), Number(line.rate ?? 0), amount);
+  const hours = typeof line.minutes === 'number' ? line.minutes / 60 : personWorkHours(line);
+  const duration = workHoursLabel(hours);
+  if (line.calculation === 'fixed') return `${duration} · фиксированная оплата ${money(amount)} BYN`;
+  return unitCalculation(duration, Number(line.rate ?? 0), 'ч', amount);
+}
+
+export function PersonalAccountingWork({ refresh, month, search, claims, events, onOpenClaim }: {
+  refresh: number; month: string; search: string; claims: EmployeeClaim[]; events: ClaimEvent[]; onOpenClaim: (claim: EmployeeClaim) => void;
+}) {
   const [rows, setRows] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Assignment>();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -35,35 +78,66 @@ export function PersonalAccountingWork({ refresh, claims, events, onOpenClaim }:
       if (!active) return;
       if (error) setError(getErrorMessage(error));
       else { setError(''); setRows(data ?? []); }
+      setLoading(false);
     });
     return () => { active = false; };
   }, [refresh]);
-  const groups = new Map<string, Assignment[]>();
-  for (const row of rows) {
-    const group = groups.get(row.event_id) ?? [];
-    group.push(row);
-    groups.set(row.event_id, group);
+  const groups = new Map<string, { works: Assignment[]; confirmed: EmployeeClaim[] }>();
+  const groupFor = (id: string) => {
+    const existing = groups.get(id);
+    if (existing) return existing;
+    const group = { works: [], confirmed: [] };
+    groups.set(id, group);
+    return group;
+  };
+  for (const row of rows) groupFor(row.event_id).works.push(row);
+  for (const claim of claims) {
+    if (claim.event_id && ['approved', 'paid'].includes(claim.state)) groupFor(claim.event_id).confirmed.push(claim);
   }
-  const approved = claims.filter(row => row.event_id && ['approved','paid'].includes(row.state));
-  for (const claim of approved) if (claim.event_id && !groups.has(claim.event_id)) groups.set(claim.event_id, []);
+  const eventsById = new Map(events.map(event => [event.id, event]));
+  const query = search.trim().toLocaleLowerCase('ru-RU');
+  const visible = [...groups].flatMap(([id, { works, confirmed }]) => {
+    const event = eventsById.get(id);
+    const name = event?.name ?? works[0]?.event_name ?? confirmed[0]?.event_name ?? '';
+    const eventDate = event?.event_date ?? works[0]?.event_date ?? '';
+    const venue = event?.venue?.trim();
+    return eventOverlapsMonth(eventDate, event?.event_end_date, month) &&
+      `${venue ?? ''} ${name}`.toLocaleLowerCase('ru-RU').includes(query)
+      ? [{ id, works, confirmed, name, eventDate, venue }]
+      : [];
+  }).sort((a, b) => b.eventDate.localeCompare(a.eventDate) || a.name.localeCompare(b.name, 'ru'));
   return <section className="space-y-2">
-    <h2 className="font-semibold">Мои начисления по мероприятиям</h2>
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     {notice && <p role="status" className="text-sm text-gray-300">{notice}</p>}
-    {!error && !groups.size && <p className="text-sm text-gray-400">Начислений пока нет.</p>}
-    {[...groups].map(([id, works]) => {
-      const confirmed = approved.filter(row => row.event_id === id);
-      const event = events.find(row => row.id === id);
-      const amount = works.reduce((total, row) => total + amountFor(row), 0) + confirmed.reduce((total, row) => total + row.work_amount, 0);
-      return <details key={id} className="rounded-xl border border-gray-800 bg-gray-900">
-        <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-medium">{event?.name ?? works[0]?.event_name ?? confirmed[0]?.event_name} · {event?.event_date ?? works[0]?.event_date ?? ''} · {money(amount)} BYN</summary>
-        <div className="space-y-2 px-3 pb-3">
-          <ul className="divide-y divide-gray-800">{works.map(row => <li key={`${row.kind}:${row.target_id}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-            <span>{row.work_name || 'Работа'}{row.kind !== 'person' && ` · ${row.kind === 'owner' ? 'Автомобиль' : 'Водитель'} · ${row.item.vehicle}`}
-              <span className="block text-gray-300">{money(amountFor(row))} BYN</span></span>
-            <button type="button" className={button} onClick={() => setEditing(row)}>Предложить правку</button>
-          </li>)}</ul>
-          <AccountingExpenseGroups claims={confirmed} onOpen={onOpenClaim} />
+    {loading && !visible.length && <p role="status" className="text-sm text-gray-400">Загрузка начислений…</p>}
+    {!loading && !error && !visible.length && <p className="text-sm text-gray-400">За выбранный месяц начислений по этому запросу нет.</p>}
+    {visible.map(({ id, works, confirmed, name, eventDate, venue }) => {
+      const amount = sumClaimAmounts([...works.map(amountFor), ...confirmed.map(row => row.work_amount)]);
+      return <details key={id} className="group rounded-xl border border-gray-800 bg-gray-900">
+        <summary className="grid min-h-12 cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-sm [&::-webkit-details-marker]:hidden">
+          <time dateTime={eventDate} className="text-xs tabular-nums text-gray-300">{dayNumber(eventDate) === null ? '—' : eventDate.split('-').reverse().join('.')}</time>
+          <span className="min-w-0 break-words font-semibold">{venue || name}
+            {venue && venue !== name && <span className="block text-xs font-normal text-gray-400">{name}</span>}
+          </span>
+          <span className="flex items-center justify-end gap-1 whitespace-nowrap text-xs font-semibold tabular-nums sm:text-sm">{money(amount)} BYN
+            <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 -rotate-90 text-gray-400 group-open:rotate-0" />
+          </span>
+        </summary>
+        <div className="space-y-2 border-t border-gray-800 px-3 pb-3">
+          <ul className="divide-y divide-gray-800">
+            {works.map(row => <li key={`${row.kind}:${row.target_id}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <div className="min-w-0 break-words">{row.work_name || 'Работа'}{row.kind !== 'person' && ` · ${row.kind === 'owner' ? 'Автомобиль' : 'Водитель'} · ${row.item.vehicle}`}
+                <p className="text-sm tabular-nums text-gray-300">{assignmentCalculation(row)}</p></div>
+              <button type="button" className={button} onClick={() => setEditing(row)}>Предложить правку</button>
+            </li>)}
+            {confirmed.flatMap(claim => claim.lines.map((line, index) => ['time', 'warehouse', 'trip'].includes(line.kind) && <li
+              key={`${claim.id}:${index}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <div className="min-w-0 break-words">{line.work_name || 'Работа'}
+                <p className="text-sm tabular-nums text-gray-300">{claimCalculation(line)}</p></div>
+              <button type="button" className={button} onClick={() => onOpenClaim(claim)}>Открыть заявку</button>
+            </li>))}
+          </ul>
+          <AccountingExpenseGroups claims={confirmed} onOpen={onOpenClaim} includeWork={false} />
         </div>
       </details>;
     })}
