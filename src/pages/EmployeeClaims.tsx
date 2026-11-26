@@ -32,10 +32,10 @@ const accountingClaimKinds = [
   ['allowance', 'Расходы'], ['expense', 'Хозрасходы'],
 ] as const;
 
-export function Accounting({ refreshSignal }: { refreshSignal?: number }) {
-  return <EmployeeClaims review refreshSignal={refreshSignal} />;
+export function Accounting({ refreshSignal, onPendingChange }: { refreshSignal?: number; onPendingChange?: (eventId: string, pending: boolean) => void }) {
+  return <EmployeeClaims review refreshSignal={refreshSignal} onPendingChange={onPendingChange} />;
 }
-export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; refreshSignal?: number}){
+export function EmployeeClaims({review=false, refreshSignal, onPendingChange}:{review?:boolean; refreshSignal?: number; onPendingChange?: (eventId: string, pending: boolean) => void}){
  const {user}=useAuth();const manager=review&&canAccess(user,'payments',2);
  const [boot,setBoot]=useState<ClaimBootstrap|null>(null),[rows,setRows]=useState<EmployeeClaim[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true),[filter,setFilter]=useState('all'),[search,setSearch]=useState('');
  const [tab, setTab] = useState<'events' | 'requests' | 'moderation' | 'archive'>('events');
@@ -127,7 +127,7 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
   </nav>
   <div hidden={tab !== 'events'}>{review
     ? <AccountingEventWork events={boot?.events ?? []} claims={rows} warehouse={warehouseWork}
-      month={month} search={eventSearch} loading={loading} editable={manager} refreshSignal={refresh + (refreshSignal ?? 0)} onOpenClaim={claim => setEditor({claim})} />
+      month={month} search={eventSearch} loading={loading} onPendingChange={onPendingChange} editable={manager} refreshSignal={refresh + (refreshSignal ?? 0)} onOpenClaim={claim => setEditor({claim})} />
     : <><PersonalAccountingWork refresh={refresh} month={month} search={eventSearch} claims={rows} events={boot?.events ?? []} onOpenClaim={claim => setEditor({claim})} />
       <AccountingExpenseGroups claims={rows.filter(row => !row.event_id &&
         accountingMonth(row.approved_at ?? row.submitted_at ?? row.created_at) === month)} onOpen={claim => setEditor({claim})} /></>}</div>
@@ -153,9 +153,9 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
   {ratesOpen&&boot&&<RatesDialog rates={boot.settings} onClose={()=>setRatesOpen(false)} onSaved={()=>{setRatesOpen(false);void load();}}/>}
  </div>;
 }
-function AccountingEventWork({ events, claims, warehouse, month, search, loading, editable, refreshSignal, onOpenClaim }: {
+function AccountingEventWork({ events, claims, warehouse, month, search, loading, editable, refreshSignal, onOpenClaim, onPendingChange }: {
   events: ClaimBootstrap['events']; claims: EmployeeClaim[]; warehouse: AccountingWork[];
-  month: string; search: string; loading: boolean; editable: boolean; refreshSignal: number; onOpenClaim: (claim: EmployeeClaim) => void;
+  month: string; search: string; loading: boolean; editable: boolean; refreshSignal: number; onPendingChange?: (eventId: string, pending: boolean) => void; onOpenClaim: (claim: EmployeeClaim) => void;
 }) {
   const [categoryRequest, setCategoryRequest] = useState<{ eventId: string; sequence: number }>();
   const [opened, setOpened] = useState<Map<string, boolean>>(new Map());
@@ -192,7 +192,7 @@ function AccountingEventWork({ events, claims, warehouse, month, search, loading
           <time className="pointer-events-none relative shrink-0 text-xs text-gray-300" dateTime={event.event_date}>{event.event_date?.split('-').reverse().join('.')}</time>
         </header>
         <div id={panelId} hidden={!expanded} className="space-y-3 border-t border-gray-800 p-3">
-          {opened.has(event.id) && <><AccountingEventEditor event={event} editable={editable} refreshSignal={refreshSignal}
+          {opened.has(event.id) && <><AccountingEventEditor event={event} editable={editable} refreshSignal={refreshSignal} onPendingChange={onPendingChange}
             addCategoryRequest={categoryRequest?.eventId === event.id ? categoryRequest.sequence : undefined} />
           <AccountingExpenseGroups claims={claims.filter(row => row.event_id === event.id)} onOpen={onOpenClaim} /></>}
         </div>

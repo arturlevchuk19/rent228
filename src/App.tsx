@@ -4,7 +4,7 @@ import { useEventPageNavigation } from './hooks/useEventPageNavigation';
 import { usePageNavigation } from './hooks/usePageNavigation';
 import { EventPage } from './pages/EventPage';
 import { canAccess, type AppModule } from './lib/roles';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/authContext';
 import { Login } from './components/Login';
@@ -42,6 +42,12 @@ function AppContent() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastCreatedEventId, setLastCreatedEventId] = useState<string | null>(null);
 
+  const pendingAccounting = useRef(new Set<string>());
+  const reportPendingAccounting = useCallback((eventId: string, pending: boolean) => {
+    if (pending) pendingAccounting.current.add(eventId);
+    else pendingAccounting.current.delete(eventId);
+  }, []);
+
   const eventPage = useEventPageNavigation(!!user && canAccess(user, 'events'));
 
   if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white text-xl">Загрузка...</div>;
@@ -69,7 +75,7 @@ function AppContent() {
       case 'equipment': return <Equipment />;
       case 'events': return <EventsWorkspace key={user.id} refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
-      case 'payments': return <Accounting key={user.id} refreshSignal={refreshKey} />;
+      case 'payments': return <Accounting key={user.id} refreshSignal={refreshKey} onPendingChange={reportPendingAccounting} />;
       case 'my-claims': return <EmployeeClaims key={user.id} />;
       case 'personnel-report': return <PersonnelPaymentsReport />;
       case 'staff': return <Personnel />;
@@ -83,7 +89,11 @@ function AppContent() {
 
   return <div className="flex h-dvh flex-col overflow-hidden overscroll-none">
     <OfflineIndicator />
-    <Layout currentPage={currentPage} onPageBack={specification ? closeSpecification : undefined} pageHeading={specification ? 'Спецификация' : eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => { if (!eventPage.open || eventPage.navigateAway()) navigate(page); }}>
+    <Layout currentPage={currentPage} onPageBack={specification ? closeSpecification : undefined} pageHeading={specification ? 'Спецификация' : eventPage.open ? 'Мероприятие' : undefined} onNavigate={page => {
+      if (currentPage === 'payments' && page !== currentPage && pendingAccounting.current.size &&
+        !window.confirm('В бухгалтерии ещё есть несохранённые изменения. Покинуть раздел?')) return;
+      if (!eventPage.open || eventPage.navigateAway()) navigate(page);
+    }}>
       <div hidden={eventPage.open || !!specification} className="h-full"><PageErrorBoundary key={currentPage}><Suspense fallback={<PageFallback />}>{renderPage()}</Suspense></PageErrorBoundary></div>
       {eventPage.open && <div hidden={!!specification}><EventPage event={eventPage.event} loading={eventPage.loading} error={eventPage.error} onDirtyChange={eventPage.setDirty} onBack={eventId => { if (eventPage.close() && eventId && !eventPage.event) setLastCreatedEventId(eventId); }} onSave={eventId => { eventPage.saved(eventId); handleRefresh(eventId); }} onSpecificationOpen={handleSpecificationOpen} onDeleted={() => { eventPage.setDirty(false); eventPage.close(); handleRefresh(); }} /></div>}
       {specification && <div className="flex h-full min-h-0 flex-col">
