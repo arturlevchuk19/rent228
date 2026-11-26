@@ -260,18 +260,15 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const today = minskToday();
  const currentDay = dayNumber(today);
  const expenseClaim = lines.length > 0 && lines.every(line => line.kind === 'expense' || line.kind === 'allowance');
- const withinExpenseWindow = (event: ClaimBootstrap['events'][number] | undefined) => {
+ const withinEventSelectionWindow = (event: ClaimBootstrap['events'][number] | undefined) => {
    const day = dayNumber(event?.event_date ?? '');
    return currentDay !== null && day !== null && day >= currentDay - 30 && day <= currentDay + 7;
  };
  const eventOptions = claim ? (selectedEvent ? [selectedEvent] : []) : boot.events.filter(row => {
    if (row.status === 'Отменено') return false;
-   if (manager || row.id === eventId) return true;
-   if (expenseClaim) return withinExpenseWindow(row);
-   const eventDay = dayNumber(row.event_date);
-   return currentDay !== null && eventDay !== null && Math.abs(eventDay - currentDay) <= 5;
+   return manager || row.id === eventId || withinEventSelectionWindow(row);
  });
- const expired=Boolean(eventId && (expenseClaim ? !withinExpenseWindow(selectedEvent) : !selectedEvent?.deadline || today > selectedEvent.deadline));
+ const expired=Boolean(eventId && (expenseClaim ? !withinEventSelectionWindow(selectedEvent) : !selectedEvent?.deadline || today > selectedEvent.deadline));
  const ownClaim=!claim||claim.user_id===user?.id;
  const [proposing, setProposing] = useState(false);
  const mayPropose = !manager && ownClaim && claim?.state === 'approved';
