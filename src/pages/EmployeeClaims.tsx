@@ -103,7 +103,7 @@ export function EmployeeClaims({review=false, refreshSignal}:{review?:boolean; r
       <Settings aria-hidden="true" className="mr-1 inline h-4 w-4" />Тарифы поездок
     </button>
   </div>}
-  {!review && <p className="max-w-2xl text-sm text-gray-400">Подайте работу на складе без мероприятия или выберите мероприятие и укажите время до конца третьего дня после его окончания.</p>}
+  {!review && <p className="max-w-2xl text-sm text-gray-400">Подайте работу на складе без мероприятия или выберите мероприятие в периоде от 30 дней назад до 7 дней вперёд.</p>}
   {manager && boot && !canCreate && <p className="text-sm text-gray-400">Для внесения заявки добавьте сотрудника в разделе «Персонал».</p>}
   {!loading&&!manager&&!boot?.personnel&&<p role="alert" className="rounded-xl border border-accent-700 p-4 text-sm text-accent-200">Учётная запись пока не связана с персоналом. Администратор может выбрать сотрудника при редактировании пользователя.</p>}
   {error&&<p role="alert" className="rounded-xl border border-red-900 p-3 text-sm text-red-300">{error}<button type="button" className="ml-3 underline" onClick={()=>void load()}>Повторить</button></p>}
@@ -259,7 +259,6 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
  const selectedEvent=boot.events.find(row=>row.id===eventId);
  const today = minskToday();
  const currentDay = dayNumber(today);
- const expenseClaim = lines.length > 0 && lines.every(line => line.kind === 'expense' || line.kind === 'allowance');
  const withinEventSelectionWindow = (event: ClaimBootstrap['events'][number] | undefined) => {
    const day = dayNumber(event?.event_date ?? '');
    return currentDay !== null && day !== null && day >= currentDay - 30 && day <= currentDay + 7;
@@ -268,7 +267,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
    if (row.status === 'Отменено') return false;
    return manager || row.id === eventId || withinEventSelectionWindow(row);
  });
- const expired=Boolean(eventId && (expenseClaim ? !withinEventSelectionWindow(selectedEvent) : !selectedEvent?.deadline || today > selectedEvent.deadline));
+ const expired = Boolean(eventId && !withinEventSelectionWindow(selectedEvent));
  const ownClaim=!claim||claim.user_id===user?.id;
  const [proposing, setProposing] = useState(false);
  const mayPropose = !manager && ownClaim && claim?.state === 'approved';
@@ -380,8 +379,7 @@ function ClaimEditor({claim,initialKind,boot,manager,onClose,onSaved}:{claim:Emp
    </fieldset>
    {isBatch && <p className="text-xs text-gray-400">Для каждого выбранного сотрудника будет создана отдельная заявка с указанными данными.</p>}
    {lines.some(line=>line.kind==='warehouse')&&<p className="text-xs text-gray-400">Работа на складе подаётся отдельно от мероприятий. Укажите время и выполненную работу; сумма рассчитывается по ставке сотрудника за работу на складе.</p>}
-   {eventId && expenseClaim && expired && !manager && <p className="text-sm text-accent-300">Мероприятие вне периода подачи расходов. Обратитесь в бухгалтерию.</p>}
-   {eventId && !expenseClaim && <p className={`text-sm ${expired?'text-accent-300':'text-gray-400'}`}>{selectedEvent?.deadline?`Подать до ${selectedEvent.deadline.split('-').reverse().join('.')} включительно, до 23:59 по Минску.`:'У мероприятия не указана корректная дата окончания.'}{expired&&!manager&&' Срок истёк. Исправления может внести бухгалтер.'}</p>}
+   {expired && !manager && <p className="text-sm text-accent-300">Мероприятие вне периода подачи заявок. Обратитесь в бухгалтерию.</p>}
    {loadingWorks&&<p role="status" className="text-xs text-gray-400">Загрузка работ мероприятия…</p>}
    <div className="space-y-3">{lines.map((line,index)=>{const calc=estimate(line);return <fieldset key={index} disabled={!editable||busy} className="min-w-0 space-y-3 rounded-xl border border-gray-700 p-3">
     <div className="flex items-center justify-between"><h3 className="font-semibold">{index+1}. {lineNames[line.kind]}</h3>{editable&&!proposing&&((initialKind!=='expense'&&initialKind!=='allowance')||lines.length>1)&&<button type="button" aria-label={`Удалить позицию ${index+1}`} onClick={()=>{setLines(current=>current.filter((_,i)=>i!==index));setDirty(true);}} className="flex h-11 w-11 items-center justify-center rounded-lg text-red-400 hover:bg-red-900/20"><Trash2 className="h-4 w-4"/></button>}</div>
