@@ -194,7 +194,7 @@ function AccountingEventWork({ events, claims, warehouse, month, search, loading
         <div id={panelId} hidden={!expanded} className="space-y-3 border-t border-gray-800 p-3">
           {opened.has(event.id) && <><AccountingEventEditor event={event} editable={editable} refreshSignal={refreshSignal} onPendingChange={onPendingChange}
             addCategoryRequest={categoryRequest?.eventId === event.id ? categoryRequest.sequence : undefined} />
-          <AccountingExpenseGroups claims={claims.filter(row => row.event_id === event.id)} onOpen={onOpenClaim} /></>}
+          <AccountingExpenseGroups insideEvent claims={claims.filter(row => row.event_id === event.id)} onOpen={onOpenClaim} /></>}
         </div>
       </section>;
     })}

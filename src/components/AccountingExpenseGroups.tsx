@@ -8,19 +8,19 @@ export function accountingMonth(value: string) {
   return Number.isFinite(+date) ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Minsk', year: 'numeric', month: '2-digit' }).format(date) : '';
 }
 
-export function AccountingExpenseGroups({ claims, onOpen, includeWork = true }: { claims: EmployeeClaim[]; includeWork?: boolean; onOpen: (claim: EmployeeClaim) => void }) {
+export function AccountingExpenseGroups({ claims, onOpen, includeWork = true, insideEvent = false }: { claims: EmployeeClaim[]; includeWork?: boolean; insideEvent?: boolean; onOpen: (claim: EmployeeClaim) => void }) {
   const approved = claims.filter(claim => claim.state === 'approved' || claim.state === 'paid');
-  const groups: { label: string; matches: (line: ClaimLine) => boolean }[] = [
+  const groups: { label: string; expense?: boolean; matches: (line: ClaimLine) => boolean }[] = [
     { label: 'Подтверждённые работы по заявкам', matches: line => includeWork && ['time', 'trip', 'warehouse'].includes(line.kind) },
-    { label: 'Расходы', matches: line => line.kind === 'allowance' },
-    { label: 'Хозрасходы', matches: line => line.kind === 'expense' },
+    { label: 'Расходы', expense: true, matches: line => line.kind === 'allowance' },
+    { label: 'Хозрасходы', expense: true, matches: line => line.kind === 'expense' },
   ];
-  return <div className="space-y-2">{groups.map(({ label, matches }) => {
+  return <div className="space-y-2">{groups.map(({ label, expense, matches }) => {
     const rows = approved.flatMap(claim => claim.lines.flatMap((line, index) => matches(line) ? [{ claim, line, index }] : []));
     if (!rows.length) return null;
     const amount = sumClaimAmounts(rows.map(({ line }) => Number(line.amount) || 0));
     return <details key={label} className="group rounded-xl border border-gray-800 bg-gray-900">
-      <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+      <summary className={`flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden ${insideEvent && expense ? 'rounded-xl bg-gray-800/60 group-open:rounded-b-none' : ''}`}>
         <span className="inline-flex items-center gap-2"><ChevronDown className="h-4 w-4 -rotate-90 group-open:rotate-0" />{label}</span>
         <span className="tabular-nums">{money(amount)} BYN</span>
       </summary>
