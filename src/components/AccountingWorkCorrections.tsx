@@ -4,7 +4,7 @@ import type { ProjectPerson, ProjectTransport, TransportDriver } from '../lib/ev
 import { getErrorMessage } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/authContext';
-import { AccountingExpenseGroups } from './AccountingExpenseGroups';
+import { accountingMonth, AccountingExpenseGroups } from './AccountingExpenseGroups';
 import type { ClaimEvent, ClaimLine, EmployeeClaim } from '../lib/employeeClaims';
 import { PeoplePicker } from './PeoplePicker';
 
@@ -18,7 +18,7 @@ type Assignment = { event_id: string; event_date: string; event_name: string; wo
 );
 type Correction = {
   id: string; employee_name: string; event_name: string; work_name: string; review_note: string;
-  state: 'submitted' | 'approved' | 'rejected'; archived_at: string | null;
+  state: 'submitted' | 'approved' | 'rejected'; created_at: string; archived_at: string | null;
   target_kind: Assignment['kind'] | 'claim'; original: { lines?: ClaimLine[] }; proposal: Record<string, string | number | ClaimLine[]>;
 };
 const amountFor = (row: Assignment) => row.kind === 'person' ? personWorkAmount(row.item)
@@ -118,8 +118,8 @@ function ProposalForm({ assignment: row, onClose, onSaved }: { assignment: Assig
 const states = { submitted: 'На проверке', approved: 'Утверждена', rejected: 'Отклонена' };
 const proposalLabels: Record<string, string> = { amount: 'Сумма', description: 'Назначение', starts_at: 'Начало', ends_at: 'Окончание', hours: 'Часы', kilometers: 'Километраж', rate: 'Ставка', trip_price: 'Стоимость поездки' };
 
-export function AccountingWorkCorrections({ review, canReview = false, archived, onChanged }: {
-  review: boolean; canReview?: boolean; archived: boolean; onChanged: () => void;
+export function AccountingWorkCorrections({ review, canReview = false, archived, month, onChanged }: {
+  review: boolean; canReview?: boolean; archived: boolean; month?: string; onChanged: () => void;
 }) {
   const { user } = useAuth();
   const [rows, setRows] = useState<Correction[]>([]);
@@ -139,7 +139,8 @@ export function AccountingWorkCorrections({ review, canReview = false, archived,
     });
     return () => { active = false; };
   }, [version, archived, review, user?.id]);
-  const visible = rows.filter(row => archived ? row.state !== 'submitted' : row.state === 'submitted' || (!review && !row.archived_at));
+  const visible = rows.filter(row => (!month || accountingMonth(row.created_at) === month) &&
+    (archived ? row.state !== 'submitted' : row.state === 'submitted' || (!review && !row.archived_at)));
   const act = async (row: Correction, action: 'approve' | 'reject' | 'archive') => {
     if (busy) return;
     setBusy(true); setError('');
