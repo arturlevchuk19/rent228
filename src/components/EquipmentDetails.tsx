@@ -322,6 +322,23 @@ export function EquipmentDetails({ item, onClose }: EquipmentDetailsProps) {
                   <div className="mb-1 text-sm font-medium text-gray-400">Вес (Брутто), кг</div>
                   <div className="text-white">{item.gross_weight_kg ?? '—'}</div>
                 </div>
+                {[
+                  { label: 'Габариты без упаковки', values: [item.unpacked_width_cm, item.unpacked_height_cm, item.unpacked_length_cm] },
+                  { label: 'Габариты с упаковкой', values: [item.width_cm, item.height_cm, item.length_cm] },
+                ].map(({ label, values }) => (
+                  <div key={label}>
+                    <div className="mb-1 text-sm font-medium text-gray-400">{label} (Ш×В×Д), см</div>
+                    <div className="text-white">{values.some(value => value != null) ? values.map(value => value ?? '—').join(' × ') : '—'}</div>
+                  </div>
+                ))}
+                <div>
+                  <div className="mb-1 text-sm font-medium text-gray-400">Количество элементов в упаковке</div>
+                  <div className="text-white">{item.units_per_package ?? 1}</div>
+                </div>
+                <div>
+                  <div className="mb-1 text-sm font-medium text-gray-400">Объём одного элемента, м³</div>
+                  <div className="text-white">{item.volume_m3 ?? '—'}</div>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-1">
                     Тип объекта

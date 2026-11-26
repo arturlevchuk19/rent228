@@ -2,6 +2,9 @@ import fs from 'node:fs';import ts from 'typescript';import assert from 'node:as
 const compile=path=>ts.transpile(fs.readFileSync(path,'utf8'),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true});
 const numbers={};new Function('exports',compile('src/lib/equipmentDimensions.ts'))(numbers);
 assert.equal(numbers.equipmentVolumeM3(100,50,40),0.2);assert.equal(numbers.equipmentVolumeM3(100,100,100),1);assert.equal(numbers.equipmentVolumeM3(null,10,20),null);assert.equal(numbers.equipmentVolumeM3(0,50,40),0);assert.equal(numbers.optionalEquipmentNumber('12,5','Вес'),12.5);assert.equal(numbers.optionalEquipmentNumber('','Вес'),null);assert.throws(()=>numbers.optionalEquipmentNumber('-1','Вес'));
+assert.equal(numbers.equipmentVolumeM3(100,50,40,4),0.05);
+assert.equal(numbers.equipmentVolumeM3(100,100,100,3),0.333333333);
+for (const count of [0,-1,1.5,2147483648,NaN]) assert.equal(numbers.equipmentVolumeM3(100,50,40,count),null);
 let states=[],index=0,writes=[],uploaded=0,closed=0;const jsx=(type,props)=>({type,props});const exports={};
 new Function('exports','require',compile('src/components/EquipmentForm.tsx'))(exports,name=>{
  if(name==='react')return {Fragment:'fragment',useState:initial=>{const i=index++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return [states[i],value=>states[i]=typeof value==='function'?value(states[i]):value];},useRef:value=>({current:value}),useEffect:()=>{}};
@@ -15,8 +18,12 @@ const render=()=>{index=0;return exports.EquipmentForm(props);};const nodes=n=>A
 let tree=nodes(render());tree.find(n=>n.props?.options===props.categories).props.onChange('Звук');tree=nodes(render());tree.find(n=>n.props?.options===props.types).props.onChange('Колонки');
 const change=(name,value)=>{const field=nodes(render()).find(n=>n.type==='input'&&n.props.name===name);assert(field,name);field.props.onChange({target:{name,value}});};
 change('purchase_price','123.45');change('weight_kg','12.5');change('width_cm','100');change('height_cm','50');change('length_cm','40');
-tree=nodes(render());const names=tree.filter(n=>n.type==='input').map(n=>n.props.name);assert(names.indexOf('purchase_price')===names.indexOf('rental_price')+1);assert(names.indexOf('weight_kg')>names.indexOf('peak_power'));assert.equal(tree.find(n=>n.props?.id==='equipment-volume').props.value,'0.2');assert.equal(tree.find(n=>n.props?.id==='equipment-volume').props.readOnly,true);
-await tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});assert.deepEqual([writes[0].purchase_price,writes[0].weight_kg,writes[0].width_cm,writes[0].height_cm,writes[0].length_cm],[123.45,12.5,100,50,40]);assert(!('volume_m3' in writes[0]));
+change('unpacked_width_cm','80');change('unpacked_height_cm','30');change('unpacked_length_cm','20');
+assert.equal(nodes(render()).find(n=>n.props?.name==='units_per_package').props.value,'1');
+assert.equal(nodes(render()).find(n=>n.props?.id==='equipment-volume').props.value,'0.2');
+change('units_per_package','4');
+tree=nodes(render());const names=tree.filter(n=>n.type==='input').map(n=>n.props.name);assert(names.indexOf('purchase_price')===names.indexOf('rental_price')+1);assert(names.indexOf('weight_kg')>names.indexOf('peak_power'));assert.equal(tree.find(n=>n.props?.id==='equipment-volume').props.value,'0.05');assert.equal(tree.find(n=>n.props?.id==='equipment-volume').props.readOnly,true);
+await tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});assert.deepEqual([writes[0].purchase_price,writes[0].weight_kg,writes[0].width_cm,writes[0].height_cm,writes[0].length_cm],[123.45,12.5,100,50,40]);assert.deepEqual([writes[0].unpacked_width_cm,writes[0].unpacked_height_cm,writes[0].unpacked_length_cm],[80,30,20]);assert(!('volume_m3' in writes[0]));assert.equal(writes[0].units_per_package,4);
 tree=nodes(render());await tree.find(n=>n.props?.['aria-label']==='Фото оборудования').props.onChange({target:{files:[new File(['image'],'photo.jpg',{type:'image/jpeg'})],value:''}});tree=nodes(render());await tree.find(n=>n.type==='form').props.onSubmit({preventDefault:()=>{}});assert.equal(uploaded,1);assert.equal(writes.at(-1).photo_path,'new-photo.jpg');assert(closed>=2);
 console.log('PASS: purchase price field ordering, weight/dimensions/automatic volume, numeric and null handling, persistence and photo upload');
 let payload;const query={insert:value=>{payload=value;return query;},update:value=>{payload=value;return query;},eq:()=>query,select:()=>query,single:async()=>({data:{id:'saved',...payload,volume_m3:0.2},error:null})};const equipmentAPI={};

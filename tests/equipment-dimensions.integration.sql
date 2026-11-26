@@ -9,6 +9,10 @@ BEGIN
  IF (SELECT volume_m3 FROM public.equipment_items WHERE id=equipment) IS DISTINCT FROM 0.2::numeric THEN RAISE EXCEPTION 'cm to cubic metre conversion is wrong'; END IF;
  UPDATE public.equipment_items SET width_cm=200 WHERE id=equipment;
  IF (SELECT volume_m3 FROM public.equipment_items WHERE id=equipment) IS DISTINCT FROM 0.4::numeric THEN RAISE EXCEPTION 'Volume did not recompute'; END IF;
+ UPDATE public.equipment_items SET units_per_package=4 WHERE id=equipment;
+ IF (SELECT volume_m3 FROM public.equipment_items WHERE id=equipment) IS DISTINCT FROM 0.1::numeric THEN RAISE EXCEPTION 'Expected volume per item'; END IF;
+ denied:=false;BEGIN UPDATE public.equipment_items SET units_per_package=0 WHERE id=equipment;EXCEPTION WHEN check_violation OR division_by_zero THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Zero units per package allowed'; END IF;
  UPDATE public.equipment_items SET width_cm=NULL WHERE id=equipment;
  IF (SELECT volume_m3 FROM public.equipment_items WHERE id=equipment) IS NOT NULL THEN RAISE EXCEPTION 'Missing dimension must leave volume unknown'; END IF;
  denied:=false;BEGIN UPDATE public.equipment_items SET weight_kg=-1 WHERE id=equipment;EXCEPTION WHEN check_violation THEN denied:=true;END;

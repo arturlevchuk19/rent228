@@ -37,6 +37,10 @@ export interface EquipmentItem {
   width_cm?: number | null;
   height_cm?: number | null;
   length_cm?: number | null;
+  unpacked_width_cm?: number | null;
+  unpacked_height_cm?: number | null;
+  unpacked_length_cm?: number | null;
+  units_per_package?: number;
   volume_m3?: number | null;
   photo_path?: string | null;
   multi_day_rate: number;

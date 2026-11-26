@@ -1,4 +1,4 @@
-import { optionalEquipmentNumber, equipmentVolumeM3 } from '../lib/equipmentDimensions';
+import { optionalEquipmentNumber, equipmentVolumeM3, isValidPackageQuantity } from '../lib/equipmentDimensions';
 import { prepareEquipmentPhoto, equipmentPhotoUrl, uploadEquipmentPhoto, cleanupEquipmentPhoto } from '../lib/equipmentMedia';
 import { parseConsumption } from '../lib/budgetConsumption';
 import React, { useEffect, useRef, useState } from 'react';
@@ -147,6 +147,10 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     width_cm: item?.width_cm == null ? '' : String(item.width_cm),
     height_cm: item?.height_cm == null ? '' : String(item.height_cm),
     length_cm: item?.length_cm == null ? '' : String(item.length_cm),
+    unpacked_width_cm: item?.unpacked_width_cm == null ? '' : String(item.unpacked_width_cm),
+    unpacked_height_cm: item?.unpacked_height_cm == null ? '' : String(item.unpacked_height_cm),
+    unpacked_length_cm: item?.unpacked_length_cm == null ? '' : String(item.unpacked_length_cm),
+    units_per_package: String(item?.units_per_package ?? 1),
     multi_day_rate: String(item?.multi_day_rate ?? 0),
     power: String(parseConsumption(item?.power)),
     peak_power: String(parseConsumption(item?.peak_power ?? item?.power)),
@@ -178,7 +182,13 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     finally { setProcessingPhoto(false); }
   };
   const dimensionValue = (value: string) => value.trim() && Number.isFinite(Number(value.replace(',', '.'))) && Number(value.replace(',', '.')) >= 0 ? Number(value.replace(',', '.')) : null;
-  const volume = equipmentVolumeM3(dimensionValue(formData.width_cm), dimensionValue(formData.height_cm), dimensionValue(formData.length_cm));
+  const unitsPerPackage = Number(formData.units_per_package);
+  const volume = equipmentVolumeM3(
+    dimensionValue(formData.width_cm),
+    dimensionValue(formData.height_cm),
+    dimensionValue(formData.length_cm),
+    unitsPerPackage,
+  );
 
   // Синхронизируем локальные копии со справочниками родителя,
   // но только когда окно формы закрыто, чтобы не затирать незавершённый ввод.
@@ -201,8 +211,12 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     setLoading(true);
     let uploaded: string | undefined;
     try {
+      if (!isValidPackageQuantity(unitsPerPackage)) {
+        throw new Error('Количество элементов в упаковке должно быть целым числом от 1 до 2 147 483 647.');
+      }
       const submitData = {
         ...formData,
+        units_per_package: unitsPerPackage,
         power: formData.power.trim() || '0',
         peak_power: formData.peak_power.trim() || '0',
         quantity: parseFloat(formData.quantity) || 0,
@@ -211,9 +225,12 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
         purchase_price: optionalEquipmentNumber(formData.purchase_price, 'Цена покупки'),
         weight_kg: optionalEquipmentNumber(formData.weight_kg, 'Вес (Нетто)'),
         gross_weight_kg: optionalEquipmentNumber(formData.gross_weight_kg, 'Вес (Брутто)'),
-        width_cm: optionalEquipmentNumber(formData.width_cm, 'Ширина'),
-        height_cm: optionalEquipmentNumber(formData.height_cm, 'Высота'),
-        length_cm: optionalEquipmentNumber(formData.length_cm, 'Длина'),
+        width_cm: optionalEquipmentNumber(formData.width_cm, 'Ширина с упаковкой'),
+        unpacked_width_cm: optionalEquipmentNumber(formData.unpacked_width_cm, 'Ширина без упаковки'),
+        height_cm: optionalEquipmentNumber(formData.height_cm, 'Высота с упаковкой'),
+        unpacked_height_cm: optionalEquipmentNumber(formData.unpacked_height_cm, 'Высота без упаковки'),
+        length_cm: optionalEquipmentNumber(formData.length_cm, 'Длина с упаковкой'),
+        unpacked_length_cm: optionalEquipmentNumber(formData.unpacked_length_cm, 'Длина без упаковки'),
         photo_path: removePhoto ? null : item?.photo_path || null,
       };
       if (photoFile) { uploaded = await uploadEquipmentPhoto(photoFile); submitData.photo_path = uploaded; }
@@ -543,16 +560,55 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                 <label htmlFor="equipment-gross-weight" className="block text-sm font-medium text-gray-300 mb-1">Вес (Брутто), кг</label>
                 <input id="equipment-gross-weight" type="number" inputMode="decimal" name="gross_weight_kg" value={formData.gross_weight_kg} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20" />
               </div>
-              <fieldset>
-                <legend className="block text-sm font-medium text-gray-300 mb-1">Габариты (Ш×В×Д), см</legend>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-                  {(['width_cm', 'height_cm', 'length_cm'] as const).map((key, index) => <React.Fragment key={key}>{index > 0 && <span aria-hidden="true" className="text-gray-500">×</span>}<input type="number" inputMode="decimal" name={key} aria-label={['Ширина, см', 'Высота, см', 'Длина, см'][index]} placeholder={['Ш', 'В', 'Д'][index]} value={formData[key]} onChange={handleChange} onWheel={handleNumberWheel} min="0" step="0.001" className="no-number-spin min-w-0 w-full rounded-lg border border-gray-700 bg-gray-800 px-2 py-2 text-center text-white outline-none focus:border-accent-500" /></React.Fragment>)}
-                </div>
-              </fieldset>
+              {([
+                { packaging: 'без упаковки', keys: ['unpacked_width_cm', 'unpacked_height_cm', 'unpacked_length_cm'] },
+                { packaging: 'с упаковкой', keys: ['width_cm', 'height_cm', 'length_cm'] },
+              ] as const).map(({ packaging, keys }) => (
+                <fieldset key={packaging} className="min-w-0">
+                  <legend className="mb-1 text-sm font-medium text-gray-300">Габариты {packaging} (Ш×В×Д), см</legend>
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                    {keys.map((key, index) => (
+                      <React.Fragment key={key}>
+                        {index > 0 && <span aria-hidden="true" className="text-gray-500">×</span>}
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          name={key}
+                          aria-label={`${['Ширина', 'Высота', 'Длина'][index]} ${packaging}, см`}
+                          placeholder={['Ш', 'В', 'Д'][index]}
+                          value={formData[key]}
+                          onChange={handleChange}
+                          onWheel={handleNumberWheel}
+                          min="0"
+                          step="0.001"
+                          className="no-number-spin min-w-0 w-full rounded-lg border border-gray-700 bg-gray-800 px-2 py-2 text-center text-white outline-none focus:border-accent-500"
+                        />
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
               <div>
-                <label htmlFor="equipment-volume" className="block text-sm font-medium text-gray-300 mb-1">Объём, м³</label>
-                <input id="equipment-volume" readOnly value={volume === null ? '' : String(volume)} placeholder="Рассчитывается автоматически" className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-accent-300 outline-none" />
-                <p className="mt-1 text-xs text-gray-500">Ш × В × Д ÷ 1 000 000</p>
+                <label htmlFor="equipment-units-per-package" className="block text-sm font-medium text-gray-300 mb-1">Количество элементов в упаковке</label>
+                <input
+                  id="equipment-units-per-package"
+                  type="number"
+                  inputMode="numeric"
+                  name="units_per_package"
+                  value={formData.units_per_package}
+                  onChange={handleChange}
+                  onWheel={handleNumberWheel}
+                  min="1"
+                  max="2147483647"
+                  step="1"
+                  required
+                  className="no-number-spin w-full min-h-11 px-4 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+                />
+              </div>
+              <div>
+                <label htmlFor="equipment-volume" className="block text-sm font-medium text-gray-300 mb-1">Объём одного элемента, м³</label>
+                <input id="equipment-volume" aria-describedby="equipment-volume-formula" readOnly value={volume === null ? '' : String(volume)} placeholder="Рассчитывается автоматически" className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-accent-300 outline-none" />
+                <p id="equipment-volume-formula" className="mt-1 text-xs text-gray-400">Объём упаковки (Ш × В × Д) делится на количество элементов.</p>
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-300">Фото</label>
