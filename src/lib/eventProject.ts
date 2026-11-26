@@ -18,8 +18,12 @@ export interface TransportJourney {
 export interface ProjectTransport { id: string; vehicle: string; driver: string; notes: string; vehicle_id?: string; category?: GarageVehicleFields['category']; employment_type?: GarageGroup; trip_price?: number; journey?: TransportJourney; }
 export interface EventProjectDetails {
   description: string; schedule: ScheduleEntry[]; people: ProjectPerson[]; transport: ProjectTransport[];
-  people_budget_id?: string; people_works?: { id: string; name: string }[];
+  people_budget_id?: string; people_works?: { id: string; name: string; budgetAmount?: number }[];
   sound: string; light: string; media: string; io: string;
+}
+export function operationalProjectDetails(project: EventProjectDetails) {
+  const { description, schedule, sound, light, media, io } = project;
+  return { description, schedule, sound, light, media, io };
 }
 export const newProjectId = () => crypto.randomUUID();
 const text = (value: unknown) => typeof value === 'string' ? value : '';
@@ -62,7 +66,7 @@ export function normalizeProjectDetails(value: unknown): EventProjectDetails {
   const data = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   return {
     ...(typeof data.people_budget_id === 'string' ? { people_budget_id: data.people_budget_id } : {}),
-    ...(Array.isArray(data.people_works) ? { people_works: records(data.people_works).map(row => ({ id: text(row.id), name: text(row.name) })).filter(row => row.id && row.name.trim()) } : {}),
+    ...(Array.isArray(data.people_works) ? { people_works: records(data.people_works).map(row => ({ id: text(row.id), name: text(row.name), ...(typeof row.budgetAmount === 'number' && Number.isFinite(row.budgetAmount) && row.budgetAmount >= 0 ? { budgetAmount: row.budgetAmount } : {}) })).filter(row => row.id && row.name.trim()) } : {}),
     description: text(data.description), sound: text(data.sound), light: text(data.light), media: text(data.media), io: text(data.io),
     schedule: records(data.schedule).map((row, index) => ({ id: text(row.id) || `schedule-${index}`, date: text(row.date), title: text(row.title), start: text(row.start), end: text(row.end) })),
     people: records(data.people).map((row, index) => ({ id: text(row.id) || `person-${index}`, personnel_id: text(row.personnel_id), name: text(row.name), group: row.group === 'freelance' || row.group === 'external' ? row.group : 'team', rate: text(row.rate), ...(typeof row.work_id === 'string' ? { work_id: row.work_id } : {}), ...(typeof row.work_name === 'string' ? { work_name: row.work_name } : {}), ...(typeof row.hours === 'string' ? { hours: row.hours } : {}), ...(typeof row.starts_at === 'string' ? { starts_at: row.starts_at } : {}), ...(row.trip ? { trip: normalizeTrip(row.trip) } : {}), ...(typeof row.ends_at === 'string' ? { ends_at: row.ends_at } : {}) })),

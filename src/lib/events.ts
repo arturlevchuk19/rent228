@@ -36,7 +36,7 @@ export interface Client {
 }
 
 export interface Event {
-  project_details?: EventProjectDetails;
+  project_details?: Partial<EventProjectDetails>;
   id: string;
   event_date: string;
   event_end_date?: string;

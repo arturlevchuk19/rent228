@@ -8,7 +8,7 @@ import { journeyDrivers, type ProjectPerson, type ProjectTransport } from './eve
 
 export type PeopleDirectoryEntry = Pick<Personnel, 'id' | 'full_name' | 'employment_type' | 'show_in_budgets' | 'warehouse_rate' | 'warehouse_work_rate' | 'installation_rate'>;
 
-export interface PeopleWork { id: string; name: string; }
+export interface PeopleWork { id: string; name: string; budgetAmount?: number; }
 const normalized = (name: string) => name.trim().toLocaleLowerCase('ru-RU');
 export function orderedPeopleWorks(works: WorkItem[]): PeopleWork[] {
   const first = ['Монтаж', 'Демонтаж'].map((name, index) => works.find(work => normalized(work.name) === normalized(name)) || { id: `default-work-${index}`, name });

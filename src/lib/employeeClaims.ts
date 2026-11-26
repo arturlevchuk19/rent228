@@ -10,7 +10,7 @@ export interface ClaimLine {
 export interface ClaimPerson {id:string;full_name:string;account_user_id?:string|null;employment_type?:'staff'|'freelance'|null;installation_rate:number;warehouse_rate:number;warehouse_work_rate?:number;}
 export interface ClaimEvent {id:string;name:string;event_date:string;venue?:string|null;event_end_date?:string;deadline:string|null;status?:string;}
 export interface ClaimRates {driver_rate:number;car_rate:number;fuel_rate:number;}
-export interface EmployeeClaim {id:string;user_id:string|null;personnel_id:string;employee_name:string;event_id:string|null;event_name:string;state:ClaimState;lines:ClaimLine[];work_amount:number;expense_amount:number;total:number;revision:number;review_note:string;created_at:string;updated_at:string;}
+export interface EmployeeClaim {id:string;user_id:string|null;personnel_id:string;employee_name:string;event_id:string|null;event_name:string;state:ClaimState;lines:ClaimLine[];work_amount:number;expense_amount:number;total:number;revision:number;review_note:string;created_at:string;updated_at:string;submitted_at?:string|null;approved_at?:string|null;paid_at?:string|null;}
 export interface ClaimAssignment { id: string; event_id: string; event_name: string; event_date: string; venue: string | null; work_name: string; hours: string | null; starts_at?: string | null; ends_at?: string | null; rate?: string | null; employee_name?: string | null; }
 export interface ClaimBootstrap {personnel:ClaimPerson|null;people:ClaimPerson[];events:ClaimEvent[];settings:ClaimRates;today:string;assignments?:ClaimAssignment[];}
 export const CLAIM_STATES:Record<ClaimState,string>={draft:'Черновик',submitted:'На проверке',approved:'Утверждено',paid:'Выплачено',rejected:'Отклонено'};
@@ -32,10 +32,16 @@ export async function findClaimById(id: string): Promise<EmployeeClaim | null> {
  if (error) throw error;
  return data;
 }
-export async function saveClaim(claim:EmployeeClaim|null,eventId:string,lines:ClaimLine[],submit:boolean,personnelId?:string,note='',requestId?:string):Promise<EmployeeClaim>{
+function claimPayload(lines: ClaimLine[]) {
  const numeric=(value:unknown)=>{const parsed=Number(String(value??0).replace(',','.'));if(!Number.isFinite(parsed))throw Error('Проверьте числовые поля заявки');return parsed;};
- const payload=lines.map(line=>({...line,break_minutes:0,kilometers:line.kind==='trip'?numeric(line.kilometers):undefined,amount:['expense','allowance'].includes(line.kind)||line.calculation==='fixed'?numeric(line.amount):undefined,rate:line.rate===undefined?undefined:numeric(line.rate),starts_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.starts_at||''):undefined,ends_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.ends_at||''):undefined}));
- const {data,error}=await supabase.rpc('employee_claim_save',{p_id:claim?.id||requestId||null,p_event:eventId||null,p_lines:payload,p_submit:submit,p_revision:claim?.revision??null,p_personnel:personnelId||null,p_note:note});if(error)throw error;return data;
+ return lines.map(line=>({...line,break_minutes:0,kilometers:line.kind==='trip'?numeric(line.kilometers):undefined,amount:['expense','allowance'].includes(line.kind)||line.calculation==='fixed'?numeric(line.amount):undefined,rate:line.rate===undefined?undefined:numeric(line.rate),starts_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.starts_at||''):undefined,ends_at:(line.kind==='time'||line.kind==='warehouse')?minskInstant(line.ends_at||''):undefined}));
+}
+export async function submitClaimCorrection(claim: EmployeeClaim, lines: ClaimLine[]) {
+ const { error } = await supabase.rpc('accounting_submit_claim_correction', { p_claim: claim.id, p_revision: claim.revision, p_lines: claimPayload(lines) });
+ if (error) throw error;
+}
+export async function saveClaim(claim:EmployeeClaim|null,eventId:string,lines:ClaimLine[],submit:boolean,personnelId?:string,note='',requestId?:string):Promise<EmployeeClaim>{
+ const {data,error}=await supabase.rpc('employee_claim_save',{p_id:claim?.id||requestId||null,p_event:eventId||null,p_lines:claimPayload(lines),p_submit:submit,p_revision:claim?.revision??null,p_personnel:personnelId||null,p_note:note});if(error)throw error;return data;
 }
 export async function reviewClaim(claim:EmployeeClaim,action:'approve'|'pay'|'reject'|'return'|'withdraw',note=''){const {data,error}=await supabase.rpc('employee_claim_review',{p_id:claim.id,p_action:action,p_revision:claim.revision,p_note:note});if(error)throw error;return data as EmployeeClaim;}
 export async function claimHistory(id:string){const {data,error}=await supabase.from('employee_claim_history').select('id,action,actor_id,created_at,before_value,after_value').eq('claim_id',id).order('created_at',{ascending:false});if(error)throw error;return data||[];}

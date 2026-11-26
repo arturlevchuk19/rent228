@@ -24,10 +24,10 @@ const source=fs.readFileSync('src/components/EventForm.tsx','utf8');const start=
 const formData={name:'Фестиваль',event_date:'2026-10-26',event_end_date:'2026-10-29',event_type:'Фестиваль',venue_id:'venue',client_id:'client',site_manager_id:'senior',budget:'legacy budget',specification:'legacy specification',status:'Подтверждено',progress_budget_done:true,progress_equipment_reserved:false,progress_project_completed:false,progress_paid:false,notes:'legacy notes'};
 async function save({projectChanged=true,fail=false,isNew=false,datesCleared=false,assignedLead=false}={}){
  let payload;let savedId;let error;let newId;let saving;let created=0;let updated=0;let rpcCall;
- const mocks={saving:false,editEvent:!assignedLead,editAssignedPeople:assignedLead,previousPeopleDetails:{current:initial},normalizeProjectDetails:api.normalizeProjectDetails,setProject(){},supabase:{rpc:async(name,args)=>{rpcCall={name,args};return {data:project};}},budgets:[{id:'budget'}],dateParts:{day:'26',month:'10',year:'2026'},endDateParts:{day:'29',month:'10',year:'2026'},isValidDate:()=>{if(datesCleared)throw Error("Cleared dates must be allowed");return true;},formData:datesCleared?{...formData,event_date:"",event_end_date:""}:formData,project,projectBaseline:{current:JSON.stringify(projectChanged?initial:project)},validateProjectDetails:api.validateProjectDetails,setSaving:v=>saving=v,setPageError:v=>error=v,setSaveMessage(){},setSavedEventId:v=>newId=v,setContractOrganizationId(){},baseline:{current:''},onDirtyChange(){},onSave:v=>savedId=v,event:isNew?undefined:{id:'event'},savedEventId:undefined,page:true,getErrorMessage:e=>e.message,alert(){throw Error('Unexpected alert')},console:{error(){}},createEvent:async body=>{created++;payload=body;return {id:'new-event'}},updateEvent:async(id,body)=>{updated++;payload=body;if(fail)throw {message:'project_details column missing'};return {id}}};
+ const mocks={saving:false,editEvent:!assignedLead,editAssignedPeople:assignedLead,previousPeopleDetails:{current:initial},operationalProjectDetails:api.operationalProjectDetails,normalizeProjectDetails:api.normalizeProjectDetails,setProject(){},supabase:{rpc:async(name,args)=>{rpcCall={name,args};return {data:project};}},budgets:[{id:'budget'}],dateParts:{day:'26',month:'10',year:'2026'},endDateParts:{day:'29',month:'10',year:'2026'},isValidDate:()=>{if(datesCleared)throw Error("Cleared dates must be allowed");return true;},formData:datesCleared?{...formData,event_date:"",event_end_date:""}:formData,project,projectBaseline:{current:JSON.stringify(projectChanged?initial:project)},validateProjectDetails:api.validateProjectDetails,setSaving:v=>saving=v,setPageError:v=>error=v,setSaveMessage(){},setSavedEventId:v=>newId=v,setContractOrganizationId(){},baseline:{current:''},onDirtyChange(){},onSave:v=>savedId=v,event:isNew?undefined:{id:'event'},savedEventId:undefined,page:true,getErrorMessage:e=>e.message,alert(){throw Error('Unexpected alert')},console:{error(){}},createEvent:async body=>{created++;payload=body;return {id:'new-event'}},updateEvent:async(id,body)=>{updated++;payload=body;if(fail)throw {message:'project_details column missing'};return {id}}};
  const run=new Function(...Object.keys(mocks),js+';return handleSubmit')(...Object.values(mocks));await run({preventDefault(){}});return {payload,savedId,error,newId,saving,created,updated,rpcCall};
 }
-const changed=await save();assert.deepEqual(changed.payload.project_details,project);assert.equal(changed.payload.site_manager_id,'senior');assert.equal(changed.payload.notes,'legacy notes');assert.equal(changed.payload.budget,'legacy budget');assert.equal(changed.savedId,'event');assert.equal(changed.saving,false);
+const changed=await save();assert.deepEqual(changed.payload.project_details,api.operationalProjectDetails(project));assert.equal(changed.payload.site_manager_id,'senior');assert.equal(changed.payload.notes,'legacy notes');assert.equal(changed.payload.budget,'legacy budget');assert.equal(changed.savedId,'event');assert.equal(changed.saving,false);
 const unchanged=await save({projectChanged:false});assert.equal(Object.hasOwn(unchanged.payload,'project_details'),false);
 const failed=await save({fail:true});assert.equal(failed.savedId,undefined);assert.ok(failed.error.includes('миграцию'));assert.equal(failed.saving,false);
 const cleared=await save({datesCleared:true});assert.equal(cleared.payload.event_date,'');assert.equal(cleared.payload.event_end_date,'');
@@ -35,13 +35,10 @@ const created=await save({isNew:true});assert.equal(created.created,1);assert.eq
 console.log('PASS: project data round trip, timing/date validation, overnight schedules, people/transport validation, safe rich text, full save payload, legacy fields, missing migration and create flow');
 
 const lead = await save({assignedLead:true});
-assert.equal(lead.savedId,'event');
+assert.equal(lead.savedId,undefined);
 assert.equal(lead.updated,0);
-assert.deepEqual(lead.rpcCall,{
-  name:'save_assigned_event_people',
-  args:{p_event:'event',p_previous:initial,p_people:project.people,p_works:project.people_works || []},
-});
-console.log('PASS: assigned lead saves only staffing through the scoped RPC');
+assert.equal(lead.rpcCall,undefined);
+console.log('PASS: operational event form leaves accounting assignments to the accounting editor');
 
 const periodProject={...project,people:[{...project.people[0],starts_at:'2026-10-27T22:00',ends_at:'2026-10-28T01:30'}]};
 assert.deepEqual(api.normalizeProjectDetails(JSON.parse(JSON.stringify(periodProject))),periodProject);

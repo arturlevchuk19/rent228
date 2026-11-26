@@ -1,12 +1,4 @@
-import { getEventBudgets, type EventBudget } from '../lib/eventBudgets';
-import { getBudgetItems, type BudgetItem } from '../lib/events';
-import { documentPeopleWorks, type BudgetPeopleWork, type PeopleDirectoryEntry, type PeopleWork } from '../lib/eventPeople';
-import { EventPeoplePanel } from './EventPeoplePanel';
-import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { getPersonnel, getWorkItems, type Personnel } from '../lib/personnel';
-import { useAuth } from '../contexts/authContext';
-import { supabase } from '../lib/supabase';
 import { newProjectId, type EventProjectDetails } from '../lib/eventProject';
 import { dayNumber } from '../lib/calendar';
 import { ProjectSection } from './ProjectSection';
@@ -14,74 +6,9 @@ import { ProjectText } from './ProjectText';
 
 const input = 'min-h-11 w-full min-w-0 rounded-lg border border-gray-700 bg-gray-950/50 px-3 py-2 text-sm text-gray-200 outline-none focus:border-accent-500';
 const addClass = 'inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-xs text-accent-400 hover:bg-gray-800';
-export function EventProjectBlocks({ value, onChange, editable, eventId, eventDate, refreshSignal = 0, siteManagerId }: {
-  value: EventProjectDetails; onChange: (value: EventProjectDetails) => void; editable: boolean;
-  eventId?: string; eventDate: string; refreshSignal?: number; siteManagerId?: string | null;
+export function EventProjectBlocks({ value, onChange, editable, eventDate }: {
+  value: EventProjectDetails; onChange: (value: EventProjectDetails) => void; editable: boolean; eventDate: string;
 }) {
-  const { user } = useAuth();
-  const showPrices = user?.role === 'admin' || user?.role === 'superuser';
-  const showPeople = showPrices || Boolean(user && user.id === siteManagerId);
-  const assignedLead = Boolean(eventId && user?.status === 'active' && user.id === siteManagerId);
-  const leadOnly = assignedLead && !editable;
-  const editPeople = (showPeople && editable) || leadOnly;
-  const [personnel, setPersonnel] = useState<PeopleDirectoryEntry[]>([]);
-  const [catalogWorks, setCatalogWorks] = useState<PeopleWork[]>([]);
-  const [peopleBudgets, setPeopleBudgets] = useState<EventBudget[]>([]);
-  const [peopleBudgetItems, setPeopleBudgetItems] = useState<BudgetItem[]>([]);
-  const [budgetWorksError, setBudgetWorksError] = useState('');
-  const [loadingBudgetWorks, setLoadingBudgetWorks] = useState(false);
-  const [directoryError, setDirectoryError] = useState('');
-  const [assigned, setAssigned] = useState<Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]>([]);
-  const [peopleError, setPeopleError] = useState('');
-  const [leadWorks, setLeadWorks] = useState<BudgetPeopleWork[]>([]);
-  useEffect(() => {
-    if (!leadOnly) return;
-    let active = true;
-    setLoadingBudgetWorks(true);
-    setDirectoryError('');
-    void supabase.rpc('assigned_event_people_options', { p_event: eventId }).then(({ data, error }) => {
-      if (!active) return;
-      setLoadingBudgetWorks(false);
-      if (error) { setDirectoryError('Не удалось загрузить сотрудников и работы.'); return; }
-      setPersonnel(data.personnel);
-      setCatalogWorks(data.catalog);
-      setLeadWorks(data.works);
-    });
-    return () => { active = false; };
-  }, [leadOnly, eventId, refreshSignal]);
-  useEffect(() => {
-    if (!editPeople || leadOnly) return;
-    let active = true;
-    Promise.all([getPersonnel(), getWorkItems()]).then(([people, jobs]) => { if (active) { setPersonnel(people); setCatalogWorks(jobs); setDirectoryError(''); } }).catch(() => { if (active) setDirectoryError('Не удалось загрузить справочники сотрудников и работ. Обновите страницу.'); });
-    return () => { active = false; };
-  }, [editPeople, leadOnly]);
-  useEffect(() => {
-    if (!eventId || !showPeople || leadOnly) return;
-    let active = true;
-    setAssigned([]);
-    supabase.from('budget_item_personnel').select('personnel:personnel_id(id, full_name, employment_type), budget_item:budget_item_id!inner(event_id)').eq('budget_item.event_id', eventId).then(({ data, error }) => {
-      if (!active) return;
-      if (error) { setPeopleError('Не удалось загрузить назначения из сметы.'); return; }
-      setPeopleError('');
-      const rows = (data || []) as unknown as { personnel: (typeof assigned)[number] | null }[];
-      const unique = new Map(rows.flatMap(row => row.personnel ? [[row.personnel.id, row.personnel] as const] : []));
-      setAssigned([...unique.values()]);
-    });
-    return () => { active = false; };
-  }, [eventId, refreshSignal, showPeople, leadOnly]);
-  useEffect(() => {
-    let active = true;
-    setPeopleBudgets([]); setPeopleBudgetItems([]); setBudgetWorksError('');
-    if (!eventId || (!showPeople && !editable) || leadOnly) return;
-    setLoadingBudgetWorks(true);
-    Promise.all([getEventBudgets(eventId), getBudgetItems(eventId)]).then(([documents, items]) => {
-      if (active) { setPeopleBudgets(documents); setPeopleBudgetItems(items); }
-    }).catch(() => { if (active) setBudgetWorksError('Не удалось загрузить работы и суммы из сметы.'); })
-      .finally(() => { if (active) setLoadingBudgetWorks(false); });
-    return () => { active = false; };
-  }, [eventId, refreshSignal, showPeople, editable, leadOnly]);
-  const peopleBudget = peopleBudgets.find(budget => budget.id === value.people_budget_id) || peopleBudgets.find(budget => budget.is_primary) || peopleBudgets[0];
-  const works = leadOnly ? leadWorks : peopleBudget ? documentPeopleWorks(peopleBudgetItems, peopleBudget) : [];
   const update = <K extends keyof EventProjectDetails>(key: K, data: EventProjectDetails[K]) => onChange({ ...value, [key]: data });
   const textEditor = (key: 'description' | 'sound' | 'light' | 'media' | 'io') => <div className="space-y-2"><textarea aria-label={key === 'description' ? 'Описание мероприятия' : `Заметки: ${key}`} rows={8} maxLength={30000} value={value[key]} onChange={event => update(key, event.target.value)} className={`${input} resize-y`} /><p className="text-xs text-gray-500"># Заголовок · **жирный текст** · - список · ==выделение==. Изменения сохраняются кнопкой «Сохранить».</p></div>;
   const days = [...new Set(value.schedule.map(row => row.date))].sort();
@@ -93,7 +20,6 @@ export function EventProjectBlocks({ value, onChange, editable, eventId, eventDa
       })}</div>}
     </ProjectSection>
     <ProjectSection title="Описание" defaultOpen editable={editable} editor={textEditor('description')}><ProjectText text={value.description} empty="Описание мероприятия пока не добавлено." /></ProjectSection>
-    {showPeople && <EventPeoplePanel eventDate={eventDate} showPrices={showPrices} people={value.people} personnel={personnel} assigned={assigned} works={works} transport={value.transport} onTransportChange={editable ? rows => update('transport', rows) : undefined} catalogWorks={catalogWorks} editable={editPeople} error={peopleError || directoryError || budgetWorksError} onChange={people => update('people', people)} budgets={peopleBudgets} selectedBudgetId={peopleBudget?.id || ''} onBudgetChange={id => update('people_budget_id', id)} customWorks={value.people_works || []} onCustomWorksChange={rows => update('people_works', rows)} loadingWorks={loadingBudgetWorks} />}
     {([['sound', 'Звук', 'Райдеры / сцены'], ['light', 'Свет', 'Отрисовки / планы / адреса'], ['media', 'Медиа', 'Контент / патч'], ['io', 'Input / Output', 'Входы и выходы']] as const).map(([key, title, subtitle]) => <ProjectSection key={key} title={title} subtitle={subtitle} editable={editable} editor={textEditor(key)}><ProjectText text={value[key]} /></ProjectSection>)}
   </div>;
 }

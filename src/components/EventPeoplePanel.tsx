@@ -17,9 +17,12 @@ const insetInput = `${input} block min-h-14 pt-6 pb-1.5`;
 const insetLabel = 'pointer-events-none absolute inset-x-3 top-1.5 truncate text-xs text-gray-400';
 const money = (value: number) => value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase('ru-RU') === b.trim().toLocaleLowerCase('ru-RU');
-export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true, eventDate = '', transport = [], onTransportChange }: {
+export interface StaffTemplate { id: string; name: string; personnel_ids: string[] }
+export function EventPeoplePanel({ people, personnel, assigned, works, editable, error, onChange, budgets = [], selectedBudgetId = '', onBudgetChange, customWorks = [], onCustomWorksChange, loadingWorks = false, catalogWorks = [], showPrices = true, eventDate = '', transport = [], onTransportChange, manualCategoryPrices = false, templates = [], onSaveTemplate }: {
   people: ProjectPerson[]; personnel: PeopleDirectoryEntry[]; assigned: Pick<Personnel, 'id' | 'full_name' | 'employment_type'>[]; works: BudgetPeopleWork[];
   catalogWorks?: PeopleWork[];
+  templates?: StaffTemplate[]; onSaveTemplate?: (name: string, ids: string[]) => Promise<void>;
+  manualCategoryPrices?: boolean;
   transport?: ProjectTransport[]; onTransportChange?: (rows: ProjectTransport[]) => void;
   showPrices?: boolean;
   eventDate?: string;
@@ -35,6 +38,10 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(new Set<string>());
   const [newWorkId, setNewWorkId] = useState('');
+  const [newWorkAmount, setNewWorkAmount] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [templateError, setTemplateError] = useState('');
+  const [templateSaving, setTemplateSaving] = useState(false);
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
   const [copySource, setCopySource] = useState<string | null>(null);
   const [copyTarget, setCopyTarget] = useState<PeopleWork | null>(null);
@@ -68,7 +75,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     </label>;
   };
   const validPeriod = personWorkHours(period) > 0;
-  const availableWorks = [...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: 0 }))];
+  const availableWorks = [...works, ...customWorks.filter(custom => !works.some(row => sameName(row.name, custom.name))).map(row => ({ ...row, budgetAmount: row.budgetAmount ?? 0 }))];
   if ((onTransportChange || transport.length > 0) && !availableWorks.some(row => deliveryCategory(row.name) === 'cargo')) {
     availableWorks.push({ id: 'delivery-equipment', name: 'Доставка оборудования', budgetAmount: 0 });
   }
@@ -91,7 +98,7 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
   });
   const automatic = assigned.filter(person => !people.some(row => row.personnel_id === person.id));
   const patch = (id: string, updates: Partial<ProjectPerson>) => onChange(people.map(person => person.id === id ? { ...person, ...updates } : person));
-  const open = (selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setPeriod(emptyPeriod); setActiveDate(null); setEditingPeriod(false); setManualDriver(false); setAdding(true); };
+  const open = (selectedWork: PeopleWork | null = null) => { setWork(selectedWork); setTab('staff'); setSelected(new Set()); setSearch(''); setNewWorkId(''); setPeriod(emptyPeriod); setActiveDate(null); setEditingPeriod(false); setManualDriver(false); setTemplateName(''); setTemplateError(''); setAdding(true); };
   const addSelected = () => {
     if (!work || !selected.size || !editable || !validPeriod) return;
     onChange(addWorkPeople(people, personnel.filter(person => selected.has(person.id)), work, newProjectId, period));
@@ -133,11 +140,11 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
     const chosen = catalogWorks.find(row => row.id === newWorkId);
     if (!chosen || !onCustomWorksChange || !editable) return;
     const existing = workOptions.find(row => row.id === chosen.id || sameName(row.name, chosen.name));
-    const next = existing || { id: chosen.id, name: chosen.name };
+    const next = existing || { id: chosen.id, name: chosen.name, ...(manualCategoryPrices ? { budgetAmount: Number(newWorkAmount) } : {}) };
     if (!existing) onCustomWorksChange([...customWorks, next]);
-    setWork(next); setSelected(new Set()); setNewWorkId('');
+    setWork(next); setSelected(new Set()); setNewWorkId(''); setNewWorkAmount('');
   };
-  return <ProjectSection title="Люди" count={people.length + automatic.length} defaultOpen titleActions={editable && <button type="button" onClick={() => open()} className="inline-flex min-h-11 items-center gap-1 rounded-lg p-2 text-sm text-accent-400 hover:bg-gray-800"><Plus className="h-4 w-4" />Добавить</button>}>
+  return <ProjectSection title={manualCategoryPrices ? 'Категории расчёта' : 'Люди'} count={people.length + automatic.length} defaultOpen titleActions={editable && <button type="button" onClick={() => open()} className="inline-flex min-h-11 items-center gap-1 rounded-lg p-2 text-sm text-accent-400 hover:bg-gray-800"><Plus className="h-4 w-4" />{manualCategoryPrices ? 'Добавить категорию' : 'Добавить'}</button>}>
     {budgets.length > 1 && <label className="mb-4 block space-y-1 text-xs text-gray-400">{showPrices ? 'Смета для сравнения' : 'Смета для списка работ'}<select aria-label="Смета для сравнения работ" disabled={!editable || loadingWorks} value={selectedBudgetId} onChange={event => onBudgetChange?.(event.target.value)} className={input}>{budgets.map(budget => <option key={budget.id} value={budget.id}>{budget.name}</option>)}</select></label>}
     {error && <p role="alert" className="mb-3 text-xs text-amber-400">{error}</p>}
     {loadingWorks && <p role="status" className="mb-3 text-xs text-gray-500">Загрузка работ из сметы…</p>}
@@ -277,11 +284,36 @@ export function EventPeoplePanel({ people, personnel, assigned, works, editable,
         <div role="tablist" aria-label="Тип сотрудников" className="mb-3 flex gap-2">{(['staff', 'freelance'] as const).map(type => <button type="button" key={type} role="tab" aria-selected={tab === type} onClick={() => setTab(type)} className={`min-h-11 rounded-lg px-4 py-2 text-sm ${tab === type ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-400'}`}>{type === 'staff' ? 'Штат' : 'Фриланс'}</button>)}</div>
         <input aria-label="Поиск сотрудника" placeholder="Поиск по ФИО" {...searchInputProps} value={search} onChange={event => setSearch(event.target.value)} className={`${input} mb-3`} />
         <div className="max-h-[40dvh] overflow-y-auto">{personnel.filter(person => isAssignablePersonnel(person) && (person.employment_type || 'staff') === tab && person.full_name.toLowerCase().includes(search.toLowerCase())).map(person => { const exists = people.some(row => row.personnel_id === person.id && (row.work_id === work.id || sameName(row.work_name || '', work.name))); return <label key={person.id} className="flex min-h-12 items-center gap-3 border-b border-gray-800 py-3 text-sm text-gray-200"><input type="checkbox" disabled={exists} checked={exists || selected.has(person.id)} onChange={event => setSelected(current => { const next = new Set(current); if (event.target.checked) next.add(person.id); else next.delete(person.id); return next; })} className="h-4 w-4 accent-accent-500" /><span className="min-w-0 flex-1 break-words">{person.full_name}</span>{(exists || showPrices) && <span className="shrink-0 text-xs text-gray-500">{exists ? 'Добавлен' : deliveryCategory(work.name) ? '' : `${peopleWorkRate(person, work.name)} BYN/час`}</span>}</label>; })}{!personnel.some(person => isAssignablePersonnel(person) && (person.employment_type || 'staff') === tab && person.full_name.toLowerCase().includes(search.toLowerCase())) && <p className="py-6 text-center text-sm text-gray-500">Сотрудники не найдены</p>}</div>
+        {(templates.length > 0 || onSaveTemplate) && <div className="mt-3 space-y-2 border-t border-gray-800 pt-3">
+          {templates.length > 0 && <label className="block space-y-1 text-xs text-gray-400">Выбрать шаблон
+            <select className={input} value="" onChange={event => {
+              const template = templates.find(row => row.id === event.target.value);
+              if (!template) return;
+              setSelected(new Set(personnel.filter(person => isAssignablePersonnel(person) &&
+                template.personnel_ids.includes(person.id) && !people.some(row => row.personnel_id === person.id &&
+                  (row.work_id === work.id || sameName(row.work_name || '', work.name)))).map(person => person.id)));
+            }}><option value="">Шаблон состава</option>{templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}</select>
+          </label>}
+          {onSaveTemplate && selected.size > 0 && <div className="flex flex-wrap gap-2">
+            <input aria-label="Название шаблона" placeholder="Название шаблона" maxLength={120} className={`${input} flex-1 basis-32`}
+              value={templateName} onChange={event => setTemplateName(event.target.value)} />
+            <button type="button" disabled={!templateName.trim() || templateSaving} className="min-h-11 rounded-lg border border-gray-700 px-3 text-sm text-accent-300 disabled:opacity-50"
+              onClick={async () => {
+                setTemplateSaving(true); setTemplateError('');
+                try { await onSaveTemplate(templateName.trim(), [...selected]); setTemplateName(''); }
+                catch { setTemplateError('Не удалось сохранить шаблон.'); }
+                finally { setTemplateSaving(false); }
+              }}>Сохранить как шаблон</button>
+          </div>}
+          {templateError && <p role="alert" className="text-xs text-red-300">{templateError}</p>}
+        </div>}
         <button type="button" disabled={!selected.size} onClick={() => setEditingPeriod(true)} className="mt-4 w-full min-h-11 rounded-lg bg-accent-500 px-4 py-3 text-sm font-semibold text-gray-950 hover:bg-accent-400 disabled:opacity-40">Далее ({selected.size})</button>
       </> : <div className="space-y-3">
         {loadingWorks ? <p className="text-sm text-gray-400">Загрузка работ…</p> : workOptions.map(row => <button type="button" key={row.id} onClick={() => { setWork(row); setSelected(new Set()); }} className="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-700 px-4 py-3 text-left text-sm text-gray-200 hover:border-accent-600"><span>{row.name}</span>{showPrices && <span className="text-xs text-gray-500">{money(row.budgetAmount || 0)} BYN</span>}</button>)}
         {!workOptions.length && !loadingWorks && <p className="text-sm text-gray-500">В выбранной смете нет работ.</p>}
-        {onCustomWorksChange && <div className="space-y-2 border-t border-gray-700 pt-3"><label className="block space-y-1 text-xs text-gray-400">Добавить работу из справочника<select aria-label="Работа из справочника" value={newWorkId} onChange={event => setNewWorkId(event.target.value)} className={input}><option value="">Выберите работу</option>{catalogWorks.filter(row => !workOptions.some(existing => existing.id === row.id || sameName(existing.name, row.name))).map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label><button type="button" disabled={!newWorkId} onClick={createCustomWork} className="min-h-11 rounded-lg bg-gray-800 px-3 py-2 text-sm text-accent-400 disabled:opacity-40">Добавить работу</button></div>}
+        {onCustomWorksChange && <div className="space-y-2 border-t border-gray-700 pt-3"><label className="block space-y-1 text-xs text-gray-400">Добавить работу из справочника<select aria-label="Работа из справочника" value={newWorkId} onChange={event => setNewWorkId(event.target.value)} className={input}><option value="">Выберите работу</option>{catalogWorks.filter(row => !workOptions.some(existing => existing.id === row.id || sameName(existing.name, row.name))).map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>{manualCategoryPrices && <label className="block space-y-1 text-xs text-gray-400">Сумма категории, BYN
+          <input type="number" min="0" step="0.01" value={newWorkAmount} onChange={event => setNewWorkAmount(event.target.value)} className={input} />
+        </label>}<button type="button" disabled={!newWorkId || (manualCategoryPrices && (!Number.isFinite(Number(newWorkAmount)) || Number(newWorkAmount) < 0))} onClick={createCustomWork} className="min-h-11 rounded-lg bg-gray-800 px-3 py-2 text-sm text-accent-400 disabled:opacity-40">Добавить работу</button></div>}
       </div>}
     </PeoplePicker>}
   </ProjectSection>;

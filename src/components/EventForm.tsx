@@ -6,7 +6,7 @@ import { EventBudgetsPanel } from './EventBudgetsPanel';
 import { getBudgetEvent, getEventBudgets, type EventBudget } from '../lib/eventBudgets';
 import { eventProgress } from '../lib/eventProgress';
 import { EventDatesDialog } from './EventDatesDialog';
-import { eventDateLabel, normalizeProjectDetails, validateProjectDetails } from '../lib/eventProject';
+import { eventDateLabel, normalizeProjectDetails, operationalProjectDetails, validateProjectDetails } from '../lib/eventProject';
 import { getErrorMessage } from '../lib/errors';
 import { EventInlineField } from './EventInlineField';
 import { ProjectSection } from './ProjectSection';
@@ -23,7 +23,7 @@ import { calcGrandTotals } from '../lib/budgetPricing';
 import { getLocationsForEvent } from '../lib/locations';
 import { getCategoriesForEvent, getCategories } from '../lib/categories';
 import { getActiveUsers } from '../lib/auth';
-import { supabase, type User } from '../lib/supabase';
+import { type User } from '../lib/supabase';
 import {
   createEvent,
   deleteEvent,
@@ -139,9 +139,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   });
 
   const [project, setProject] = useState(() => normalizeProjectDetails(event?.project_details));
-  const previousPeopleDetails = useRef(event?.project_details || {});
   const editEvent = canAccess(user, 'events', 2);
-  const editAssignedPeople = Boolean(presentation === 'page' && event && user?.status === 'active' && user.id === event.site_manager_id);
   const projectBaseline = useRef(JSON.stringify(project));
   const baseline = useRef(JSON.stringify({ formData, project }));
   const dirty = JSON.stringify({ formData, project }) !== baseline.current;
@@ -150,7 +148,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const [saveMessage, setSaveMessage] = useState('');
   const [budgets, setBudgets] = useState<EventBudget[]>([]);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string>();
-  const [budgetRefresh, setBudgetRefresh] = useState(0);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showDatesDialog, setShowDatesDialog] = useState(false);
   const [documentPicker, setDocumentPicker] = useState<'pdf' | 'contract'>();
@@ -245,35 +242,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
-    if (!editEvent) {
-      if (!editAssignedPeople || !event) return;
-      const validation = validateProjectDetails(project, formData.event_date, formData.event_end_date);
-      if (validation) { setPageError(validation); return; }
-      setSaving(true);
-      try {
-        const { data, error } = await supabase.rpc('save_assigned_event_people', {
-          p_event: event.id,
-          p_previous: previousPeopleDetails.current,
-          p_people: project.people,
-          p_works: project.people_works || [],
-        });
-        if (error) throw error;
-        const savedProject = normalizeProjectDetails(data);
-        previousPeopleDetails.current = data;
-        projectBaseline.current = JSON.stringify(savedProject);
-        baseline.current = JSON.stringify({ formData, project: savedProject });
-        setProject(savedProject);
-        setPageError('');
-        setSaveMessage('Назначения сохранены.');
-        onDirtyChange?.(false);
-        onSave(event.id);
-      } catch (error) {
-        setPageError(getErrorMessage(error));
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
+    if (!editEvent) return;
 
     if (formData.event_date && !isValidDate(dateParts.day, dateParts.month, dateParts.year)) {
       alert('Укажите корректную дату мероприятия');
@@ -295,10 +264,10 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
     try {
       setSaving(true);
       const projectChanged = projectBaseline.current !== JSON.stringify(project);
-      const projectError = projectChanged ? validateProjectDetails(project, formData.event_date, formData.event_end_date) : null;
+      const projectError = projectChanged ? validateProjectDetails({ ...project, people: [], transport: [] }, formData.event_date, formData.event_end_date) : null;
       if (projectError) { setPageError(projectError); return; }
       const payload = {
-        ...(projectChanged ? { project_details: project } : {}),
+        ...(projectChanged ? { project_details: operationalProjectDetails(project) } : {}),
         name: formData.name,
         event_date: formData.event_date,
         event_end_date: formData.event_end_date,
@@ -594,7 +563,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
               {!budgets.length && <p className="text-sm text-gray-500">Спецификации появятся после добавления смет.</p>}
               {budgets.map(budget => <button key={budget.id} type="button" disabled={!canAccess(user, 'specifications')} onClick={() => { if (effectiveEventId) onSpecificationOpen?.(effectiveEventId, budget.id); }} className="mb-2 flex w-full items-center gap-2 rounded-lg border border-gray-800 p-3 text-left text-sm text-gray-300"><FileText className="h-4 w-4" />{budget.name}</button>)}
             </ProjectSection>
-            <EventProjectBlocks value={project} onChange={setProject} editable={canAccess(user, 'events', 2)} eventId={effectiveEventId} eventDate={formData.event_date} refreshSignal={budgetRefresh} siteManagerId={event?.site_manager_id} />
+            <EventProjectBlocks value={project} onChange={setProject} editable={canAccess(user, 'events', 2)} eventDate={formData.event_date} />
           </>}
 
           {!page && <details ref={detailsRef} open={page ? !event : true} className={page ? 'overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/70' : 'contents'}>
@@ -869,7 +838,7 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
               </button>
               <button
                 type="submit"
-                disabled={saving || (!editEvent && (!editAssignedPeople || !dirty))}
+                disabled={saving || !editEvent}
                 className="min-h-11 px-6 py-2 text-sm font-semibold bg-accent-500 hover:bg-accent-400 text-gray-950 rounded transition-colors disabled:opacity-50"
               >
                 {saving ? 'Сохранение...' : 'Сохранить'}
@@ -899,7 +868,6 @@ export function EventForm({ event, onClose, onSave, onSpecificationOpen, present
           onClose={() => {
             setShowBudgetEditor(false);
             checkBudgetItems();
-            setBudgetRefresh(value => value + 1);
           }}
         />
       )}
