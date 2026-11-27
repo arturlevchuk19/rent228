@@ -1,3 +1,4 @@
+import { InstallAppButton } from './components/InstallAppButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PageErrorBoundary } from './components/PageErrorBoundary';
 import { useEventPageNavigation } from './hooks/useEventPageNavigation';
@@ -56,6 +57,7 @@ function AppContent() {
     {authMode === 'login'
       ? <Login onSuccess={() => {}} onSwitchToRegister={() => setAuthMode('register')} />
       : <Register onSuccess={() => setAuthMode('login')} onSwitchToLogin={() => setAuthMode('login')} />}
+    <InstallAppButton onLogin />
   </>;
 
   const handleRefresh = (eventId?: string) => {

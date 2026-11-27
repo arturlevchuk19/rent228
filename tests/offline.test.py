@@ -11,6 +11,8 @@ with sync_playwright() as p:
       let online = true, reject = false;
       Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
       const sent = [];
+      let completedSyncs = 0;
+      const onSyncComplete = () => { completedSyncs++; };
       const mock = async (input, init) => {
         const request = new Request(input, init);
         if (!online) throw TypeError('Network disconnected');
@@ -31,15 +33,18 @@ with sync_playwright() as p:
       assert((await (await t.fetch(url)).json())[0].name === 'Offline', 'optimistic cache');
       assert(!(await t.fetch(url, {method:'POST', body:'{}'})).ok, 'unsupported write rejected');
       assert(!(await t.fetch(url.replace('events','venues'))).ok, 'uncached read rejected');
-      const resumed = createOfflineTransport('https://offline-test.invalid', mock);
+      const resumed = createOfflineTransport('https://offline-test.invalid', mock, onSyncComplete);
       resumed.setAccount(account, {Authorization:'Bearer fresh'});
       assert((await (await resumed.fetch(url)).json())[0].name === 'Offline', 'queue and cache survive new instance');
       online = true; reject = true;
       await resumed.sync();
       assert(getOfflineStatus().pending === 1 && getOfflineStatus().error, '403 retains queue');
+      assert(completedSyncs === 0, 'failed replay does not notify');
       reject = false;
       await resumed.sync();
       assert(getOfflineStatus().pending === 0 && sent.length === 1 && sent[0].auth === 'Bearer fresh', 'authenticated replay');
+      await resumed.sync();
+      assert(completedSyncs === 1, 'only a completed nonempty queue notifies');
       const marksUrl='https://offline-test.invalid/rest/v1/specification_row_marks?select=*&event_id=eq.event&budget_id=eq.budget';
       await resumed.fetch(marksUrl);
       online=false;

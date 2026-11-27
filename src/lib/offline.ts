@@ -75,7 +75,7 @@ function cacheGeneratedMark(state: State, root: string, body: Record<string, unk
   return cached;
 }
 
-export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetch = fetch) {
+export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetch = fetch, onSyncComplete?: () => void) {
   let account: string | null = null;
   let authHeaders = new Headers();
   const root = new URL('/rest/v1/', baseUrl).href;
@@ -87,6 +87,7 @@ export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetc
       publish({ syncing: true, error: '' });
       try {
         const state = await read(owner);
+        const hadChanges = state.queue.length > 0;
         while (state.queue.length && account === owner) {
           const change = state.queue[0];
           const headers = new Headers(authHeaders);
@@ -98,8 +99,9 @@ export function createOfflineTransport(baseUrl: string, nativeFetch: typeof fetc
           if (change.method === 'PATCH' && (!Array.isArray(rows) || rows.length !== 1)) throw new Error('Запись удалена или доступ изменён. Правка сохранена на устройстве.');
           state.queue.shift();
           await write(owner, state);
-          publish({ pending: state.queue.length, offline: false });
+          if (account === owner) publish({ pending: state.queue.length, offline: false });
         }
+        if (hadChanges && !state.queue.length && account === owner) onSyncComplete?.();
       } catch (error) { publish({ error: error instanceof Error ? error.message : 'Нет связи с сервером' }); }
       finally { publish({ syncing: false }); }
     });

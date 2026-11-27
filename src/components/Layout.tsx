@@ -172,6 +172,7 @@ export function Layout({ children, currentPage, onNavigate, pageHeading, onPageB
                 </button>
               );
             })}
+            <InstallAppButton />
           </nav>
         </aside>
 
@@ -182,7 +183,6 @@ export function Layout({ children, currentPage, onNavigate, pageHeading, onPageB
         </div>
       </div>
     </div>
-    {!pageOpen && currentPage === 'events' && <InstallAppButton />}
     {accountTab && <AccountDialog initialTab={accountTab} onClose={() => setAccountTab(null)} />}
     </MobileHeaderContext.Provider>
   );

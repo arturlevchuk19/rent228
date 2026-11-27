@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createOfflineTransport } from './offline';
+import { notifySyncComplete } from './pwa';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -8,7 +9,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const offlineTransport = createOfflineTransport(supabaseUrl);
+export const offlineTransport = createOfflineTransport(supabaseUrl, fetch, () => void notifySyncComplete());
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: { fetch: offlineTransport.fetch },
 });

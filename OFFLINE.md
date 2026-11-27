@@ -14,3 +14,11 @@ Validation:
 - `npm run typecheck`
 - `npm run build`
 - `npm run dev -- --host 127.0.0.1`, then `python tests/offline.test.py` with Python Playwright and Chromium installed. The browser test uses mocked requests and real IndexedDB; it does not write to a live database.
+
+## Installation and notifications
+
+Choose «Установить RentMaster» on the sign-in screen or in the main menu. On iPhone and iPad, use Safari → Share → Add to Home Screen and enable Open as Web App when offered. The installed app launches in its own window. Sign in and open the sections you need while online before relying on offline access.
+
+The app does not set an offline countdown. Access depends on a valid saved Supabase session and the browser retaining local data. The browser can evict cached data. New logins and session renewal require connectivity.
+
+Use «Уведомления приложения» in the installed app menu to permit system notifications. RentMaster notifies you when it finishes sending a previously pending offline queue. On iPhone and iPad this requires a Home Screen web app and iOS/iPadOS 16.4 or later. Synchronization runs while RentMaster is open. Server push for new events or assignments would require a server sender and subscriptions.

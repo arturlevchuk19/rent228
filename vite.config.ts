@@ -1,37 +1,31 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), {
     name: 'offline-shell',
     apply: 'build',
-    generateBundle(_options, bundle) {
-      const files = ['/', '/index.html', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest',
-        ...Object.keys(bundle).filter(name => /\.(js|css|woff2?|ttf)$/.test(name)).map(name => `/${name}`)];
-      const version = Object.keys(bundle).join('|');
-      let hash = 0;
-      for (const char of version) hash = (hash * 31 + char.charCodeAt(0)) | 0;
-      this.emitFile({ type: 'asset', fileName: 'sw.js', source: `
-const CACHE = 'rentmaster-shell-${hash}';
-const FILES = ${JSON.stringify(files)};
-self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)));
-});
-self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('rentmaster-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
-});
-self.addEventListener('fetch', event => {
-  const request = event.request;
-  const url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.open(CACHE).then(cache => cache.match('/index.html'))));
-  } else if (FILES.includes(url.pathname)) {
-    event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(request)) || fetch(request)));
-  }
-});
-` });
+    generateBundle: {
+      order: 'post',
+      handler(_options, bundle) {
+        const publicFiles = ['favicon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'manifest.webmanifest'];
+        const worker = readFileSync(new URL('./src/service-worker.js', import.meta.url), 'utf8');
+        const hash = createHash('sha256').update(worker);
+        for (const name of publicFiles) {
+          hash.update(name).update(readFileSync(new URL(`./public/${name}`, import.meta.url)));
+        }
+        const assets = Object.keys(bundle).sort();
+        for (const name of assets) {
+          const file = bundle[name];
+          hash.update(name).update(file.type === 'asset' ? file.source : file.code);
+        }
+        const cache = `rentmaster-shell-${hash.digest('hex').slice(0, 16)}`;
+        const files = [...publicFiles, ...assets].map(name => `/${name}`);
+        this.emitFile({ type: 'asset', fileName: 'sw.js', source:
+          `const CACHE = ${JSON.stringify(cache)};\nconst FILES = ${JSON.stringify(files)};\n${worker}` });
+      },
     },
   }],
   optimizeDeps: {

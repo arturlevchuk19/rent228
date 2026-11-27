@@ -1,3 +1,4 @@
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { defaultPermissions, ROLE_NAMES, type Permissions } from './roles';
 import { supabase, UserRole, User } from './supabase';
 
@@ -110,9 +111,10 @@ export async function signOut() {
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  const { data: { user } } = navigator.onLine
-    ? await supabase.auth.getUser()
-    : { data: { user: (await supabase.auth.getSession()).data.session?.user } };
+  const result = navigator.onLine ? await supabase.auth.getUser() : null;
+  const user = !result || isAuthRetryableFetchError(result.error)
+    ? (await supabase.auth.getSession()).data.session?.user
+    : result.data.user;
 
   if (!user) return null;
 
