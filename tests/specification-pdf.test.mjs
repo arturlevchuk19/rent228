@@ -30,6 +30,11 @@ assert.equal(rows.length,4);assert.equal(rows[0].name,'Микрофон');assert
 assert.equal(rows[0].group, 'Главная сцена / Звуковое оборудование');
 assert.equal(rows[1].group, 'Прочее');
 assert.ok(rows.every(row => !row.group.startsWith('Оборудование /') && !row.group.includes('Без локации')));
+const railing = { id:'rail', item_type:'equipment', equipment_id:'rail-eq', quantity:12, equipment:{name:'Ограждение сценического подиума',object_type:'virtual'} };
+const railingRows = buildSpecificationEquipmentRows([
+  railing, { id:'rail-section', parent_budget_item_id:'rail', item_type:'equipment', name:'Ограждение сцены 2 м', quantity:3 },
+], new Map([['rail-eq', [{id:'template',child_name:'Секция из шаблона',quantity:1}]]]), new Map(), new Map(), new Map());
+assert.deepEqual(railingRows.map(row=>[row.name,row.quantity]),[['Ограждение сценического подиума',12],['Ограждение сцены 2 м',3]]);
 const loaded=await loadSpecificationExport('event-A','budget-B',true);
 assert.ok(scopeCalls.every(([,event,budget])=>event==='event-A'&&budget==='budget-B'));
 assert.equal(loaded.rows.find(row=>row.name==='10м').quantity,5);assert.equal(loaded.rows.find(row=>row.name==='10м').notes,'A\nB');

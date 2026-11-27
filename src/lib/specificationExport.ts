@@ -9,6 +9,7 @@ import type { EquipmentComposition } from './equipmentCompositions';
 import type { ModificationComponent } from './equipment';
 import { getCategories, getCategoriesForEvent } from './categories';
 import { getLocationsForEvent } from './locations';
+import { isStageRailing } from './stageRailing';
 import { ensureWarehouseSpecificationSnapshot, getSpecificationBudgetItems, getCables, getConnectors, getOtherItems } from './warehouseSpecification';
 
 export interface SpecificationRow {
@@ -32,7 +33,8 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
     const parent = item.parent_budget_item_id ? items.find(row => row.id === item.parent_budget_item_id) : undefined;
     if (item.parent_budget_item_id) { add(item, item.id, item.name || 'Кейс', item.sku || '', item.quantity, parent?.equipment?.category || 'Видео', parent); continue; }
     const name = item.equipment?.name || item.name || 'Без названия';
-    if (item.equipment?.object_type === 'physical' && item.equipment.has_composition) {
+    const railing = isStageRailing(name, item.equipment?.sku || item.sku) || isStageRailing(item.name, item.sku);
+    if (!railing && item.equipment?.object_type === 'physical' && item.equipment.has_composition) {
       add(item, item.id, name, item.equipment.sku || item.sku || '', item.quantity, item.equipment.category || 'Прочее', undefined, item.unit || item.equipment.unit || 'шт.');
       for (const part of item.equipment_id ? compositions.get(item.equipment_id) || [] : []) {
         add(item, `${item.id}-comp-${part.id}${part.child_id ? `-${part.child_id}` : ''}`, part.child_name || 'Без названия', part.child_sku || '', item.quantity * part.quantity, part.child_category, undefined, part.child_unit || 'шт.');
@@ -41,7 +43,7 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
     }
     const lower = name.toLowerCase();
     const fixedVirtual = ['светодиодный экран','сценический подиум','ступенька из сценических подиумов','тотем'].some(value => lower.includes(value)) || /п-образная (фермовая )?конструкция/.test(lower);
-    if (item.equipment?.object_type === 'virtual' && !fixedVirtual) {
+    if (item.equipment?.object_type === 'virtual' && !fixedVirtual && !railing) {
       const parts = item.equipment_id ? compositions.get(item.equipment_id) || [] : [];
       const mods = item.modification_id ? modifications.get(item.modification_id) || [] : [];
       if (parts.length || mods.length) {
@@ -51,7 +53,7 @@ export function buildSpecificationEquipmentRows(items: BudgetItem[], composition
       }
     }
     const podium = lower.includes('сценический подиум') || lower.includes('ступенька из сценических подиумов');
-    add(item, item.id, podium ? item.name || name : name, item.equipment?.sku || item.sku || '', item.quantity, item.equipment?.category || 'Прочее', undefined, item.unit || item.equipment?.unit || 'шт.');
+    add(item, item.id, podium || railing ? item.name || name : name, item.equipment?.sku || item.sku || '', item.quantity, item.equipment?.category || 'Прочее', undefined, item.unit || item.equipment?.unit || 'шт.');
   }
   return rows;
 }

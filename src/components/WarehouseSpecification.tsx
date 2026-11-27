@@ -29,7 +29,9 @@ import { CalculatedCase } from './LedSpecificationPanel';
 import { EquipmentSelector } from './EquipmentSelector';
 import { LedSpecificationPanel } from './LedSpecificationPanel';
 import { PodiumSpecificationPanel } from './PodiumSpecificationPanel';
+import { StageRailingSpecificationPanel } from './StageRailingSpecificationPanel';
 import type { PodiumModule } from '../lib/podiumSpecification';
+import { isStageRailing, STAGE_RAILING_CALCULATOR_TITLE } from '../lib/stageRailing';
 import { useAuth } from '../contexts/authContext';
 import { isWarehouse } from '../lib/auth';
 import {
@@ -302,10 +304,14 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
   const [itemsWithAppliedModifications, setItemsWithAppliedModifications] = useState<Set<string>>(new Set());
   const [showLedSpecification, setShowLedSpecification] = useState<string | null>(null);
   const [ledItemsWithCases, setLedItemsWithCases] = useState<Set<string>>(new Set());
-  const [showPodiumSpecification, setShowPodiumSpecification] = useState<string | null>(null);
-  const [podiumItemsWithComposition, setPodiumItemsWithComposition] = useState<Set<string>>(new Set());
-  const podiumBudgetItem = budgetItems.find(item => item.id === showPodiumSpecification);
-  const podiumRow = expandedItems.find(item => item.budgetItemId === showPodiumSpecification);
+  const [showStageSpecification, setShowStageSpecification] = useState<string | null>(null);
+  const [stageCompositionDrafts, setStageCompositionDrafts] = useState<Set<string>>(new Set());
+  const stageBudgetItem = budgetItems.find(item => item.id === showStageSpecification);
+  const stageRow = expandedItems.find(item => item.budgetItemId === showStageSpecification);
+  const isRailingCalculator = isStageRailing(stageRow?.name, stageRow?.sku)
+    || isStageRailing(stageBudgetItem?.equipment?.name, stageBudgetItem?.equipment?.sku);
+  const StageCalculator = isRailingCalculator ? StageRailingSpecificationPanel : PodiumSpecificationPanel;
+  const stageQuantityMultiplier = isRailingCalculator ? 1 : stageRow?.quantity || 1;
   const [modifiedItems, setModifiedItems] = useState<Set<string>>(new Set());
   const [savingChanges, setSavingChanges] = useState(false);
   const [inputDraftValues, setInputDraftValues] = useState<Record<string, string>>({});
@@ -603,7 +609,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     // The last queued write schedules another read, which reconciles structure.
     if (quantityQueue.current.hasPending() || componentChoiceInFlight.current || loading) return;
     if (loadedStructure.current !== undefined && loadedStructure.current !== specificationStructureKey(snapshot)) {
-      if ((optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showPodiumSpecification) setRemoteStructureChanged(true);
+      if ((optimisticMarks.current.hasPending() || quantityQueue.current.hasPending()) || modifiedItems.size || savingChanges || Object.keys(inputDraftValues).length || openNote || showComponentsDialog || showLedSpecification || showStageSpecification) setRemoteStructureChanged(true);
       else { setRemoteStructureChanged(false); void loadData(); }
     }
   });
@@ -887,6 +893,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         }
 
         const isVirtual = item.equipment?.object_type === 'virtual';
+        const isRailing = isStageRailing(item.equipment?.name, item.equipment?.sku) || isStageRailing(item.name, item.sku);
 
         if (!isVirtual) {
           if (item.equipment_id && mayChooseCase(item)) {
@@ -955,7 +962,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             isFromComposition: !!isSavedVirtualItem,
             isExtra: !!item.is_extra && !item.source_budget_item_id,
           });
-          if (item.equipment?.object_type === 'physical' && item.equipment.has_composition) appendContents();
+          if (!isRailing && item.equipment?.object_type === 'physical' && item.equipment.has_composition) appendContents();
         } else {
           // Virtual item - check if it's an LED screen
           if (isLedScreenBudgetItem(item)) {
@@ -978,7 +985,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             });
 
             // Кейсы для LED экранов добавляются только после нажатия "Сохранить" в LedSpecificationPanel
-          } else if (isPodiumBudgetItem(item)) {
+          } else if (isPodiumBudgetItem(item) || isRailing) {
              items.push({
               budgetItemId: item.id,
               categoryId: item.category_id || null,
@@ -996,9 +1003,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
               isExtra: !!item.is_extra && !item.source_budget_item_id,
             });
 
-            // Для подиумов не подгружаем дефолтную composition автоматически.
-            // Дочерние строки должны появляться только после расчета в PodiumSpecificationPanel
-            // и сохранения (как реальные budget items с parent_budget_item_id).
+            // Подиумы и ограждения получают дочерние строки после расчёта в спецификации.
           } else if (isUShapeBudgetItem(item) || isTotemBudgetItem(item)) {
             items.push({
               budgetItemId: item.id,
@@ -1195,7 +1200,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     setModifiedItems(prev => new Set(prev).add(budgetItemId));
   };
 
-  const handlePodiumCompositionCalculated = (budgetItemId: string, selectedModules: PodiumModule[]) => {
+  const handleStageCompositionCalculated = (budgetItemId: string, selectedModules: PodiumModule[], multiplier: number) => {
     if (!canEditMainSpecification) return;
     const parent = expandedItems.find(item => item.budgetItemId === budgetItemId);
     if (!parent) return;
@@ -1203,7 +1208,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
     const currentChildren = new Map(expandedItems.filter(item => item.parentBudgetItemId === budgetItemId)
       .map(item => [item.budgetItemId, item]));
     const newChildItems: ExpandedItem[] = selectedModules.map(module => {
-      const quantity = (parent.quantity || 1) * module.quantity;
+      const quantity = multiplier * module.quantity;
       const existing = currentChildren.get(module.id);
       return existing ? { ...existing, quantity } : {
         budgetItemId: `${budgetItemId}-podium-${module.id}`,
@@ -1216,7 +1221,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         quantity,
         unit: 'шт.',
         category: module.category || 'Конструкции',
-        notes: `Элемент подиума для ${parent.name}`,
+        notes: isRailingCalculator ? 'Элемент ограждения' : `Элемент подиума для ${parent.name}`,
         picked: parent.picked,
         return_picked: false,
         isFromComposition: true,
@@ -1235,7 +1240,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
       }
       return updated;
     });
-    setPodiumItemsWithComposition(prev => new Set(prev).add(budgetItemId));
+    setStageCompositionDrafts(prev => new Set(prev).add(budgetItemId));
     setModifiedItems(prev => new Set([...prev].filter(id => !currentChildren.has(id))).add(budgetItemId));
   };
 
@@ -1399,7 +1404,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
       setModifiedItems(new Set());
       setItemsWithAppliedModifications(new Set());
       setLedItemsWithCases(new Set());
-      setPodiumItemsWithComposition(new Set());
+      setStageCompositionDrafts(new Set());
       setComponentDecisionQueue([]);
       setActiveComponentDecisionIndex(0);
       setResetDialog(null);
@@ -1836,7 +1841,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         const caseItems = expandedItems.filter(item => 
           item.budgetItemId.startsWith(`${budgetItemId}-case-`)
         );
-        const hasPodiumDraft = podiumItemsWithComposition.has(budgetItemId);
+        const hasStageCompositionDraft = stageCompositionDrafts.has(budgetItemId);
         
         // Delete existing LED case children from DB before creating new ones (prevent duplicates)
         // Always fetch fresh from DB to avoid stale cache issues
@@ -1900,7 +1905,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
           }
         }
 
-        if (hasPodiumDraft) {
+        if (hasStageCompositionDraft) {
           try {
             const childItems = expandedItems.filter(item => item.parentBudgetItemId === budgetItemId);
             const freshItems = await getSpecificationBudgetItems(eventId, budgetId);
@@ -1936,8 +1941,8 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
             }
             createdItems.push(...savedChildren);
           } catch (error) {
-            console.error('Error saving podium child items:', budgetItemId, error);
-            errors.push(expandedItems.find(item => item.budgetItemId === budgetItemId)?.name || 'Состав подиума');
+            console.error('Error saving stage specification child items:', budgetItemId, error);
+            errors.push(expandedItems.find(item => item.budgetItemId === budgetItemId)?.name || 'Состав сцены');
           }
         }
         // Find the expanded item to get current values for quantity/notes update
@@ -2041,7 +2046,7 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
         }
 
         setModifiedItems(new Set());
-        setPodiumItemsWithComposition(new Set());
+        setStageCompositionDrafts(new Set());
 
         showNotification('Изменения сохранены', 'success');
         // Перезагружаем данные после успешного сохранения, чтобы получить реальные ID из базы
@@ -2359,6 +2364,8 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
 
                           const hasNote = !!item.notes?.trim();
                           const openItemNote = () => setOpenNote({ budgetItemId: item.budgetItemId, itemName: item.name, value: item.notes || '' });
+                          const equipment = budgetItemsById.get(item.budgetItemId)?.equipment;
+                          const isRailing = !item.parentBudgetItemId && (isStageRailing(item.name, item.sku) || isStageRailing(equipment?.name, equipment?.sku));
                           return (
                           <tr key={`${item.budgetItemId}-${index}`} className={`${item.isFromComposition ? 'bg-accent-900/10' : 'bg-gray-900'} hover:bg-gray-800 transition-colors`}>
                             <td className="px-3 py-1.5 text-center">
@@ -2432,11 +2439,12 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                                     <Calculator className="w-3.5 h-3.5" />
                                   </button>
                                 )}
-                                {canEditMainSpecification && isPodiumItem(item) && (
+                                {canEditMainSpecification && !eventDetails?.equipment_shipped && (isRailing || isPodiumItem(item)) && (
                                   <button
-                                    onClick={() => setShowPodiumSpecification(item.budgetItemId === showPodiumSpecification ? null : item.budgetItemId)}
+                                    type="button"
+                                    onClick={() => setShowStageSpecification(item.budgetItemId)}
                                     className="p-1 text-accent-500 hover:text-accent-400 transition-colors"
-                                    title="Спецификация подиума"
+                                    title={isRailing ? STAGE_RAILING_CALCULATOR_TITLE : 'Спецификация подиума'}
                                   >
                                     <Calculator className="w-3.5 h-3.5" />
                                   </button>
@@ -2530,19 +2538,19 @@ function ScopedWarehouseSpecification({ eventId, budgetName, budgetId }: Warehou
                 />
               )}
 
-              {canEditMainSpecification && podiumBudgetItem && podiumRow && (
-                <PodiumSpecificationPanel key={podiumBudgetItem.id} budgetItem={podiumBudgetItem} notes={podiumRow.notes}
-                  initialModules={expandedItems.filter(item => item.parentBudgetItemId === podiumBudgetItem.id).map(item => ({
+              {canEditMainSpecification && !eventDetails?.equipment_shipped && stageBudgetItem && stageRow && (
+                <StageCalculator key={stageBudgetItem.id} budgetItem={stageBudgetItem} notes={stageRow.notes}
+                  initialModules={expandedItems.filter(item => item.parentBudgetItemId === stageBudgetItem.id).map(item => ({
                     id: item.budgetItemId,
                     name: item.name,
                     sku: item.sku,
                     category: item.category,
-                    quantity: item.quantity / (podiumRow.quantity || 1),
+                    quantity: item.quantity / stageQuantityMultiplier,
                   }))}
-                  onClose={() => setShowPodiumSpecification(null)}
+                  onClose={() => setShowStageSpecification(null)}
                   onSave={modules => {
-                    handlePodiumCompositionCalculated(podiumBudgetItem.id, modules);
-                    setShowPodiumSpecification(null);
+                    handleStageCompositionCalculated(stageBudgetItem.id, modules, stageQuantityMultiplier);
+                    setShowStageSpecification(null);
                   }} />
               )}
             </>
