@@ -3,13 +3,14 @@ import { searchInputProps } from '../lib/searchInput';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { Package, Plus, Pencil, Trash2, Search, Filter, ClipboardCheck } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback, useId } from 'react';
+import { Plus, Pencil, Trash2, Search, SlidersHorizontal, ClipboardCheck, X } from 'lucide-react';
 import {
   getEquipmentPage,
   getEquipmentCategories,
   getEquipmentClassifications,
   equipmentTypeOptions,
+  equipmentSubtypeOptions,
   type EquipmentClassification,
   deleteEquipmentItem,
   EquipmentItem
@@ -46,7 +47,15 @@ export function Equipment() {
   const [viewingItem, setViewingItem] = useState<EquipmentItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterType, setFilterType] = useState<string>('all');
+  const [filterType, setFilterType] = useState('all');
+  const [filterSubtype, setFilterSubtype] = useState('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersId = useId();
+  const resetFilters = () => {
+    setFilterCategory('all');
+    setFilterType('all');
+    setFilterSubtype('all');
+  };
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
@@ -107,7 +116,7 @@ export function Equipment() {
     setError('');
     if (reset) setLoading(true); else setLoadingMore(true);
     try {
-      const result = await getEquipmentPage({ offset: reset ? 0 : offset.current, limit: pageSize, search: searchTerm, category: filterCategory, type: filterType, inventory });
+      const result = await getEquipmentPage({ offset: reset ? 0 : offset.current, limit: pageSize, search: searchTerm, category: filterCategory, type: filterType, subtype: filterSubtype, inventory });
       if (generation.current !== requestGeneration) return;
       offset.current = (reset ? 0 : offset.current) + result.items.length;
       setTotal(result.total);
@@ -117,7 +126,7 @@ export function Equipment() {
     } finally {
       if (generation.current === requestGeneration) { fetching.current = false; setLoading(false); setLoadingMore(false); }
     }
-  }, [searchTerm, filterCategory, filterType, pageSize, inventory]);
+  }, [searchTerm, filterCategory, filterType, filterSubtype, pageSize, inventory]);
 
   useEffect(() => {
     const requestGeneration = ++generation.current;
@@ -169,54 +178,70 @@ export function Equipment() {
 
   };
 
-  const types = equipmentTypeOptions(classifications, filterCategory === 'all' ? undefined : filterCategory)
-    .filter(type => !inventory || !isVirtualType(type));
+  const filterRows = inventory ? classifications.filter(row => !isVirtualType(row.type)) : classifications;
+  const categoryScope = filterCategory === 'all' ? undefined : filterCategory;
+  const typeScope = filterType === 'all' ? undefined : filterType;
+  const types = equipmentTypeOptions(filterRows, categoryScope);
+  const subtypes = equipmentSubtypeOptions(filterRows, categoryScope, typeScope);
+  const activeFilters = [filterCategory, filterType, filterSubtype].filter(value => value !== 'all').length;
   const visibleItems = inventory ? items.filter(item => item.object_type !== 'virtual' && !isVirtualType(item.type)) : items;
   const showRowActions = showPriceAndActions && !inventory;
   const handleSaved = (saved: EquipmentItem) => {
+    const matches = normalizeEquipmentSearch(saved.name).includes(normalizeEquipmentSearch(searchTerm)) &&
+      (filterCategory === 'all' || saved.category === filterCategory) &&
+      (filterType === 'all' || saved.type === filterType) &&
+      (filterSubtype === 'all' || saved.subtype === filterSubtype);
     if (editingItem) {
-      setItems(previous => previous.map(item => item.id === saved.id ? saved : item));
-    } else {
-      const matches = (!searchTerm.trim() || normalizeEquipmentSearch(saved.name).includes(normalizeEquipmentSearch(searchTerm))) && (filterCategory === 'all' || saved.category === filterCategory) && (filterType === 'all' || saved.type === filterType);
-      if (matches) { setItems(previous => [saved, ...previous]); offset.current++; setTotal(previous => previous + 1); }
+      setItems(previous => matches ? previous.map(item => item.id === saved.id ? saved : item) : previous.filter(item => item.id !== saved.id));
+      if (!matches) {
+        offset.current = Math.max(0, offset.current - 1);
+        setTotal(previous => Math.max(0, previous - 1));
+      }
+    } else if (matches) {
+      setItems(previous => [saved, ...previous]);
+      offset.current++;
+      setTotal(previous => previous + 1);
     }
     setCategories(previous => previous.includes(saved.category) ? previous : [...previous, saved.category]);
-
   };
+  const inventoryLabel = inventory ? 'Завершить проверку' : 'Инвентаризация';
+  const filterFields = [
+    { label: 'Категория', allLabel: 'Все категории', value: filterCategory, options: categories, change: (value: string) => {
+      setFilterCategory(value);
+      setFilterType('all');
+      setFilterSubtype('all');
+    } },
+    { label: 'Тип', allLabel: 'Все типы', value: filterType, options: types, change: (value: string) => {
+      setFilterType(value);
+      setFilterSubtype('all');
+    } },
+    { label: 'Подтип', allLabel: 'Все подтипы', value: filterSubtype, options: subtypes, change: setFilterSubtype },
+  ];
 
   return (
     <div className="space-y-4">
-      <div hidden>
-        <div className="flex items-center gap-2">
-          <Package className="w-6 h-6 text-accent-500" />
-          <h1 className="text-2xl font-bold text-white">Оборудование</h1>
-        </div>
-        <div className="flex gap-2">
-          <MobileHeaderContent><button disabled={inventory || !directoryReady || !canAccess(user, 'equipment', 2)}
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 min-h-11 px-3 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Добавить
-          </button></MobileHeaderContent>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" aria-pressed={inventory} onClick={() => {
+      <MobileHeaderContent>
+        <button type="button" aria-label={inventoryLabel} title={inventoryLabel} aria-pressed={inventory} onClick={() => {
           setInventory(!inventory);
-          setFilterCategory('all');
-          setFilterType('all');
+          resetFilters();
           setSearchTerm('');
-        }} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 ${inventory
-          ? 'border-accent-700 bg-accent-500/10 text-accent-300'
-          : 'border-gray-700 bg-gray-900 text-gray-100 hover:bg-gray-800'}`}>
-          <ClipboardCheck aria-hidden="true" className="h-4 w-4" />
-          {inventory ? 'Завершить проверку' : 'Инвентаризация'}
+        }} className={`inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 ${inventory
+          ? 'bg-accent-500/10 text-accent-300'
+          : 'text-gray-200 hover:bg-gray-800'}`}>
+          <ClipboardCheck aria-hidden="true" className="h-5 w-5" />
+          <span className="hidden sm:inline">{inventoryLabel}</span>
         </button>
-        {inventory && <span role="status" className="text-sm tabular-nums text-gray-300">Отмечено: {marks.size}</span>}
-      </div>
+        {!inventory && <button type="button" aria-label="Добавить оборудование" title="Добавить оборудование"
+          disabled={!directoryReady || !canAccess(user, 'equipment', 2)}
+          onClick={() => setShowForm(true)}
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-accent-500 px-3 text-sm font-medium text-gray-950 hover:bg-accent-400 disabled:opacity-50">
+          <Plus aria-hidden="true" className="h-5 w-5" />
+          <span className="hidden sm:inline">Добавить</span>
+        </button>}
+      </MobileHeaderContent>
+
       {inventory && <div className="flex flex-wrap items-center justify-between gap-x-3 rounded-lg border border-gray-800 bg-gray-900 px-3 py-2">
+        <span role="status" className="w-full font-medium tabular-nums text-gray-100">Отмечено: {marks.size}</span>
         <p className="text-sm text-gray-300">Отмечайте найденные позиции. Нажмите на название, чтобы открыть карточку. Отметки сохраняются на этом устройстве.</p>
         {marks.size > 0 && <button type="button" className="min-h-11 text-sm text-gray-300 underline hover:text-white"
           onClick={() => { if (window.confirm('Сбросить все отметки инвентаризации на этом устройстве?')) saveMarks(current => current.clear()); }}>Сбросить отметки</button>}
@@ -224,46 +249,47 @@ export function Equipment() {
       </div>}
       {directoryError && <div role="alert" className="text-sm text-red-400">{directoryError} <button type="button" onClick={() => void loadDirectories()} className="min-h-11 text-accent-400 underline">Повторить</button></div>}
 
-      <div className="rounded-xl bg-gray-900 p-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+      <div className="rounded-xl border border-gray-800 bg-gray-900 p-2.5">
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
-              type="text"
-              placeholder="Поиск..."
+              type="search"
+              aria-label="Поиск оборудования"
+              placeholder="Поиск оборудования"
               {...searchInputProps} value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full min-h-11 pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+              onChange={event => setSearchTerm(event.target.value)}
+              className="min-h-11 w-full rounded-lg border border-gray-700 bg-gray-800 pl-9 pr-3 text-base text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 sm:text-sm"
             />
           </div>
-
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <select
-              value={filterCategory}
-              onChange={e => { setFilterCategory(e.target.value); setFilterType('all'); }}
-              className="w-full min-h-11 pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 appearance-none"
-            >
-              <option value="all">Все категории</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+          <button type="button" aria-expanded={filtersOpen} aria-controls={filtersId}
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 ${filtersOpen || activeFilters
+              ? 'border-accent-700 bg-accent-500/10 text-accent-300'
+              : 'border-gray-700 text-gray-200 hover:bg-gray-800'}`}>
+            <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+            Фильтры
+            {activeFilters > 0 && <span className="rounded-full bg-accent-500/15 px-1.5 text-xs tabular-nums">{activeFilters}</span>}
+          </button>
+        </div>
+        <div id={filtersId} hidden={!filtersOpen} className="mt-2 border-t border-gray-800 pt-2.5">
+          <div className="grid gap-2.5 sm:grid-cols-3">
+            {filterFields.map(({ label, allLabel, value, options, change }) => (
+              <div key={label} className="grid min-w-0 gap-1">
+                <label htmlFor={`${filtersId}-${label}`} className="text-xs font-medium text-gray-300">{label}</label>
+                <select id={`${filtersId}-${label}`} value={value} onChange={event => change(event.target.value)}
+                  className="min-h-11 w-full rounded-lg border border-gray-700 bg-gray-800 px-2.5 text-base text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 sm:text-sm">
+                  <option value="all">{allLabel}</option>
+                  {options.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+            ))}
           </div>
-
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="w-full min-h-11 pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 appearance-none"
-            >
-              <option value="all">Все типы</option>
-              {types.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
+          {activeFilters > 0 && <button type="button" onClick={resetFilters}
+            className="mt-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm text-gray-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500">
+            <X aria-hidden="true" className="h-4 w-4" />
+            Сбросить фильтры
+          </button>}
         </div>
       </div>
 
@@ -402,7 +428,7 @@ export function Equipment() {
               item={editingItem}
               categories={categories}
               classifications={classifications}
-              initialCategory={filterCategory === 'all' ? undefined : filterCategory}
+              initialCategory={categoryScope}
               onCategoriesChanged={setCategories}
               onClassificationAdded={row => setClassifications(previous => previous.some(existing =>
                 existing.category === row.category && existing.type === row.type && existing.subtype === row.subtype)

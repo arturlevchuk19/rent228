@@ -98,9 +98,10 @@ export function equipmentTypeOptions(rows: EquipmentClassification[], category?:
     .sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
-export function equipmentSubtypeOptions(rows: EquipmentClassification[], category: string, type: string): string[] {
-  return rows.filter(row => row.category === category && row.type === type && row.subtype).map(row => row.subtype)
-    .sort((a, b) => a.localeCompare(b, 'ru'));
+export function equipmentSubtypeOptions(rows: EquipmentClassification[], category?: string, type?: string): string[] {
+  return [...new Set(rows.filter(row =>
+    (!category || row.category === category) && (!type || row.type === type) && row.subtype
+  ).map(row => row.subtype))].sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
 export async function addEquipmentCategory(name: string): Promise<void> {
@@ -154,11 +155,12 @@ export async function getEquipmentItems(): Promise<EquipmentItem[]> {
   return data || [];
 }
 
-export async function getEquipmentPage(options: { offset: number; limit: number; search: string; category: string; type: string; inventory?: boolean }) {
+export async function getEquipmentPage(options: { offset: number; limit: number; search: string; category: string; type: string; subtype: string; inventory?: boolean }) {
   let query = supabase.from('equipment_items').select('*', { count: 'exact' });
   if (options.search.trim()) query = query.ilike('search_name', `%${normalizeEquipmentSearch(options.search).replace(/[\\%_]/g, '\\$&')}%`);
   if (options.category !== 'all') query = query.eq('category', options.category);
   if (options.type !== 'all') query = query.eq('type', options.type);
+  if (options.subtype !== 'all') query = query.eq('subtype', options.subtype);
   if (options.inventory) query = query.or('object_type.is.null,object_type.neq.virtual').not('type', 'ilike', '%виртуальн%');
   // Stable order keeps page boundaries intact when a name or category is edited.
   const { data, count, error } = await query.order('created_at', { ascending: false }).order('id').range(options.offset, options.offset + options.limit - 1);
