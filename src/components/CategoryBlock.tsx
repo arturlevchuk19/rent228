@@ -276,7 +276,7 @@ export function CategoryBlock({
   return (
     <div
       ref={categoryRef}
-      className={`bg-gray-900 border-b border-gray-800 transition-colors ${
+      className={`budget-category bg-gray-900 border-b border-gray-800 transition-colors ${
         isSelected ? 'bg-gray-800/50' : ''
       } ${locationColor ? 'border-l-2' : ''}`}
       style={locationColor ? { borderLeftColor: locationColor } : undefined}
@@ -293,156 +293,166 @@ export function CategoryBlock({
         } ${headerClassName || ''}`}
         onClick={selectCategory}
       >
-        {categoryId !== 'uncategorized' && (
-          <div
-            draggable
-            data-budget-drag-type="category"
-            data-budget-drag-id={categoryId}
-            data-budget-drag-label={categoryName}
-            title="Перетащить категорию"
-            onDragStart={(e) => {
-              e.stopPropagation();
-              onDragStart?.(e, 'category', categoryId);
-            }}
-            className="text-gray-400 hover:text-gray-300 cursor-move"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="w-3 h-3" />
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleExpand();
-          }}
-          aria-label={`${isExpanded ? 'Свернуть' : 'Развернуть'} категорию ${categoryName}`}
-          className="text-gray-500 hover:text-gray-400 transition-colors"
-        >
-          {isExpanded ? (
-            <ChevronDown className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5" />
+        <div className="budget-category-title contents">
+          {categoryId !== 'uncategorized' && (
+            <div
+              draggable
+              data-budget-drag-type="category"
+              data-budget-drag-id={categoryId}
+              data-budget-drag-label={categoryName}
+              title="Перетащить категорию"
+              onDragStart={(e) => {
+                e.stopPropagation();
+                onDragStart?.(e, 'category', categoryId);
+              }}
+              className="text-gray-400 hover:text-gray-300 cursor-move"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="w-3 h-3" />
+            </div>
           )}
-        </button>
 
-        {groupSelection && <BudgetGroupCheckbox selection={groupSelection} ids={categoryItemIds}
-          label={`Выбрать категорию ${categoryName}`} />}
-        {isEditingName ? (
-          <div className="flex items-center gap-0.5 flex-1" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="text"
-              value={editedName}
-              onChange={(e) => setEditedName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveName();
-                if (e.key === 'Escape') handleCancelEdit();
-              }}
-              className="flex-1 px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:outline-none focus:border-accent-500"
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSaveName();
-              }}
-              className="text-green-500 hover:text-green-400"
-            >
-              <Check className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCancelEdit();
-              }}
-              className="text-red-500 hover:text-red-400"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        ) : (
-          <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand();
+            }}
+            aria-expanded={isExpanded}
+            aria-label={`${isExpanded ? 'Свернуть' : 'Развернуть'} категорию ${categoryName}`}
+            className="text-gray-500 hover:text-gray-400 transition-colors"
+          >
+            {isExpanded ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {groupSelection && <BudgetGroupCheckbox selection={groupSelection} ids={categoryItemIds}
+            label={`Выбрать категорию ${categoryName}`} />}
+          {isEditingName ? (
+            <div className="flex min-w-0 items-center gap-0.5 flex-1" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName();
+                  if (e.key === 'Escape') handleCancelEdit();
+                }}
+                aria-label="Название категории"
+                className="min-w-0 flex-1 px-1.5 py-0.5 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:outline-none focus:border-accent-500"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveName();
+                }}
+                aria-label="Сохранить название категории"
+                className="text-green-500 hover:text-green-400"
+              >
+                <Check className="w-3 h-3" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancelEdit();
+                }}
+                aria-label="Отменить переименование"
+                className="text-red-500 hover:text-red-400"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
             <h3 className="min-w-0 flex-1 text-sm font-medium text-gray-200">
               <button type="button" disabled={categorySelection?.disabled} onClick={event => { event.stopPropagation(); selectCategory?.(); }}
                 aria-pressed={categorySelection ? categorySelection.mixed ? 'mixed' : categorySelection.checked : isSelected}
                 className="w-full truncate text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500"
                 title={categoryName}>{categoryName}</button>
             </h3>
-            {hasWorkItems && onManagePersonnel && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onManagePersonnel(categoryId);
-                }}
-                className="text-accent-500 hover:text-accent-400 transition-colors"
-                title="Управление персоналом"
-              >
-                <Users className="w-3 h-3" />
-              </button>
-            )}
-            {categoryId !== 'uncategorized' && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditingName(true);
-                }}
-                className="text-gray-500 hover:text-gray-400 transition-colors"
-              >
-                <Pencil className="w-2.5 h-2.5" />
-              </button>
-            )}
-            {categoryId !== 'uncategorized' && onDuplicateCategory && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const rawCategoryId = categoryId.includes('::')
-                    ? categoryId.split('::')[1].replace('category:', '')
-                    : categoryId.replace('category:', '');
-                  onDuplicateCategory(rawCategoryId);
-                }}
-                className="text-gray-500 hover:text-accent-400 transition-colors"
-                title="Дублировать категорию (копия со всеми позициями)"
-              >
-                <Copy className="w-2.5 h-2.5" />
-              </button>
-            )}
-            {onDeleteCategory && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (confirm(`Удалить категорию "${categoryName}" и все элементы в ней?`)) {
-                    onDeleteCategory(categoryId);
-                  }
-                }}
-                className="text-red-500/50 hover:text-red-400 transition-colors"
-                title="Удалить категорию"
-              >
-                <Trash2 className="w-2.5 h-2.5" />
-              </button>
-            )}
-          </>
-        )}
-
-        <div className="text-xs font-semibold text-gray-100 tabular-nums ml-0.5 text-right leading-tight" onClick={(e) => e.stopPropagation()}>
-          {budgetTotalsMode === 'day1_plus_combined' && (
-            <div>
-              1д: {formatSectionTotal(sectionDay1Total)}
-            </div>
           )}
-          <div>
-            {budgetDays}д: {formatSectionTotal(sectionCombinedTotal)}
-          </div>
+        </div>
+
+        {!isEditingName && <div className="budget-category-actions contents">
+          {hasWorkItems && onManagePersonnel && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onManagePersonnel(categoryId);
+              }}
+              className="text-accent-500 hover:text-accent-400 transition-colors"
+              title="Управление персоналом"
+            >
+              <Users className="w-3 h-3" />
+            </button>
+          )}
+          {categoryId !== 'uncategorized' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditingName(true);
+              }}
+              aria-label="Переименовать категорию"
+              className="text-gray-500 hover:text-gray-400 transition-colors"
+            >
+              <Pencil className="w-2.5 h-2.5" />
+            </button>
+          )}
+          {categoryId !== 'uncategorized' && onDuplicateCategory && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const rawCategoryId = categoryId.includes('::')
+                  ? categoryId.split('::')[1].replace('category:', '')
+                  : categoryId.replace('category:', '');
+                onDuplicateCategory(rawCategoryId);
+              }}
+              className="text-gray-500 hover:text-accent-400 transition-colors"
+              title="Дублировать категорию (копия со всеми позициями)"
+            >
+              <Copy className="w-2.5 h-2.5" />
+            </button>
+          )}
+          {onDeleteCategory && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm(`Удалить категорию "${categoryName}" и все элементы в ней?`)) {
+                  onDeleteCategory(categoryId);
+                }
+              }}
+              className="text-red-500/50 hover:text-red-400 transition-colors"
+              title="Удалить категорию"
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>}
+
+        <div className="budget-category-summary contents">
+          <div className="text-xs font-semibold text-gray-100 tabular-nums ml-0.5 text-right leading-tight" onClick={(e) => e.stopPropagation()}>
+            {budgetTotalsMode === 'day1_plus_combined' && (
+              <div>
+                1д: {formatSectionTotal(sectionDay1Total)}
+              </div>
+            )}
+            <div>
+              {budgetDays}д: {formatSectionTotal(sectionCombinedTotal)}
+            </div>
         </div>
 
         <div className="text-xs text-gray-400 ml-0.5" onClick={(e) => e.stopPropagation()}>
           ({items.length})
+        </div>
         </div>
       </div>
 

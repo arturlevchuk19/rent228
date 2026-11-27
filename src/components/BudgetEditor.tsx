@@ -2118,16 +2118,36 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           .mobile-budget-page [data-budget-selected="true"] > .budget-location-header {
             outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: 12px;
           }
+          .mobile-budget-page .budget-category { background: transparent; border-bottom: 0; }
           .mobile-budget-page .budget-category-header {
-            min-height: 56px; gap: 8px; padding: 6px 8px; margin: 8px 0;
-            border: 1px solid var(--color-border); border-radius: 12px; flex-wrap: wrap; gap: 4px;
+            display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 4px;
+            padding: 2px 6px; margin: 4px 0;
+            border: 1px solid var(--color-border); border-radius: 12px; background-color: var(--color-surface);
+          }
+          .mobile-budget-page .budget-category[data-budget-selected="true"] > .budget-category-header {
+            border-color: var(--color-accent); background-color: var(--color-accent-soft); box-shadow: none;
           }
           .mobile-budget-page [data-budget-drag-type] { touch-action: none; user-select: none; -webkit-user-select: none; opacity: 1; display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 44px; }
-          .mobile-budget-page .budget-category-header h3 { min-width: 80px; font-size: 15px; flex-basis: calc(100% - 104px); }
-          .mobile-budget-page .budget-category-header > :not(h3) { flex-shrink: 0; }
-          .mobile-budget-page .budget-category-header > div:last-child { white-space: nowrap; }
-          .mobile-budget-page .budget-category-header > button { min-width: 44px; min-height: 44px; }
+          .mobile-budget-page .budget-category-title {
+            display: flex; align-items: center; grid-column: 1 / -1; min-width: 0;
+          }
+          .mobile-budget-page .budget-category-title h3 { min-width: 0; font-size: 15px; line-height: 1.3; }
+          .mobile-budget-page .budget-category-title h3 button {
+            display: block; min-height: 44px; padding: 4px; white-space: normal; overflow-wrap: anywhere;
+          }
+          .mobile-budget-page .budget-category-title input[type="text"] { min-height: 36px; font-size: 16px; }
+          .mobile-budget-page .budget-category-title input[type="text"] ~ button,
+          .mobile-budget-page .budget-category-title > button,
+          .mobile-budget-page .budget-category-actions > button {
+            display: grid; place-items: center; flex: 0 0 32px; width: 32px; min-height: 40px;
+          }
           .mobile-budget-page .budget-category-header svg { width: 14px; height: 14px; }
+          .mobile-budget-page .budget-category-actions { display: flex; grid-area: 2 / 2; justify-self: end; }
+          .mobile-budget-page .budget-category-summary {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; min-width: 0; padding: 2px 4px;
+            grid-area: 2 / 1;
+          }
+          .mobile-budget-page .budget-category-summary > div { margin-left: 0; text-align: left; overflow-wrap: anywhere; }
           .mobile-budget-page .budget-item-row {
             --budget-item-action-width: 32px;
             --budget-item-actions-width: calc(3 * var(--budget-item-action-width));
