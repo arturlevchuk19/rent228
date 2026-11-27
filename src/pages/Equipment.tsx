@@ -3,17 +3,27 @@ import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
 import { MobileHeaderContent } from '../components/MobileHeaderContent';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Package, Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, Filter, ClipboardCheck } from 'lucide-react';
 import {
   getEquipmentPage,
   getEquipmentCategories,
-  getEquipmentSubtypes,
-  getEquipmentTypes,
+  getEquipmentClassifications,
+  equipmentTypeOptions,
+  type EquipmentClassification,
   deleteEquipmentItem,
   EquipmentItem
 } from '../lib/equipment';
 import { EquipmentForm } from '../components/EquipmentForm';
 import { EquipmentDetails } from '../components/EquipmentDetails';
+
+function readInventoryMarks(key: string): Set<string> {
+  const stored: unknown = JSON.parse(localStorage.getItem(key) ?? '[]');
+  return new Set(Array.isArray(stored) ? stored.filter(id => typeof id === 'string') : []);
+}
+
+function isVirtualType(type: string) {
+  return /виртуальн/i.test(type);
+}
 
 export function Equipment() {
   const { user } = useAuth();
@@ -21,8 +31,15 @@ export function Equipment() {
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typesDirectory, setTypesDirectory] = useState<string[]>([]);
-  const [subtypesDirectory, setSubtypesDirectory] = useState<string[]>([]);
+  const [classifications, setClassifications] = useState<EquipmentClassification[]>([]);
+  const [directoryError, setDirectoryError] = useState('');
+  const [directoryReady, setDirectoryReady] = useState(false);
+  const [inventory, setInventory] = useState(false);
+  const inventoryKey = `rentmaster-inventory-v1:${user?.id}`;
+  const [marks, setMarks] = useState<Set<string>>(() => {
+    try { return readInventoryMarks(inventoryKey); } catch { return new Set(); }
+  });
+  const [inventoryError, setInventoryError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<EquipmentItem | null>(null);
   const [viewingItem, setViewingItem] = useState<EquipmentItem | null>(null);
@@ -38,14 +55,50 @@ export function Equipment() {
   const fetching = useRef(false);
   const pageSize = window.matchMedia('(max-width: 767px)').matches ? 12 : 30;
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([getEquipmentCategories(), getEquipmentTypes(), getEquipmentSubtypes()]).then(([cats, types, subtypes]) => {
-      if (!active) return;
-      setCategories(cats); setTypesDirectory(types); setSubtypesDirectory(subtypes);
-    }).catch(() => { if (active) setError('Не удалось загрузить справочники оборудования.'); });
-    return () => { active = false; };
+  const loadDirectories = useCallback(async () => {
+    setDirectoryError('');
+    try {
+      const [cats, rows] = await Promise.all([getEquipmentCategories(), getEquipmentClassifications()]);
+      setCategories(cats);
+      setClassifications(rows);
+      setDirectoryReady(true);
+    } catch {
+      setDirectoryError('Не удалось загрузить справочник оборудования.');
+    }
   }, []);
+
+  useEffect(() => { void loadDirectories(); }, [loadDirectories]);
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== inventoryKey && event.key !== null) return;
+      try { setMarks(readInventoryMarks(inventoryKey)); } catch { setInventoryError('Не удалось прочитать отметки на устройстве.'); }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [inventoryKey]);
+
+  const saveMarks = (update: (current: Set<string>) => void) => {
+    try {
+      const current = readInventoryMarks(inventoryKey);
+      update(current);
+      localStorage.setItem(inventoryKey, JSON.stringify([...current]));
+      setMarks(current);
+      setInventoryError('');
+    } catch {
+      setInventoryError('Не удалось сохранить отметки на устройстве.');
+    }
+  };
+
+  const markItem = (item: EquipmentItem) => <label
+    className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-gray-800"
+    onClick={event => event.stopPropagation()}>
+    <input type="checkbox" checked={marks.has(item.id)} aria-label={`Найдено: ${item.name}`}
+      className="h-5 w-5 accent-accent-500"
+      onChange={event => {
+        const checked = event.currentTarget.checked;
+        saveMarks(current => { if (checked) current.add(item.id); else current.delete(item.id); });
+      }} />
+  </label>;
 
   const loadPage = useCallback(async (reset: boolean, requestGeneration: number) => {
     if (!reset && fetching.current) return;
@@ -53,7 +106,7 @@ export function Equipment() {
     setError('');
     if (reset) setLoading(true); else setLoadingMore(true);
     try {
-      const result = await getEquipmentPage({ offset: reset ? 0 : offset.current, limit: pageSize, search: searchTerm, category: filterCategory, type: filterType });
+      const result = await getEquipmentPage({ offset: reset ? 0 : offset.current, limit: pageSize, search: searchTerm, category: filterCategory, type: filterType, inventory });
       if (generation.current !== requestGeneration) return;
       offset.current = (reset ? 0 : offset.current) + result.items.length;
       setTotal(result.total);
@@ -63,7 +116,7 @@ export function Equipment() {
     } finally {
       if (generation.current === requestGeneration) { fetching.current = false; setLoading(false); setLoadingMore(false); }
     }
-  }, [searchTerm, filterCategory, filterType, pageSize]);
+  }, [searchTerm, filterCategory, filterType, pageSize, inventory]);
 
   useEffect(() => {
     const requestGeneration = ++generation.current;
@@ -115,9 +168,10 @@ export function Equipment() {
 
   };
 
-  const filteredItems = items;
-  const types = typesDirectory;
-  const visibleItems = items;
+  const types = equipmentTypeOptions(classifications, filterCategory === 'all' ? undefined : filterCategory)
+    .filter(type => !inventory || !isVirtualType(type));
+  const visibleItems = inventory ? items.filter(item => item.object_type !== 'virtual' && !isVirtualType(item.type)) : items;
+  const showRowActions = showPriceAndActions && !inventory;
   const handleSaved = (saved: EquipmentItem) => {
     if (editingItem) {
       setItems(previous => previous.map(item => item.id === saved.id ? saved : item));
@@ -126,7 +180,7 @@ export function Equipment() {
       if (matches) { setItems(previous => [saved, ...previous]); offset.current++; setTotal(previous => previous + 1); }
     }
     setCategories(previous => previous.includes(saved.category) ? previous : [...previous, saved.category]);
-    setTypesDirectory(previous => previous.includes(saved.type) ? previous : [...previous, saved.type]);
+
   };
 
   return (
@@ -137,7 +191,7 @@ export function Equipment() {
           <h1 className="text-2xl font-bold text-white">Оборудование</h1>
         </div>
         <div className="flex gap-2">
-          <MobileHeaderContent><button disabled={!canAccess(user, 'equipment', 2)}
+          <MobileHeaderContent><button disabled={inventory || !directoryReady || !canAccess(user, 'equipment', 2)}
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 min-h-11 px-3 py-2.5 bg-accent-500 hover:bg-accent-400 text-gray-950 rounded-lg transition-colors text-sm"
           >
@@ -146,6 +200,28 @@ export function Equipment() {
           </button></MobileHeaderContent>
         </div>
       </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button type="button" aria-pressed={inventory} onClick={() => {
+          setInventory(!inventory);
+          setFilterCategory('all');
+          setFilterType('all');
+          setSearchTerm('');
+        }} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 ${inventory
+          ? 'border-accent-700 bg-accent-500/10 text-accent-300'
+          : 'border-gray-700 bg-gray-900 text-gray-100 hover:bg-gray-800'}`}>
+          <ClipboardCheck aria-hidden="true" className="h-4 w-4" />
+          {inventory ? 'Завершить проверку' : 'Инвентаризация'}
+        </button>
+        {inventory && <span role="status" className="text-sm tabular-nums text-gray-300">Отмечено: {marks.size}</span>}
+      </div>
+      {inventory && <div className="flex flex-wrap items-center justify-between gap-x-3 rounded-lg border border-gray-800 bg-gray-900 px-3 py-2">
+        <p className="text-sm text-gray-300">Отмечайте найденные позиции. Нажмите на название, чтобы открыть карточку. Отметки сохраняются на этом устройстве.</p>
+        {marks.size > 0 && <button type="button" className="min-h-11 text-sm text-gray-300 underline hover:text-white"
+          onClick={() => { if (window.confirm('Сбросить все отметки инвентаризации на этом устройстве?')) saveMarks(current => current.clear()); }}>Сбросить отметки</button>}
+        {inventoryError && <p role="alert" className="text-sm text-red-400">{inventoryError}</p>}
+      </div>}
+      {directoryError && <div role="alert" className="text-sm text-red-400">{directoryError} <button type="button" onClick={() => void loadDirectories()} className="min-h-11 text-accent-400 underline">Повторить</button></div>}
 
       <div className="rounded-xl bg-gray-900 p-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -164,7 +240,7 @@ export function Equipment() {
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
             <select
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
+              onChange={e => { setFilterCategory(e.target.value); setFilterType('all'); }}
               className="w-full min-h-11 pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 appearance-none"
             >
               <option value="all">Все категории</option>
@@ -195,6 +271,7 @@ export function Equipment() {
           <table className="w-full tabular-nums">
             <thead className="bg-gray-800 border-b border-gray-700">
               <tr>
+                {inventory && <th scope="col" className="w-14 p-2 text-center text-xs text-gray-300">Найдено</th>}
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Наименование
                 </th>
@@ -204,7 +281,7 @@ export function Equipment() {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-400">
                   Кол-во
                 </th>
-                {showPriceAndActions && (
+                {showRowActions && (
                   <>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-400">
                       Цена $
@@ -217,9 +294,9 @@ export function Equipment() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {filteredItems.length === 0 && !loading ? (
+              {visibleItems.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={showPriceAndActions ? 5 : 3} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={showRowActions ? 5 : inventory ? 4 : 3} className="px-4 py-8 text-center text-gray-500 text-sm">
                     Оборудование не найдено
                   </td>
                 </tr>
@@ -228,6 +305,7 @@ export function Equipment() {
                   <tr key={item.id} tabIndex={0} aria-label={`Посмотреть ${item.name}`} onClick={() => setViewingItem(item)} onKeyDown={event => {
                     if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setViewingItem(item); }
                   }} className="cursor-pointer hover:bg-gray-800/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500 transition-colors group">
+                    {inventory && <td className="px-1 text-center">{markItem(item)}</td>}
                     <td className="px-4 py-2">
                       <div className="text-white font-medium text-sm leading-snug">{item.name}</div>
                       {item.note && (
@@ -241,7 +319,7 @@ export function Equipment() {
                     <td className="px-4 py-2">
                       <div className="text-white font-medium text-sm">{item.quantity} {item.unit}</div>
                     </td>
-                    {showPriceAndActions && (
+                    {showRowActions && (
                       <>
                         <td className="px-4 py-2 text-right text-gray-100 text-sm tabular-nums">
                           {item.rental_price > 0 ? `${item.rental_price}` : '-'}
@@ -273,7 +351,7 @@ export function Equipment() {
           </table>
         </div>
         <div className="md:hidden divide-y divide-gray-800">
-          {filteredItems.length === 0 && !loading ? (
+          {visibleItems.length === 0 && !loading ? (
             <div className="px-4 py-8 text-center text-gray-500 text-sm">Оборудование не найдено</div>
           ) : (
             visibleItems.map((item) => (
@@ -281,11 +359,12 @@ export function Equipment() {
                 if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setViewingItem(item); }
               }} className="cursor-pointer p-4 space-y-2.5 hover:bg-gray-800/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-500">
                 <div className="flex items-start justify-between gap-2">
+                  {inventory && markItem(item)}
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-medium text-sm leading-snug">{item.name}</div>
                     {item.note && <div className="text-xs text-gray-400 leading-tight mt-0.5">{item.note}</div>}
                   </div>
-                  {showPriceAndActions && (
+                  {showRowActions && (
                     <div className="flex items-center gap-1 flex-shrink-0" onClick={event => event.stopPropagation()}>
                       <button aria-label={`Редактировать ${item.name}`} disabled={!canAccess(user, 'equipment', 2)} onClick={() => handleEdit(item)} className="inline-flex min-h-11 min-w-11 sm:min-h-9 sm:min-w-9 items-center justify-center p-2 text-gray-300 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors">
                         <Pencil className="w-4 h-4" />
@@ -303,7 +382,7 @@ export function Equipment() {
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm tabular-nums">
                   <span className="text-gray-400">Кол-во: <span className="text-white font-medium">{item.quantity} {item.unit}</span></span>
-                  {showPriceAndActions && item.rental_price > 0 && (
+                  {showRowActions && item.rental_price > 0 && (
                     <span className="text-gray-400">Цена: <span className="text-gray-100 font-medium tabular-nums">${item.rental_price}</span></span>
                   )}
                 </div>
@@ -321,8 +400,12 @@ export function Equipment() {
             <EquipmentForm
               item={editingItem}
               categories={categories}
-              types={typesDirectory}
-              subtypes={subtypesDirectory}
+              classifications={classifications}
+              initialCategory={filterCategory === 'all' ? undefined : filterCategory}
+              onCategoriesChanged={setCategories}
+              onClassificationAdded={row => setClassifications(previous => previous.some(existing =>
+                existing.category === row.category && existing.type === row.type && existing.subtype === row.subtype)
+                ? previous : [...previous, row])}
               onSaved={handleSaved}
               onClose={handleFormClose}
             />

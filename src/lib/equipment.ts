@@ -63,63 +63,41 @@ export async function getEquipmentCategories(): Promise<string[]> {
     .order('name', { ascending: true });
 
   if (error) throw error;
-  return (data ?? []).map((item) => item.name).filter(Boolean);
+  return [...new Set((data ?? []).map((item) => item.name).filter(Boolean))];
 }
 
-async function getEquipmentDirectoryValues(table: 'equipment_types' | 'equipment_subtypes'): Promise<string[]> {
-  const { data, error } = await supabase
-    .from(table)
-    .select('name')
-    .order('name');
-
-  if (error) throw error;
-  return (data ?? []).map((item) => item.name).filter(Boolean);
+export interface EquipmentClassification {
+  category: string;
+  type: string;
+  subtype: string;
 }
 
-export async function getEquipmentTypes(): Promise<string[]> {
-  return getEquipmentDirectoryValues('equipment_types');
-}
-
-export async function getEquipmentSubtypes(): Promise<string[]> {
-  return getEquipmentDirectoryValues('equipment_subtypes');
-}
-
-async function addEquipmentDirectoryValue(
-  table: 'equipment_types' | 'equipment_subtypes',
-  name: string
-): Promise<void> {
-  const normalized = name.trim();
-  if (!normalized) {
-    throw new Error('Название не может быть пустым');
+export async function getEquipmentClassifications(): Promise<EquipmentClassification[]> {
+  const rows: EquipmentClassification[] = [];
+  const pageSize = 500;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase.from('equipment_classifications')
+      .select('category, type, subtype').order('category').order('type').order('subtype')
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < pageSize) return rows;
   }
-
-  const { error } = await supabase
-    .from(table)
-    .insert({ name: normalized });
-
-  if (error) throw error;
 }
 
-export async function addEquipmentType(name: string): Promise<void> {
-  await addEquipmentDirectoryValue('equipment_types', name);
+export async function addEquipmentClassification(row: EquipmentClassification): Promise<void> {
+  const { error } = await supabase.from('equipment_classifications').insert(row);
+  if (error && error.code !== '23505') throw error;
 }
 
-// Возвращает актуальный список типов после добавления нового значения,
-// чтобы обновить справочник без перезагрузки страницы.
-export async function addEquipmentTypeAndGetList(name: string): Promise<string[]> {
-  await addEquipmentDirectoryValue('equipment_types', name);
-  return getEquipmentTypes();
+export function equipmentTypeOptions(rows: EquipmentClassification[], category?: string): string[] {
+  return [...new Set(rows.filter(row => !category || row.category === category).map(row => row.type))]
+    .sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
-export async function addEquipmentSubtype(name: string): Promise<void> {
-  await addEquipmentDirectoryValue('equipment_subtypes', name);
-}
-
-// Возвращает актуальный список подтипов после добавления нового значения,
-// чтобы обновить справочник без перезагрузки страницы.
-export async function addEquipmentSubtypeAndGetList(name: string): Promise<string[]> {
-  await addEquipmentDirectoryValue('equipment_subtypes', name);
-  return getEquipmentSubtypes();
+export function equipmentSubtypeOptions(rows: EquipmentClassification[], category: string, type: string): string[] {
+  return rows.filter(row => row.category === category && row.type === type && row.subtype).map(row => row.subtype)
+    .sort((a, b) => a.localeCompare(b, 'ru'));
 }
 
 export async function addEquipmentCategory(name: string): Promise<void> {
@@ -172,11 +150,12 @@ export async function getEquipmentItems(): Promise<EquipmentItem[]> {
   return data || [];
 }
 
-export async function getEquipmentPage(options: { offset: number; limit: number; search: string; category: string; type: string }) {
+export async function getEquipmentPage(options: { offset: number; limit: number; search: string; category: string; type: string; inventory?: boolean }) {
   let query = supabase.from('equipment_items').select('*', { count: 'exact' });
   if (options.search.trim()) query = query.ilike('name', `%${options.search.trim().replace(/[\\%_]/g, '\\$&')}%`);
   if (options.category !== 'all') query = query.eq('category', options.category);
   if (options.type !== 'all') query = query.eq('type', options.type);
+  if (options.inventory) query = query.or('object_type.is.null,object_type.neq.virtual').not('type', 'ilike', '%виртуальн%');
   // Stable order keeps page boundaries intact when a name or category is edited.
   const { data, count, error } = await query.order('created_at', { ascending: false }).order('id').range(options.offset, options.offset + options.limit - 1);
   if (error) throw error;

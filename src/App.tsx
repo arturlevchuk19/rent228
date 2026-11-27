@@ -74,7 +74,7 @@ function AppContent() {
     switch (currentPage) {
       case 'dashboard': return <Dashboard />;
       case 'templates': return <Templates />;
-      case 'equipment': return <Equipment />;
+      case 'equipment': return <Equipment key={user.id} />;
       case 'events': return <EventsWorkspace key={user.id} refreshSignal={refreshKey} onEventFormOpen={eventPage.openEvent} onSpecificationOpen={handleSpecificationOpen} lastCreatedEventId={lastCreatedEventId} />;
       case 'contacts': return <Contacts refreshSignal={refreshKey} onClientFormOpen={client => { setEditingClient(client); setClientFormOpen(true); }} onVenueFormOpen={venue => { setEditingVenue(venue); setVenueFormOpen(true); }} />;
       case 'payments': return <Accounting key={user.id} refreshSignal={refreshKey} onPendingChange={reportPendingAccounting} />;

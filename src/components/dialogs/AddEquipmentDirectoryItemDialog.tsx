@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { getErrorMessage } from '../../lib/errors';
 
 interface AddEquipmentDirectoryItemDialogProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export function AddEquipmentDirectoryItemDialog({
   onConfirm
 }: AddEquipmentDirectoryItemDialogProps) {
   const [value, setValue] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const normalizedValue = value.trim().toLowerCase();
@@ -33,16 +35,20 @@ export function AddEquipmentDirectoryItemDialog({
 
   const close = () => {
     setValue('');
+    setSaveError('');
     setIsSubmitting(false);
     onClose();
   };
 
   const submit = async () => {
-    if (error) return;
+    if (error || isSubmitting) return;
+    setSaveError('');
     setIsSubmitting(true);
     try {
       await onConfirm(value.trim());
       close();
+    } catch (caught) {
+      setSaveError(getErrorMessage(caught));
     } finally {
       setIsSubmitting(false);
     }
@@ -71,6 +77,7 @@ export function AddEquipmentDirectoryItemDialog({
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder="Введите значение"
           />
+          {saveError && <p role="alert" className="mt-1 text-xs text-red-400">{saveError}</p>}
           {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
         </div>
 

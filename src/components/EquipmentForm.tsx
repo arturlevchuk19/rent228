@@ -5,8 +5,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import {
   addEquipmentCategoryAndGetList,
-  addEquipmentSubtypeAndGetList,
-  addEquipmentTypeAndGetList,
+  addEquipmentClassification,
+  equipmentTypeOptions,
+  equipmentSubtypeOptions,
+  type EquipmentClassification,
   createEquipmentItem,
   updateEquipmentItem,
   EquipmentItem,
@@ -20,13 +22,15 @@ function DirectorySelect({
   onChange,
   options,
   placeholder,
-  required = false
+  required = false,
+  disabled = false
 }: {
   value: string;
   onChange: (value: string) => void;
   options: string[];
   placeholder: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -60,18 +64,21 @@ function DirectorySelect({
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        disabled={disabled}
+        aria-expanded={isOpen && !disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className="w-full text-left px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+        className="w-full min-h-11 text-left px-4 py-2 disabled:opacity-50 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
       >
         {value || <span className="text-gray-400">{placeholder}</span>}
       </button>
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-56 overflow-y-auto">
           {!required && (
             <button type="button" onClick={() => { onChange(''); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-gray-300 hover:bg-gray-700">
               Не выбрано
             </button>
           )}
+          {required && !options.length && <p className="px-4 py-2 text-sm text-gray-300">Список пуст. Добавьте значение кнопкой «+».</p>}
           {options.map((option) => (
             <button key={option} type="button" onClick={() => { onChange(option); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-white hover:bg-gray-700">
               {option}
@@ -86,13 +93,15 @@ function DirectorySelect({
 interface EquipmentFormProps {
   item: EquipmentItem | null;
   categories: string[];
-  types: string[];
-  subtypes: string[];
+  classifications: EquipmentClassification[];
+  initialCategory?: string;
+  onCategoriesChanged: (categories: string[]) => void;
+  onClassificationAdded: (row: EquipmentClassification) => void;
   onClose: () => void;
   onSaved?: (item: EquipmentItem) => void;
 }
 
-export function EquipmentForm({ item, categories, types, subtypes, onClose, onSaved }: EquipmentFormProps) {
+export function EquipmentForm({ item, categories, classifications, initialCategory, onCategoriesChanged, onClassificationAdded, onClose, onSaved }: EquipmentFormProps) {
   const [loading, setLoading] = useState(false);
   const [showTypeDialog, setShowTypeDialog] = useState(false);
   const [showSubtypeDialog, setShowSubtypeDialog] = useState(false);
@@ -124,14 +133,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
       window.removeEventListener('focus', loadUnits);
     };
   }, []);
-  // Локальные копии справочников: позволяют обновлять выпадающие списки
-  // при добавлении нового значения без перезагрузки данных всей страницы
-  // (иначе форма перерисовывалась и введённые данные терялись).
-  const [localCategories, setLocalCategories] = useState<string[]>(categories);
-  const [localTypes, setLocalTypes] = useState<string[]>(types);
-  const [localSubtypes, setLocalSubtypes] = useState<string[]>(subtypes);
   const [formData, setFormData] = useState(() => ({
-    category: item?.category || '',
+    category: item?.category || initialCategory || '',
     type: item?.type || '',
     subtype: item?.subtype || '',
     name: item?.name || '',
@@ -190,15 +193,8 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
     unitsPerPackage,
   );
 
-  // Синхронизируем локальные копии со справочниками родителя,
-  // но только когда окно формы закрыто, чтобы не затирать незавершённый ввод.
-  useEffect(() => {
-    if (!showTypeDialog && !showSubtypeDialog && !showCategoryDialog) {
-      setLocalCategories(categories);
-      setLocalTypes(types);
-      setLocalSubtypes(subtypes);
-    }
-  }, [categories, types, subtypes, showTypeDialog, showSubtypeDialog, showCategoryDialog]);
+  const types = equipmentTypeOptions(classifications, formData.category);
+  const subtypes = equipmentSubtypeOptions(classifications, formData.category, formData.type);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -329,13 +325,13 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   <div className="flex-1">
                     <DirectorySelect
                       value={formData.category}
-                      onChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
-                      options={localCategories}
+                      onChange={(value) => setFormData(prev => prev.category === value ? prev : { ...prev, category: value, type: '', subtype: '' })}
+                      options={categories}
                       placeholder="Выберите категорию"
                       required
                     />
                   </div>
-                  <button type="button" onClick={() => setShowCategoryDialog(true)} aria-label="Добавить категорию" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300">
+                  <button type="button" onClick={() => setShowCategoryDialog(true)} aria-label="Добавить категорию" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300 disabled:opacity-40">
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
@@ -349,13 +345,14 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                   <div className="flex-1">
                     <DirectorySelect
                       value={formData.type}
-                      onChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
-                      options={localTypes}
-                      placeholder="Выберите тип"
+                      onChange={(value) => setFormData(prev => prev.type === value ? prev : { ...prev, type: value, subtype: '' })}
+                      options={types}
+                      disabled={!formData.category}
+                      placeholder={formData.category ? "Выберите тип" : "Сначала выберите категорию"}
                       required
                     />
                   </div>
-                  <button type="button" onClick={() => setShowTypeDialog(true)} aria-label="Добавить тип" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300">
+                  <button type="button" disabled={!formData.category} onClick={() => setShowTypeDialog(true)} aria-label="Добавить тип" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300 disabled:opacity-40">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
@@ -370,11 +367,12 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
                     <DirectorySelect
                       value={formData.subtype}
                       onChange={(value) => setFormData((prev) => ({ ...prev, subtype: value }))}
-                      options={localSubtypes}
-                      placeholder="Не выбрано"
+                      options={subtypes}
+                      disabled={!formData.type}
+                      placeholder={formData.type ? "Не выбрано" : "Сначала выберите тип"}
                     />
                   </div>
-                  <button type="button" onClick={() => setShowSubtypeDialog(true)} aria-label="Добавить подтип" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300">
+                  <button type="button" disabled={!formData.type} onClick={() => setShowSubtypeDialog(true)} aria-label="Добавить подтип" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800 hover:text-accent-300 disabled:opacity-40">
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
@@ -854,42 +852,37 @@ export function EquipmentForm({ item, categories, types, subtypes, onClose, onSa
         isOpen={showCategoryDialog}
         title="Добавить категорию оборудования"
         inputLabel="Категория *"
-        existingItems={localCategories}
+        existingItems={categories}
         onClose={() => setShowCategoryDialog(false)}
-        onConfirm={async (name) => {
-          // Добавляем категорию и обновляем только локальный справочник,
-          // не перезагружая данные страницы — форма сохраняет введённые значения.
-          const updated = await addEquipmentCategoryAndGetList(name);
-          setLocalCategories(updated);
-          setFormData((prev) => ({ ...prev, category: name }));
+        onConfirm={async name => {
+          onCategoriesChanged(await addEquipmentCategoryAndGetList(name));
+          setFormData(prev => ({ ...prev, category: name, type: '', subtype: '' }));
         }}
       />
       <AddEquipmentDirectoryItemDialog
         isOpen={showTypeDialog}
-        title="Добавить тип оборудования"
+        title={`Добавить тип в «${formData.category}»`}
         inputLabel="Тип *"
-        existingItems={localTypes}
+        existingItems={types}
         onClose={() => setShowTypeDialog(false)}
-        onConfirm={async (name) => {
-          // Добавляем тип и обновляем только локальный справочник,
-          // не перезагружая данные страницы — форма сохраняет введённые значения.
-          const updated = await addEquipmentTypeAndGetList(name);
-          setLocalTypes(updated);
-          setFormData((prev) => ({ ...prev, type: name }));
+        onConfirm={async name => {
+          const row = { category: formData.category, type: name, subtype: '' };
+          await addEquipmentClassification(row);
+          onClassificationAdded(row);
+          setFormData(prev => ({ ...prev, type: name, subtype: '' }));
         }}
       />
       <AddEquipmentDirectoryItemDialog
         isOpen={showSubtypeDialog}
-        title="Добавить подтип оборудования"
+        title={`Добавить подтип в «${formData.category} / ${formData.type}»`}
         inputLabel="Подтип *"
-        existingItems={localSubtypes}
+        existingItems={subtypes}
         onClose={() => setShowSubtypeDialog(false)}
-        onConfirm={async (name) => {
-          // Добавляем подтип и обновляем только локальный справочник,
-          // не перезагружая данные страницы — форма сохраняет введённые значения.
-          const updated = await addEquipmentSubtypeAndGetList(name);
-          setLocalSubtypes(updated);
-          setFormData((prev) => ({ ...prev, subtype: name }));
+        onConfirm={async name => {
+          const row = { category: formData.category, type: formData.type, subtype: name };
+          await addEquipmentClassification(row);
+          onClassificationAdded(row);
+          setFormData(prev => ({ ...prev, subtype: name }));
         }}
       />
     </div>
