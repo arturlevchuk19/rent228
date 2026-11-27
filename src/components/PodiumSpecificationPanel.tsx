@@ -1,424 +1,184 @@
-import { useState, useEffect } from 'react';
-import { X, Calculator, Plus, Minus, ChevronDown } from 'lucide-react';
-import { BudgetItem } from '../lib/events';
-import { getEquipmentCompositions, addEquipmentComposition } from '../lib/equipmentCompositions';
-import { EquipmentComposition, EquipmentModule } from '../lib/equipmentCompositions';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Calculator, Minus, Plus, X } from 'lucide-react';
+import type { BudgetItem } from '../lib/events';
 import { getEquipmentItems } from '../lib/equipment';
+import { getEquipmentCompositions } from '../lib/equipmentCompositions';
+import { getPodiumBracing, getPodiumCoveredArea, getPodiumFootprint, getPodiumModules, getPodiumModuleTab, isPodiumPlatform, PODIUM_TABS } from '../lib/podiumSpecification';
+import type { PodiumModule, PodiumTab } from '../lib/podiumSpecification';
 
 interface PodiumSpecificationPanelProps {
-  budgetItemId: string;
-  budgetItems: BudgetItem[];
-  eventId: string;
+  budgetItem: BudgetItem;
+  notes: string;
+  initialModules: PodiumModule[];
   onClose: () => void;
-  onSaveWithComposition?: (selectedModules: EquipmentComposition[]) => void;
+  onSave: (modules: PodiumModule[]) => void;
 }
 
-export function PodiumSpecificationPanel({ budgetItemId, budgetItems, onClose, onSaveWithComposition }: PodiumSpecificationPanelProps) {
-  const budgetItem = budgetItems.find(b => b.id === budgetItemId);
+const formatArea = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+const tabClassName = (active: boolean) => `min-h-11 px-3 py-1.5 text-xs rounded-md transition-colors ${
+  active ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+}`;
 
-  const [modules, setModules] = useState<EquipmentComposition[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddModule, setShowAddModule] = useState(false);
-  const [availableModules, setAvailableModules] = useState<EquipmentModule[]>([]);
-  const [loadingModules, setLoadingModules] = useState(false);
-  const [activeModulesTab, setActiveModulesTab] = useState<'platform' | 'legs'>('platform');
-  const [activeAvailableTab, setActiveAvailableTab] = useState<'platform' | 'legs'>('platform');
+export function PodiumSpecificationPanel({ budgetItem, notes, initialModules, onClose, onSave }: PodiumSpecificationPanelProps) {
+  const equipmentId = budgetItem.equipment_id;
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const [selectedModules, setSelectedModules] = useState(initialModules);
+  const [options, setOptions] = useState<Omit<PodiumModule, 'quantity'>[]>(() => getPodiumBracing([]));
+  const [catalogState, setCatalogState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [activeTab, setActiveTab] = useState<PodiumTab>('platform');
   const [draftValues, setDraftValues] = useState<Record<string, string>>({});
 
-  const isLegItem = (name: string) => name.toLowerCase().includes('нога');
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, []);
 
   useEffect(() => {
-    const loadModules = async () => {
-      if (!budgetItem?.equipment_id) {
-        setLoading(false);
-        return;
-      }
+    let active = true;
+    void Promise.allSettled([
+      getEquipmentItems(),
+      equipmentId ? getEquipmentCompositions(equipmentId) : Promise.resolve([]),
+    ]).then(([catalogResult, templateResult]) => {
+      if (!active) return;
+      const catalog = catalogResult.status === 'fulfilled' ? catalogResult.value : [];
+      const equipment = catalog.filter(item => item.object_type !== 'virtual' && item.id !== equipmentId);
+      const templates = templateResult.status === 'fulfilled' ? templateResult.value : [];
+      setOptions([
+        ...equipment.filter(item => {
+          const tab = getPodiumModuleTab(item);
+          return tab === 'legs' || (tab === 'platform' && isPodiumPlatform(item));
+        }).map(({ id, name, sku, category, note }) => ({ id, name, sku, category, note })),
+        ...getPodiumBracing(equipment),
+        ...templates.map(template => ({
+          id: template.child_id, name: template.child_name, sku: template.child_sku,
+          category: template.child_category, note: template.child_note,
+        })),
+      ]);
+      setCatalogState(catalogResult.status === 'fulfilled' ? 'ready' : 'failed');
+      if (catalogResult.status === 'rejected') console.error('Error loading podium equipment:', catalogResult.reason);
+      if (templateResult.status === 'rejected') console.error('Error loading podium templates:', templateResult.reason);
+    });
+    return () => { active = false; };
+  }, [equipmentId]);
 
-      try {
-        const compositions = await getEquipmentCompositions(budgetItem.equipment_id);
-        setModules(compositions);
-      } catch (error) {
-        console.error('Error loading compositions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const modules = getPodiumModules(selectedModules, options);
+  const dimensions = getPodiumFootprint(notes, budgetItem.name, budgetItem.equipment?.name);
+  const platformModules = modules.filter(module => getPodiumModuleTab(module) === 'platform');
+  const totalArea = getPodiumCoveredArea(platformModules);
+  const requiredArea = dimensions?.area ?? 0;
+  const progress = requiredArea > 0 ? totalArea / requiredArea * 100 : 0;
 
-    loadModules();
-  }, [budgetItem?.equipment_id]);
+  const visibleModules = modules.filter(module => getPodiumModuleTab(module) === activeTab);
 
-  const handleQuantityChange = (moduleId: string, newQuantity: number) => {
-    setModules(prev => prev.map(m =>
-      m.id === moduleId ? { ...m, quantity: Math.max(0, newQuantity) } : m
-    ));
+  const changeQuantity = (module: PodiumModule, quantity: number) => {
+    const changed = { ...module, quantity: Math.max(0, quantity) };
+    setSelectedModules(current => current.some(item => item.id === module.id)
+      ? current.map(item => item.id === module.id ? changed : item)
+      : [...current, changed]);
   };
 
-  const handleSave = () => {
-    if (onSaveWithComposition) {
-      onSaveWithComposition(modules.filter(module => module.quantity > 0));
-    }
-    onClose();
-  };
-
-  const handleAddModule = async (moduleItem: EquipmentModule, quantity: number = 1) => {
-    if (!budgetItem?.equipment_id) return;
-    
-    try {
-      await addEquipmentComposition(budgetItem.equipment_id, moduleItem.id, quantity);
-      const compositions = await getEquipmentCompositions(budgetItem.equipment_id);
-      setModules(compositions);
-      setShowAddModule(false);
-    } catch (error) {
-      console.error('Error adding module:', error);
-    }
-  };
-
-  const handleLoadAvailableModules = async () => {
-    setLoadingModules(true);
-    try {
-      const equipmentItems = await getEquipmentItems();
-      // Filter items that might be part of a podium (legs, panels, clamps etc.)
-      const filtered = equipmentItems
-        .filter(item => 
-          item.category === 'Конструкции' || 
-          item.name.toLowerCase().includes('нога') || 
-          item.name.toLowerCase().includes('зажим') ||
-          item.name.toLowerCase().includes('подиум')
-        )
-        .map(item => ({
-          id: item.id,
-          name: item.name,
-          sku: item.sku,
-          category: item.category,
-          type: item.type,
-          subtype: item.subtype || '',
-          note: item.note || ''
-        }));
-      setAvailableModules(filtered);
-    } catch (error) {
-      console.error('Error loading available items:', error);
-    } finally {
-      setLoadingModules(false);
-    }
-  };
-
-  const getPodiumDimensions = () => {
-    const texts = [
-      budgetItem?.notes,
-      budgetItem?.name,
-      budgetItem?.equipment?.name
-    ].filter(Boolean) as string[];
-
-    const parseFromText = (text: string) => {
-      // Formats like: (4x3x0.6), 4x3x0,6, 4×3×0.6
-      const threeDimMatch = text.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i);
-      if (threeDimMatch) {
-        const width = parseFloat(threeDimMatch[1].replace(',', '.'));
-        const depth = parseFloat(threeDimMatch[2].replace(',', '.'));
-        const height = parseFloat(threeDimMatch[3].replace(',', '.'));
-
-        return {
-          width,
-          depth,
-          height,
-          area: width * depth
-        };
-      }
-
-      return null;
-    };
-
-    for (const text of texts) {
-      const parsed = parseFromText(text);
-      if (parsed) {
-        return parsed;
-      }
-    }
-
-    return null;
-  };
-
-  const dimensions = getPodiumDimensions();
-
-  // Helper function to extract element dimensions from name or sku
-  const getElementDimensions = (name: string, sku: string) => {
-    // Try to extract dimensions from name first, then from sku (format: 0,5x1, 1x1, 2x1, etc.)
-    const text = `${name} ${sku}`;
-    const match = text.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/);
-    if (match) {
-      return {
-        width: parseFloat(match[1].replace(',', '.')),
-        depth: parseFloat(match[2].replace(',', '.'))
-      };
-    }
-    return null;
-  };
-
-  // Calculate total area covered by elements using actual element dimensions
-  let totalElementArea = 0;
-  let totalElementCount = 0;
-  let totalLegsCount = 0;
-
-  modules.forEach(module => {
-    if (isLegItem(module.child_name)) {
-      totalLegsCount += module.quantity;
+  const save = () => {
+    const selected = selectedModules.filter(module => module.quantity > 0);
+    const initial = initialModules.filter(module => module.quantity > 0);
+    if (selected.length === initial.length && selected.every(module =>
+      initial.some(item => item.id === module.id && item.quantity === module.quantity)
+    )) {
+      onClose();
       return;
     }
-
-    const elementDims = getElementDimensions(module.child_name, module.child_sku);
-    if (elementDims) {
-      totalElementArea += module.quantity * (elementDims.width * elementDims.depth);
-    }
-    totalElementCount += module.quantity;
-  });
-
-  const platformModules = modules.filter(module => !isLegItem(module.child_name));
-  const legModules = modules.filter(module => isLegItem(module.child_name));
-
-  const availablePlatformModules = availableModules.filter(module => !isLegItem(module.name));
-  const availableLegModules = availableModules.filter(module => isLegItem(module.name));
-
-  const visibleModules = activeModulesTab === 'platform' ? platformModules : legModules;
-  const visibleAvailableModules = activeAvailableTab === 'platform' ? availablePlatformModules : availableLegModules;
-
-  const requiredArea = dimensions?.area || 0;
-  const progress = requiredArea > 0 ? Math.min((totalElementArea / requiredArea) * 100, 100) : 0;
-
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-[500px] overflow-hidden">
-          <div className="flex justify-center items-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-500"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    onSave(selected);
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-[600px] overflow-hidden max-h-[80vh]">
-        <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-accent-500" />
-            <h3 className="text-lg font-bold text-white">
-              Спецификация подиума
-            </h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }}
+      className="m-auto max-h-[90dvh] w-[calc(100%-1rem)] max-w-[600px] flex-col overflow-hidden rounded-xl border border-gray-800 bg-gray-900 p-0 text-gray-100 shadow-2xl backdrop:bg-black/50 open:flex">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-800 px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-2">
+          <Calculator className="h-5 w-5 text-accent-500" aria-hidden="true" />
+          <h3 id={titleId} className="text-lg font-bold text-white">Спецификация подиума</h3>
         </div>
-        
-        <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
-          <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
-            <h4 className="text-sm font-medium text-white mb-2">
-              {budgetItem?.equipment?.name || budgetItem?.name || 'Подиум'}
-              {dimensions && (
-                <span className="text-accent-400 ml-2">
-                  {dimensions.width}×{dimensions.depth}м ({dimensions.area.toFixed(2)} м²)
-                </span>
-              )}
-            </h4>
-            <p className="text-xs text-gray-400">
-              Состав элементов для сборки конструкции
-            </p>
-          </div>
+        <button type="button" onClick={onClose} aria-label="Закрыть калькулятор" className="grid min-h-11 min-w-11 place-items-center text-gray-400 transition-colors hover:text-white">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
 
+      <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-6">
+        <div className="rounded-lg bg-gray-800/50 p-4">
+          <h4 className="text-sm font-medium text-white">{budgetItem.equipment?.name || budgetItem.name || 'Подиум'}</h4>
           {dimensions && (
-            <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs text-gray-400">Заполнение элементами</span>
-                <span className="text-xs font-medium text-white">
-                  {totalElementArea.toFixed(2)} / {requiredArea.toFixed(2)} м² ({Math.round(progress)}%)
-                </span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden min-h-11">
-                <div 
-                  className={`h-full rounded-full transition-colors duration-300 ${
-                    progress >= 100 ? 'bg-green-500' : progress >= 75 ? 'bg-accent-500' : progress >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-gray-500">
-                <span>Добавлено: {totalElementCount} шт.</span>
-                <span>Покрытие: {totalElementArea.toFixed(2)} м²</span>
-              </div>
+            <p className="mt-1 text-xs text-gray-400">{formatArea.format(dimensions.width)} × {formatArea.format(dimensions.depth)} м</p>
+          )}
+          <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 text-sm">
+            <span className="text-gray-300">Площадь площадок</span>
+            <span className="font-medium tabular-nums text-white">
+              {formatArea.format(totalArea)}{dimensions && ` / ${formatArea.format(requiredArea)}`} м²
+              {dimensions && <span className="ml-2 text-xs text-gray-400">{formatArea.format(progress)}%</span>}
+            </span>
+          </div>
+          {dimensions && (
+            <div role="progressbar" aria-label="Покрытие площади сцены" aria-valuemin={0} aria-valuemax={requiredArea}
+              aria-valuenow={Math.min(totalArea, requiredArea)} aria-valuetext={`${formatArea.format(totalArea)} из ${formatArea.format(requiredArea)} м²`}
+              className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-700">
+              <div className={`h-full rounded-full motion-safe:transition-[width] ${progress >= 100 ? 'bg-green-500' : 'bg-accent-500'}`}
+                style={{ width: `${Math.min(progress, 100)}%` }} />
             </div>
           )}
+        </div>
 
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setActiveModulesTab('platform')}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  activeModulesTab === 'platform' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                Площадка ({platformModules.length})
-              </button>
-              <button
-                onClick={() => setActiveModulesTab('legs')}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  activeModulesTab === 'legs' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                Ноги ({legModules.length})
-              </button>
+        <div role="group" aria-label="Элементы подиума" className="flex flex-wrap gap-2">
+          {PODIUM_TABS.map(tab => (
+            <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
+              aria-pressed={activeTab === tab.id} className={tabClassName(activeTab === tab.id)}>
+              {tab.label} ({modules.filter(module => module.quantity > 0 && getPodiumModuleTab(module) === tab.id).length})
+            </button>
+          ))}
+        </div>
+
+        {catalogState === 'loading' && <p role="status" className="text-sm text-gray-400">Загружаем справочник…</p>}
+        {catalogState === 'failed' && <p role="status" className="text-sm text-gray-400">Справочник недоступен.</p>}
+
+        {visibleModules.map(module => (
+          <div key={module.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-gray-700 bg-gray-800 p-3 sm:p-4">
+            <div className="min-w-0 flex-1">
+              <h5 className="break-words text-sm font-medium text-white">{module.name}</h5>
+              {module.sku && <p className="break-all text-xs text-gray-400">{module.sku}</p>}
+              {module.note && <p className="mt-1 break-words text-xs text-gray-400">{module.note}</p>}
             </div>
-
-            {visibleModules.map((module) => (
-              <div key={module.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h5 className="text-sm font-medium text-white">
-                      {module.child_name}
-                    </h5>
-                    <p className="text-xs text-gray-500">{module.child_sku}</p>
-                  </div>
-                  <div className="flex items-center gap-2 bg-gray-700 rounded-lg px-3 py-1.5">
-                    <button
-                      onClick={() => handleQuantityChange(module.id, module.quantity - 1)}
-                      className="text-gray-400 hover:text-white transition-colors"
-                      disabled={module.quantity <= 0}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <input
-                      type="number"
-                      min="0"
-                      value={draftValues[module.id] ?? String(module.quantity)}
-                      onChange={(e) => setDraftValues(prev => ({ ...prev, [module.id]: e.target.value }))}
-                      onBlur={(e) => {
-                        const n = parseInt(e.target.value);
-                        if (!isNaN(n)) handleQuantityChange(module.id, n);
-                        setDraftValues(prev => { const copy = { ...prev }; delete copy[module.id]; return copy; });
-                      }}
-                      className="w-16 bg-transparent text-white text-sm text-center outline-none"
-                    />
-                    <button
-                      onClick={() => handleQuantityChange(module.id, module.quantity + 1)}
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="text-xs text-gray-500 ml-2">шт.</div>
-                </div>
-              </div>
-            ))}
-
-            {visibleModules.length === 0 && (
-              <div className="text-center py-8">
-                <div className="text-gray-400 mb-2">
-                  {activeModulesTab === 'platform' ? 'Элементы площадки не заданы' : 'Ноги не заданы'}
-                </div>
-                <div className="text-xs text-gray-500">
-                  Добавьте элементы конструкции из справочника
-                </div>
-              </div>
-            )}
-            
-            <div className="pt-4 border-t border-gray-700">
-              <button
-                onClick={() => {
-                  setShowAddModule(!showAddModule);
-                  if (!showAddModule && availableModules.length === 0) {
-                    handleLoadAvailableModules();
-                  }
+            <div className="flex shrink-0 items-center gap-1 rounded-lg bg-gray-700">
+              <button type="button" onClick={() => changeQuantity(module, module.quantity - 1)} disabled={module.quantity <= 0}
+                aria-label={`Уменьшить количество: ${module.name}`} className="grid min-h-11 w-8 place-items-center text-gray-300 hover:text-white disabled:opacity-40">
+                <Minus className="h-4 w-4" />
+              </button>
+              <input type="number" min="0" aria-label={`Количество: ${module.name}`} value={draftValues[module.id] ?? module.quantity}
+                onChange={event => {
+                  const value = event.target.value;
+                  setDraftValues(current => ({ ...current, [module.id]: value }));
+                  if (/^\d+$/.test(value) && Number.isSafeInteger(Number(value))) changeQuantity(module, Number(value));
                 }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors min-h-11"
-              >
-                {showAddModule ? <ChevronDown className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                Добавить элемент из справочника
-              </button>
-              
-              {showAddModule && (
-                <div className="mt-4 bg-gray-800/30 rounded-lg p-4">
-                  {loadingModules ? (
-                    <div className="flex justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-500"></div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex gap-2 mb-2">
-                        <button
-                          onClick={() => setActiveAvailableTab('platform')}
-                          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                            activeAvailableTab === 'platform' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                          }`}
-                        >
-                          Площадка ({availablePlatformModules.length})
-                        </button>
-                        <button
-                          onClick={() => setActiveAvailableTab('legs')}
-                          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                            activeAvailableTab === 'legs' ? 'bg-accent-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                          }`}
-                        >
-                          Ноги ({availableLegModules.length})
-                        </button>
-                      </div>
-
-                      {visibleAvailableModules.map((module) => (
-                        <div key={module.id} className="flex items-center justify-between bg-gray-800 rounded-lg p-3">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-white">{module.name}</div>
-                            {module.note && (
-                              <div className="text-xs text-gray-500 mt-1">{module.note}</div>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleAddModule(module, 1)}
-                            className="min-h-11 px-3 py-1 bg-accent-500 hover:bg-accent-400 text-gray-950 text-xs rounded transition-colors"
-                          >
-                            Добавить
-                          </button>
-                        </div>
-                      ))}
-
-                      {visibleAvailableModules.length === 0 && (
-                        <div className="text-center py-4 text-gray-500 text-sm">
-                          Элементы не найдены
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 py-4 border-t border-gray-800 bg-gray-800/30">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-400">
-              Элементов площадки: 
-              <span className="text-white font-bold ml-1">{totalElementCount}</span>
-              <span className="text-gray-500 ml-3">Ног: {totalLegsCount}</span>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleSave}
-                className="min-h-11 px-6 py-2 bg-accent-500 hover:bg-accent-400 text-gray-950 text-sm font-medium rounded-lg transition-colors"
-              >
-                Сохранить
+                onBlur={() => setDraftValues(current => { const next = { ...current }; delete next[module.id]; return next; })}
+                className="h-11 w-14 bg-transparent text-center text-sm text-white" />
+              <button type="button" onClick={() => changeQuantity(module, module.quantity + 1)}
+                aria-label={`Увеличить количество: ${module.name}`} className="grid min-h-11 w-8 place-items-center text-gray-300 hover:text-white">
+                <Plus className="h-4 w-4" />
               </button>
             </div>
           </div>
-        </div>
+        ))}
+
+        {catalogState === 'ready' && visibleModules.length === 0 && (
+          <p className="py-4 text-center text-sm text-gray-400">{PODIUM_TABS.find(tab => tab.id === activeTab)?.empty}</p>
+        )}
       </div>
-    </div>
+
+      <div className="flex shrink-0 justify-end gap-2 border-t border-gray-800 bg-gray-800/30 px-4 py-3 sm:px-6">
+        <button type="button" onClick={onClose} className="min-h-11 px-4 text-sm font-medium text-gray-400 transition-colors hover:text-white">Отмена</button>
+        <button type="button" onClick={save}
+          className="min-h-11 rounded-lg bg-accent-500 px-6 text-sm font-medium text-gray-950 transition-colors hover:bg-accent-400">
+          Сохранить
+        </button>
+      </div>
+    </dialog>
   );
 }
