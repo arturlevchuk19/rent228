@@ -2129,13 +2129,14 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           .mobile-budget-page .budget-category-header > button { min-width: 44px; min-height: 44px; }
           .mobile-budget-page .budget-category-header svg { width: 14px; height: 14px; }
           .mobile-budget-page .budget-item-row {
-            position: relative; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; margin: 8px 0;
+            --budget-item-action-width: 32px;
+            --budget-item-actions-width: calc(3 * var(--budget-item-action-width));
+            position: relative; display: flex; padding: 4px 8px; margin: 4px 0;
             border: 1px solid var(--color-border); border-radius: 12px; background-color: var(--color-surface);
           }
           .mobile-budget-page .budget-item-row > [draggable] {
-            position: absolute; left: 4px; top: 10px; width: 24px;
+            position: absolute; left: 0; top: 4px; width: 32px;
           }
-          .mobile-budget-page .budget-item-fields > :first-child { padding-left: 20px; }
           .mobile-budget-page .budget-mobile-navigation {
             position: relative; z-index: 30; max-height: 360px; overflow: visible; opacity: 1;
             transition: max-height 220ms ease, opacity 180ms ease;
@@ -2147,12 +2148,14 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           }
           .mobile-budget-page .budget-item-fields,
           .mobile-budget-page .budget-item-fields-with-coefficient {
-            order: -1; flex-basis: 100%; min-width: 0;
+            min-width: 0;
             grid-template-columns: minmax(80px, 1.1fr) minmax(32px, .55fr) minmax(64px, 1fr) minmax(0, 1.5fr) !important;
-            gap: 8px 4px;
+            gap: 0 4px;
           }
           .mobile-budget-page .budget-item-fields > :first-child {
-            grid-column: 1 / -1; min-height: 44px; padding-right: 0; margin-bottom: 44px; font-size: 15px; font-weight: 600;
+            display: flex; align-items: center; grid-column: 1 / -1; min-height: 44px;
+            padding: 2px var(--budget-item-actions-width) 2px 24px;
+            font-size: 15px; font-weight: 600; overflow-wrap: anywhere;
           }
           .mobile-budget-page [data-mobile-label] {
             display: flex; align-items: center; justify-content: center; text-align: center; min-width: 0;
@@ -2167,7 +2170,7 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           .mobile-budget-page [data-mobile-label="Цена"] input { min-width: 0; flex-shrink: 1; }
           .mobile-budget-page [data-mobile-label="Сумма"] {
             grid-column: 4; grid-row: 2; justify-content: flex-end; gap: 4px;
-            padding-right: 0; white-space: nowrap; font-size: 14px;
+            padding-right: 0; text-align: right; font-size: 14px; overflow-wrap: anywhere;
           }
           .mobile-budget-page [data-mobile-label="Сумма"]::before {
             content: '='; display: block; margin-right: auto; color: var(--color-text-muted); font-size: 16px;
@@ -2181,11 +2184,11 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
           .mobile-budget-page .budget-item-fields input { min-height: 44px; max-width: 100%; text-align: center; font-size: 16px; }
           .mobile-budget-page [data-mobile-label="Количество"] button { min-height: 44px; min-width: 24px; }
           .mobile-budget-page [data-mobile-label="Ед. изм."] button { min-height: 44px; font-size: 14px; }
-          .mobile-budget-page .budget-item-actions { position: absolute; top: 56px; right: 8px; gap: 0; }
+          .mobile-budget-page .budget-item-actions { position: absolute; top: 4px; right: 4px; gap: 0; }
           .mobile-budget-page .budget-item-actions > button,
           .mobile-budget-page .budget-item-actions > div,
           .mobile-budget-page .budget-item-actions > div > button {
-            width: 44px; min-width: 44px; min-height: 44px; align-items: center; opacity: 1;
+            width: var(--budget-item-action-width); min-height: 44px; align-items: center; opacity: 1;
           }
         }
         .budget-touch-target { outline: 2px solid var(--color-accent); outline-offset: -2px; background-color: var(--color-accent-soft); }

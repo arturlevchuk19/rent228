@@ -752,6 +752,7 @@ export function CategoryBlock({
                   <button
                     type="button"
                     onClick={() => onDeleteItem(item.id)}
+                    aria-label={`Удалить позицию: ${itemName}`}
                     className="text-red-500/50 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity w-5 flex justify-center flex-shrink-0"
                   >
                     <X className="w-3 h-3" />
