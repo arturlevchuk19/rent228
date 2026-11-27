@@ -2,6 +2,7 @@ import { readCatalogRows } from './catalogLookup';
 import { cleanupEquipmentPhoto } from './equipmentMedia';
 import { parseConsumption, validateConsumptionInput } from './budgetConsumption';
 import { supabase } from './supabase';
+import { normalizeEquipmentSearch } from './equipmentSearch';
 
 export const EQUIPMENT_UNITS = ['шт.', 'м.', 'комп.', 'ед.', 'чел.', 'л.', 'кг', 'услуга', 'час', 'смена'] as const;
 export async function getEquipmentUnits(): Promise<string[]> {
@@ -25,6 +26,7 @@ export interface EquipmentItem {
   type: string;
   subtype: string;
   name: string;
+  search_name?: string;
   note: string;
   attribute: string;
   sku: string;
@@ -154,7 +156,7 @@ export async function getEquipmentItems(): Promise<EquipmentItem[]> {
 
 export async function getEquipmentPage(options: { offset: number; limit: number; search: string; category: string; type: string; inventory?: boolean }) {
   let query = supabase.from('equipment_items').select('*', { count: 'exact' });
-  if (options.search.trim()) query = query.ilike('name', `%${options.search.trim().replace(/[\\%_]/g, '\\$&')}%`);
+  if (options.search.trim()) query = query.ilike('search_name', `%${normalizeEquipmentSearch(options.search).replace(/[\\%_]/g, '\\$&')}%`);
   if (options.category !== 'all') query = query.eq('category', options.category);
   if (options.type !== 'all') query = query.eq('type', options.type);
   if (options.inventory) query = query.or('object_type.is.null,object_type.neq.virtual').not('type', 'ilike', '%виртуальн%');
@@ -167,6 +169,7 @@ export async function getEquipmentPage(options: { offset: number; limit: number;
 function equipmentWriteFields(item: Partial<EquipmentItem>): Partial<EquipmentItem> {
   const fields = { ...item };
   delete fields.volume_m3;
+  delete fields.search_name;
   return fields;
 }
 

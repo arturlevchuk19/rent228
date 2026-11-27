@@ -7,15 +7,19 @@ interface AddEquipmentDirectoryItemDialogProps {
   title: string;
   inputLabel: string;
   existingItems: string[];
+  normalize?: (value: string) => string;
   onClose: () => void;
   onConfirm: (name: string) => Promise<void>;
 }
+
+const trimValue = (value: string) => value.trim();
 
 export function AddEquipmentDirectoryItemDialog({
   isOpen,
   title,
   inputLabel,
   existingItems,
+  normalize = trimValue,
   onClose,
   onConfirm
 }: AddEquipmentDirectoryItemDialogProps) {
@@ -23,10 +27,11 @@ export function AddEquipmentDirectoryItemDialog({
   const [saveError, setSaveError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const normalizedValue = value.trim().toLowerCase();
+  const canonicalValue = normalize(value);
+  const normalizedValue = canonicalValue.toLowerCase();
   const hasDuplicate = useMemo(
-    () => existingItems.some((item) => item.trim().toLowerCase() === normalizedValue),
-    [existingItems, normalizedValue]
+    () => existingItems.some((item) => normalize(item).toLowerCase() === normalizedValue),
+    [existingItems, normalizedValue, normalize]
   );
 
   const error = !value.trim() ? 'Название обязательно' : hasDuplicate ? 'Такое значение уже существует' : '';
@@ -45,7 +50,7 @@ export function AddEquipmentDirectoryItemDialog({
     setSaveError('');
     setIsSubmitting(true);
     try {
-      await onConfirm(value.trim());
+      await onConfirm(canonicalValue);
       close();
     } catch (caught) {
       setSaveError(getErrorMessage(caught));

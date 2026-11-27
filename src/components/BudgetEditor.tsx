@@ -1,3 +1,4 @@
+import { normalizeEquipmentSearch } from '../lib/equipmentSearch';
 import { BudgetGroupCheckbox, type BudgetGroupSelection } from './BudgetGroupCheckbox';
 import { BudgetCoefficientGroups } from './BudgetCoefficientGroups';
 import { DEFAULT_DYNAMIC_COEFFICIENT, getEffectiveBudgetItems, indexBudgetCoefficientGroups, isBudgetCoefficientGroupList, type BudgetCoefficientGroup } from '../lib/budgetCoefficientGroups';
@@ -1448,11 +1449,12 @@ function ScopedBudgetEditor({ eventId, budgetName, onClose, budgetId }: BudgetEd
   const equipmentCategories = ['Все', ...Array.from(new Set(equipment.map(item => item.category)))];
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
+  const equipmentSearchTerm = normalizeEquipmentSearch(searchTerm);
   const filteredEquipment = equipment.filter(item => {
     const hasPrice = item.rental_price > 0;
-    const matchesSearch = !normalizedSearchTerm ||
-      item.name.toLowerCase().includes(normalizedSearchTerm) ||
-      item.category.toLowerCase().includes(normalizedSearchTerm);
+    const matchesSearch = !equipmentSearchTerm ||
+      normalizeEquipmentSearch(item.name).includes(equipmentSearchTerm) ||
+      normalizeEquipmentSearch(item.category).includes(equipmentSearchTerm);
     const matchesCategory = selectedEquipmentCategory === 'Все' || item.category === selectedEquipmentCategory;
     return hasPrice && matchesSearch && matchesCategory;
   });

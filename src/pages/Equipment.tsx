@@ -1,3 +1,4 @@
+import { normalizeEquipmentSearch } from '../lib/equipmentSearch';
 import { searchInputProps } from '../lib/searchInput';
 import { useAuth } from '../contexts/authContext';
 import { canAccess } from '../lib/roles';
@@ -176,7 +177,7 @@ export function Equipment() {
     if (editingItem) {
       setItems(previous => previous.map(item => item.id === saved.id ? saved : item));
     } else {
-      const matches = (!searchTerm.trim() || saved.name.toLowerCase().includes(searchTerm.trim().toLowerCase())) && (filterCategory === 'all' || saved.category === filterCategory) && (filterType === 'all' || saved.type === filterType);
+      const matches = (!searchTerm.trim() || normalizeEquipmentSearch(saved.name).includes(normalizeEquipmentSearch(searchTerm))) && (filterCategory === 'all' || saved.category === filterCategory) && (filterType === 'all' || saved.type === filterType);
       if (matches) { setItems(previous => [saved, ...previous]); offset.current++; setTotal(previous => previous + 1); }
     }
     setCategories(previous => previous.includes(saved.category) ? previous : [...previous, saved.category]);

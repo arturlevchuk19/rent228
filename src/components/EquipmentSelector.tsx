@@ -1,3 +1,4 @@
+import { normalizeEquipmentSearch } from '../lib/equipmentSearch';
 import { searchInputProps } from '../lib/searchInput';
 import { useState, useEffect } from 'react';
 import { X, Plus, Search } from 'lucide-react';
@@ -54,7 +55,7 @@ export function EquipmentSelector({
   };
 
   const filteredEquipment = equipment.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = normalizeEquipmentSearch(item.name).includes(normalizeEquipmentSearch(searchTerm));
     const matchesCategory = selectedCategory === 'Все' || item.category === selectedCategory;
     const isNotSelected = !selectedIds.includes(item.id);
     return matchesSearch && matchesCategory && isNotSelected;

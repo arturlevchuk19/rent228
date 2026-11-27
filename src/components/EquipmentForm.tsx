@@ -1,3 +1,4 @@
+import { canonicalEquipmentType, canonicalEquipmentSubtype } from '../lib/equipmentSearch';
 import { optionalEquipmentNumber, equipmentVolumeM3, isValidPackageQuantity } from '../lib/equipmentDimensions';
 import { prepareEquipmentPhoto, equipmentPhotoUrl, uploadEquipmentPhoto, cleanupEquipmentPhoto } from '../lib/equipmentMedia';
 import { parseConsumption } from '../lib/budgetConsumption';
@@ -864,6 +865,7 @@ export function EquipmentForm({ item, categories, classifications, initialCatego
         title={`Добавить тип в «${formData.category}»`}
         inputLabel="Тип *"
         existingItems={types}
+        normalize={canonicalEquipmentType}
         onClose={() => setShowTypeDialog(false)}
         onConfirm={async name => {
           const row = { category: formData.category, type: name, subtype: '' };
@@ -877,6 +879,7 @@ export function EquipmentForm({ item, categories, classifications, initialCatego
         title={`Добавить подтип в «${formData.category} / ${formData.type}»`}
         inputLabel="Подтип *"
         existingItems={subtypes}
+        normalize={canonicalEquipmentSubtype}
         onClose={() => setShowSubtypeDialog(false)}
         onConfirm={async name => {
           const row = { category: formData.category, type: formData.type, subtype: name };
