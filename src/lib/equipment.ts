@@ -59,6 +59,7 @@ export async function getEquipmentCategories(): Promise<string[]> {
     .from('categories')
     .select('name')
     .is('event_id', null)
+    .eq('hidden_from_equipment_catalog', false)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
 
@@ -106,14 +107,15 @@ export async function addEquipmentCategory(name: string): Promise<void> {
     throw new Error('Название не может быть пустым');
   }
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('categories')
-    .select('id')
+    .select('hidden_from_equipment_catalog')
     .eq('name', normalized)
-    .is('event_id', null)
-    .limit(1);
+    .is('event_id', null);
 
-  if (existing && existing.length > 0) return;
+  if (existingError) throw existingError;
+  if (existing?.some(category => !category.hidden_from_equipment_catalog)) return;
+  if (existing?.length) throw new Error('Эта категория закрыта для каталога. Выберите действующую категорию.');
 
   const { data: lastCategory } = await supabase
     .from('categories')
